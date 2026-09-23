@@ -101,7 +101,7 @@ void sampleTuf()
     const TufSensorData data = readTufSensor();
     printTufSensorData(data);
 
-    FlowMeterMetrics metrics = appState().flow;
+    FlowMeterMetrics metrics = appState().tufFlow;
     metrics.type = FlowMeterType::Tuf;
     metrics.periodSource = FlowPeriodSource::MeterNative;
     metrics.rtcValid = isRtcTrusted();
@@ -124,7 +124,7 @@ void sampleTuf()
         metrics.volumeThisMonthM3 = data.flowPerMonth;
         metrics.volumeThisYearM3 = data.flowPerYear;
     }
-    updateFlowMetrics(metrics);
+    updateTufFlowMetrics(metrics);
 }
 
 void printSupmeaCalculatedPeriods(const FlowMeterMetrics& metrics)
@@ -151,7 +151,7 @@ void sampleSupmea()
     const SupmeaSensorData data = readSupmeaSensor();
     printSupmeaSensorData(data);
 
-    FlowMeterMetrics metrics = appState().flow;
+    FlowMeterMetrics metrics = appState().supmeaFlow;
     metrics.type = FlowMeterType::Supmea;
     metrics.periodSource = FlowPeriodSource::NodeRtcCalculated;
     metrics.liveDataValid = false;
@@ -213,39 +213,38 @@ void sampleSupmea()
             : FlowPeriodQuality::TimeUncertain;
     }
 
-    updateFlowMetrics(metrics);
+    updateSupmeaFlowMetrics(metrics);
     printSupmeaCalculatedPeriods(metrics);
 }
 }
 
 void initializeConfiguredFlowMeter()
 {
-    FlowMeterMetrics metrics = {};
-
     if (AppConfig::kEnableTufSensor)
     {
         SerialMon.println("Flow meter enabled: TUF");
+        FlowMeterMetrics metrics = {};
         metrics.type = FlowMeterType::Tuf;
         metrics.periodSource = FlowPeriodSource::MeterNative;
-        updateFlowMetrics(metrics);
+        updateTufFlowMetrics(metrics);
         initializeTufSensor();
-        return;
     }
 
     if (AppConfig::kEnableSupmeaSensor)
     {
         SerialMon.println("Flow meter enabled: Supmea");
+        FlowMeterMetrics metrics = {};
         metrics.type = FlowMeterType::Supmea;
         metrics.periodSource = FlowPeriodSource::NodeRtcCalculated;
-        updateFlowMetrics(metrics);
+        updateSupmeaFlowMetrics(metrics);
         initializeSupmeaPeriodAccumulator();
         initializeSupmeaSensor();
-        return;
     }
 
-    metrics.type = FlowMeterType::None;
-    updateFlowMetrics(metrics);
-    SerialMon.println("No flow meter selected");
+    if (!AppConfig::kEnableTufSensor && !AppConfig::kEnableSupmeaSensor)
+    {
+        SerialMon.println("No flow meter selected");
+    }
 }
 
 void sampleConfiguredFlowMeter()
@@ -254,7 +253,7 @@ void sampleConfiguredFlowMeter()
     {
         sampleTuf();
     }
-    else if (AppConfig::kEnableSupmeaSensor)
+    if (AppConfig::kEnableSupmeaSensor)
     {
         sampleSupmea();
     }

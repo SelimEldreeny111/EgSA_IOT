@@ -10,6 +10,25 @@
 #endif
 
 /* Struct definitions */
+typedef struct _FlowReading {
+    float flow_rate;
+    float velocity;
+    float flow_rate_per_day;
+    float flow_rate_per_month;
+    float flow_rate_per_year;
+    uint32_t flow_meter_type;
+    uint32_t flow_period_source;
+    bool flow_live_valid;
+    bool flow_period_totals_valid;
+    bool flow_cumulative_totals_valid;
+    bool rtc_valid;
+    uint64_t forward_total_liters;
+    uint64_t reverse_total_liters;
+    int64_t net_total_liters;
+    uint32_t flow_period_quality;
+    uint32_t flow_meter_alarm_flags;
+} FlowReading;
+
 typedef struct _Status_Message {
     uint32_t node_id;
     uint32_t sensor_id;
@@ -41,6 +60,8 @@ typedef struct _Status_Message {
     int64_t net_total_liters;
     uint32_t flow_period_quality;
     uint32_t flow_meter_alarm_flags;
+    bool has_secondary_flow_meter;
+    FlowReading secondary_flow_meter;
 } Status_Message;
 
 typedef struct _CMD_Message {
@@ -84,6 +105,8 @@ typedef struct _Telemetry {
     int64_t net_total_liters;
     uint32_t flow_period_quality;
     uint32_t flow_meter_alarm_flags;
+    bool has_secondary_flow_meter;
+    FlowReading secondary_flow_meter;
 } Telemetry;
 
 
@@ -92,14 +115,32 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default}
 #define CMD_Message_init_default                 {0, 0, 0}
-#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default}
+#define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero}
 #define CMD_Message_init_zero                    {0, 0, 0}
-#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define FlowReading_flow_rate_tag                1
+#define FlowReading_velocity_tag                 2
+#define FlowReading_flow_rate_per_day_tag        3
+#define FlowReading_flow_rate_per_month_tag      4
+#define FlowReading_flow_rate_per_year_tag       5
+#define FlowReading_flow_meter_type_tag          6
+#define FlowReading_flow_period_source_tag       7
+#define FlowReading_flow_live_valid_tag          8
+#define FlowReading_flow_period_totals_valid_tag 9
+#define FlowReading_flow_cumulative_totals_valid_tag 10
+#define FlowReading_rtc_valid_tag                11
+#define FlowReading_forward_total_liters_tag     12
+#define FlowReading_reverse_total_liters_tag     13
+#define FlowReading_net_total_liters_tag         14
+#define FlowReading_flow_period_quality_tag      15
+#define FlowReading_flow_meter_alarm_flags_tag   16
 #define Status_Message_node_id_tag               1
 #define Status_Message_sensor_id_tag             2
 #define Status_Message_timestamp_tag             3
@@ -130,6 +171,7 @@ extern "C" {
 #define Status_Message_net_total_liters_tag      28
 #define Status_Message_flow_period_quality_tag   29
 #define Status_Message_flow_meter_alarm_flags_tag 30
+#define Status_Message_secondary_flow_meter_tag  31
 #define CMD_Message_node_id_tag                  1
 #define CMD_Message_cmd_id_tag                   2
 #define CMD_Message_cmd_data_tag                 3
@@ -167,8 +209,29 @@ extern "C" {
 #define Telemetry_net_total_liters_tag           32
 #define Telemetry_flow_period_quality_tag        33
 #define Telemetry_flow_meter_alarm_flags_tag     34
+#define Telemetry_secondary_flow_meter_tag       35
 
 /* Struct field encoding specification for nanopb */
+#define FlowReading_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, FLOAT,    flow_rate,         1) \
+X(a, STATIC,   SINGULAR, FLOAT,    velocity,          2) \
+X(a, STATIC,   SINGULAR, FLOAT,    flow_rate_per_day,   3) \
+X(a, STATIC,   SINGULAR, FLOAT,    flow_rate_per_month,   4) \
+X(a, STATIC,   SINGULAR, FLOAT,    flow_rate_per_year,   5) \
+X(a, STATIC,   SINGULAR, UINT32,   flow_meter_type,   6) \
+X(a, STATIC,   SINGULAR, UINT32,   flow_period_source,   7) \
+X(a, STATIC,   SINGULAR, BOOL,     flow_live_valid,   8) \
+X(a, STATIC,   SINGULAR, BOOL,     flow_period_totals_valid,   9) \
+X(a, STATIC,   SINGULAR, BOOL,     flow_cumulative_totals_valid,  10) \
+X(a, STATIC,   SINGULAR, BOOL,     rtc_valid,        11) \
+X(a, STATIC,   SINGULAR, UINT64,   forward_total_liters,  12) \
+X(a, STATIC,   SINGULAR, UINT64,   reverse_total_liters,  13) \
+X(a, STATIC,   SINGULAR, SINT64,   net_total_liters,  14) \
+X(a, STATIC,   SINGULAR, UINT32,   flow_period_quality,  15) \
+X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  16)
+#define FlowReading_CALLBACK NULL
+#define FlowReading_DEFAULT NULL
+
 #define Status_Message_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   node_id,           1) \
 X(a, STATIC,   SINGULAR, UINT32,   sensor_id,         2) \
@@ -199,9 +262,11 @@ X(a, STATIC,   SINGULAR, UINT64,   forward_total_liters,  26) \
 X(a, STATIC,   SINGULAR, UINT64,   reverse_total_liters,  27) \
 X(a, STATIC,   SINGULAR, SINT64,   net_total_liters,  28) \
 X(a, STATIC,   SINGULAR, UINT32,   flow_period_quality,  29) \
-X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  30)
+X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  30) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  31)
 #define Status_Message_CALLBACK NULL
 #define Status_Message_DEFAULT NULL
+#define Status_Message_secondary_flow_meter_MSGTYPE FlowReading
 
 #define CMD_Message_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   node_id,           1) \
@@ -244,24 +309,29 @@ X(a, STATIC,   SINGULAR, UINT64,   forward_total_liters,  30) \
 X(a, STATIC,   SINGULAR, UINT64,   reverse_total_liters,  31) \
 X(a, STATIC,   SINGULAR, SINT64,   net_total_liters,  32) \
 X(a, STATIC,   SINGULAR, UINT32,   flow_period_quality,  33) \
-X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  34)
+X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  34) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  35)
 #define Telemetry_CALLBACK NULL
 #define Telemetry_DEFAULT NULL
+#define Telemetry_secondary_flow_meter_MSGTYPE FlowReading
 
+extern const pb_msgdesc_t FlowReading_msg;
 extern const pb_msgdesc_t Status_Message_msg;
 extern const pb_msgdesc_t CMD_Message_msg;
 extern const pb_msgdesc_t Telemetry_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
+#define FlowReading_fields &FlowReading_msg
 #define Status_Message_fields &Status_Message_msg
 #define CMD_Message_fields &CMD_Message_msg
 #define Telemetry_fields &Telemetry_msg
 
 /* Maximum encoded size of messages (where known) */
 #define CMD_Message_size                         23
+#define FlowReading_size                         91
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size
-#define Status_Message_size                      188
-#define Telemetry_size                           216
+#define Status_Message_size                      282
+#define Telemetry_size                           310
 
 #ifdef __cplusplus
 } /* extern "C" */

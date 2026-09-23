@@ -1,28 +1,13 @@
-# STM32 flow-meter profiles and consumption guide
+# STM32 four-sensor RS485 and consumption guide
 
 This guide applies to the Arduino STM32F401 node in IoT_Node_Encrypted and the
 matching WIOT web server. The ESP32 and STM32CubeIDE projects are not part of
 this implementation.
 
-## 1. Select the product image
+## 1. Select each sensor independently
 
-There is one product-selection macro near the beginning of
-src/config/AppConfig.h:
-
-    #define APP_SENSOR_PROJECT APP_SENSOR_PROJECT_SUPMEA_SONDAS
-
-Use exactly one of these values:
-
-| Product macro | Flow meter | Soil sensor | Flow source |
-|---|---|---|---|
-| APP_SENSOR_PROJECT_TUF_HNDA | TUF | HNDA temperature/moisture | TUF native day/month/year registers |
-| APP_SENSOR_PROJECT_SUPMEA_SONDAS | Supmea SUP-FMC240 | Sondas temperature/moisture/EC | STM32 RTC calculation from the Supmea forward total |
-
-The selected family is enforced at compile time. The current source default is
-APP_SENSOR_PROJECT_TUF_HNDA.
-
-After selecting the family, the **INDIVIDUAL SENSOR SWITCHES** block in
-AppConfig.h provides one `true`/`false` choice per sensor:
+There is no longer a product-family selector. The four switches in
+`src/config/AppConfig.h` can be set in any combination, including all four:
 
 | Switch | Effect when true |
 |---|---|
@@ -31,28 +16,28 @@ AppConfig.h provides one `true`/`false` choice per sensor:
 | APP_ENABLE_SUPMEA_SENSOR | Initialize and poll Supmea |
 | APP_ENABLE_SONDAS_SENSOR | Initialize and poll Sondas |
 
-Set either member of the selected family to `false` to test the other sensor
-alone. A false sensor receives no Modbus request and is excluded from the
-active-sensor count and mask. Keep the other product family's switches false;
-mixed families are rejected at compile time because they use different
-product/protobuf semantics.
+The safe source default remains TUF `true` and the other three `false`. A
+disabled sensor receives no Modbus request and is excluded from the active
+count and mask. For a four-sensor test, set all four to `true`.
 
 ## 2. RS485 settings
 
 All enabled devices share Serial1 at 9600 baud, 8 data bits, no parity, and one
 stop bit. PA8 controls the ISL83485 DE and active-low RE pins.
 
-| Profile | Device | Default Modbus address | Sensor-mask bit |
+| Device | Address macro | Source default | Sensor-mask bit |
 |---|---|---:|---:|
-| TUF + HNDA | HNDA | 1 | 0x0002 |
-| TUF + HNDA | TUF | 2 | 0x0001 |
-| Supmea + Sondas | Supmea | 1 | 0x0008 |
-| Supmea + Sondas | Sondas | 3 | 0x0004 |
+| TUF | `APP_TUF_SENSOR_MODBUS_ADDRESS` | 1 | 0x0001 |
+| HNDA | `APP_HNDA_SENSOR_MODBUS_ADDRESS` | 3 | 0x0002 |
+| Supmea | `APP_SUPMEA_SENSOR_MODBUS_ADDRESS` | 2 | 0x0008 |
+| Sondas | `APP_SONDAS_SENSOR_MODBUS_ADDRESS` | 4 | 0x0004 |
 
-The default masks are 0x0003 for TUF + HNDA and 0x000C for Supmea + Sondas.
-With one sensor disabled, the mask contains only the enabled sensor's bit.
-The compiler rejects duplicate addresses and addresses outside the Modbus
-unicast range 1 through 247.
+These defaults do **not** reconfigure physical meters. Match each address
+macro to the slave address programmed in that meter. If your commissioned
+Supmea is address 1, set its macro to 1; disable TUF or move TUF to another
+address before enabling both. The compiler rejects duplicate addresses among
+enabled sensors and addresses outside the Modbus unicast range 1 through 247.
+With all four enabled, the mask is `0x000F` and count is 4.
 
 If a physical device has a different address, override the matching
 APP_*_SENSOR_MODBUS_ADDRESS macro. Every device on the same A/B bus must have a
@@ -69,6 +54,14 @@ long RS485 bus.
 | flow_rate_per_day | Consumption in the current local day | m3 |
 | flow_rate_per_month | Consumption in the current local month | m3 |
 | flow_rate_per_year | Consumption in the current local year | m3 |
+
+When both flow meters are enabled, the original flow fields contain TUF and
+the optional `secondary_flow_meter` protobuf record contains Supmea. A
+Supmea-only build keeps Supmea in the original fields for compatibility.
+HNDA and Sondas always use their own existing fields. The server stores each
+meter separately in `meter_samples` and `consumption_periods`; the live node
+view shows the additional meter in a second card. Older servers ignore the
+new optional record, so update the server before expecting both readings.
 
 The old protobuf field names contain flow_rate_per_*, but these three fields
 are volumes, not rates. Their field numbers were preserved for compatibility.
@@ -189,28 +182,44 @@ The API returns volume_liters and volume_m3.
 
 ## 8. Commissioning sequence
 
-1. Select the intended product macro and verify physical Modbus addresses.
-2. Compile and flash the STM32.
-3. Confirm startup names the selected meter and soil sensor.
-4. Confirm both Modbus reads are valid.
-5. Send STIME and verify RTC trust.
-6. For Supmea, note the initial forward total and Partial baseline.
-7. Increase the real or simulated forward total.
-8. Confirm Today, Month, and Year rise by the same increment.
-9. Confirm the server meter/source/quality and cumulative totals.
-10. Reboot the STM32 and confirm the calculated totals resume.
-11. Disconnect one sensor and confirm its validity changes without a
-    fabricated measurement.
+1. Power down the RS485 bus, program each physical meter to a different
+   address, and set the matching four macros. The source defaults are 1, 2,
+   3, 4 for TUF, Supmea, HNDA, Sondas respectively. The bus is 9600 8N1.
+2. Test one switch at a time (`true` for one sensor, `false` for the other
+   three). Compile, flash, and confirm the named meter and address appear at
+   startup. Confirm a valid read; `sensor_mask` must equal that meter's bit.
+3. Enable all four, compile and flash again. Confirm four named polls,
+   `active_sensor_count=4`, and `sensor_mask=0x000F`.
+4. Update the server before testing dual-flow telemetry. Confirm its primary
+   TUF card and second Supmea card show separate values; verify HNDA and
+   Sondas values/validity independently.
+5. Send STIME and verify RTC trust. For Supmea, note the initial forward total
+   and Partial baseline. Increase the real or simulated total and confirm
+   Today, Month, and Year rise by the same increment.
+6. Query `/api/consumption?node_id=1&period=day` and confirm separate TUF
+   (`flow_meter_type=1`) and Supmea (`flow_meter_type=2`) rows. Reboot the STM32
+   and confirm the calculated Supmea totals resume.
+7. Disconnect one meter at a time and confirm only that meter's validity
+   changes. A stale numeric value must not be presented as a valid read.
+
+The multi-sensor RS485 simulator in `SENSORS/Multi Sensor RS485 Simulator`
+can emulate all four slave addresses on one serial bus for this sequence.
+Use its configured addresses and values to compare each decoded reading.
 
 ## 9. Build and automated tests
 
-Default Supmea + Sondas image:
+This Git worktree does not contain the ignored, site-specific
+`src/config/AppConfig.cpp` and `src/config/AppSecrets.h`. Supply your local
+production versions (or copy the `.example` files and fill in valid values)
+before compiling or flashing. Never commit the real credentials or AES key.
+
+Default TUF-only image:
 
     arduino-cli compile --fqbn "STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F401CC" IoT_Node_Encrypted
 
-TUF + HNDA image without editing AppConfig.h:
+All-four image without editing AppConfig.h:
 
-    arduino-cli compile --fqbn "STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F401CC" --build-property "build.extra_flags=-DAPP_SENSOR_PROJECT=APP_SENSOR_PROJECT_TUF_HNDA" IoT_Node_Encrypted
+    arduino-cli compile --fqbn "STMicroelectronics:stm32:GenF4:pnum=CoreBoard_F401RC" --build-property "compiler.cpp.extra_flags=-DAPP_ENABLE_TUF_SENSOR=true -DAPP_ENABLE_HNDA_SENSOR=true -DAPP_ENABLE_SUPMEA_SENSOR=true -DAPP_ENABLE_SONDAS_SENSOR=true" IoT_Node_Encrypted
 
 Server tests:
 
@@ -222,7 +231,7 @@ Simulator tests:
     cd "<simulator folder>"
     python -m unittest discover -s tests -v
 
-For the Supmea simulator, use slave address 1. Enable automatic totals and
+For the Supmea simulator, use the configured Supmea address. Enable automatic totals and
 choose 60x or 3600x acceleration to observe volume growth quickly. Acceleration
 does not change the STM32 RTC; use a controlled RTC time for boundary testing.
 Reset meter totals tests the node's counter-reset handling.

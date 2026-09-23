@@ -3,6 +3,30 @@
 
 #include "../app/AppState.h"
 #include "../config/AppConfig.h"
+#include "../generated/sensor.pb.h"
+
+template <typename FlowFields>
+inline void populateFlowFields(
+    FlowFields& fields,
+    const FlowMeterMetrics& flow)
+{
+    fields.flow_rate = flow.flowRateM3h;
+    fields.velocity = flow.velocityMps;
+    fields.flow_rate_per_day = flow.volumeTodayM3;
+    fields.flow_rate_per_month = flow.volumeThisMonthM3;
+    fields.flow_rate_per_year = flow.volumeThisYearM3;
+    fields.flow_meter_type = static_cast<uint32_t>(flow.type);
+    fields.flow_period_source = static_cast<uint32_t>(flow.periodSource);
+    fields.flow_live_valid = flow.liveDataValid;
+    fields.flow_period_totals_valid = flow.periodTotalsValid;
+    fields.flow_cumulative_totals_valid = flow.cumulativeTotalsValid;
+    fields.rtc_valid = flow.rtcValid;
+    fields.forward_total_liters = flow.forwardTotalLiters;
+    fields.reverse_total_liters = flow.reverseTotalLiters;
+    fields.net_total_liters = flow.netTotalLiters;
+    fields.flow_period_quality = static_cast<uint32_t>(flow.periodQuality);
+    fields.flow_meter_alarm_flags = flow.alarmFlags;
+}
 
 // Status_Message and Telemetry intentionally share this sensor field set.
 // Keeping the mapping in one template prevents the LoRa, direct-MQTT, and
@@ -14,11 +38,23 @@ inline void populateSensorPayloadFields(
 {
     message.sensor_id = AppConfig::kSensorId;
     message.battery_voltage = state.batteryVoltage;
-    message.flow_rate = state.flow.flowRateM3h;
-    message.velocity = state.flow.velocityMps;
-    message.flow_rate_per_day = state.flow.volumeTodayM3;
-    message.flow_rate_per_month = state.flow.volumeThisMonthM3;
-    message.flow_rate_per_year = state.flow.volumeThisYearM3;
+    // Keep the V1 flow fields for old consumers. TUF has priority only when
+    // both meters are enabled; Supmea remains the primary in Supmea-only builds.
+    if (AppConfig::kEnableTufSensor)
+    {
+        populateFlowFields(message, state.tufFlow);
+    }
+    else if (AppConfig::kEnableSupmeaSensor)
+    {
+        populateFlowFields(message, state.supmeaFlow);
+    }
+
+    message.has_secondary_flow_meter =
+        AppConfig::kEnableTufSensor && AppConfig::kEnableSupmeaSensor;
+    if (message.has_secondary_flow_meter)
+    {
+        populateFlowFields(message.secondary_flow_meter, state.supmeaFlow);
+    }
     message.node_status = state.nodeStatus;
 
     message.soil_temperature = state.hnda.temperatureC;
@@ -30,21 +66,6 @@ inline void populateSensorPayloadFields(
     message.soil_moisture_temp_ec_valid = state.sondas.isValid ? 1U : 0U;
     message.active_sensor_count = state.activeSensorCount;
     message.sensor_mask = state.sensorMask;
-
-    message.flow_meter_type = static_cast<uint32_t>(state.flow.type);
-    message.flow_period_source =
-        static_cast<uint32_t>(state.flow.periodSource);
-    message.flow_live_valid = state.flow.liveDataValid;
-    message.flow_period_totals_valid = state.flow.periodTotalsValid;
-    message.flow_cumulative_totals_valid =
-        state.flow.cumulativeTotalsValid;
-    message.rtc_valid = state.flow.rtcValid;
-    message.forward_total_liters = state.flow.forwardTotalLiters;
-    message.reverse_total_liters = state.flow.reverseTotalLiters;
-    message.net_total_liters = state.flow.netTotalLiters;
-    message.flow_period_quality =
-        static_cast<uint32_t>(state.flow.periodQuality);
-    message.flow_meter_alarm_flags = state.flow.alarmFlags;
 }
 
 #endif

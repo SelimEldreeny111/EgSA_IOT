@@ -1,9 +1,8 @@
 # WIOT server flow-schema v2 guide
 
-This server version accepts both STM32 product images:
-
-- TUF + HNDA
-- Supmea + Sondas
+This server version accepts any combination of the four STM32 RS485 sensors:
+TUF, Supmea, HNDA, and Sondas. When both flow meters are enabled, the legacy
+flow fields report TUF and the optional `secondary_flow_meter` reports Supmea.
 
 It also continues to decode previously deployed protobuf payloads because no
 old field number was changed or reused.
@@ -28,6 +27,8 @@ old field number was changed or reused.
 Each company database is migrated on first access. Existing messages are kept.
 Old TUF rows are identified from sensor-mask bit 0 and marked legacy. They are
 not assigned a fake trusted-RTC flag or fake cumulative totals.
+The `consumption_periods` unique key is migrated to include flow-meter type,
+so the two meters cannot overwrite each other's day/month/year values.
 
 ## Incoming schema
 
@@ -50,6 +51,8 @@ The original Sondas fields remain:
 
 The appended flow fields identify TUF or Supmea, calculation source, live and
 period validity, RTC trust, cumulative litres, period quality, and alarms.
+The optional `secondary_flow_meter` has the same readings and validity flags
+for a second meter. Old nodes omit it, and old field numbers remain stable.
 
 ## Stored tables
 
@@ -58,7 +61,7 @@ flow-focused history with an idempotency fingerprint, so an MQTT QoS retry or
 duplicate LoRa forward does not create two raw meter samples.
 
 consumption_periods stores one current snapshot for each node, sensor,
-period type, and period key. A newer snapshot replaces an older snapshot; an
+flow-meter type, period type, and period key. A newer snapshot replaces an older snapshot; an
 out-of-order older packet cannot roll a period backward.
 
 Server receipt time is always retained. Node time is used as measured_at only
@@ -79,6 +82,10 @@ The Flow Meter Status card shows:
 For Supmea, Forward, Reverse, and Net display cumulative meter totals in m3.
 TUF does not expose these through the current driver, so they display as
 unavailable.
+When both flow meters report, the additional Supmea card shows its live flow
+and day/month/year values. The primary card continues to show TUF for
+backward compatibility. The latest/history API also exposes
+`secondary_flow_meter` as a structured object.
 
 Never infer validity from a nonzero number. Zero flow and zero consumption are
 valid. Use Flow Live Valid, Period Totals Valid, HNDA Valid, and Sondas Valid.
@@ -91,6 +98,7 @@ Authenticated requests may use:
     GET /api/consumption?period=day
     GET /api/consumption?node_id=1
     GET /api/consumption?node_id=1&sensor_id=1&period=month
+    GET /api/consumption?node_id=1&period=day&flow_meter_type=2
 
 The response contains company and rows. Each row includes period_type,
 period_key, volume_liters, volume_m3, meter/source/quality codes, readable
@@ -110,7 +118,7 @@ Example SQLite checks:
     FROM meter_samples
     ORDER BY id DESC LIMIT 10;
 
-    SELECT node_id, period_type, period_key, volume_liters,
+    SELECT node_id, flow_meter_type, period_type, period_key, volume_liters,
            source, quality
     FROM consumption_periods
     ORDER BY period_key DESC;

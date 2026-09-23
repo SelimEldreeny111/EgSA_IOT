@@ -220,37 +220,9 @@ constexpr uint32_t kLoraRxPin = PA12;
 constexpr uint32_t kLoraTxPin = PA11;
 #endif
 
-// RS485 product selection. A production image is built for exactly one of the
-// two approved sensor families. Select the family here, then use the four
-// independent sensor switches below to enable or disable Modbus polling for
-// each device in that family.
-#define APP_SENSOR_PROJECT_TUF_HNDA 1
-#define APP_SENSOR_PROJECT_SUPMEA_SONDAS 2
-
-#ifndef APP_SENSOR_PROJECT
-#define APP_SENSOR_PROJECT APP_SENSOR_PROJECT_TUF_HNDA
-#endif
-
-#if APP_SENSOR_PROJECT != APP_SENSOR_PROJECT_TUF_HNDA && \
-    APP_SENSOR_PROJECT != APP_SENSOR_PROJECT_SUPMEA_SONDAS
-#error "APP_SENSOR_PROJECT must be TUF_HNDA or SUPMEA_SONDAS"
-#endif
-
-// Internal flow-meter identifiers also match protobuf flow_meter_type.
-#define APP_FLOW_METER_NONE 0
-#define APP_FLOW_METER_TUF 1
-#define APP_FLOW_METER_SUPMEA 2
-
-#if defined(APP_FLOW_METER)
-#error "APP_FLOW_METER is internal; select APP_SENSOR_PROJECT instead"
-#endif
-
-// INDIVIDUAL SENSOR SWITCHES
-// Set a sensor to true to initialize and poll it, or false to send no Modbus
-// command to it. The defaults enable both devices in the selected family.
-// Build flags may override any APP_ENABLE_*_SENSOR value for test images.
-#if APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA
-#define APP_FLOW_METER APP_FLOW_METER_TUF
+// Four independent RS485 switches. A disabled sensor is neither initialized
+// nor polled. Keep the deployed TUF-only default; enable any combination by
+// changing these values (or overriding them with build flags).
 #ifndef APP_ENABLE_TUF_SENSOR
 #define APP_ENABLE_TUF_SENSOR true
 #endif
@@ -263,24 +235,9 @@ constexpr uint32_t kLoraTxPin = PA11;
 #ifndef APP_ENABLE_SONDAS_SENSOR
 #define APP_ENABLE_SONDAS_SENSOR false
 #endif
-#else
-#define APP_FLOW_METER APP_FLOW_METER_SUPMEA
-#ifndef APP_ENABLE_TUF_SENSOR
-#define APP_ENABLE_TUF_SENSOR false
-#endif
-#ifndef APP_ENABLE_HNDA_SENSOR
-#define APP_ENABLE_HNDA_SENSOR false
-#endif
-#ifndef APP_ENABLE_SUPMEA_SENSOR
-#define APP_ENABLE_SUPMEA_SENSOR true
-#endif
-#ifndef APP_ENABLE_SONDAS_SENSOR
-#define APP_ENABLE_SONDAS_SENSOR true
-#endif
-#endif
 
-// Production Modbus addresses. The commissioned Supmea meter is address 1.
-// When Supmea and HNDA share the bus, HNDA therefore defaults to address 2.
+// These are the addresses programmed in the physical meters, not commands to
+// change them. All enabled devices on this RS485 bus need unique addresses.
 #ifndef APP_TUF_SENSOR_MODBUS_ADDRESS
 #define APP_TUF_SENSOR_MODBUS_ADDRESS 1
 #endif
@@ -288,14 +245,10 @@ constexpr uint32_t kLoraTxPin = PA11;
 #define APP_SUPMEA_SENSOR_MODBUS_ADDRESS 2
 #endif
 #ifndef APP_HNDA_SENSOR_MODBUS_ADDRESS
-#if APP_FLOW_METER == APP_FLOW_METER_SUPMEA
-#define APP_HNDA_SENSOR_MODBUS_ADDRESS 2
-#else
-#define APP_HNDA_SENSOR_MODBUS_ADDRESS 1
-#endif
+#define APP_HNDA_SENSOR_MODBUS_ADDRESS 3
 #endif
 #ifndef APP_SONDAS_SENSOR_MODBUS_ADDRESS
-#define APP_SONDAS_SENSOR_MODBUS_ADDRESS 3
+#define APP_SONDAS_SENSOR_MODBUS_ADDRESS 4
 #endif
 
 #if APP_TUF_SENSOR_MODBUS_ADDRESS < 1 || \
@@ -327,34 +280,10 @@ constexpr bool kHndaSensorRequested = APP_ENABLE_HNDA_SENSOR;
 constexpr bool kSupmeaSensorRequested = APP_ENABLE_SUPMEA_SENSOR;
 constexpr bool kSondasSensorRequested = APP_ENABLE_SONDAS_SENSOR;
 
-#if APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA
-static_assert(
-    !kSupmeaSensorRequested && !kSondasSensorRequested,
-    "The TUF_HNDA profile permits only TUF and HNDA sensors");
-#else
-static_assert(
-    !kTufSensorRequested && !kHndaSensorRequested,
-    "The SUPMEA_SONDAS profile permits only Supmea and Sondas sensors");
-#endif
-
-constexpr bool kEnableTufSensor =
-    APP_HAS_SENSORS &&
-    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA &&
-    kTufSensorRequested;
-constexpr bool kEnableSupmeaSensor =
-    APP_HAS_SENSORS &&
-    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_SUPMEA_SONDAS &&
-    kSupmeaSensorRequested;
-constexpr bool kEnableHndaSensor =
-    APP_HAS_SENSORS &&
-    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA &&
-    kHndaSensorRequested;
-constexpr bool kEnableSondasSensor =
-    APP_HAS_SENSORS &&
-    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_SUPMEA_SONDAS &&
-    kSondasSensorRequested;
-constexpr uint8_t kSensorProject = APP_SENSOR_PROJECT;
-constexpr uint8_t kConfiguredFlowMeter = APP_FLOW_METER;
+constexpr bool kEnableTufSensor = APP_HAS_SENSORS && kTufSensorRequested;
+constexpr bool kEnableSupmeaSensor = APP_HAS_SENSORS && kSupmeaSensorRequested;
+constexpr bool kEnableHndaSensor = APP_HAS_SENSORS && kHndaSensorRequested;
+constexpr bool kEnableSondasSensor = APP_HAS_SENSORS && kSondasSensorRequested;
 
 constexpr uint8_t kTufModbusAddress = APP_TUF_SENSOR_MODBUS_ADDRESS;
 constexpr uint8_t kSupmeaSensorModbusAddress =
@@ -362,6 +291,10 @@ constexpr uint8_t kSupmeaSensorModbusAddress =
 constexpr uint8_t kHndaModbusAddress = APP_HNDA_SENSOR_MODBUS_ADDRESS;
 constexpr uint8_t kSondasModbusAddress = APP_SONDAS_SENSOR_MODBUS_ADDRESS;
 
+static_assert(
+    !(kEnableTufSensor && kEnableSupmeaSensor &&
+      kTufModbusAddress == kSupmeaSensorModbusAddress),
+    "TUF and Supmea must use different Modbus addresses");
 static_assert(
     !(kEnableTufSensor && kEnableHndaSensor &&
       kTufModbusAddress == kHndaModbusAddress),
@@ -523,10 +456,11 @@ constexpr bool kEnableOpenCloseNodeOutput = !kOpenCloseNodeGpioConflictsWithLora
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;
-constexpr size_t kCodecBufferSize = 256;
+// Worst-case dual-flow protobuf is 310 bytes; AES-CBC framing needs 337.
+constexpr size_t kCodecBufferSize = 384;
 // PubSubClient's buffer contains the MQTT header and topic as well as the
-// encrypted payload. Flow-schema v2 can produce a 241-byte encrypted
-// Telemetry envelope, so the old 256-byte whole-packet buffer was marginal.
+// encrypted payload. The dual-flow envelope can reach 337 bytes, so the
+// 512-byte whole-packet buffer still has room for the MQTT topic and header.
 constexpr size_t kMqttPacketBufferSize = MQTT_MAX_PACKET_SIZE;
 constexpr uint8_t kProtocolVersion = 1;
 

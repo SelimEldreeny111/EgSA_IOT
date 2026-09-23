@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "../config/AppConfig.h"
+
 enum class LoraPayloadType : uint8_t
 {
   StatusTelemetry = 1,
@@ -19,7 +21,7 @@ struct LoraFrame
 {
   LoraPayloadType type;
   uint16_t sourceNodeId;
-  uint8_t payload[256];
+  uint8_t payload[AppConfig::kCodecBufferSize];
   size_t payloadLength;
 };
 

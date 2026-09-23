@@ -576,6 +576,7 @@ async function preloadCompanyData(company) {
                 'Net Total Liters': row.net_total_liters,
                 'Period Quality': flowPeriodQualityName(row.flow_period_quality),
                 'Flow Alarm Flags': row.flow_meter_alarm_flags,
+                'Secondary Flow Meter': row.secondary_flow_meter,
                 'Time Source': row.time_source,
             };
             // Guarantee a history bucket exists so switching graph-node-select
@@ -1063,6 +1064,18 @@ function renderLiveNode() {
     setFlowText('m-forward-total', cumulativeValid ? formatNumberOrDash(Number(d['Forward Total Liters']) / 1000, 3) : '-');
     setFlowText('m-reverse-total', cumulativeValid ? formatNumberOrDash(Number(d['Reverse Total Liters']) / 1000, 3) : '-');
     setFlowText('m-net-total', cumulativeValid ? formatNumberOrDash(Number(d['Net Total Liters']) / 1000, 3) : '-');
+    const secondary = d && d['Secondary Flow Meter'];
+    const secondaryCard = document.getElementById('m-secondary-flow-card');
+    if (secondaryCard) secondaryCard.classList.toggle('d-none', !secondary);
+    if (secondary) {
+        setFlowText('m-secondary-name', secondary.flow_meter_name || flowMeterName(secondary.flow_meter_type));
+        setFlowText('m-secondary-flow', Number(secondary.flow_live_valid) === 1 ? formatNumberOrDash(secondary.flow_rate, 3) : '-');
+        const secondaryPeriodsValid = Number(secondary.flow_period_totals_valid) === 1;
+        setFlowText('m-secondary-day', secondaryPeriodsValid ? formatNumberOrDash(secondary.flow_rate_per_day, 3) : '-');
+        setFlowText('m-secondary-month', secondaryPeriodsValid ? formatNumberOrDash(secondary.flow_rate_per_month, 3) : '-');
+        setFlowText('m-secondary-year', secondaryPeriodsValid ? formatNumberOrDash(secondary.flow_rate_per_year, 3) : '-');
+        setFlowText('m-secondary-quality', `${secondary.flow_period_source_name || '-'} · ${secondary.flow_period_quality_name || '-'}`);
+    }
     document.getElementById('m-details').textContent  = d ? d.Details || '-' : 'No active data for selected node.';
     const updatedText = d && d.Time ? `Updated ${getElapsedLabel(Math.round((Date.now() - new Date(d.Time).getTime()) / 1000))}` : 'No recent update';
     const updatedEl = document.getElementById('m-updated');

@@ -15,6 +15,7 @@ AppRuntimeState g_appState = {
     0,
     0,
     {},
+    {},
     {
         0.0f,
         0.0f,
@@ -34,9 +35,14 @@ AppRuntimeState& appState()
     return g_appState;
 }
 
-void updateFlowMetrics(const FlowMeterMetrics& metrics)
+void updateTufFlowMetrics(const FlowMeterMetrics& metrics)
 {
-    appState().flow = metrics;
+    appState().tufFlow = metrics;
+}
+
+void updateSupmeaFlowMetrics(const FlowMeterMetrics& metrics)
+{
+    appState().supmeaFlow = metrics;
 }
 
 void updateHndaMetrics(const HndaSensorData& data)

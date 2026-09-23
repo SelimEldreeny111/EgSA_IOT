@@ -102,6 +102,35 @@ def extract_flow_metadata(message) -> dict:
     }
 
 
+def secondary_flow_reading(message):
+    """Return the optional second meter, never an all-zero absent record."""
+
+    if not message.HasField("secondary_flow_meter"):
+        return None
+    reading = message.secondary_flow_meter
+    if int(reading.flow_meter_type) not in FLOW_METER_NAMES or not reading.flow_meter_type:
+        return None
+    if int(reading.flow_meter_type) == int(message.flow_meter_type):
+        return None
+    return reading
+
+
+def flow_reading_snapshot(reading) -> dict:
+    """JSON-safe live/history values for the additional flow meter."""
+
+    metadata = extract_flow_metadata(reading)
+    return {
+        "flow_meter_type": metadata["flow_meter_type"],
+        "flow_meter_name": metadata["flow_meter_name"],
+        "flow_rate": float(reading.flow_rate),
+        "velocity": float(reading.velocity),
+        "flow_rate_per_day": float(reading.flow_rate_per_day),
+        "flow_rate_per_month": float(reading.flow_rate_per_month),
+        "flow_rate_per_year": float(reading.flow_rate_per_year),
+        **metadata,
+    }
+
+
 def select_measurement_timestamp(message, received_at: int) -> tuple[int, str]:
     """Use node time only when the node explicitly marks its RTC trusted."""
 
@@ -121,6 +150,7 @@ def build_sample_fingerprint(
     message,
     metadata: dict,
     measured_at: int,
+    reading=None,
 ) -> str:
     """Generate an idempotency key for QoS retries and duplicate forwards."""
 
@@ -135,7 +165,7 @@ def build_sample_fingerprint(
             metadata["forward_total_liters"],
             metadata["reverse_total_liters"],
             metadata["net_total_liters"],
-            round(float(getattr(message, "flow_rate", 0.0)), 6),
+            round(float(getattr(reading or message, "flow_rate", 0.0)), 6),
         )
     )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

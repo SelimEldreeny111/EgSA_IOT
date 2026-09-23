@@ -3,6 +3,27 @@ syntax = "proto3";
 // Arduino/nanopb wire schema. Field numbers are part of the deployed V1
 // protocol and must never be renumbered or reused.
 
+// When both flow meters are enabled, the original flow fields carry TUF for
+// backward compatibility, and this optional record carries Supmea.
+message FlowReading {
+  float flow_rate = 1;
+  float velocity = 2;
+  float flow_rate_per_day = 3;
+  float flow_rate_per_month = 4;
+  float flow_rate_per_year = 5;
+  uint32 flow_meter_type = 6;
+  uint32 flow_period_source = 7;
+  bool flow_live_valid = 8;
+  bool flow_period_totals_valid = 9;
+  bool flow_cumulative_totals_valid = 10;
+  bool rtc_valid = 11;
+  uint64 forward_total_liters = 12;
+  uint64 reverse_total_liters = 13;
+  sint64 net_total_liters = 14;
+  uint32 flow_period_quality = 15;
+  uint32 flow_meter_alarm_flags = 16;
+}
+
 message Status_Message {
   uint32 node_id = 1;
   uint32 sensor_id = 2;
@@ -40,6 +61,7 @@ message Status_Message {
   sint64 net_total_liters = 28;
   uint32 flow_period_quality = 29;
   uint32 flow_meter_alarm_flags = 30;
+  FlowReading secondary_flow_meter = 31;
 }
 
 message CMD_Message {
@@ -87,4 +109,5 @@ message Telemetry {
   sint64 net_total_liters = 32;
   uint32 flow_period_quality = 33;
   uint32 flow_meter_alarm_flags = 34;
+  FlowReading secondary_flow_meter = 35;
 }

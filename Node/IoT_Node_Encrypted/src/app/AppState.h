@@ -61,13 +61,15 @@ struct AppRuntimeState
     uint8_t nodeStatus;
     uint16_t sensorMask;
     uint8_t activeSensorCount;
-    FlowMeterMetrics flow;
+    FlowMeterMetrics tufFlow;
+    FlowMeterMetrics supmeaFlow;
     HndaSensorData hnda;
     SondasSensorData sondas;
 };
 
 AppRuntimeState& appState();
-void updateFlowMetrics(const FlowMeterMetrics& metrics);
+void updateTufFlowMetrics(const FlowMeterMetrics& metrics);
+void updateSupmeaFlowMetrics(const FlowMeterMetrics& metrics);
 void updateHndaMetrics(const HndaSensorData& data);
 void updateSondasMetrics(const SondasSensorData& data);
 void refreshBatteryVoltage();

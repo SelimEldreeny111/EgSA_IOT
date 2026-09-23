@@ -9,6 +9,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 SERVER_DIR = Path(__file__).resolve().parents[1]
@@ -67,11 +68,39 @@ class FlowSchemaTests(unittest.TestCase):
         self.assertEqual(status["battery_voltage"].number, 19)
         self.assertEqual(status["flow_meter_type"].number, 20)
         self.assertEqual(status["flow_meter_alarm_flags"].number, 30)
+        self.assertEqual(status["secondary_flow_meter"].number, 31)
         self.assertEqual(telemetry["soil_temperature"].number, 16)
         self.assertEqual(telemetry["electrical_conductivity"].number, 21)
         self.assertEqual(telemetry["sensor_mask"].number, 23)
         self.assertEqual(telemetry["flow_meter_type"].number, 24)
         self.assertEqual(telemetry["flow_meter_alarm_flags"].number, 34)
+        self.assertEqual(telemetry["secondary_flow_meter"].number, 35)
+
+    def test_four_sensor_status_keeps_both_flow_meters_distinct(self):
+        msg = messages_pb2.Status_Message(
+            node_id=12, sensor_id=1, timestamp=1_800_000_000,
+            sensor_mask=0x000F, active_sensor_count=4,
+            soil_temperature=21.0, soil_moisture=42.0,
+            soil_moisture_temp_valid=1, ec_temperature=22.0,
+            ec_moisture=43.0, electrical_conductivity=1.5,
+            soil_moisture_temp_ec_valid=1,
+            flow_meter_type=1, flow_rate=3.25,
+            flow_rate_per_day=4.0, flow_period_totals_valid=True,
+        )
+        msg.secondary_flow_meter.flow_meter_type = 2
+        msg.secondary_flow_meter.flow_rate = 2.5
+        msg.secondary_flow_meter.flow_rate_per_day = 6.0
+        msg.secondary_flow_meter.flow_period_totals_valid = True
+        decoded = messages_pb2.Status_Message.FromString(msg.SerializeToString())
+        secondary = flow_schema.secondary_flow_reading(decoded)
+        self.assertEqual(decoded.active_sensor_count, 4)
+        self.assertEqual(decoded.sensor_mask, 0x000F)
+        self.assertAlmostEqual(decoded.flow_rate, 3.25)
+        self.assertEqual(decoded.flow_meter_type, 1)
+        self.assertEqual(secondary.flow_meter_type, 2)
+        self.assertAlmostEqual(secondary.flow_rate, 2.5)
+        self.assertEqual(flow_schema.flow_reading_snapshot(secondary)["flow_meter_name"], "Supmea")
+        self.assertIsNone(flow_schema.secondary_flow_reading(messages_pb2.Status_Message()))
 
     def test_telemetry_v2_round_trip_preserves_signed_net_total(self):
         payload = protobuf_impl.build_telemetry(
@@ -203,6 +232,115 @@ class ServerDatabaseTests(unittest.TestCase):
 
     def setUp(self):
         self.server_web._initialized_company_dbs.clear()
+
+    def test_dual_flow_samples_and_periods_are_stored_separately(self):
+        company = "Dual Flow"
+        measured_at = 1_800_000_000
+        msg = messages_pb2.Status_Message(
+            node_id=17, sensor_id=1, timestamp=measured_at,
+            sensor_mask=0x000F, active_sensor_count=4,
+            flow_meter_type=1, flow_rate=3.0,
+            flow_rate_per_day=2.0, flow_rate_per_month=10.0,
+            flow_rate_per_year=40.0, flow_period_source=1,
+            flow_live_valid=True, flow_period_totals_valid=True,
+            flow_period_quality=1, rtc_valid=True,
+        )
+        secondary = msg.secondary_flow_meter
+        secondary.flow_meter_type = 2
+        secondary.flow_rate = 4.0
+        secondary.flow_rate_per_day = 5.0
+        secondary.flow_rate_per_month = 12.0
+        secondary.flow_rate_per_year = 45.0
+        secondary.flow_period_source = 2
+        secondary.flow_live_valid = True
+        secondary.flow_period_totals_valid = True
+        secondary.flow_period_quality = 1
+        secondary.rtc_valid = True
+        secondary.forward_total_liters = 50000
+
+        primary_metadata = flow_schema.extract_flow_metadata(msg)
+        secondary_data = self.server_web._secondary_flow_data(msg, company, measured_at)
+        for _ in range(2):
+            self.assertTrue(self.server_web.save_message(
+                measured_at, "Status", 17, 1, msg.flow_rate, 0.0,
+                msg.flow_rate_per_day, msg.flow_rate_per_month,
+                msg.flow_rate_per_year, "", company,
+                sensor_mask=msg.sensor_mask,
+                flow_metadata=primary_metadata,
+                measured_at=measured_at,
+                sample_fingerprint=flow_schema.build_sample_fingerprint(
+                    company, msg, primary_metadata, measured_at
+                ),
+                period_rows=flow_schema.calendar_period_rows(
+                    msg, primary_metadata, measured_at
+                ),
+                secondary_flow=secondary_data,
+            ))
+
+        db_path = self.server_web.get_company_db_path(company)
+        conn = sqlite3.connect(db_path)
+        try:
+            samples = conn.execute(
+                "SELECT flow_meter_type, flow_rate FROM meter_samples ORDER BY flow_meter_type"
+            ).fetchall()
+            periods = conn.execute(
+                "SELECT flow_meter_type, volume_liters FROM consumption_periods "
+                "WHERE period_type='day' ORDER BY flow_meter_type"
+            ).fetchall()
+            saved_secondary = conn.execute(
+                "SELECT secondary_flow_json FROM messages ORDER BY id DESC LIMIT 1"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(samples, [(1, 3.0), (2, 4.0)])
+        self.assertEqual(periods, [(1, 2000), (2, 5000)])
+        self.assertIn('"flow_meter_name": "Supmea"', saved_secondary)
+
+        with self.server_web.app.test_client() as client:
+            with client.session_transaction() as session:
+                session["role"] = "user"
+                session["username"] = "tester"
+                session["company"] = company
+            response = client.get("/api/consumption?period=day&flow_meter_type=2")
+            latest = client.get("/api/node_latest")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.get_json()["rows"]), 1)
+        self.assertEqual(response.get_json()["rows"][0]["volume_m3"], 5.0)
+        self.assertEqual(latest.get_json()["latest"][0]["secondary_flow_meter"]["flow_rate"], 4.0)
+
+    def test_mqtt_status_ingestion_persists_all_four_sensor_fields(self):
+        company = "Four Ingest"
+        msg = messages_pb2.Status_Message(
+            node_id=33, sensor_id=1, timestamp=1_800_000_000,
+            sensor_mask=0x000F, active_sensor_count=4,
+            flow_meter_type=1, flow_rate=1.5, flow_live_valid=True,
+            soil_temperature=20.0, soil_moisture=35.0,
+            soil_moisture_temp_valid=1, ec_temperature=21.0,
+            ec_moisture=36.0, electrical_conductivity=2.25,
+            soil_moisture_temp_ec_valid=1,
+        )
+        msg.secondary_flow_meter.flow_meter_type = 2
+        msg.secondary_flow_meter.flow_rate = 2.5
+        msg.secondary_flow_meter.flow_live_valid = True
+        with patch.object(self.server_web, "emit_iot_message") as emit, \
+             patch.object(self.server_web, "log_event"):
+            self.server_web.on_mqtt_plaintext(
+                f"EgSA/{company}/33/status", msg.SerializeToString()
+            )
+        payload = emit.call_args.args[0]
+        self.assertEqual(payload["Active Sensors"], 4)
+        self.assertEqual(payload["Sensor Mask"], 0x000F)
+        self.assertAlmostEqual(payload["Soil Temp"], 20.0)
+        self.assertAlmostEqual(payload["EC Cond"], 2.25)
+        self.assertAlmostEqual(payload["Secondary Flow Meter"]["flow_rate"], 2.5)
+        conn = sqlite3.connect(self.server_web.get_company_db_path(company))
+        try:
+            types = [row[0] for row in conn.execute(
+                "SELECT flow_meter_type FROM meter_samples ORDER BY flow_meter_type"
+            ).fetchall()]
+        finally:
+            conn.close()
+        self.assertEqual(types, [1, 2])
 
     def test_consumption_api_returns_readable_m3_snapshot(self):
         company = "API Test"
@@ -382,6 +520,48 @@ class ServerDatabaseTests(unittest.TestCase):
             row,
             (1_789_150_000, "server_received", 1, 1, 1, 1, 0, 1),
         )
+
+    def test_old_period_unique_key_migrates_without_losing_rows(self):
+        company = "Period Migration"
+        db_path = Path(self.server_web.get_company_db_path(company))
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute('''CREATE TABLE consumption_periods
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             node_id INTEGER NOT NULL, sensor_id TEXT NOT NULL,
+                             flow_meter_type INTEGER NOT NULL,
+                             period_type TEXT NOT NULL, period_key TEXT NOT NULL,
+                             volume_liters INTEGER NOT NULL, source INTEGER NOT NULL,
+                             quality INTEGER NOT NULL, measured_at INTEGER NOT NULL,
+                             updated_at INTEGER NOT NULL,
+                             UNIQUE(node_id, sensor_id, period_type, period_key))''')
+            conn.execute('''INSERT INTO consumption_periods
+                            (node_id, sensor_id, flow_meter_type, period_type,
+                             period_key, volume_liters, source, quality,
+                             measured_at, updated_at)
+                            VALUES (1, '1', 1, 'day', '2026-09-23',
+                                    1000, 1, 1, 1800000000, 1800000000)''')
+            conn.commit()
+        finally:
+            conn.close()
+
+        self.server_web.ensure_message_db(company)
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute('''INSERT INTO consumption_periods
+                            (node_id, sensor_id, flow_meter_type, period_type,
+                             period_key, volume_liters, source, quality,
+                             measured_at, updated_at)
+                            VALUES (1, '1', 2, 'day', '2026-09-23',
+                                    2000, 2, 1, 1800000000, 1800000000)''')
+            rows = conn.execute(
+                "SELECT flow_meter_type, volume_liters FROM consumption_periods "
+                "ORDER BY flow_meter_type"
+            ).fetchall()
+        finally:
+            conn.close()
+        self.assertEqual(rows, [(1, 1000), (2, 2000)])
 
 
 if __name__ == "__main__":

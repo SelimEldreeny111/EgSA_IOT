@@ -490,19 +490,30 @@ void setup_Init()
     SerialMon.println("==============================================================");
     SerialMon.println("=== RS485 sensors: TUF / Supmea / HNDA / Sondas =============");
     SerialMon.println("==============================================================");
-    SerialMon.print("Sensor profile: ");
-    SerialMon.println(
-        AppConfig::kSensorProject == APP_SENSOR_PROJECT_TUF_HNDA
-            ? "TUF + HNDA"
-            : "Supmea + Sondas");
     SerialMon.print("TUF polling: ");
     SerialMon.println(AppConfig::kEnableTufSensor ? "ENABLED" : "DISABLED");
+    if (AppConfig::kEnableTufSensor) {
+        SerialMon.print("  Modbus address: ");
+        SerialMon.println(AppConfig::kTufModbusAddress);
+    }
     SerialMon.print("HNDA polling: ");
     SerialMon.println(AppConfig::kEnableHndaSensor ? "ENABLED" : "DISABLED");
+    if (AppConfig::kEnableHndaSensor) {
+        SerialMon.print("  Modbus address: ");
+        SerialMon.println(AppConfig::kHndaModbusAddress);
+    }
     SerialMon.print("Supmea polling: ");
     SerialMon.println(AppConfig::kEnableSupmeaSensor ? "ENABLED" : "DISABLED");
+    if (AppConfig::kEnableSupmeaSensor) {
+        SerialMon.print("  Modbus address: ");
+        SerialMon.println(AppConfig::kSupmeaSensorModbusAddress);
+    }
     SerialMon.print("Sondas polling: ");
     SerialMon.println(AppConfig::kEnableSondasSensor ? "ENABLED" : "DISABLED");
+    if (AppConfig::kEnableSondasSensor) {
+        SerialMon.print("  Modbus address: ");
+        SerialMon.println(AppConfig::kSondasModbusAddress);
+    }
 
     if (AppConfig::kEnableTufSensor ||
         AppConfig::kEnableSupmeaSensor ||

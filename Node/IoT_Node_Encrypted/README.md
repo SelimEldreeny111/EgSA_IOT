@@ -7,8 +7,8 @@
 A secure IoT monitoring system with encrypted communication capabilities for industrial flow measurement and telemetry.
 For the restored AS32 private-LoRa V1 build, module settings, reflashing sequence, diagnostics, and Wi-Fi flash-persistence test, see [AS32 Private-LoRa V1 Recovery and Acceptance Test](../Documentation/AS32_V1_RECOVERY_TEST.md).
 
-For product selection, protobuf fields, Supmea calendar consumption, RTC
-setup, persistence, and commissioning, see [STM32 Flow-Meter Profiles and
+For independent sensor selection, protobuf fields, Supmea calendar consumption, RTC
+setup, persistence, and commissioning, see [STM32 Four-Sensor RS485 and
 Consumption Guide](FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md).
 
 ## Power mode selection
@@ -93,41 +93,34 @@ Main Loop:
 
 - **Sampling**: Periodic flow parameter reading based on `samplingPeriodMs`
 - **Data Types**: `TufSensorData`, `SupmeaSensorData`, `HndaSensorData`, and `SondasSensorData`
-- **Metrics**: common TUF/Supmea flow state via `updateFlowMetrics()`, HNDA
+- **Metrics**: separate TUF/Supmea flow state, HNDA
   state via `updateHndaMetrics()`, and Sondas state via
   `updateSondasMetrics()`
 
 ### Sensor selection
 
-First select the product family in `src/config/AppConfig.h`:
-
-```cpp
-#define APP_SENSOR_PROJECT APP_SENSOR_PROJECT_SUPMEA_SONDAS
-```
-
-The alternatives are `APP_SENSOR_PROJECT_TUF_HNDA` and
-`APP_SENSOR_PROJECT_SUPMEA_SONDAS`. Then set each sensor in the selected
-profile independently to `true` or `false` in the **INDIVIDUAL SENSOR
-SWITCHES** block:
+Set each sensor independently to `true` or `false` in the four-switch block
+of `src/config/AppConfig.h`:
 
 ```cpp
 #define APP_ENABLE_TUF_SENSOR true
 #define APP_ENABLE_HNDA_SENSOR true
-#define APP_ENABLE_SUPMEA_SENSOR false
-#define APP_ENABLE_SONDAS_SENSOR false
+#define APP_ENABLE_SUPMEA_SENSOR true
+#define APP_ENABLE_SONDAS_SENSOR true
 ```
 
 `true` initializes and polls that sensor. `false` sends no Modbus request to
 it, excludes it from `active_sensor_count`, and clears its sensor-mask bit.
-The non-selected product family's switches must remain `false`; the compiler
-rejects mixed products. The Supmea + Sondas image uses addresses 1 and 3. The
-default TUF + HNDA image uses addresses 2 and 1. The compiler also rejects
-invalid profiles and duplicate enabled-device addresses. At startup, the
+Set the four `APP_*_SENSOR_MODBUS_ADDRESS` macros to match the addresses
+programmed in your meters. Defaults are TUF 1, Supmea 2, HNDA 3, Sondas 4.
+The compiler rejects duplicate enabled-device addresses. At startup, the
 serial monitor prints `ENABLED` or `DISABLED` for all four sensors so the
 flashed configuration can be confirmed immediately.
 
-Both profiles use the common flow protobuf block. The original HNDA and Sondas
-fields remain present, with separate validity flags for their latest reads.
+The original flow protobuf fields report TUF when both flow meters are enabled
+(or Supmea when it is the only flow meter). An optional second record reports
+Supmea in the dual-meter case. HNDA and Sondas retain separate fields and
+validity flags.
 
 ### Communication
 
@@ -261,8 +254,8 @@ The complete timing rationale and test procedure are in
 
 ## Supmea SUP-FMC240 production integration
 
-The Supmea profile reads the FMC240 cumulative and live register blocks at
-address 1. Live volumetric flow is normalized to m3/h. Day, month, and year
+The Supmea driver reads the FMC240 cumulative and live register blocks at the
+configured slave address. Live volumetric flow is normalized to m3/h. Day, month, and year
 consumption is calculated from changes in the cumulative forward total using
 the trusted STM32 RTC; instantaneous flow is not integrated for these totals.
 

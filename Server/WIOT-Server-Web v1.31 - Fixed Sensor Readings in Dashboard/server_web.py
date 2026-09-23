@@ -20,10 +20,12 @@ from flow_schema import (
     calendar_period_rows,
     dashboard_flow_fields,
     extract_flow_metadata,
+    flow_reading_snapshot,
     flow_meter_name,
     period_quality_name,
     period_source_name,
     select_measurement_timestamp,
+    secondary_flow_reading,
 )
 from mqtt_impl import MqttNodeClient
 
@@ -130,6 +132,10 @@ def _format_row_timestamp(row):
     except (OSError, OverflowError):
         row['timestamp'] = str(ts)
     row['timestamp_epoch'] = epoch
+    if row.get('secondary_flow_json'):
+        row['secondary_flow_meter'] = json.loads(row['secondary_flow_json'])
+    else:
+        row['secondary_flow_meter'] = None
     return row
 
 
@@ -176,7 +182,8 @@ def _migrate_messages_table_to_integer_timestamp(conn):
                    net_total_liters INTEGER DEFAULT 0,
                    flow_period_quality INTEGER DEFAULT 0,
                    flow_meter_alarm_flags INTEGER DEFAULT 0,
-                   legacy_flow_schema INTEGER DEFAULT 0)''')
+                   legacy_flow_schema INTEGER DEFAULT 0,
+                   secondary_flow_json TEXT)''')
 
     target_columns = [
         "timestamp", "type", "node_id", "sensor_id", "flow", "velocity",
@@ -189,7 +196,7 @@ def _migrate_messages_table_to_integer_timestamp(conn):
         "flow_period_source", "flow_live_valid", "flow_period_totals_valid",
         "flow_cumulative_totals_valid", "rtc_valid", "forward_total_liters",
         "reverse_total_liters", "net_total_liters", "flow_period_quality",
-        "flow_meter_alarm_flags", "legacy_flow_schema",
+        "flow_meter_alarm_flags", "legacy_flow_schema", "secondary_flow_json",
     ]
     copy_columns = [column for column in target_columns if column in old_columns]
     select_expressions = []
@@ -259,7 +266,8 @@ def ensure_message_db(company: str) -> str:
                    net_total_liters INTEGER DEFAULT 0,
                    flow_period_quality INTEGER DEFAULT 0,
                    flow_meter_alarm_flags INTEGER DEFAULT 0,
-                   legacy_flow_schema INTEGER DEFAULT 0)''')
+                   legacy_flow_schema INTEGER DEFAULT 0,
+                   secondary_flow_json TEXT)''')
     conn.commit()
     c.execute("PRAGMA table_info(messages)")
     cols = {row[1].lower(): row[2].upper() for row in c.fetchall()}
@@ -293,7 +301,8 @@ def ensure_message_db(company: str) -> str:
         ("net_total_liters", "INTEGER DEFAULT 0"),
         ("flow_period_quality", "INTEGER DEFAULT 0"),
         ("flow_meter_alarm_flags", "INTEGER DEFAULT 0"),
-        ("legacy_flow_schema", "INTEGER DEFAULT 0")
+        ("legacy_flow_schema", "INTEGER DEFAULT 0"),
+        ("secondary_flow_json", "TEXT")
     ]
     for col_name, col_type in new_cols:
         if col_name not in cols:
@@ -362,7 +371,37 @@ def ensure_message_db(company: str) -> str:
                   quality INTEGER NOT NULL,
                   measured_at INTEGER NOT NULL,
                   updated_at INTEGER NOT NULL,
-                  UNIQUE(node_id, sensor_id, period_type, period_key))''')
+                  UNIQUE(node_id, sensor_id, flow_meter_type, period_type, period_key))''')
+    # Older databases keyed periods without meter type. Rebuild once so a
+    # simultaneous TUF and Supmea sample cannot overwrite the other meter.
+    period_schema_row = c.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='consumption_periods'"
+    ).fetchone()
+    normalized_schema = "".join((period_schema_row[0] or "").lower().split())
+    if "unique(node_id,sensor_id,period_type,period_key)" in normalized_schema:
+        c.execute('''CREATE TABLE consumption_periods_v2
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      node_id INTEGER NOT NULL,
+                      sensor_id TEXT NOT NULL,
+                      flow_meter_type INTEGER NOT NULL,
+                      period_type TEXT NOT NULL,
+                      period_key TEXT NOT NULL,
+                      volume_liters INTEGER NOT NULL,
+                      source INTEGER NOT NULL,
+                      quality INTEGER NOT NULL,
+                      measured_at INTEGER NOT NULL,
+                      updated_at INTEGER NOT NULL,
+                      UNIQUE(node_id, sensor_id, flow_meter_type, period_type, period_key))''')
+        c.execute('''INSERT INTO consumption_periods_v2
+                     (id, node_id, sensor_id, flow_meter_type, period_type,
+                      period_key, volume_liters, source, quality, measured_at,
+                      updated_at)
+                     SELECT id, node_id, sensor_id, flow_meter_type,
+                            period_type, period_key, volume_liters, source,
+                            quality, measured_at, updated_at
+                     FROM consumption_periods''')
+        c.execute('DROP TABLE consumption_periods')
+        c.execute('ALTER TABLE consumption_periods_v2 RENAME TO consumption_periods')
     c.execute('''CREATE INDEX IF NOT EXISTS idx_consumption_periods_lookup
                  ON consumption_periods(node_id, sensor_id, period_type, period_key)''')
     conn.commit()
@@ -542,16 +581,36 @@ def init_db():
 
 init_db()
 
+def _secondary_flow_data(message, company, measured_at):
+    reading = secondary_flow_reading(message)
+    if reading is None:
+        return None
+    metadata = extract_flow_metadata(reading)
+    return {
+        "metadata": metadata,
+        "fingerprint": build_sample_fingerprint(
+            company, message, metadata, measured_at, reading=reading
+        ),
+        "period_rows": calendar_period_rows(reading, metadata, measured_at),
+        "flow_rate": float(reading.flow_rate),
+        "velocity": float(reading.velocity),
+        "volume_day": float(reading.flow_rate_per_day),
+        "volume_month": float(reading.flow_rate_per_month),
+        "volume_year": float(reading.flow_rate_per_year),
+        "snapshot": flow_reading_snapshot(reading),
+    }
+
 def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, company, node_status=0,
                  soil_temp=0.0, soil_moist=0.0, soil_valid=0,
                  ec_temp=0.0, ec_moist=0.0, ec_cond=0.0, ec_valid=0,
                  active_sensors=1, sensor_mask=1, battery_voltage=None,
                  flow_metadata=None, measured_at=None, time_source="server_received",
-                 sample_fingerprint=None, period_rows=None):
+                 sample_fingerprint=None, period_rows=None, secondary_flow=None):
     conn = None
     try:
         flow_metadata = flow_metadata or {}
         period_rows = period_rows or []
+        secondary_flow = secondary_flow or {}
         db_path = ensure_message_db(company)
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
@@ -566,8 +625,9 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        active_sensor_count, sensor_mask, battery_voltage, measured_at, time_source,
                        flow_meter_type, flow_period_source, flow_live_valid, flow_period_totals_valid,
                        flow_cumulative_totals_valid, rtc_valid, forward_total_liters, reverse_total_liters,
-                       net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                       net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema,
+                       secondary_flow_json)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                   (epoch_ts, m_type, n_id, str(s_id), flow, vel, fday, fmonth, fyear, det, company, node_status,
                    soil_temp, soil_moist, soil_valid, ec_temp, ec_moist, ec_cond, ec_valid, active_sensors, sensor_mask,
                    battery_voltage, measured_epoch, time_source,
@@ -582,9 +642,26 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                    flow_metadata.get("net_total_liters", 0),
                    flow_metadata.get("flow_period_quality", 0),
                    flow_metadata.get("flow_meter_alarm_flags", 0),
-                   flow_metadata.get("legacy_flow_schema", 0)))
+                   flow_metadata.get("legacy_flow_schema", 0),
+                   json.dumps(secondary_flow.get("snapshot")) if secondary_flow else None))
 
-        if flow_metadata.get("flow_meter_type", 0) and sample_fingerprint:
+        samples = [{
+            "metadata": flow_metadata,
+            "fingerprint": sample_fingerprint,
+            "period_rows": period_rows,
+            "flow_rate": flow,
+            "velocity": vel,
+            "volume_day": fday,
+            "volume_month": fmonth,
+            "volume_year": fyear,
+        }]
+        if secondary_flow:
+            samples.append(secondary_flow)
+        for sample in samples:
+            metadata = sample["metadata"]
+            fingerprint = sample["fingerprint"]
+            if not metadata.get("flow_meter_type", 0) or not fingerprint:
+                continue
             c.execute('''INSERT OR IGNORE INTO meter_samples
                          (received_at, measured_at, time_source, message_type,
                           node_id, sensor_id, flow_meter_type, flow_rate, velocity,
@@ -595,36 +672,38 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                           sample_fingerprint)
                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                       (epoch_ts, measured_epoch, time_source, m_type,
-                       n_id, str(s_id), flow_metadata["flow_meter_type"], flow, vel,
-                       fday, fmonth, fyear,
-                       flow_metadata.get("forward_total_liters", 0),
-                       flow_metadata.get("reverse_total_liters", 0),
-                       flow_metadata.get("net_total_liters", 0),
-                       flow_metadata.get("flow_live_valid", 0),
-                       flow_metadata.get("flow_period_totals_valid", 0),
-                       flow_metadata.get("flow_cumulative_totals_valid", 0),
-                       flow_metadata.get("rtc_valid", 0),
-                       flow_metadata.get("flow_period_source", 0),
-                       flow_metadata.get("flow_period_quality", 0),
-                       flow_metadata.get("flow_meter_alarm_flags", 0),
-                       sample_fingerprint))
+                       n_id, str(s_id), metadata["flow_meter_type"],
+                       sample["flow_rate"], sample["velocity"],
+                       sample["volume_day"], sample["volume_month"],
+                       sample["volume_year"],
+                       metadata.get("forward_total_liters", 0),
+                       metadata.get("reverse_total_liters", 0),
+                       metadata.get("net_total_liters", 0),
+                       metadata.get("flow_live_valid", 0),
+                       metadata.get("flow_period_totals_valid", 0),
+                       metadata.get("flow_cumulative_totals_valid", 0),
+                       metadata.get("rtc_valid", 0),
+                       metadata.get("flow_period_source", 0),
+                       metadata.get("flow_period_quality", 0),
+                       metadata.get("flow_meter_alarm_flags", 0),
+                       fingerprint))
 
-            for period in period_rows:
+            for period in sample["period_rows"]:
                 c.execute('''INSERT INTO consumption_periods
                              (node_id, sensor_id, flow_meter_type, period_type,
                               period_key, volume_liters, source, quality,
                               measured_at, updated_at)
                              VALUES (?,?,?,?,?,?,?,?,?,?)
-                             ON CONFLICT(node_id, sensor_id, period_type, period_key)
+                             ON CONFLICT(node_id, sensor_id, flow_meter_type,
+                                         period_type, period_key)
                              DO UPDATE SET
-                                 flow_meter_type=excluded.flow_meter_type,
                                  volume_liters=excluded.volume_liters,
                                  source=excluded.source,
                                  quality=excluded.quality,
                                  measured_at=excluded.measured_at,
                                  updated_at=excluded.updated_at
                              WHERE excluded.measured_at >= consumption_periods.measured_at''',
-                          (n_id, str(s_id), flow_metadata["flow_meter_type"],
+                          (n_id, str(s_id), metadata["flow_meter_type"],
                            period["period_type"], period["period_key"],
                            period["volume_liters"], period["source"],
                            period["quality"], measured_epoch, epoch_ts))
@@ -704,6 +783,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 company, msg, flow_metadata, measured_at
             )
             period_rows = calendar_period_rows(msg, flow_metadata, measured_at)
+            secondary_flow = _secondary_flow_data(msg, company, measured_at)
             save_message(timestamp_epoch, "Status", msg.node_id, msg.sensor_id, msg.flow_rate, msg.velocity,
                          msg.flow_rate_per_day, msg.flow_rate_per_month, msg.flow_rate_per_year, "", company, msg.node_status,
                          msg.soil_temperature, msg.soil_moisture, msg.soil_moisture_temp_valid,
@@ -712,7 +792,8 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          flow_metadata=flow_metadata, measured_at=measured_at,
                          time_source=time_source,
                          sample_fingerprint=sample_fingerprint,
-                         period_rows=period_rows)
+                         period_rows=period_rows,
+                         secondary_flow=secondary_flow)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Status", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -726,6 +807,9 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 "Measured Epoch": measured_at, "Time Source": time_source
             }
             payload.update(dashboard_flow_fields(flow_metadata))
+            payload["Secondary Flow Meter"] = (
+                secondary_flow["snapshot"] if secondary_flow else None
+            )
             emit_iot_message(payload, company)
 
         elif "telemetry" in topic.lower():
@@ -756,6 +840,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 company, msg, flow_metadata, measured_at
             )
             period_rows = calendar_period_rows(msg, flow_metadata, measured_at)
+            secondary_flow = _secondary_flow_data(msg, company, measured_at)
             details = (f"Node-TS:{msg.timestamp} S-Rate:{msg.sampling_rate} "
                        f"T-Rate:{msg.Transmission_rate} sensors:{msg.active_sensor_count} "
                        f"meter:{flow_metadata['flow_meter_name']} "
@@ -769,7 +854,8 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          flow_metadata=flow_metadata, measured_at=measured_at,
                          time_source=time_source,
                          sample_fingerprint=sample_fingerprint,
-                         period_rows=period_rows)
+                         period_rows=period_rows,
+                         secondary_flow=secondary_flow)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Telemetry", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -783,6 +869,9 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 "Measured Epoch": measured_at, "Time Source": time_source
             }
             payload.update(dashboard_flow_fields(flow_metadata))
+            payload["Secondary Flow Meter"] = (
+                secondary_flow["snapshot"] if secondary_flow else None
+            )
             emit_iot_message(payload, company)
 
         elif "cmd" in topic.lower():
@@ -1391,6 +1480,9 @@ def api_consumption():
 
     node_id = request.args.get('node_id', '').strip()
     sensor_id = request.args.get('sensor_id', '').strip()
+    flow_meter_type = request.args.get('flow_meter_type', '').strip()
+    if flow_meter_type and flow_meter_type not in ('1', '2'):
+        return jsonify({'error': 'flow_meter_type must be 1 (TUF) or 2 (Supmea)'}), 400
     db_path = ensure_message_db(company)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -1402,6 +1494,9 @@ def api_consumption():
     if sensor_id:
         query += ' AND sensor_id = ?'
         params.append(sensor_id)
+    if flow_meter_type:
+        query += ' AND flow_meter_type = ?'
+        params.append(int(flow_meter_type))
     if period_type:
         query += ' AND period_type = ?'
         params.append(period_type)
