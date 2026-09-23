@@ -143,13 +143,15 @@ void setup()
   // Arm the independent hardware watchdog before radio or network setup so a
   // modem/library call that never returns is covered during boot as well.
   initializeHardwareWatchdog();
+  serviceHardwareWatchdog(WatchdogStage::Setup);
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   gatewaySetup();
 #else
   setup_Init();
 #endif
   initializePowerManagerAfterSetup();
-  serviceHardwareWatchdog();
+  serviceHardwareWatchdog(WatchdogStage::Setup);
+  runHardwareWatchdogSelfTest(WatchdogSelfTestPoint::AfterSetup);
 }
 
 /* ================================= LOOP =========================================== */
@@ -165,10 +167,16 @@ void setup()
 void loop()
 {
   // This checkpoint means the previous Arduino loop iteration completed.
-  serviceHardwareWatchdog();
+  serviceHardwareWatchdog(WatchdogStage::MainLoop);
+  static bool watchdogMainLoopSelfTestChecked = false;
+  if (!watchdogMainLoopSelfTestChecked)
+  {
+    watchdogMainLoopSelfTestChecked = true;
+    runHardwareWatchdogSelfTest(WatchdogSelfTestPoint::MainLoop);
+  }
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   gatewayLoop();
-  serviceHardwareWatchdog();
+  serviceHardwareWatchdog(WatchdogStage::MainLoop);
   return;
 #else
   AppRuntimeState& state = appState();
@@ -203,11 +211,13 @@ void loop()
       SerialMon.println(" V (encoded in Status/Telemetry)");
     }
 
+    serviceHardwareWatchdog(WatchdogStage::FlowMeterRead);
     sampleConfiguredFlowMeter();
     serviceHardwareWatchdog();
 
     if (AppConfig::kEnableHndaSensor)
     {
+      serviceHardwareWatchdog(WatchdogStage::HndaRead);
       const HndaSensorData data = readHndaSensor();
       updateHndaMetrics(data);
       printHndaSensorData(data);
@@ -216,6 +226,7 @@ void loop()
 
     if (AppConfig::kEnableSondasSensor)
     {
+      serviceHardwareWatchdog(WatchdogStage::SondasRead);
       const SondasSensorData data = readSondasSensor();
       updateSondasMetrics(data);
       printSondasSensorData(data);
@@ -232,6 +243,7 @@ void loop()
 #if APP_HAS_LORA
     uint8_t payload[AppConfig::kCodecBufferSize];
     size_t payloadLength = 0;
+    serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
     const bool telemetryDelivered =
         buildEncryptedStatusPayload(payload, sizeof(payload), payloadLength) &&
         sendLoraFrame(
@@ -286,7 +298,7 @@ void loop()
   }
 #endif
   servicePowerManager();
-  serviceHardwareWatchdog();
+  serviceHardwareWatchdog(WatchdogStage::MainLoop);
 #endif
 }
 

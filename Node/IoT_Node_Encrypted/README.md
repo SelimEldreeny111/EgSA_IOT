@@ -34,6 +34,10 @@ See [Arduino Node Power-Down Configuration and Test Guide](POWER_DOWN_MODE_USER_
 for ready-to-use profiles, schematic pin mapping, required M0/M1 and RS485
 hardware pulls, ESP reset behavior, expected logs, and the complete test plan.
 
+See [STM32 Global Watchdog Recovery and Test Guide](WATCHDOG_RECOVERY_AND_TEST_GUIDE.md)
+for the blocking-path timing audit, selected global deadline, reset-stage
+diagnostics, controlled fault injection, and acceptance procedure.
+
 ## Overview
 
 This project implements an IoT node that reads the TUF, Supmea, HNDA, and
@@ -226,10 +230,10 @@ Use the debug serial interface (SerialMon) to monitor system status:
 
 The Arduino firmware uses the STM32F401 independent hardware watchdog (IWDG),
 not a software timer. It is armed before application, LoRa, and modem setup
-with a 25-second deadline. The watchdog is refreshed only after a bounded
-operation returns or a complete superloop checkpoint is reached. Therefore a
-stuck sensor, LoRa, MQTT, GSM, Wi-Fi, or library call automatically resets the
-microcontroller even if the main loop is no longer running.
+with a nominal 25-second global deadline. The watchdog is refreshed only at
+verified progress boundaries. Therefore a stuck sensor, LoRa, MQTT, GSM,
+Wi-Fi, or library call automatically resets the microcontroller even if the
+main loop is no longer running.
 
 Expected long operations report progress only between attempts. For example,
 the 12-second LoRa ACK window is allowed to finish, but a single call that does
@@ -237,19 +241,23 @@ not return within 25 seconds cannot hide the fault by feeding the watchdog.
 Two complete failed GSM/Wi-Fi recovery cycles request a fast IWDG reset so the
 MCU and modem initialization sequence starts cleanly.
 
-The serial boot log reports whether the previous boot was caused by the IWDG.
-The behavior can be adjusted in `src/config/AppConfig.h`:
+The serial boot log reports whether the previous boot was caused by the IWDG
+and the last active subsystem stage. The behavior and controlled self-test can
+be adjusted in `src/config/AppConfig.h`:
 
 ```cpp
 #define APP_ENABLE_HARDWARE_WATCHDOG 1
 #define APP_WATCHDOG_TIMEOUT_US 25000000UL
 #define APP_NETWORK_FAILURES_BEFORE_RESET 2U
+#define APP_WATCHDOG_SELF_TEST_MODE APP_WATCHDOG_SELF_TEST_DISABLED
 ```
 
 The STM32duino `IWatchdog` library expects microseconds. Keep the configured
 timeout within the supported IWDG range for the selected STM32 board. When
 debugging with breakpoints, remember that the production watchdog continues
 running and resets the board if execution remains paused past its deadline.
+The complete timing rationale and test procedure are in
+`WATCHDOG_RECOVERY_AND_TEST_GUIDE.md`.
 
 ## Supmea SUP-FMC240 production integration
 

@@ -420,6 +420,8 @@ bool transmitWireFrame(
     return false;
   }
 
+  serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
+
   uint8_t frame[kMaxWireFrameLength];
   size_t offset = 0U;
   frame[offset++] = kMagic0;
@@ -469,12 +471,22 @@ bool transmitWireFrame(
     SerialMon.println("LoRa wire send failed: AS32 AUX was not ready");
     return false;
   }
+  // AUX became ready: this is verified radio progress. Start a fresh IWDG
+  // window before UART transfer instead of treating the complete multi-stage
+  // send as one approximately 24-second blocking section.
+  serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
 
-  if (!writeLoraUartReliably(frame, offset) ||
-      !waitForAs32PacketComplete(guardMs))
+  if (!writeLoraUartReliably(frame, offset))
   {
     return false;
   }
+  serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
+
+  if (!waitForAs32PacketComplete(guardMs))
+  {
+    return false;
+  }
+  serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
 
   ++g_totalTxWireFrames;
   g_totalTxBytes += offset;
@@ -1032,6 +1044,9 @@ bool waitForFragmentAck(
     uint16_t messageId,
     uint8_t fragmentIndex)
 {
+  // This loop is deliberately not serviced internally. A valid ACK or the
+  // bounded 12-second timeout must return control to the caller first.
+  serviceHardwareWatchdog(WatchdogStage::LoraAckWait);
   const uint32_t startMs = millis();
   while (millis() - startMs < AppConfig::kLoraFragmentAckTimeoutMs)
   {

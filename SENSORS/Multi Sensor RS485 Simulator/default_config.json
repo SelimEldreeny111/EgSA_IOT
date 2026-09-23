@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "description": "WIOT multi-sensor RS485/Modbus simulator starter fleet",
+  "bus": {
+    "port": "COM3",
+    "baudrate": 9600,
+    "parity": "N",
+    "stopbits": 1,
+    "response_delay_ms": 20
+  },
+  "fleet_summary": {
+    "HNDA": 2,
+    "TUF": 1,
+    "SUPMEA": 1,
+    "SONDAS": 1
+  },
+  "devices": [
+    {
+      "id": "starter-hnda-001",
+      "name": "HNDA field node 1",
+      "type": "HNDA",
+      "address": 1,
+      "enabled": true,
+      "update_interval_s": 1.0,
+      "random_seed": 1001,
+      "signals": {
+        "temperature_c": {
+          "mode": "random_walk",
+          "value": 23.5,
+          "minimum": 15.0,
+          "maximum": 35.0,
+          "step": 0.2,
+          "period_s": 20.0
+        },
+        "moisture_percent": {
+          "mode": "random_walk",
+          "value": 35.6,
+          "minimum": 20.0,
+          "maximum": 80.0,
+          "step": 0.5,
+          "period_s": 20.0
+        }
+      }
+    },
+    {
+      "id": "starter-hnda-002",
+      "name": "HNDA field node 2",
+      "type": "HNDA",
+      "address": 2,
+      "enabled": true,
+      "update_interval_s": 1.0,
+      "random_seed": 2002,
+      "signals": {
+        "temperature_c": {
+          "mode": "fixed",
+          "value": 27.2
+        },
+        "moisture_percent": {
+          "mode": "fixed",
+          "value": 48.5
+        }
+      }
+    },
+    {
+      "id": "starter-tuf-010",
+      "name": "TUF main water line",
+      "type": "TUF",
+      "address": 10,
+      "enabled": true,
+      "update_interval_s": 1.0,
+      "auto_totalizers": true,
+      "time_multiplier": 1.0,
+      "random_seed": 1010,
+      "signals": {
+        "flow_rate_m3h": {
+          "mode": "sine",
+          "value": 12.5,
+          "minimum": 0.0,
+          "maximum": 25.0,
+          "step": 5.0,
+          "period_s": 30.0
+        },
+        "velocity_mps": {
+          "mode": "sine",
+          "value": 1.25,
+          "minimum": 0.0,
+          "maximum": 3.0,
+          "step": 0.5,
+          "period_s": 30.0
+        }
+      }
+    },
+    {
+      "id": "starter-supmea-020",
+      "name": "Supmea magnetic water line",
+      "type": "SUPMEA",
+      "address": 20,
+      "enabled": true,
+      "update_interval_s": 1.0,
+      "auto_totalizers": true,
+      "time_multiplier": 1.0,
+      "random_seed": 2020,
+      "signals": {
+        "flow_rate": {
+          "mode": "random_walk",
+          "value": 35.0,
+          "minimum": 10.0,
+          "maximum": 80.0,
+          "step": 2.0,
+          "period_s": 20.0
+        },
+        "velocity_mps": {
+          "mode": "random_walk",
+          "value": 1.25,
+          "minimum": 0.2,
+          "maximum": 4.0,
+          "step": 0.1,
+          "period_s": 20.0
+        }
+      }
+    },
+    {
+      "id": "starter-sondas-030",
+      "name": "Sondas greenhouse",
+      "type": "SONDAS",
+      "address": 30,
+      "enabled": true,
+      "update_interval_s": 1.0,
+      "random_seed": 3030,
+      "signals": {
+        "temperature_c": {
+          "mode": "ramp",
+          "value": 24.0,
+          "minimum": 18.0,
+          "maximum": 32.0,
+          "step": 0.2,
+          "period_s": 20.0
+        },
+        "moisture_percent": {
+          "mode": "ramp",
+          "value": 42.0,
+          "minimum": 20.0,
+          "maximum": 80.0,
+          "step": 0.5,
+          "period_s": 20.0
+        },
+        "electrical_conductivity": {
+          "mode": "ramp",
+          "value": 850,
+          "minimum": 300,
+          "maximum": 1800,
+          "step": 25,
+          "period_s": 20.0
+        }
+      }
+    }
+  ]
+}
