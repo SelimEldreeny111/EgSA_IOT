@@ -13,7 +13,7 @@ simulators, documentation, and software requirement specifications.
 | `WIOT_STM32CubeIDE` | Native STM32CubeIDE/HAL firmware port |
 | `esp32/IoT_Node_ESP32` | Independent ESP32 Arduino firmware port |
 | `Server/WIOT-Server-Web v1.31 - Fixed Sensor Readings in Dashboard` | MQTT/web server and telemetry storage |
-| `SENSORS` | TUF and Supmea documents and Modbus simulators |
+| `SENSORS` | Sensor manuals, individual simulators, and the multi-sensor RS485 lab |
 | `Node SW Specs` and `outputs` | Requirements and test documentation |
 
 The STM32 Arduino node supports TUF + HNDA and Supmea + Sondas product
@@ -58,7 +58,10 @@ it is pushed.
 
 ## Test assets
 
-The sensor simulator directories include their own usage instructions. Use
-the TUF simulator for register-level TUF tests and the Supmea simulator for
-FMC240 Modbus and cumulative-flow tests. Hardware acceptance and power-mode
-test procedures are documented alongside the STM32 node.
+The sensor simulator directories include their own usage instructions. The
+`SENSORS/Multi Sensor RS485 Simulator` application emulates any mix of HNDA,
+TUF, Supmea, and Sondas devices at unique addresses on one Modbus RTU bus. Use
+the individual TUF and Supmea tools for focused register tests, and the fleet
+simulator for multi-address, dynamic-value, timeout, CRC, and scale testing.
+Hardware acceptance and power-mode test procedures are documented alongside
+the STM32 node.
