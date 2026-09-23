@@ -295,6 +295,7 @@ void resetAndWakeEsp8266()
 
 void initializeMqttTransport()
 {
+  serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
 #if defined(USE_ESP8266)
   resetAndWakeEsp8266();
 #else
@@ -302,7 +303,7 @@ void initializeMqttTransport()
   watchdogDelay(3000);
 #endif
   printEspFirmwareVersion();
-  serviceHardwareWatchdog();
+  serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
   // Do not refresh from inside modem.init(). If the AT library becomes stuck,
   // the independent watchdog must be allowed to reset the STM32.
   modem.init();
@@ -322,6 +323,7 @@ bool prepareMqttTransportForPowerDown(uint32_t timeoutMs)
   // PubSubClient::disconnect() flushes its DISCONNECT frame and calls stop()
   // on BufferedClient, which in turn closes the TinyGSM socket. Do not call
   // gsmClient.stop() again: ESP-AT can otherwise wait a second close timeout.
+  serviceHardwareWatchdog(WatchdogStage::PowerTransition);
   mqtt.disconnect();
   serviceHardwareWatchdog();
 
@@ -454,6 +456,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 
 bool ensureMqttConnection()
 {
+  serviceHardwareWatchdog(WatchdogStage::MqttStatus);
   const bool alreadyConnected = mqtt.connected();
   serviceHardwareWatchdog();
   if (alreadyConnected)
@@ -494,6 +497,7 @@ bool ensureMqttConnection()
     SerialMon.print("Connecting to MQTT... ");
   }
 
+  serviceHardwareWatchdog(WatchdogStage::MqttConnect);
   const bool mqttConnected = mqtt.connect(kMqttClientId);
   serviceHardwareWatchdog();
   if (!mqttConnected)
@@ -555,6 +559,7 @@ bool ensureMqttConnection()
 
 void mqttLoop()
 {
+  serviceHardwareWatchdog(WatchdogStage::MqttService);
   mqtt.loop();
   // Flushes any PINGREQ that mqtt.loop() may have emitted, so it leaves
   // in a single AT+CIPSEND instead of sitting in the buffer until the next
@@ -653,6 +658,7 @@ void publishTelemetry()
   }
 
   const uint32_t publishCallStartMs = millis();
+  serviceHardwareWatchdog(WatchdogStage::MqttPublish);
   const bool published = mqtt.publish(kMqttPublishTopicStatus, payload, payloadLength);
   bufferedClient.flush();
   serviceHardwareWatchdog();
@@ -693,6 +699,7 @@ bool publishMqttPayload(const char* topic, const uint8_t* payload, size_t payloa
   }
   serviceHardwareWatchdog();
 
+  serviceHardwareWatchdog(WatchdogStage::MqttPublish);
   const bool published = mqtt.publish(topic, payload, payloadLength);
   bufferedClient.flush();
   serviceHardwareWatchdog();

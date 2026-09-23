@@ -64,4 +64,6 @@ TUF, Supmea, and Sondas devices at unique addresses on one Modbus RTU bus. Use
 the individual TUF and Supmea tools for focused register tests, and the fleet
 simulator for multi-address, dynamic-value, timeout, CRC, and scale testing.
 Hardware acceptance and power-mode test procedures are documented alongside
-the STM32 node.
+the STM32 node. The node's `WATCHDOG_RECOVERY_AND_TEST_GUIDE.md` contains the
+global WDT timing audit, configuration, diagnostic stages, and fault-injection
+acceptance tests.

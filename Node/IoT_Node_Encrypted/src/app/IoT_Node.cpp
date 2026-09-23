@@ -188,7 +188,7 @@ bool connectWifiWithCredentials(const char* source, const char* ssid, const char
 {
     for (int retryCount = 0; retryCount < WIFI_MAX_RETRIES; ++retryCount)
     {
-        serviceHardwareWatchdog();
+        serviceHardwareWatchdog(WatchdogStage::WifiJoin);
         SerialMon.print("Connecting to ");
         SerialMon.print(source);
         SerialMon.print(" WiFi SSID: ");
@@ -207,6 +207,7 @@ bool connectWifiWithCredentials(const char* source, const char* ssid, const char
         }
 
         SerialMon.println("WiFi failed, retrying...");
+        serviceHardwareWatchdog(WatchdogStage::WifiModemRestart);
         modem.restart();
         serviceHardwareWatchdog();
         watchdogDelay(WIFI_RETRY_INTERVAL);
@@ -241,6 +242,7 @@ bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool al
     size_t index = 0;
     const uint32_t startMs = millis();
     buffer[0] = '\0';
+    serviceHardwareWatchdog(WatchdogStage::OperatorInput);
 
     while (millis() - startMs < timeoutMs)
     {
@@ -312,7 +314,7 @@ bool connectNetwork()
     int retryCount = 0;
     while (retryCount < GPRS_MAX_RETRIES)
     {
-        serviceHardwareWatchdog();
+        serviceHardwareWatchdog(WatchdogStage::GsmRegistration);
         SerialMon.println("Connecting to GSM network.......");
         const bool networkReady = modem.waitForNetwork(10000);
         serviceHardwareWatchdog();
@@ -325,6 +327,7 @@ bool connectNetwork()
         }
 
         SerialMon.println("Network connected, connecting GPRS...");
+        serviceHardwareWatchdog(WatchdogStage::GprsAttach);
         const bool gprsReady =
             modem.gprsConnect(kApn, kNetworkUser, kNetworkPassword);
         serviceHardwareWatchdog();
@@ -421,7 +424,7 @@ void setup_Init()
     SerialMon.begin(115200);
     watchdogDelay(1000);
     reportHardwareWatchdogStatus();
-    serviceHardwareWatchdog();
+    serviceHardwareWatchdog(WatchdogStage::Setup);
 
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
@@ -447,7 +450,7 @@ void setup_Init()
     SerialMon.print("Battery voltage: ");
     SerialMon.print(state.batteryVoltage, 2);
     SerialMon.println(" V");
-    serviceHardwareWatchdog();
+    serviceHardwareWatchdog(WatchdogStage::Setup);
 
     initializeRtc();
     if (!isRtcTimeSet())
@@ -459,13 +462,13 @@ void setup_Init()
     {
         printRtcDateTime();
     }
-    serviceHardwareWatchdog();
+    serviceHardwareWatchdog(WatchdogStage::Setup);
 
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
     #if APP_HAS_LORA
     initializeLoraLink();
-    serviceHardwareWatchdog();
+    serviceHardwareWatchdog(WatchdogStage::Setup);
     #endif
 
     #if APP_HAS_IP_UPLINK

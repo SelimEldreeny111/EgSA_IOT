@@ -548,12 +548,13 @@ constexpr bool kEnableGatewayHeartbeatLogs = true;
 constexpr bool kEnableVerboseMqttLogs = true;//false  or  true 
 constexpr bool kEnablePublishTimingLogs = true;//false  or  true 
 
-// STM32F401 independent hardware watchdog. The timeout is in microseconds,
-// as required by the STM32duino IWatchdog library. A healthy superloop feeds
-// it only after a bounded operation returns; a function that blocks for more
-// than 25 seconds is therefore reset by hardware. Network recovery is also
-// reset after two complete failed connection cycles, even if the modem APIs
-// continue returning instead of becoming permanently blocked.
+// STM32F401 independent hardware watchdog. This is a GLOBAL controller safety
+// deadline, not only a GSM/WiFi retry timer. The timeout is in microseconds as
+// required by STM32duino IWatchdog. Application-owned bounded phases reach an
+// explicit progress checkpoint within 12 seconds; an opaque modem call that
+// does not return before the nominal 25-second deadline is intentionally
+// treated as stuck. Network retry exhaustion remains an additional recovery
+// policy for calls that do return.
 #ifndef APP_ENABLE_HARDWARE_WATCHDOG
 #define APP_ENABLE_HARDWARE_WATCHDOG 1
 #endif
@@ -563,12 +564,37 @@ constexpr bool kEnablePublishTimingLogs = true;//false  or  true
 #ifndef APP_NETWORK_FAILURES_BEFORE_RESET
 #define APP_NETWORK_FAILURES_BEFORE_RESET 2U
 #endif
+
+// Controlled fault injection. Leave DISABLED in every production image.
+// AFTER_SETUP proves boot/application coverage; MAIN_LOOP proves runtime
+// coverage. The test resets by IWDG, reports PASS on the immediately following
+// boot, and then permits normal execution so the result can be read.
+#define APP_WATCHDOG_SELF_TEST_DISABLED 0
+#define APP_WATCHDOG_SELF_TEST_AFTER_SETUP 1
+#define APP_WATCHDOG_SELF_TEST_MAIN_LOOP 2
+#ifndef APP_WATCHDOG_SELF_TEST_MODE
+#define APP_WATCHDOG_SELF_TEST_MODE APP_WATCHDOG_SELF_TEST_DISABLED
+#endif
+
 constexpr bool kEnableHardwareWatchdog =
     APP_ENABLE_HARDWARE_WATCHDOG != 0;
 constexpr uint32_t kWatchdogTimeoutUs = APP_WATCHDOG_TIMEOUT_US;
 constexpr uint32_t kWatchdogForcedResetTimeoutUs = 250000UL;
 constexpr uint8_t kNetworkFailuresBeforeReset =
     APP_NETWORK_FAILURES_BEFORE_RESET;
+constexpr uint8_t kWatchdogSelfTestMode = APP_WATCHDOG_SELF_TEST_MODE;
+
+// STM32duino 2.12.0 calculates this limit from a typical 32 kHz LSI clock.
+// IWDG timing is approximate because the physical LSI oscillator is not a
+// precision time base.
+static_assert(
+    APP_WATCHDOG_TIMEOUT_US >= 1000000UL &&
+    APP_WATCHDOG_TIMEOUT_US <= 32760000UL,
+    "APP_WATCHDOG_TIMEOUT_US must be within 1,000,000..32,760,000 us");
+static_assert(
+    APP_WATCHDOG_SELF_TEST_MODE >= APP_WATCHDOG_SELF_TEST_DISABLED &&
+    APP_WATCHDOG_SELF_TEST_MODE <= APP_WATCHDOG_SELF_TEST_MAIN_LOOP,
+    "APP_WATCHDOG_SELF_TEST_MODE is invalid");
 
 // Keep these enabled during LoRa commissioning. Every transmitted/accepted
 // application frame is printed in full, while rejected or incomplete streams

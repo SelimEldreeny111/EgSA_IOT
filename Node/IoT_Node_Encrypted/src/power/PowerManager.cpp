@@ -293,6 +293,7 @@ bool activeTransportIsIdleForPowerDown()
 
 PowerDownRequestOutcome requestPowerDownCycle()
 {
+  serviceHardwareWatchdog(WatchdogStage::PowerTransition);
   const uint32_t requestEpoch = getEpochTime();
   if (requestEpoch < AppConfig::kPowerMinimumValidRtcEpoch)
   {
