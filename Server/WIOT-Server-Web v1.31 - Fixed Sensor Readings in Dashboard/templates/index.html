@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WIOT Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
+</head>
+<body data-role="{{ role }}" data-supervisor="{{ '1' if allow_company_edit else '' }}">
+<div class="app-shell">
+
+    <!-- =========== SIDEBAR =========== -->
+    <aside class="sidebar d-flex flex-column">
+        <div class="brand">
+            <img src="/static/images/EgSA New logo.jpg" alt="EgSA">
+            <div>
+                <div class="title">WIOT</div>
+                <div class="sub">IoT Server Dashboard</div>
+            </div>
+        </div>
+
+        <ul class="nav nav-pills flex-column" id="sideTabs" role="tablist">
+            <li class="nav-section">Monitoring</li>
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#LiveStatus" type="button" role="tab"><i class="bi bi-activity"></i> Live Status</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#LiveGraphs" type="button" role="tab"><i class="bi bi-graph-up"></i> Live Graphs</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#NodeLocation" type="button" role="tab"><i class="bi bi-geo-alt"></i> Node Location</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#TabularData" type="button" role="tab" id="tab-btn-tabular"><i class="bi bi-table"></i> Historical DB</button></li>
+
+            {% if role == 'admin' %}
+            <li class="nav-section">Administration</li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#Commands" type="button" role="tab"><i class="bi bi-terminal"></i> Commands</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#Logs" type="button" role="tab"><i class="bi bi-journal-text"></i> System Logs</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#UserMgmt" type="button" role="tab"><i class="bi bi-people"></i> User Management</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#Configuration" type="button" role="tab" id="config-nav-btn"><i class="bi bi-sliders"></i> Configuration<span class="alert-nav-badge" id="alert-nav-badge" style="display:none">0</span></button></li>
+            {% endif %}
+        </ul>
+
+        <div class="user-box mt-auto">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-person-circle fs-4 text-info"></i>
+                <div>
+                    <div class="fw-semibold">{{ username }}</div>
+                    <div class="status-note small">{{ company }} · {{ display_role|capitalize }}</div>
+                </div>
+            </div>
+            <a href="/change_password" class="btn btn-sm btn-outline-light w-100 mb-1"><i class="bi bi-key"></i> Change Password</a>
+            <a href="/logout" class="btn btn-sm btn-danger w-100"><i class="bi bi-box-arrow-right"></i> Logout</a>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
+    <!-- =========== MAIN =========== -->
+    <main class="main">
+
+        <div class="topbar">
+            <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                <button id="sidebar-toggler" class="btn btn-sm btn-outline-light d-md-none"><i class="bi bi-list fs-5"></i></button>
+                <div class="min-w-0">
+                    <h1>IoT Server Dashboard<span class="role-pill">{{ display_role|capitalize }}</span></h1>
+                    <div class="status-note">Realtime telemetry, command control and historical data</div>
+                </div>
+            </div>
+            <div class="topbar-conn-strip">
+                <button class="btn btn-sm btn-outline-light theme-toggle" id="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch theme">
+                    <i class="bi bi-sun"></i>
+                </button>
+            {% if role == 'admin' or allow_company_edit %}
+                <select class="form-select form-select-sm topbar-company" id="cfg-company" onchange="handleCompanyChange()" {% if not allow_company_edit %}disabled{% endif %}>
+                    <option value="Company_1" {% if company == 'Company_1' %}selected{% endif %}>Company_1</option>
+                    <option value="Company_2" {% if company == 'Company_2' %}selected{% endif %}>Company_2</option>
+                </select>
+                <button class="btn btn-sm btn-primary topbar-btn" id="btn-connect" onclick="connect()"><i class="bi bi-plug me-1"></i>Connect</button>
+                <button class="btn btn-sm btn-danger topbar-btn" id="btn-disconnect" onclick="disconnect()" disabled><i class="bi bi-power me-1"></i>Disconnect</button>
+                <!-- Hidden config fields - restored from localStorage at runtime -->
+                <input type="hidden" id="cfg-broker" value="">
+                <input type="hidden" id="cfg-port" value="1883">
+                <input type="hidden" id="cfg-aes" value="">
+                <input type="hidden" id="cfg-client" value="iot_server">
+            {% else %}
+                <input type="hidden" id="cfg-company" value="{{ company }}">
+            {% endif %}
+                <div id="conn-indicator" class="conn-indicator"><span class="dot"></span><span class="text">Disconnected</span></div>
+                <div id="data-freshness" class="freshness-indicator"><span class="dot"></span><span class="text">No live data</span></div>
+            </div>
+        </div>
+        <div id="live-warning-banner" class="live-warning-banner d-none" role="status" aria-live="polite"></div>
+
+        <div class="fleet-summary" aria-label="Fleet summary">
+            <div class="fleet-item">
+                <i class="bi bi-diagram-3"></i>
+                <div>
+                    <div class="label">Configured Nodes</div>
+                    <div class="value" id="fleet-total">0</div>
+                </div>
+            </div>
+            <div class="fleet-item">
+                <i class="bi bi-broadcast-pin"></i>
+                <div>
+                    <div class="label">Active Now</div>
+                    <div class="value" id="fleet-active">0</div>
+                </div>
+            </div>
+            <div class="fleet-item">
+                <i class="bi bi-clock-history"></i>
+                <div>
+                    <div class="label">Last Message</div>
+                    <div class="value compact" id="fleet-last">No data</div>
+                </div>
+            </div>
+            <div class="fleet-item">
+                <i class="bi bi-bell"></i>
+                <div>
+                    <div class="label">Open Alerts</div>
+                    <div class="value" id="fleet-alerts">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========== TAB CONTENT =========== -->
+        <div class="tab-content">
+
+            <!-- LIVE STATUS -->
+            <div class="tab-pane fade show active" id="LiveStatus" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-activity me-2"></i>Live Node Metrics</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 small">Node:</label>
+                            <select id="live-node-select" class="form-select form-select-sm" style="min-width:160px;" onchange="syncNodeSelection(this.value)"></select>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="status-note mb-3" id="live-node-note"></div>
+                        <div class="empty-state mb-3 d-none" id="live-empty-state">Connect to an MQTT broker to start receiving live data. Use the Connect button above.</div>
+
+                        <!-- Info strip -->
+                        <div class="metric-grid mb-3">
+                            <div class="metric-card" id="status-card" title="Valve state reported by the device. Open = water flowing, Closed = valve shut.">
+                                <i class="bi bi-toggles icon" id="status-icon"></i>
+                                <div class="label">Valve State</div>
+                                <div class="value" id="m-status">-</div>
+                                <div class="status-sublabel" id="status-sublabel">device-reported</div>
+                            </div>
+                            <div class="metric-card">
+                                <i class="bi bi-clock icon"></i>
+                                <div class="label">Last Update</div>
+                                <div class="value" id="m-time" style="font-size:1rem">-</div>
+                                <div class="status-sublabel" id="m-updated">No update yet</div>
+                            </div>
+                            <div class="metric-card">
+                                <i class="bi bi-cpu icon"></i>
+                                <div class="label">Sensor ID</div>
+                                <div class="value" id="m-sensor">-</div>
+                            </div>
+                            <div class="metric-card">
+                                <i class="bi bi-battery-half icon"></i>
+                                <div class="label">Battery Voltage</div>
+                                <div class="value"><span id="m-battery">-</span><span class="fs-6 text-muted ms-1">V</span></div>
+                                <div class="status-sublabel">device-reported</div>
+                            </div>
+                        </div>
+
+                        <!-- Gauges -->
+                        <div class="row g-3 mb-3">
+                            <!-- Flow Rate Water Gauge -->
+                            <div class="col-md-6">
+                                <div class="wg-wrapper">
+                                    <div class="wg-label">
+                                        <i class="bi bi-droplet-half me-1"></i>Flow Rate
+                                    </div>
+                                    <div class="wg-circle wg-flow" id="wg-flow-circle">
+                                        <div class="wg-fill" id="wg-fill-flow"></div>
+                                        <div class="wg-center">
+                                            <div class="wg-val" id="m-flow">-</div>
+                                            <div class="wg-unit">m³/h</div>
+                                            <div class="wg-pct" id="wg-pct-flow">—</div>
+                                        </div>
+                                    </div>
+                                    <div class="wg-footer">
+                                        <span class="wg-minmax"><span id="g-flow-min">0</span> min</span>
+                                        <div class="wg-state-col">
+                                            <div class="gauge-trend" id="trend-flow"></div>
+                                            <span class="wg-state-badge" id="wg-state-flow"></span>
+                                        </div>
+                                        <span class="wg-minmax"><span id="g-flow-max">100</span> max</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Velocity Water Gauge -->
+                            <div class="col-md-6">
+                                <div class="wg-wrapper">
+                                    <div class="wg-label">
+                                        <i class="bi bi-speedometer2 me-1"></i>Velocity
+                                    </div>
+                                    <div class="wg-circle wg-vel" id="wg-vel-circle">
+                                        <div class="wg-fill wg-fill-vel" id="wg-fill-vel"></div>
+                                        <div class="wg-center">
+                                            <div class="wg-val" id="m-velocity">-</div>
+                                            <div class="wg-unit">m/s</div>
+                                            <div class="wg-pct" id="wg-pct-vel">—</div>
+                                        </div>
+                                    </div>
+                                    <div class="wg-footer">
+                                        <span class="wg-minmax"><span id="g-vel-min">0</span> min</span>
+                                        <div class="wg-state-col">
+                                            <div class="gauge-trend" id="trend-vel"></div>
+                                            <span class="wg-state-badge" id="wg-state-vel"></span>
+                                        </div>
+                                        <span class="wg-minmax"><span id="g-vel-max">5</span> max</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Soil & EC Sensors -->
+                        <div class="row g-3 mb-3">
+                            <!-- Soil Moisture & Temp Sensor Card -->
+                            <div class="col-md-6">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header d-flex justify-content-between align-items-center" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); border-top-left-radius: 10px; border-top-right-radius: 10px; padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-thermometer-half me-1 text-info"></i>HNDA Soil Sensor</span>
+                                        <span class="badge bg-secondary" id="m-soil-status">-</span>
+                                    </div>
+                                    <div class="card-body" style="padding: 15px;">
+                                        <div class="row text-center">
+                                            <div class="col-6 border-end" style="border-color: var(--wiot-border) !important;">
+                                                <div class="small text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Temperature</div>
+                                                <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-soil-temp">-</span><span class="fs-6 text-muted ms-1">°C</span></div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="small text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Moisture</div>
+                                                <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-soil-moist">-</span><span class="fs-6 text-muted ms-1">%</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Soil Moisture, Temp & EC Sensor Card -->
+                            <div class="col-md-6">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header d-flex justify-content-between align-items-center" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); border-top-left-radius: 10px; border-top-right-radius: 10px; padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-moisture me-1 text-success"></i>Sondas Soil Sensor</span>
+                                        <span class="badge bg-secondary" id="m-ec-status">-</span>
+                                    </div>
+                                    <div class="card-body" style="padding: 15px;">
+                                        <div class="row text-center">
+                                            <div class="col-4 border-end" style="border-color: var(--wiot-border) !important;">
+                                                <div class="small text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Temp</div>
+                                                <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-ec-temp">-</span><span class="fs-6 text-muted ms-1">°C</span></div>
+                                            </div>
+                                            <div class="col-4 border-end" style="border-color: var(--wiot-border) !important;">
+                                                <div class="small text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Moist</div>
+                                                <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-ec-moist">-</span><span class="fs-6 text-muted ms-1">%</span></div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="small text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">EC</div>
+                                                <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-ec-cond">-</span><span class="fs-6 text-muted ms-1"> μS</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Accumulated Flow Volumes -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); border-top-left-radius: 10px; border-top-right-radius: 10px; padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-calendar-day me-1 text-warning"></i>Consumption Today</span>
+                                    </div>
+                                    <div class="card-body" style="padding: 15px; text-align: center;">
+                                        <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-fday">-</span><span class="fs-6 text-muted ms-1">m³</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); border-top-left-radius: 10px; border-top-right-radius: 10px; padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-calendar-month me-1 text-info"></i>Consumption This Month</span>
+                                    </div>
+                                    <div class="card-body" style="padding: 15px; text-align: center;">
+                                        <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-fmonth">-</span><span class="fs-6 text-muted ms-1">m³</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); border-top-left-radius: 10px; border-top-right-radius: 10px; padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-calendar me-1 text-success"></i>Consumption This Year</span>
+                                    </div>
+                                    <div class="card-body" style="padding: 15px; text-align: center;">
+                                        <div class="fs-5 fw-bold" style="color: var(--wiot-text);"><span id="m-fyear">-</span><span class="fs-6 text-muted ms-1">m³</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Flow meter identity, calculation source and cumulative totals -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-5">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-info-circle me-1 text-info"></i>Flow Meter Status</span>
+                                    </div>
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between"><span class="text-muted">Meter</span><strong id="m-flow-meter">-</strong></div>
+                                        <div class="d-flex justify-content-between"><span class="text-muted">Period source</span><strong id="m-period-source">-</strong></div>
+                                        <div class="d-flex justify-content-between"><span class="text-muted">Quality</span><strong id="m-period-quality">-</strong></div>
+                                        <div class="d-flex justify-content-between"><span class="text-muted">RTC</span><strong id="m-rtc-valid">-</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="card h-100" style="background: var(--wiot-surface-2); border: 1px solid var(--wiot-border); border-radius: 10px;">
+                                    <div class="card-header" style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--wiot-border); padding: 10px 15px;">
+                                        <span class="fw-semibold"><i class="bi bi-water me-1 text-primary"></i>Cumulative Meter Totals</span>
+                                    </div>
+                                    <div class="card-body py-2">
+                                        <div class="row text-center">
+                                            <div class="col-4 border-end" style="border-color: var(--wiot-border) !important;"><div class="small text-muted">Forward</div><strong><span id="m-forward-total">-</span> m³</strong></div>
+                                            <div class="col-4 border-end" style="border-color: var(--wiot-border) !important;"><div class="small text-muted">Reverse</div><strong><span id="m-reverse-total">-</span> m³</strong></div>
+                                            <div class="col-4"><div class="small text-muted">Net</div><strong><span id="m-net-total">-</span> m³</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Details -->
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-info-circle text-info fs-5"></i>
+                                    <div>
+                                        <div class="label text-muted small" style="text-transform:uppercase; font-size:0.7rem; letter-spacing:0.05em;">Status Details</div>
+                                        <div class="value fw-semibold" id="m-details">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIVE GRAPHS -->
+            <div class="tab-pane fade" id="LiveGraphs" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-graph-up me-2"></i>Real-time Flow and Velocity</span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="form-label mb-0 small">Node:</label>
+                                <select id="graph-node-select" class="form-select form-select-sm" style="min-width:160px;" onchange="syncNodeSelection(this.value)"></select>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="graph-range-group btn-group btn-group-sm" role="group" aria-label="Graph range">
+                                    <button type="button" class="btn btn-outline-light active" data-range="10" onclick="setGraphWindow(10)">10</button>
+                                    <button type="button" class="btn btn-outline-light" data-range="25" onclick="setGraphWindow(25)">25</button>
+                                    <button type="button" class="btn btn-outline-light" data-range="50" onclick="setGraphWindow(50)">50</button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-light" onclick="downloadChartImage()"><i class="bi bi-download"></i> Export</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="status-note mb-3" id="graph-node-note"></div>
+                        <div class="chart-wrapper">
+                            <canvas id="liveChart"></canvas>
+                            <div class="chart-empty-state" id="graph-empty-state">No data available for the selected node.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NODE LOCATION -->
+            <div class="tab-pane fade" id="NodeLocation" role="tabpanel">
+                <div class="row g-3">
+                    <div class="col-lg-9">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <span><i class="bi bi-geo-alt me-2"></i>Node Location Map</span>
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="status-note small"><i class="bi bi-cursor me-1"></i>Drag markers to reposition — saved in browser</span>
+                                    <button class="btn btn-sm btn-outline-light" onclick="resetMapView()"><i class="bi bi-fullscreen me-1"></i>Reset View</button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="node-map" class="map-wrapper"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card" style="height:100%;">
+                            <div class="card-header"><i class="bi bi-list-ul me-2"></i>Node Status</div>
+                            <div class="card-body p-2" id="map-node-list" style="overflow-y:auto;">
+                                <div class="status-note small p-2">No nodes online yet.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORICAL DB -->
+            <div class="tab-pane fade" id="TabularData" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-table me-2"></i>Historical Messages Database</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-auto">
+                                <label class="form-label small">Start Date</label>
+                                <input type="date" class="form-control form-control-sm" id="filter-start">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small">End Date</label>
+                                <input type="date" class="form-control form-control-sm" id="filter-end">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary btn-sm" onclick="searchTabular()"><i class="bi bi-search me-1"></i>Search</button>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-outline-light btn-sm" onclick="exportExcel()"><i class="bi bi-download me-1"></i>Export CSV</button>
+                            </div>
+                            <div class="col-auto">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-light" id="history-prev-btn" type="button" onclick="changeHistoryPage(-1)" disabled><i class="bi bi-chevron-left"></i></button>
+                                    <button class="btn btn-outline-light" id="history-next-btn" type="button" onclick="changeHistoryPage(1)" disabled><i class="bi bi-chevron-right"></i></button>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <select class="form-select form-select-sm" id="history-page-size" onchange="setHistoryPageSize(this.value)">
+                                    <option value="25">25 / page</option>
+                                    <option value="50" selected>50 / page</option>
+                                    <option value="100">100 / page</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <span class="status-note small" id="history-page-info">Page 1 of 1</span>
+                            </div>
+                            <div class="col ms-auto">
+                                <input type="search" class="form-control form-control-sm" id="table-search" placeholder="&#xF52A;  Filter results…" style="max-width:220px;">
+                            </div>
+                            <div class="col-auto">
+                                <span class="status-note small" id="table-count">0 records</span>
+                            </div>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="table table-wiot mb-0" id="message-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th><th>Type</th><th>Node ID</th><th>Sensor</th><th>Status</th><th>Battery (V)</th>
+                                        <th>Flow (m³/h)</th><th>Velocity</th><th>Today (m³)</th><th>Month (m³)</th><th>Year (m³)</th>
+                                        <th>Meter</th><th>Period Source</th><th>Quality</th>
+                                        <th>Soil Temp</th><th>Soil Moist</th><th>EC Temp</th><th>EC Moist</th><th>EC Cond</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if role == 'admin' %}
+            <!-- COMMANDS -->
+            <div class="tab-pane fade" id="Commands" role="tabpanel">
+                <div class="card mb-4">
+                    <div class="card-header"><i class="bi bi-terminal me-2"></i>Send Command</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Target Node</label>
+                                <select id="cmd-node" class="form-select" onchange="syncNodeSelection(this.value)"></select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Command</label>
+                                <select id="cmd-type" class="form-select" onchange="handleCmdChange()">
+                                    <option value="SRATE">SRATE</option>
+                                    <option value="STRAN">STRAN</option>
+                                    <option value="STIME">STIME</option>
+                                    <option value="GOSTM">GOSTM</option>
+                                    <option value="VALVE">VALVE</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Command Data</label>
+                                <input type="text" class="form-control" id="cmd-data" value="5">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">STIME Interval (sec)</label>
+                                <input type="number" class="form-control" id="cmd-interval" value="30" min="1">
+                            </div>
+                            <div class="col-12">
+                                <div class="status-note" id="cmd-node-note">Commands may be sent to any node, even inactive ones.</div>
+                            </div>
+                            <div class="col-12 d-flex flex-wrap gap-2">
+                                <button class="btn btn-primary command-action" onclick="sendCommand(false)" disabled><i class="bi bi-send me-1"></i>Send Command</button>
+                                <button class="btn btn-outline-light command-action" onclick="sendCommand(true)" disabled><i class="bi bi-broadcast me-1"></i>Broadcast</button>
+                                <button class="btn btn-outline-light command-action" id="start-stime-btn" onclick="startPeriodicStime()" disabled><i class="bi bi-play-circle me-1"></i>Start Periodic STIME</button>
+                                <button class="btn btn-danger" id="stop-stime-btn" onclick="stopPeriodicStime()" disabled><i class="bi bi-stop-circle me-1"></i>Stop</button>
+                            </div>
+                            <div class="col-12 d-flex align-items-center gap-3">
+                                <div id="stime-blinker" class="stime-blinker" aria-live="polite">
+                                    <span class="stime-dot"></span>
+                                    <span class="stime-text">Periodic STIME is active</span>
+                                </div>
+                                <span class="status-note" id="stime-status">Periodic STIME is stopped.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-arrow-down-circle me-2"></i>GOSTM Telemetry Response (Latest)</span>
+                        <button class="btn btn-sm btn-outline-light" onclick="document.querySelector('#gostm-table tbody').innerHTML=''"><i class="bi bi-x-circle"></i> Clear</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-scroll-sm">
+                            <table class="table table-wiot mb-0" id="gostm-table">
+                                <thead>
+                                    <tr><th>Time</th><th>Node</th><th>Sensor</th><th>Battery (V)</th><th>Flow</th><th>Velocity</th><th>D / M / Y</th><th>Meter / Source / Quality</th><th>Details</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-clock-history me-2"></i>Command History</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-light" onclick="loadCommandHistory(1)"><i class="bi bi-arrow-repeat me-1"></i>Refresh</button>
+                            <span class="status-note small" id="command-history-count">0 commands</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-light" id="cmd-history-prev" type="button" onclick="changeCommandHistoryPage(-1)" disabled><i class="bi bi-chevron-left"></i></button>
+                                <button class="btn btn-outline-light" id="cmd-history-next" type="button" onclick="changeCommandHistoryPage(1)" disabled><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                            <span class="status-note small" id="command-history-page-info">Page 1 of 1</span>
+                        </div>
+                        <div class="table-scroll-sm">
+                            <table class="table table-wiot mb-0" id="command-history-table">
+                                <thead>
+                                    <tr><th>Time</th><th>Node</th><th>Command</th><th>Details</th><th>Company</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGS -->
+            <div class="tab-pane fade" id="Logs" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-journal-text me-2"></i>System Logs</span>
+                        <div class="d-flex gap-2">
+                            <a href="/export_log" class="btn btn-sm btn-outline-light" target="_blank"><i class="bi bi-download"></i> Export</a>
+                            <button class="btn btn-sm btn-danger" onclick="document.getElementById('sys-logs').innerHTML=''"><i class="bi bi-trash"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="terminal" id="sys-logs"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- USER MANAGEMENT -->
+            <div class="tab-pane fade" id="UserMgmt" role="tabpanel">
+
+                {% if allow_company_edit %}
+                <div class="card mb-4">
+                    <div class="card-header"><i class="bi bi-building me-2"></i>Company Management</div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">New Company Name</label>
+                                <input type="text" class="form-control" id="new-company-name" placeholder="e.g., Company_3">
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-primary" onclick="addCompany()"><i class="bi bi-plus-lg me-1"></i>Add Company</button>
+                            </div>
+                        </div>
+                        <h6 class="status-note text-uppercase mt-3">Available Companies</h6>
+                        <div class="table-scroll-sm">
+                            <table class="table table-wiot mb-0" id="companies-table">
+                                <thead><tr><th>Company Name</th><th>Created At</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="card mb-4">
+                    <div class="card-header"><i class="bi bi-person-plus me-2"></i>Create User</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control" id="new-user-name" placeholder="Username">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" id="new-user-pass" placeholder="Password">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Role</label>
+                                <select id="new-user-role" class="form-select">
+                                    <option value="user">User</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            {% if allow_company_edit %}
+                            <div class="col-md-2">
+                                <label class="form-label">Company</label>
+                                <select id="new-user-company" class="form-select">
+                                    <option value="Company_1">Company_1</option>
+                                    <option value="Company_2">Company_2</option>
+                                </select>
+                            </div>
+                            {% endif %}
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button class="btn btn-primary w-100" onclick="createUser()"><i class="bi bi-plus-lg me-1"></i>Create</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><i class="bi bi-people me-2"></i>Existing Users</div>
+                    <div class="card-body">
+                        <div class="table-scroll-sm">
+                            <table class="table table-wiot mb-0" id="users-table">
+                                <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Company</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    {% for user_item in users %}
+                                    <tr>
+                                        <td>{{ user_item.id }}</td>
+                                        <td>{{ user_item.username }}</td>
+                                        <td><span class="badge {{ 'bg-danger' if user_item.role == 'admin' else 'bg-info' }}">{{ user_item.role.upper() }}</span></td>
+                                        <td>{{ user_item.company }}</td>
+                                        <td>
+                                            {% if user_item.username not in ['EgSA_Supervisor', 'Company1_Admin', 'Company2_Admin', 'Company1_User', 'Company2_User'] %}
+                                            <button class="btn btn-sm btn-danger" onclick="deleteUser({{ user_item.id }})"><i class="bi bi-trash"></i></button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% if role == 'admin' %}
+            <!-- CONFIGURATION -->
+            <div class="tab-pane fade" id="Configuration" role="tabpanel">
+
+                <!-- Broker Configuration -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-broadcast"></i> Broker Configuration</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-5 col-sm-6">
+                                <label class="form-label">Broker Host</label>
+                                <input type="text" class="form-control" id="cfg-broker" value="broker.hivemq.com">
+                            </div>
+                            <div class="col-md-2 col-sm-6">
+                                <label class="form-label">Port</label>
+                                <input type="number" class="form-control" id="cfg-port" value="1883">
+                            </div>
+                            <div class="col-md-5 col-sm-12">
+                                <label class="form-label">Client ID</label>
+                                <input type="text" class="form-control" id="cfg-client" value="iot_server_wiot">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">AES Key (Hex)</label>
+                                <input type="password" class="form-control font-monospace" id="cfg-aes" value="">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sensor Thresholds -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-sliders me-2"></i>Sensor Thresholds <span class="badge bg-warning text-dark d-none" id="threshold-dirty-badge">Unsaved changes</span></span>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-light" onclick="resetThresholds()"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
+                            <button class="btn btn-sm btn-primary" onclick="saveThresholds()"><i class="bi bi-save me-1"></i>Save All</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="status-note small mb-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Limits are checked against every incoming message. Leave a field blank to disable that limit.
+                            Alerts fire once per 60 seconds per node/field to avoid spam.
+                        </p>
+                        <div class="table-scroll">
+                            <table class="table table-wiot" id="threshold-table">
+                                <thead>
+                                    <tr>
+                                        <th style="min-width:90px">Node</th>
+                                        <th>Flow Min<br><small class="fw-normal text-muted">m³/h</small></th>
+                                        <th>Flow Max<br><small class="fw-normal text-muted">m³/h</small></th>
+                                        <th>Velocity Min<br><small class="fw-normal text-muted">m/s</small></th>
+                                        <th>Velocity Max<br><small class="fw-normal text-muted">m/s</small></th>
+                                        <th style="min-width:80px">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="threshold-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Node Locations -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-geo-alt me-2"></i>Node Locations</span>
+                        <span class="status-note small"><i class="bi bi-info-circle me-1"></i>Click <b>Set Location</b> to pin a node on the map.</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-scroll">
+                            <table class="table table-wiot" id="location-table">
+                                <thead>
+                                    <tr>
+                                        <th style="min-width:90px">Node</th>
+                                        <th>Latitude</th>
+                                        <th>Longitude</th>
+                                        <th>Status</th>
+                                        <th style="min-width:120px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="location-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alert Log -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-bell me-2"></i>Alert Log
+                            <span class="badge bg-danger ms-1" id="alert-count-badge" style="display:none">0</span>
+                        </span>
+                        <button class="btn btn-sm btn-outline-light" onclick="clearAlertLog()"><i class="bi bi-trash me-1"></i>Clear</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-scroll-sm">
+                            <table class="table table-wiot mb-0" id="alert-log-table">
+                                <thead>
+                                    <tr><th>Time</th><th>Node</th><th>Field</th><th>Value</th><th>Limit</th><th>Type</th></tr>
+                                </thead>
+                                <tbody id="alert-log-tbody">
+                                    <tr><td colspan="6" class="text-center status-note py-3">No alerts triggered yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="position-fixed bottom-0 end-0 p-3" style="z-index:9999;min-width:300px;"></div>
+
+<!-- Confirm modal -->
+<div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:var(--wiot-surface);border:1px solid var(--wiot-border);">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Confirm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="confirm-message">Are you sure?</div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-ok">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Node Location Picker Modal -->
+<div class="modal fade" id="location-picker-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background:var(--wiot-surface);border:1px solid var(--wiot-border);">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="bi bi-geo-alt-fill text-info me-2"></i>Set Location — <span id="loc-modal-title">Node</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="px-3 pt-3 pb-2 d-flex align-items-center gap-3 flex-wrap">
+                    <span class="status-note small"><i class="bi bi-cursor me-1"></i>Click anywhere on the map to place the pin, or drag it to adjust.</span>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <label class="form-label mb-0 text-nowrap">Lat</label>
+                        <input type="number" id="loc-lat-input" class="form-control form-control-sm font-monospace" step="any" style="width:130px" placeholder="—">
+                        <label class="form-label mb-0 text-nowrap">Lng</label>
+                        <input type="number" id="loc-lng-input" class="form-control form-control-sm font-monospace" step="any" style="width:130px" placeholder="—">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="applyManualCoords()" title="Move pin to typed coordinates"><i class="bi bi-arrow-right-circle"></i></button>
+                    </div>
+                </div>
+                <div id="location-picker-map" class="location-picker-map"></div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="loc-save-btn" onclick="savePickedLocation()">
+                    <i class="bi bi-pin-map-fill me-1"></i>Save Location
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js?v=20260709-2"></script>
+</body>
+</html>

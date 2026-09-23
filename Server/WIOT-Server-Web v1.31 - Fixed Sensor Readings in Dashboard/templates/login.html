@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login — WIOT Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <img src="/static/images/EgSA New logo.jpg" alt="EgSA" class="brand-logo">
+            <h1 class="auth-title">WIOT Dashboard</h1>
+            <p class="auth-tagline">Water IoT Platform</p>
+            <p class="auth-subtitle">Sign in to continue</p>
+
+            {% if error %}
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>{{ error }}</div>
+            </div>
+            {% endif %}
+
+            <form method="POST" autocomplete="off">
+                <div class="mb-3">
+                    <label class="form-label"><i class="bi bi-person me-1"></i>Username</label>
+                    <input type="text" name="username" class="form-control form-control-lg" required autofocus>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label"><i class="bi bi-lock me-1"></i>Password</label>
+                    <input type="password" name="password" class="form-control form-control-lg" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-lg fw-semibold">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+                </button>
+            </form>
+
+            <div class="auth-badges">
+                <span><i class="bi bi-shield-lock-fill"></i>Secure Connection</span>
+                <span><i class="bi bi-broadcast"></i>Encrypted Telemetry</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

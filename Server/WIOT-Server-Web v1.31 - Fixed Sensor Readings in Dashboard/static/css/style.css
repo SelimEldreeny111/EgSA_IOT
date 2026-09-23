@@ -1,0 +1,988 @@
+/* WIOT Dashboard — custom layer on top of Bootstrap 5 dark theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --wiot-bg: #0b1020;
+    --wiot-surface: #111a32;
+    --wiot-surface-2: #18223f;
+    --wiot-border: #2a3556;
+    --wiot-accent: #4cc9f0;
+    --wiot-accent-2: #7c3aed;
+    --wiot-text: #e6edf7;
+    --wiot-muted: #98a2c3;
+    --wiot-success: #22c55e;
+    --wiot-danger: #ef4444;
+    --wiot-warning: #f59e0b;
+    --sidebar-width: 240px;
+    --wiot-body-bg:
+        radial-gradient(1200px 800px at 10% -10%, #1b2750 0%, transparent 60%),
+        radial-gradient(1000px 700px at 110% 10%, #2a1750 0%, transparent 55%),
+        var(--wiot-bg);
+    --wiot-sidebar-bg: rgba(10, 14, 30, 0.85);
+    --wiot-gauge-track: #1a2340;
+    --wiot-gauge-tick: #263050;
+    --wiot-gauge-minmax: #3a4670;
+    --wiot-terminal-bg: #05080f;
+    --wiot-terminal-text: #aef0c8;
+    --wiot-map-bg: #090e1e;
+    --wiot-shadow: rgba(0,0,0,0.45);
+    --wiot-surface-rgb: 17, 26, 50;
+}
+
+[data-bs-theme="light"] {
+    --wiot-bg: #f4f7fb;
+    --wiot-surface: #ffffff;
+    --wiot-surface-2: #eef3f8;
+    --wiot-border: #cdd7e4;
+    --wiot-accent: #067aa3;
+    --wiot-accent-2: #5964d8;
+    --wiot-text: #1b2533;
+    --wiot-muted: #667085;
+    --wiot-body-bg:
+        radial-gradient(1000px 700px at 8% -10%, rgba(6, 122, 163, 0.16) 0%, transparent 58%),
+        radial-gradient(900px 600px at 112% 8%, rgba(89, 100, 216, 0.12) 0%, transparent 55%),
+        var(--wiot-bg);
+    --wiot-sidebar-bg: rgba(255, 255, 255, 0.9);
+    --wiot-gauge-track: #dbe4ef;
+    --wiot-gauge-tick: #b8c4d4;
+    --wiot-gauge-minmax: #7d899b;
+    --wiot-terminal-bg: #101828;
+    --wiot-terminal-text: #bbf7d0;
+    --wiot-map-bg: #e7edf4;
+    --wiot-shadow: rgba(31, 41, 55, 0.16);
+    --wiot-surface-rgb: 255, 255, 255;
+}
+
+html, body {
+    background: var(--wiot-body-bg);
+    color: var(--wiot-text);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    min-height: 100vh;
+}
+
+/* ============== Layout ============== */
+.app-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1fr;
+    min-height: 100vh;
+}
+
+.sidebar {
+    background: var(--wiot-sidebar-bg);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid var(--wiot-border);
+    padding: 18px 12px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    padding: 14px 10px 20px;
+    border-bottom: 1px solid var(--wiot-border);
+    margin-bottom: 14px;
+}
+.sidebar .brand img {
+    width: 108px;
+    height: 108px;
+    border-radius: 18px;
+    object-fit: contain;
+    background: #fff;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,0.65);
+    box-shadow: 0 12px 28px var(--wiot-shadow), 0 0 0 5px rgba(76, 201, 240, 0.08);
+}
+.sidebar .brand .title { font-weight: 800; font-size: 1.28rem; line-height: 1.1; letter-spacing: 0.08em; }
+.sidebar .brand .sub { font-size: 0.78rem; color: var(--wiot-muted); }
+
+.sidebar .nav-pills .nav-link {
+    color: var(--wiot-muted);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    transition: background .15s, color .15s;
+}
+.sidebar .nav-pills .nav-link i { font-size: 1.05rem; width: 18px; text-align: center; }
+.sidebar .nav-pills .nav-link:hover { background: rgba(76, 201, 240, 0.08); color: var(--wiot-text); }
+.sidebar .nav-pills .nav-link.active {
+    background: linear-gradient(135deg, var(--wiot-accent) 0%, var(--wiot-accent-2) 100%);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(124, 58, 237, 0.25);
+}
+.sidebar .nav-section {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--wiot-muted);
+    letter-spacing: 0.08em;
+    margin: 14px 12px 6px;
+}
+.sidebar .user-box {
+    margin-top: auto;
+    padding: 12px;
+    border-top: 1px solid var(--wiot-border);
+    font-size: 0.85rem;
+}
+.sidebar-backdrop {
+    display: none;
+}
+
+.main { padding: 22px 28px 60px; min-width: 0; }
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.topbar h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+.topbar-conn-strip { display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap; }
+.theme-toggle {
+    width: 34px;
+    height: 31px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.topbar-company { min-width: 120px; max-width: 150px; background: var(--wiot-surface-2); border-color: var(--wiot-border); color: var(--wiot-text); font-size: 0.82rem; }
+.topbar-btn { white-space: nowrap; }
+.gauge-fill.gauge-idle { stroke-linecap: butt; opacity: 0.15; }
+.topbar .role-pill {
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(76, 201, 240, 0.12);
+    color: var(--wiot-accent);
+    margin-left: 8px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.fleet-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.fleet-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    background: var(--wiot-surface);
+    border: 1px solid var(--wiot-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+.fleet-item i {
+    color: var(--wiot-accent);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+.fleet-item .label {
+    color: var(--wiot-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.fleet-item .value {
+    color: var(--wiot-text);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.fleet-item .value.compact {
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ============== Cards & surfaces ============== */
+.card {
+    background: var(--wiot-surface);
+    border: 1px solid var(--wiot-border);
+    border-radius: 14px;
+    color: var(--wiot-text);
+}
+.card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--wiot-border);
+    font-weight: 600;
+}
+
+.form-control, .form-select {
+    background: var(--wiot-surface-2);
+    border: 1px solid var(--wiot-border);
+    color: var(--wiot-text);
+}
+.form-control:focus, .form-select:focus {
+    background: var(--wiot-surface-2);
+    color: var(--wiot-text);
+    border-color: var(--wiot-accent);
+    box-shadow: 0 0 0 0.2rem rgba(76, 201, 240, 0.18);
+}
+.form-control:disabled, .form-control[readonly] { background: var(--wiot-surface-2); opacity: 0.7; }
+.form-label { color: var(--wiot-muted); font-size: 0.85rem; margin-bottom: 4px; }
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--wiot-accent), var(--wiot-accent-2));
+    border: none;
+}
+.btn-primary:hover, .btn-primary:focus { filter: brightness(1.1); background: linear-gradient(135deg, var(--wiot-accent), var(--wiot-accent-2)); }
+.btn-outline-light { color: var(--wiot-text); border-color: var(--wiot-border); }
+.btn-outline-light:hover { background: var(--wiot-surface-2); color: var(--wiot-text); }
+
+/* ============== Metric cards ============== */
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+}
+.metric-card {
+    background: linear-gradient(135deg, var(--wiot-surface) 0%, var(--wiot-surface-2) 100%);
+    border: 1px solid var(--wiot-border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+}
+.metric-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--wiot-accent), var(--wiot-accent-2));
+    opacity: 0.7;
+}
+.metric-card .label { color: var(--wiot-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.metric-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 6px; color: var(--wiot-text); word-break: break-word; }
+.metric-card .value .value-unit { font-size: 0.8rem; font-weight: 500; color: var(--wiot-muted); margin-left: 4px; }
+.metric-card .icon { position: absolute; right: 12px; top: 12px; font-size: 1.2rem; color: var(--wiot-accent); opacity: 0.6; }
+
+/* ============== Tables ============== */
+.table-wiot {
+    color: var(--wiot-text);
+    background: transparent;
+    margin-bottom: 0;
+}
+.table-wiot thead th {
+    background: var(--wiot-surface-2);
+    color: var(--wiot-muted);
+    border-bottom: 1px solid var(--wiot-border);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.table-wiot tbody td { border-color: var(--wiot-border); font-size: 0.9rem; vertical-align: middle; }
+.table-wiot tbody tr:hover { background: rgba(76, 201, 240, 0.04); }
+.table-scroll { max-height: 520px; overflow-y: auto; border: 1px solid var(--wiot-border); border-radius: 10px; }
+.table-scroll-sm { max-height: 280px; overflow-y: auto; border: 1px solid var(--wiot-border); border-radius: 10px; }
+
+.badge-type-status { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.badge-type-telemetry { background: rgba(76, 201, 240, 0.15); color: var(--wiot-accent); }
+.badge-type-command { background: rgba(245, 158, 11, 0.15); color: var(--wiot-warning); }
+
+/* ============== Terminal / logs ============== */
+.terminal {
+    background: var(--wiot-terminal-bg);
+    border: 1px solid var(--wiot-border);
+    border-radius: 10px;
+    color: var(--wiot-terminal-text);
+    font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 0.85rem;
+    padding: 14px;
+    height: 460px;
+    overflow-y: auto;
+    line-height: 1.5;
+}
+
+/* ============== STIME blinker ============== */
+.stime-blinker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--wiot-surface-2);
+    border: 1px solid var(--wiot-border);
+    font-size: 0.85rem;
+    color: var(--wiot-muted);
+    opacity: 0.55;
+}
+.stime-blinker.active {
+    opacity: 1;
+    color: var(--wiot-text);
+    border-color: var(--wiot-success);
+    background: rgba(34, 197, 94, 0.1);
+}
+.stime-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--wiot-muted);
+}
+.stime-blinker.active .stime-dot {
+    background: var(--wiot-success);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+    animation: pulse 1.4s infinite;
+}
+.threshold-dirty {
+    box-shadow: inset 4px 0 0 0 rgba(245, 158, 11, 0.75);
+    background: rgba(245, 158, 11, 0.06);
+}
+#threshold-dirty-badge {
+    font-size: 0.75rem;
+    vertical-align: text-bottom;
+}
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+    70% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+/* ============== Connection indicator ============== */
+.conn-indicator {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 0.78rem; font-weight: 500;
+    border: 1px solid var(--wiot-border);
+}
+.conn-indicator .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wiot-muted); }
+.conn-indicator.connected { color: #4ade80; border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
+.conn-indicator.connected .dot { background: var(--wiot-success); box-shadow: 0 0 6px var(--wiot-success); }
+.conn-indicator.connecting { color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1); }
+.conn-indicator.connecting .dot { background: var(--wiot-warning); box-shadow: none; }
+
+.freshness-indicator { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:0.78rem; font-weight:500; border:1px solid var(--wiot-border); color: var(--wiot-muted); background: rgba(255,255,255,0.04); }
+.freshness-indicator .dot { width:8px; height:8px; border-radius:50%; background: var(--wiot-muted); }
+.freshness-indicator.ok { color: #4ade80; border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
+.freshness-indicator.ok .dot { background: #4ade80; }
+.freshness-indicator.warn { color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); }
+.freshness-indicator.warn .dot { background: #f59e0b; }
+.freshness-indicator.danger { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
+.freshness-indicator.danger .dot { background: #ef4444; }
+
+.live-warning-banner { background: rgba(239, 68, 68, 0.12); color: var(--wiot-danger); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); margin-top: 14px; font-weight: 600; }
+
+.empty-state { background: rgba(76, 201, 240, 0.08); border: 1px dashed rgba(76, 201, 240, 0.35); border-radius: 12px; padding: 16px; color: var(--wiot-text); }
+
+/* ============== Chart ============== */
+.chart-wrapper {
+    background: var(--wiot-surface);
+    border: 1px solid var(--wiot-border);
+    border-radius: 12px;
+    padding: 16px;
+    height: 460px;
+    position: relative;
+}
+.chart-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 1.2rem;
+    color: var(--wiot-muted);
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(4px);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.chart-empty-state.visible {
+    opacity: 1;
+}
+.graph-range-group .btn {
+    min-width: 44px;
+    border-color: var(--wiot-border);
+}
+.graph-range-group .btn.active {
+    background: linear-gradient(135deg, var(--wiot-accent), var(--wiot-accent-2));
+    color: #fff;
+}
+
+/* ============== Status note ============== */
+.status-note { color: var(--wiot-muted); font-size: 0.85rem; }
+
+/* ============== Auth pages ============== */
+.auth-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    background-image:
+        linear-gradient(rgba(7, 18, 38, 0.74), rgba(7, 18, 38, 0.86)),
+        url("/static/images/Login_Background.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+/* Soft radial bloom behind the card for depth/focus */
+.auth-wrapper::before {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(720px, 95vw);
+    height: min(720px, 95vw);
+    background: radial-gradient(circle,
+        rgba(76, 201, 240, 0.20) 0%,
+        rgba(124, 58, 237, 0.10) 38%,
+        transparent 70%);
+    filter: blur(24px);
+    pointer-events: none;
+    z-index: 0;
+}
+.auth-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    background: rgba(13, 22, 44, 0.62);
+    border: 1px solid rgba(76, 201, 240, 0.28);
+    border-radius: 18px;
+    padding: 40px 34px;
+    backdrop-filter: blur(14px) saturate(125%);
+    -webkit-backdrop-filter: blur(14px) saturate(125%);
+    box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.55),
+        0 0 40px rgba(76, 201, 240, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Thin illuminated reflection along the top edge */
+.auth-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), transparent 42%);
+    pointer-events: none;
+}
+.auth-card > * { position: relative; }
+.auth-card .brand-logo {
+    width: 144px; height: 144px; border-radius: 24px;
+    background: #fff; padding: 12px; margin: 0 auto 20px;
+    display: block; object-fit: contain;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45),
+        0 0 0 5px rgba(76, 201, 240, 0.10),
+        0 0 28px rgba(76, 201, 240, 0.22);
+}
+.auth-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.6rem;
+    letter-spacing: 0.3px;
+    color: #fff;
+    margin-bottom: 2px;
+}
+.auth-tagline {
+    text-align: center;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--wiot-accent);
+    margin-bottom: 14px;
+}
+.auth-subtitle {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.62);
+    margin-bottom: 30px;
+}
+.auth-card .form-control {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.auth-card .form-control::placeholder { color: rgba(255, 255, 255, 0.42); }
+.auth-card .form-control:focus {
+    box-shadow: 0 0 0 0.2rem rgba(76, 201, 240, 0.22),
+        0 0 14px rgba(76, 201, 240, 0.25);
+}
+.auth-badges {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+}
+.auth-badges span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+.auth-badges i { color: var(--wiot-accent); }
+
+/* ============== Scrollbar ============== */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--wiot-border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #3a4670; }
+
+/* ============== Responsive / mobile sidebar ============== */
+@media (max-width: 900px) {
+    .app-shell { grid-template-columns: 1fr; }
+    .sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        width: var(--sidebar-width);
+        transform: translateX(-110%);
+        transition: transform .25s ease;
+        z-index: 1050;
+        border-right: 1px solid var(--wiot-border);
+    }
+    .sidebar.sidebar-open { transform: translateX(0); }
+    .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.58);
+        z-index: 1040;
+    }
+    .sidebar-backdrop.show {
+        display: block;
+    }
+    .main { padding: 18px; }
+    .topbar-conn-strip {
+        width: 100%;
+        flex-wrap: wrap;
+        white-space: normal;
+    }
+    .fleet-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 560px) {
+    .fleet-summary {
+        grid-template-columns: 1fr;
+    }
+    .topbar-company {
+        flex: 1 1 140px;
+        max-width: none;
+    }
+}
+@media (min-width: 901px) {
+    #sidebar-toggler { display: none !important; }
+}
+
+/* ============== SVG Gauge ============== */
+.gauge-wrap {
+    background: linear-gradient(135deg, var(--wiot-surface) 0%, var(--wiot-surface-2) 100%);
+    border: 1px solid var(--wiot-border);
+    border-radius: 14px;
+    padding: 18px 16px 18px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.gauge-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--wiot-muted);
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.gauge-svg {
+    width: 100%;
+    max-width: 260px;
+    display: block;
+    margin: 0 auto;
+    overflow: visible;
+}
+.gauge-track {
+    fill: none;
+    stroke: var(--wiot-gauge-track);
+    stroke-width: 16;
+    stroke-linecap: round;
+}
+.gauge-fill {
+    fill: none;
+    stroke: var(--wiot-accent);
+    stroke-width: 16;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.55s cubic-bezier(.4,0,.2,1), stroke 0.35s ease;
+}
+.gauge-tick {
+    stroke: var(--wiot-gauge-tick);
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+.gauge-val {
+    fill: var(--wiot-text);
+    font-size: 38px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+}
+.gauge-unit {
+    fill: var(--wiot-muted);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+}
+.gauge-minmax {
+    fill: var(--wiot-gauge-minmax);
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+}
+.gauge-trend {
+    font-size: 0.82rem;
+    font-weight: 600;
+    height: 1.5em;
+    margin-top: 2px;
+}
+.trend-up   { color: var(--wiot-danger); }
+.trend-down { color: var(--wiot-success); }
+.trend-same { color: var(--wiot-muted); }
+
+/* Status card color variants */
+.status-card-ok   { border-color: rgba(34,197,94,0.35) !important; }
+.status-card-warn { border-color: rgba(239,68,68,0.35) !important; }
+
+/* ============== Valve State sub-label ============== */
+.status-sublabel {
+    font-size: 0.62rem;
+    color: var(--wiot-muted);
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+    opacity: 0.7;
+}
+
+/* ============== Water Wave Gauges ============== */
+.wg-wrapper {
+    background: linear-gradient(135deg, var(--wiot-surface) 0%, var(--wiot-surface-2) 100%);
+    border: 1px solid var(--wiot-border);
+    border-radius: 14px;
+    padding: 18px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+.wg-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--wiot-muted);
+    font-weight: 600;
+    align-self: flex-start;
+}
+.wg-circle {
+    position: relative;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid rgba(76, 201, 240, 0.25);
+    background: var(--wiot-surface);
+    box-shadow: 0 0 24px rgba(76, 201, 240, 0.12), inset 0 2px 8px rgba(0,0,0,0.15);
+    transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.35s ease;
+}
+.wg-circle::after {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: inherit;
+    border: 2px solid currentColor;
+    color: rgba(76, 201, 240, 0.45);
+    opacity: 0;
+    pointer-events: none;
+}
+.wg-circle.wg-pulse::after {
+    animation: wg-fresh-pulse 0.9s ease-out;
+}
+.wg-vel {
+    border-color: rgba(99, 179, 237, 0.25);
+    box-shadow: 0 0 24px rgba(99, 179, 237, 0.12), inset 0 2px 8px rgba(0,0,0,0.15);
+}
+.wg-vel::after {
+    color: rgba(99, 179, 237, 0.45);
+}
+/* Water fill block */
+.wg-fill {
+    position: absolute;
+    bottom: 0;
+    left: -5%;
+    width: 110%;
+    height: 0%;
+    background: linear-gradient(to top, rgba(76,201,240,0.45), rgba(76,201,240,0.15));
+    transition: height 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wg-fill-vel {
+    background: linear-gradient(to top, rgba(99,179,237,0.5), rgba(99,179,237,0.15));
+}
+/* Wave top surface — two counter-rotating ellipses */
+.wg-fill::before,
+.wg-fill::after {
+    content: '';
+    position: absolute;
+    top: -18px;
+    left: -15%;
+    width: 130%;
+    height: 36px;
+    border-radius: 44%;
+    background: rgba(76, 201, 240, 0.55);
+    transform: translateX(-2%);
+    animation: wg-wave-drift 6.8s ease-in-out infinite;
+}
+.wg-fill::after {
+    top: -13px;
+    border-radius: 38%;
+    background: rgba(76, 201, 240, 0.35);
+    animation-duration: 8.6s;
+    animation-direction: reverse;
+}
+.wg-fill-vel::before {
+    background: rgba(99, 179, 237, 0.6);
+}
+.wg-fill-vel::after {
+    background: rgba(99, 179, 237, 0.38);
+}
+/* Centred value overlay */
+.wg-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+}
+.wg-val {
+    font-size: 2.1rem;
+    font-weight: 700;
+    color: var(--wiot-text);
+    line-height: 1;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.35);
+}
+.wg-unit {
+    font-size: 0.72rem;
+    color: var(--wiot-muted);
+    margin-top: 3px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.wg-pct {
+    margin-top: 5px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--wiot-accent);
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+/* Footer: min — trend — max */
+.wg-footer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+}
+.wg-minmax {
+    font-size: 0.68rem;
+    color: var(--wiot-muted);
+}
+/* Threshold colour states */
+.wg-danger {
+    border-color: rgba(239,68,68,0.5) !important;
+    box-shadow: 0 0 24px rgba(239,68,68,0.2), inset 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+.wg-danger::after { color: rgba(239,68,68,0.48); }
+.wg-danger .wg-fill       { background: linear-gradient(to top, rgba(239,68,68,0.45), rgba(239,68,68,0.15)) !important; }
+.wg-danger .wg-fill::before { background: rgba(239,68,68,0.55) !important; }
+.wg-danger .wg-fill::after  { background: rgba(239,68,68,0.35) !important; }
+.wg-warn {
+    border-color: rgba(245,158,11,0.5) !important;
+    box-shadow: 0 0 24px rgba(245,158,11,0.2), inset 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+.wg-warn::after { color: rgba(245,158,11,0.48); }
+.wg-warn .wg-fill       { background: linear-gradient(to top, rgba(245,158,11,0.45), rgba(245,158,11,0.15)) !important; }
+.wg-warn .wg-fill::before { background: rgba(245,158,11,0.55) !important; }
+.wg-warn .wg-fill::after  { background: rgba(245,158,11,0.35) !important; }
+
+/* Gauge centre text contrast — semi-transparent backdrop so value is readable at any fill level */
+.wg-center {
+    background: radial-gradient(ellipse 72% 55% at 50% 52%,
+        rgba(var(--wiot-surface-rgb, 15,20,40), 0.52) 0%,
+        transparent 100%);
+}
+
+/* State + trend column in footer */
+.wg-state-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    text-align: center;
+}
+.wg-state-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 1px 7px;
+    border-radius: 4px;
+    min-height: 1.2em;
+}
+.wg-state-badge.state-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.wg-state-badge.state-warn {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Trend inherits state colour when threshold is violated */
+.trend-state-danger .trend-same,
+.trend-state-danger .trend-up,
+.trend-state-danger .trend-down { color: #f87171 !important; }
+.trend-state-warn .trend-same,
+.trend-state-warn .trend-up,
+.trend-state-warn .trend-down   { color: #fbbf24 !important; }
+
+@keyframes wg-wave-drift {
+    0%, 100% { transform: translateX(-3%) scaleX(1.02); }
+    50%      { transform: translateX(3%) scaleX(1.08); }
+}
+@keyframes wg-fresh-pulse {
+    0% {
+        opacity: 0.75;
+        transform: scale(0.98);
+        box-shadow: 0 0 0 0 currentColor;
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.12);
+        box-shadow: 0 0 0 14px transparent;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .wg-fill::before,
+    .wg-fill::after,
+    .wg-circle.wg-pulse::after {
+        animation: none;
+    }
+}
+
+/* ============== Alert nav badge ============== */
+.alert-nav-badge {
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    background: var(--wiot-danger);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 999px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 1.5;
+    pointer-events: none;
+}
+.sidebar .nav-pills .nav-item { position: relative; }
+
+/* ============== Node Location Map ============== */
+.map-wrapper {
+    height: 520px;
+    border-radius: 0 0 14px 14px;
+    overflow: hidden;
+    position: relative;
+}
+.leaflet-popup-content-wrapper {
+    background: var(--wiot-surface);
+    color: var(--wiot-text);
+    border: 1px solid var(--wiot-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.leaflet-popup-tip { background: var(--wiot-surface); }
+.leaflet-popup-content { margin: 12px 16px; font-size: 0.85rem; line-height: 1.6; }
+.leaflet-container { background: var(--wiot-map-bg); font-family: 'Inter', sans-serif; }
+.leaflet-bar a { background: var(--wiot-surface); color: var(--wiot-text); border-color: var(--wiot-border); }
+.leaflet-bar a:hover { background: var(--wiot-surface-2); }
+
+.wiot-pin {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 0.7rem;
+    border: 2px solid;
+    cursor: grab;
+    transition: box-shadow .25s, background .25s;
+    user-select: none;
+}
+.wiot-pin.active {
+    background: rgba(34, 197, 94, 0.18);
+    border-color: #22c55e;
+    color: #4ade80;
+    box-shadow: 0 0 0 4px rgba(34,197,94,0.2), 0 0 16px rgba(34,197,94,0.4);
+}
+.wiot-pin:not(.active) {
+    background: rgba(17, 26, 50, 0.9);
+    border-color: var(--wiot-border);
+    color: var(--wiot-muted);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* Location picker map inside modal */
+.location-picker-map {
+    height: 400px;
+    width: 100%;
+}
+/* Coord pill shown in location table */
+.loc-coord {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: var(--wiot-accent);
+    background: rgba(76, 201, 240, 0.08);
+    border-radius: 6px;
+    padding: 2px 7px;
+    white-space: nowrap;
+}
+.loc-coord.not-set {
+    color: var(--wiot-muted);
+    background: none;
+    padding: 0;
+}
+
+.map-node-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    background: var(--wiot-surface-2);
+    cursor: pointer;
+    transition: background .15s;
+}
+.map-node-item:hover { background: rgba(76,201,240,0.08); }
+.map-node-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.map-node-dot.active { background: var(--wiot-success); box-shadow: 0 0 6px var(--wiot-success); }
+.map-node-dot:not(.active) { background: var(--wiot-border); }

@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+// Arduino/nanopb wire schema. Field numbers are part of the deployed V1
+// protocol and must never be renumbered or reused.
+
+message Status_Message {
+  uint32 node_id = 1;
+  uint32 sensor_id = 2;
+  uint64 timestamp = 3;
+
+  // Added in V1.1. Tag 19 preserves compatibility with deployed tags 4..18,
+  // while nanopb still places this member directly after timestamp.
+  float battery_voltage = 19;
+
+  float flow_rate = 4;
+  float velocity = 5;
+  float flow_rate_per_day = 6;
+  float flow_rate_per_month = 7;
+  float flow_rate_per_year = 8;
+  uint32 node_status = 9;
+  float soil_temperature = 10;
+  float soil_moisture = 11;
+  uint32 soil_moisture_temp_valid = 12;
+  float ec_temperature = 13;
+  float ec_moisture = 14;
+  float electrical_conductivity = 15;
+  uint32 soil_moisture_temp_ec_valid = 16;
+  uint32 active_sensor_count = 17;
+  uint32 sensor_mask = 18;
+}
+
+message CMD_Message {
+  uint32 node_id = 1;
+  uint32 cmd_id = 2;
+  uint64 cmd_data = 3;
+}
+
+message Telemetry {
+  uint32 node_id = 1;
+  uint64 timestamp = 2;
+  uint32 sampling_rate = 3;
+  uint32 Transmission_rate = 4;
+
+  // V1 reserved1 was never assigned application data. Its tag is now the
+  // battery voltage field requested for system telemetry.
+  float battery_voltage = 5;
+
+  uint32 reserved2 = 6;
+  uint32 reserved3 = 7;
+  uint32 active_sensor_count = 8;
+  uint32 sensor_id = 9;
+  float flow_rate = 10;
+  float velocity = 11;
+  float flow_rate_per_day = 12;
+  float flow_rate_per_month = 13;
+  float flow_rate_per_year = 14;
+  uint32 node_status = 15;
+  float soil_temperature = 16;
+  float soil_moisture = 17;
+  uint32 soil_moisture_temp_valid = 18;
+  float ec_temperature = 19;
+  float ec_moisture = 20;
+  float electrical_conductivity = 21;
+  uint32 soil_moisture_temp_ec_valid = 22;
+  uint32 sensor_mask = 23;
+}

@@ -1,0 +1,70 @@
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.user
+*.suo
+
+# Python environments and caches
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets and runtime configuration
+.env
+.env.*
+!.env.example
+/Node/IoT_Node_Encrypted/src/config/AppConfig.cpp
+/Node/IoT_Node_Encrypted/src/config/AppSecrets.h
+/esp32/IoT_Node_ESP32/src/config/AppConfig.cpp
+/esp32/IoT_Node_ESP32/src/config/AppSecrets.h
+/WIOT_STM32CubeIDE/Core/Src/config/AppConfig.cpp
+/WIOT_STM32CubeIDE/Core/Inc/config/AppSecrets.hpp
+/Server/WIOT-Server-Web v1.31 - Fixed Sensor Readings in Dashboard/node_config.json
+/Server/WIOT-Server-Web v1.31 - Fixed Sensor Readings in Dashboard/Users.txt
+/Server/WIOT-Server-Web v1.31 - Fixed Sensor Readings in Dashboard/temp_login_test.py
+
+# Server runtime data
+*.log
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+**/messages_dbs/
+
+# Generated builds and temporary work
+/tmp/
+/backups/
+**/build/
+**/Build/
+**/Debug/
+**/Release/
+**/dist/
+/WIOT_STM32CubeIDE/SensorNode/
+/WIOT_STM32CubeIDE/LoRaGateway/
+/WIOT_STM32CubeIDE/build-*/
+*.o
+*.obj
+*.d
+*.su
+*.cyclo
+*.map
+*.list
+*.elf
+*.bin
+*.hex
+*.exe
+
+# Bundled generated vendor documentation is reproducible and very large
+/WIOT_STM32CubeIDE/Drivers/Documentation/
+
+# Spreadsheet inspection intermediates
+*.inspect.ndjson

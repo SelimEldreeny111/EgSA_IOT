@@ -1,0 +1,639 @@
+#ifndef APP_CONFIG_H
+#define APP_CONFIG_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include <Arduino.h>
+
+/**************** POWER CONFIGURATION - START HERE ****************/
+// Each device has an explicit policy. NORMAL is the safe factory default.
+// POWER_DOWN means that the device participates in the scheduled low-power
+// cycle. The compile-time checks below reject combinations that the selected
+// role, transport, or present PCB cannot wake safely.
+// Only the active transport is controlled; an unselected module must be
+// removed, disabled, or power-gated by hardware if it is physically fitted.
+#define APP_COMPONENT_MODE_NORMAL 0
+#define APP_COMPONENT_MODE_POWER_DOWN 1
+
+#ifndef APP_CONTROLLER_POWER_MODE
+#define APP_CONTROLLER_POWER_MODE APP_COMPONENT_MODE_NORMAL
+#endif
+#ifndef APP_LORA_POWER_MODE
+#define APP_LORA_POWER_MODE APP_COMPONENT_MODE_NORMAL
+#endif
+#ifndef APP_WIFI_POWER_MODE
+#define APP_WIFI_POWER_MODE APP_COMPONENT_MODE_NORMAL
+#endif
+#ifndef APP_SIM_POWER_MODE
+#define APP_SIM_POWER_MODE APP_COMPONENT_MODE_NORMAL
+#endif
+
+// In controller POWER_DOWN mode, a sensor node samples and sends once, keeps
+// this command window open, prepares its selected radio, and enters STM32
+// Standby until the RTC alarm. See POWER_DOWN_MODE_USER_GUIDE.md before use.
+
+// Periodic-mode timing. The first commissioning test should override the sleep
+// interval to 30 seconds; use 300 seconds (5 minutes) for normal operation.
+#ifndef APP_POWER_SLEEP_SECONDS
+#define APP_POWER_SLEEP_SECONDS 300UL
+#endif
+#ifndef APP_POWER_COMMAND_WINDOW_MS
+#define APP_POWER_COMMAND_WINDOW_MS 5000UL
+#endif
+#ifndef APP_POWER_SLEEP_ENTRY_TIMEOUT_MS
+#define APP_POWER_SLEEP_ENTRY_TIMEOUT_MS 1000UL
+#endif
+/*********************************************************/
+
+/**************** TRANSPORT SELECT ****************/
+#define USE_SIM800
+//#define USE_ESP8266
+/*************************************************/
+
+#if defined(USE_SIM800) && defined(USE_ESP8266)
+#error "Select only one IP modem: USE_SIM800 or USE_ESP8266, not both"
+#elif !defined(USE_SIM800) && !defined(USE_ESP8266)
+#error "Select one IP modem: USE_SIM800 or USE_ESP8266"
+#endif
+
+/**************** APPLICATION ROLE + ROUTING ****************/
+#define APP_ROLE_SENSOR_NODE 1
+#define APP_ROLE_LORA_GATEWAY 2
+
+#define APP_UPLINK_MQTT_DIRECT 1
+#define APP_UPLINK_LORA_TO_GATEWAY 2
+
+// Sensor-node firmware:
+//   APP_ROLE_SENSOR_NODE + APP_UPLINK_MQTT_DIRECT       -> current behavior
+//   APP_ROLE_SENSOR_NODE + APP_UPLINK_LORA_TO_GATEWAY   -> send encrypted telemetry by AS32 LoRa
+//
+// Gateway firmware:
+//   APP_ROLE_LORA_GATEWAY -> receive AS32 LoRa telemetry and publish it to MQTT
+#ifndef APP_ROLE
+#define APP_ROLE APP_ROLE_SENSOR_NODE
+#endif
+
+#ifndef APP_UPLINK
+#define APP_UPLINK APP_UPLINK_MQTT_DIRECT
+#endif
+
+#if APP_UPLINK != APP_UPLINK_MQTT_DIRECT && \
+    APP_UPLINK != APP_UPLINK_LORA_TO_GATEWAY
+#error "APP_UPLINK must be APP_UPLINK_MQTT_DIRECT or APP_UPLINK_LORA_TO_GATEWAY"
+#endif
+
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+#define APP_HAS_SENSORS 0
+#define APP_HAS_IP_UPLINK 1
+#define APP_HAS_LORA 1
+#elif APP_ROLE == APP_ROLE_SENSOR_NODE
+#define APP_HAS_SENSORS 1
+#if APP_UPLINK == APP_UPLINK_LORA_TO_GATEWAY
+#define APP_HAS_IP_UPLINK 0
+#define APP_HAS_LORA 1
+#else
+#define APP_HAS_IP_UPLINK 1
+#define APP_HAS_LORA 0
+#endif
+#else
+#error "APP_ROLE must be APP_ROLE_SENSOR_NODE or APP_ROLE_LORA_GATEWAY"
+#endif
+
+#if (APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
+     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+    (APP_LORA_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
+     APP_LORA_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+    (APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
+     APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+    (APP_SIM_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
+     APP_SIM_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN)
+#error "Every APP_*_POWER_MODE must be APP_COMPONENT_MODE_NORMAL or APP_COMPONENT_MODE_POWER_DOWN"
+#endif
+
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN && \
+    APP_ROLE == APP_ROLE_LORA_GATEWAY
+#error "A gateway must remain reachable; controller Standby is supported only on a sensor node"
+#endif
+
+#if APP_HAS_LORA && \
+    APP_CONTROLLER_POWER_MODE != APP_LORA_POWER_MODE
+#error "The active LoRa transport and controller must both be NORMAL or both be POWER_DOWN"
+#endif
+
+#if APP_HAS_IP_UPLINK && defined(USE_ESP8266) && \
+    APP_CONTROLLER_POWER_MODE != APP_WIFI_POWER_MODE
+#error "The active ESP8266 transport and controller must both be NORMAL or both be POWER_DOWN"
+#endif
+
+#if APP_HAS_IP_UPLINK && defined(USE_SIM800) && \
+    (APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN || \
+     APP_SIM_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN)
+#error "SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on"
+#endif
+
+#if APP_POWER_SLEEP_SECONDS < 5UL || APP_POWER_SLEEP_SECONDS > 604800UL
+#error "APP_POWER_SLEEP_SECONDS must be between 5 seconds and 7 days"
+#endif
+
+#if APP_POWER_COMMAND_WINDOW_MS > 60000UL
+#error "APP_POWER_COMMAND_WINDOW_MS must not exceed 60000 milliseconds"
+#endif
+
+#if APP_POWER_SLEEP_ENTRY_TIMEOUT_MS < 100UL || \
+    APP_POWER_SLEEP_ENTRY_TIMEOUT_MS > 5000UL
+#error "APP_POWER_SLEEP_ENTRY_TIMEOUT_MS must be between 100 and 5000 milliseconds"
+#endif
+/*************************************************************/
+
+#if defined(USE_SIM800)
+#define TINY_GSM_MODEM_SIM800
+#define TINY_GSM_USE_GPRS true
+#elif defined(USE_ESP8266)
+#define TINY_GSM_MODEM_ESP8266
+#else
+#error "No modem selected!"
+#endif
+
+#if defined(USE_SIM800)
+#define MODEM_BAUD 9600
+#elif defined(USE_ESP8266)
+#define MODEM_BAUD    115200 //115200
+#endif
+
+#define TINY_GSM_RX_BUFFER 1024
+#define MQTT_MAX_PACKET_SIZE 512
+
+namespace AppConfig 
+{
+constexpr bool kPowerDownEnabled =
+    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+constexpr bool kControllerPowerDown =
+    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+constexpr bool kLoraPowerDown =
+    APP_LORA_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+constexpr bool kWifiPowerDown =
+    APP_WIFI_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+constexpr bool kSimPowerDown =
+    APP_SIM_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+constexpr uint32_t kPowerSleepSeconds = APP_POWER_SLEEP_SECONDS;
+constexpr uint32_t kPowerCommandWindowMs = APP_POWER_COMMAND_WINDOW_MS;
+constexpr uint32_t kPowerSleepEntryTimeoutMs =
+    APP_POWER_SLEEP_ENTRY_TIMEOUT_MS;
+constexpr uint32_t kPowerMinimumValidRtcEpoch = 1704067200UL;
+constexpr uint32_t kPowerMaximumSleepSeconds = 604800UL;
+
+#ifndef APP_NODE_ID
+#define APP_NODE_ID 1
+#endif
+
+#ifndef APP_SENSOR_ID
+#define APP_SENSOR_ID 1
+#endif
+
+constexpr uint16_t kNodeId = APP_NODE_ID;
+constexpr uint16_t kGatewayNodeId = 0;
+constexpr uint16_t kSensorId = APP_SENSOR_ID;
+
+constexpr uint16_t kLoraNetworkId = 0x4547; // this is for the  "EG"
+constexpr uint32_t kLoraMd0Pin = PB2;
+constexpr uint32_t kLoraMd1Pin = PB1;
+constexpr uint32_t kLoraAuxPin = PC13;
+
+// Control lines verified against the supplied PCB schematic.
+constexpr uint32_t kEspEnablePin = PB7;
+constexpr uint32_t kEspResetPin = PB8;
+constexpr bool kEspEnableActiveHigh = true;
+constexpr bool kEspResetActiveLow = true;
+constexpr uint32_t kEspResetPulseMs = 100UL;
+constexpr uint32_t kEspBootDelayMs = 3000UL;
+constexpr uint32_t kSimResetPin = PB0;
+
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+// Gateway needs two UARTs at the same time: one for IP modem and one for AS32.
+// PA9/PA10 are free on the gateway because RS485 sensors are disabled there.
+constexpr uint32_t kLoraRxPin = PA10;
+constexpr uint32_t kLoraTxPin = PA9;
+#else
+// Sensor node uses the same AS32 pins proven by the standalone Ping/Pong test.
+// Do not enable MQTT direct and LoRa on PA11/PA12 at the same time.
+constexpr uint32_t kLoraRxPin = PA12;
+constexpr uint32_t kLoraTxPin = PA11;
+#endif
+
+// RS485 product selection. A production image is built for exactly one of the
+// two approved sensor families. Select the family here, then use the four
+// independent sensor switches below to enable or disable Modbus polling for
+// each device in that family.
+#define APP_SENSOR_PROJECT_TUF_HNDA 1
+#define APP_SENSOR_PROJECT_SUPMEA_SONDAS 2
+
+#ifndef APP_SENSOR_PROJECT
+#define APP_SENSOR_PROJECT APP_SENSOR_PROJECT_TUF_HNDA
+#endif
+
+#if APP_SENSOR_PROJECT != APP_SENSOR_PROJECT_TUF_HNDA && \
+    APP_SENSOR_PROJECT != APP_SENSOR_PROJECT_SUPMEA_SONDAS
+#error "APP_SENSOR_PROJECT must be TUF_HNDA or SUPMEA_SONDAS"
+#endif
+
+// Internal flow-meter identifiers also match protobuf flow_meter_type.
+#define APP_FLOW_METER_NONE 0
+#define APP_FLOW_METER_TUF 1
+#define APP_FLOW_METER_SUPMEA 2
+
+#if defined(APP_FLOW_METER)
+#error "APP_FLOW_METER is internal; select APP_SENSOR_PROJECT instead"
+#endif
+
+// INDIVIDUAL SENSOR SWITCHES
+// Set a sensor to true to initialize and poll it, or false to send no Modbus
+// command to it. The defaults enable both devices in the selected family.
+// Build flags may override any APP_ENABLE_*_SENSOR value for test images.
+#if APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA
+#define APP_FLOW_METER APP_FLOW_METER_TUF
+#ifndef APP_ENABLE_TUF_SENSOR
+#define APP_ENABLE_TUF_SENSOR true
+#endif
+#ifndef APP_ENABLE_HNDA_SENSOR
+#define APP_ENABLE_HNDA_SENSOR false
+#endif
+#ifndef APP_ENABLE_SUPMEA_SENSOR
+#define APP_ENABLE_SUPMEA_SENSOR false
+#endif
+#ifndef APP_ENABLE_SONDAS_SENSOR
+#define APP_ENABLE_SONDAS_SENSOR false
+#endif
+#else
+#define APP_FLOW_METER APP_FLOW_METER_SUPMEA
+#ifndef APP_ENABLE_TUF_SENSOR
+#define APP_ENABLE_TUF_SENSOR false
+#endif
+#ifndef APP_ENABLE_HNDA_SENSOR
+#define APP_ENABLE_HNDA_SENSOR false
+#endif
+#ifndef APP_ENABLE_SUPMEA_SENSOR
+#define APP_ENABLE_SUPMEA_SENSOR true
+#endif
+#ifndef APP_ENABLE_SONDAS_SENSOR
+#define APP_ENABLE_SONDAS_SENSOR true
+#endif
+#endif
+
+// Production Modbus addresses. The commissioned Supmea meter is address 1.
+// When Supmea and HNDA share the bus, HNDA therefore defaults to address 2.
+#ifndef APP_TUF_SENSOR_MODBUS_ADDRESS
+#define APP_TUF_SENSOR_MODBUS_ADDRESS 1
+#endif
+#ifndef APP_SUPMEA_SENSOR_MODBUS_ADDRESS
+#define APP_SUPMEA_SENSOR_MODBUS_ADDRESS 2
+#endif
+#ifndef APP_HNDA_SENSOR_MODBUS_ADDRESS
+#if APP_FLOW_METER == APP_FLOW_METER_SUPMEA
+#define APP_HNDA_SENSOR_MODBUS_ADDRESS 2
+#else
+#define APP_HNDA_SENSOR_MODBUS_ADDRESS 1
+#endif
+#endif
+#ifndef APP_SONDAS_SENSOR_MODBUS_ADDRESS
+#define APP_SONDAS_SENSOR_MODBUS_ADDRESS 3
+#endif
+
+#if APP_TUF_SENSOR_MODBUS_ADDRESS < 1 || \
+    APP_TUF_SENSOR_MODBUS_ADDRESS > 247 || \
+    APP_SUPMEA_SENSOR_MODBUS_ADDRESS < 1 || \
+    APP_SUPMEA_SENSOR_MODBUS_ADDRESS > 247 || \
+    APP_HNDA_SENSOR_MODBUS_ADDRESS < 1 || \
+    APP_HNDA_SENSOR_MODBUS_ADDRESS > 247 || \
+    APP_SONDAS_SENSOR_MODBUS_ADDRESS < 1 || \
+    APP_SONDAS_SENSOR_MODBUS_ADDRESS > 247
+#error "Every Modbus address must be in the unicast range 1..247"
+#endif
+
+static_assert(
+    APP_ENABLE_TUF_SENSOR == true || APP_ENABLE_TUF_SENSOR == false,
+    "APP_ENABLE_TUF_SENSOR must be true or false");
+static_assert(
+    APP_ENABLE_HNDA_SENSOR == true || APP_ENABLE_HNDA_SENSOR == false,
+    "APP_ENABLE_HNDA_SENSOR must be true or false");
+static_assert(
+    APP_ENABLE_SUPMEA_SENSOR == true || APP_ENABLE_SUPMEA_SENSOR == false,
+    "APP_ENABLE_SUPMEA_SENSOR must be true or false");
+static_assert(
+    APP_ENABLE_SONDAS_SENSOR == true || APP_ENABLE_SONDAS_SENSOR == false,
+    "APP_ENABLE_SONDAS_SENSOR must be true or false");
+
+constexpr bool kTufSensorRequested = APP_ENABLE_TUF_SENSOR;
+constexpr bool kHndaSensorRequested = APP_ENABLE_HNDA_SENSOR;
+constexpr bool kSupmeaSensorRequested = APP_ENABLE_SUPMEA_SENSOR;
+constexpr bool kSondasSensorRequested = APP_ENABLE_SONDAS_SENSOR;
+
+#if APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA
+static_assert(
+    !kSupmeaSensorRequested && !kSondasSensorRequested,
+    "The TUF_HNDA profile permits only TUF and HNDA sensors");
+#else
+static_assert(
+    !kTufSensorRequested && !kHndaSensorRequested,
+    "The SUPMEA_SONDAS profile permits only Supmea and Sondas sensors");
+#endif
+
+constexpr bool kEnableTufSensor =
+    APP_HAS_SENSORS &&
+    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA &&
+    kTufSensorRequested;
+constexpr bool kEnableSupmeaSensor =
+    APP_HAS_SENSORS &&
+    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_SUPMEA_SONDAS &&
+    kSupmeaSensorRequested;
+constexpr bool kEnableHndaSensor =
+    APP_HAS_SENSORS &&
+    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_TUF_HNDA &&
+    kHndaSensorRequested;
+constexpr bool kEnableSondasSensor =
+    APP_HAS_SENSORS &&
+    APP_SENSOR_PROJECT == APP_SENSOR_PROJECT_SUPMEA_SONDAS &&
+    kSondasSensorRequested;
+constexpr uint8_t kSensorProject = APP_SENSOR_PROJECT;
+constexpr uint8_t kConfiguredFlowMeter = APP_FLOW_METER;
+
+constexpr uint8_t kTufModbusAddress = APP_TUF_SENSOR_MODBUS_ADDRESS;
+constexpr uint8_t kSupmeaSensorModbusAddress =
+    APP_SUPMEA_SENSOR_MODBUS_ADDRESS;
+constexpr uint8_t kHndaModbusAddress = APP_HNDA_SENSOR_MODBUS_ADDRESS;
+constexpr uint8_t kSondasModbusAddress = APP_SONDAS_SENSOR_MODBUS_ADDRESS;
+
+static_assert(
+    !(kEnableTufSensor && kEnableHndaSensor &&
+      kTufModbusAddress == kHndaModbusAddress),
+    "TUF and HNDA must use different Modbus addresses");
+static_assert(
+    !(kEnableTufSensor && kEnableSondasSensor &&
+      kTufModbusAddress == kSondasModbusAddress),
+    "TUF and Sondas must use different Modbus addresses");
+static_assert(
+    !(kEnableSupmeaSensor && kEnableHndaSensor &&
+      kSupmeaSensorModbusAddress == kHndaModbusAddress),
+    "Supmea and HNDA must use different Modbus addresses");
+static_assert(
+    !(kEnableSupmeaSensor && kEnableSondasSensor &&
+      kSupmeaSensorModbusAddress == kSondasModbusAddress),
+    "Supmea and Sondas must use different Modbus addresses");
+static_assert(
+    !(kEnableHndaSensor && kEnableSondasSensor &&
+      kHndaModbusAddress == kSondasModbusAddress),
+    "HNDA and Sondas must use different Modbus addresses");
+
+constexpr uint16_t kSensorMaskTuf = 0x0001;
+constexpr uint16_t kSensorMaskHnda = 0x0002;
+constexpr uint16_t kSensorMaskSondas = 0x0004;
+constexpr uint16_t kSensorMaskSupmea = 0x0008;
+
+constexpr uint32_t kRs485BaudRate = 9600UL;
+constexpr uint32_t kRs485TxEnablePin = PA8;
+
+// Supmea calendar consumption uses the meter's cumulative forward total and
+// the trusted STM32 RTC. The RTC itself remains UTC; the calendar converter
+// applies the selected business-time policy only when deriving period keys.
+#define APP_CALENDAR_TIMEZONE_UTC 0
+#define APP_CALENDAR_TIMEZONE_FIXED_OFFSET 1
+#define APP_CALENDAR_TIMEZONE_AFRICA_CAIRO 2
+#ifndef APP_CALENDAR_TIMEZONE
+#define APP_CALENDAR_TIMEZONE APP_CALENDAR_TIMEZONE_AFRICA_CAIRO
+#endif
+#if APP_CALENDAR_TIMEZONE != APP_CALENDAR_TIMEZONE_UTC && \
+    APP_CALENDAR_TIMEZONE != APP_CALENDAR_TIMEZONE_FIXED_OFFSET && \
+    APP_CALENDAR_TIMEZONE != APP_CALENDAR_TIMEZONE_AFRICA_CAIRO
+#error "APP_CALENDAR_TIMEZONE must be UTC, FIXED_OFFSET, or AFRICA_CAIRO"
+#endif
+#ifndef APP_CALENDAR_FIXED_UTC_OFFSET_MINUTES
+#define APP_CALENDAR_FIXED_UTC_OFFSET_MINUTES 120
+#endif
+#ifndef APP_SUPMEA_COUNTER_NOISE_LITERS
+#define APP_SUPMEA_COUNTER_NOISE_LITERS 2ULL
+#endif
+#ifndef APP_SUPMEA_MAX_EXPECTED_FLOW_M3H
+// Zero disables physical jump rejection until the installed pipe/meter range
+// is known. Commissioning documentation requires setting the real limit.
+#define APP_SUPMEA_MAX_EXPECTED_FLOW_M3H 0.0f
+#endif
+#ifndef APP_SUPMEA_MAX_FLOW_SAFETY_FACTOR
+#define APP_SUPMEA_MAX_FLOW_SAFETY_FACTOR 1.5f
+#endif
+#ifndef APP_FLOW_FLASH_CHECKPOINT_SECONDS
+#define APP_FLOW_FLASH_CHECKPOINT_SECONDS 86400UL
+#endif
+#ifndef APP_RESET_SUPMEA_PERIOD_STATE
+#define APP_RESET_SUPMEA_PERIOD_STATE 0
+#endif
+
+constexpr uint8_t kCalendarTimezone = APP_CALENDAR_TIMEZONE;
+constexpr int16_t kCalendarFixedUtcOffsetMinutes =
+    APP_CALENDAR_FIXED_UTC_OFFSET_MINUTES;
+constexpr uint64_t kSupmeaCounterNoiseLiters =
+    APP_SUPMEA_COUNTER_NOISE_LITERS;
+constexpr float kSupmeaMaxExpectedFlowM3h =
+    APP_SUPMEA_MAX_EXPECTED_FLOW_M3H;
+constexpr float kSupmeaMaxFlowSafetyFactor =
+    APP_SUPMEA_MAX_FLOW_SAFETY_FACTOR;
+constexpr uint32_t kFlowFlashCheckpointSeconds =
+    APP_FLOW_FLASH_CHECKPOINT_SECONDS;
+constexpr bool kResetSupmeaPeriodState =
+    APP_RESET_SUPMEA_PERIOD_STATE != 0;
+constexpr int kFlowAccumulatorEepromAddress = 128;
+static_assert(
+    kCalendarFixedUtcOffsetMinutes >= -720 &&
+    kCalendarFixedUtcOffsetMinutes <= 840,
+    "Calendar UTC offset must be between -12:00 and +14:00");
+static_assert(
+    kSupmeaMaxExpectedFlowM3h >= 0.0f,
+    "Supmea maximum expected flow cannot be negative");
+static_assert(
+    kSupmeaMaxFlowSafetyFactor >= 1.0f,
+    "Supmea maximum-flow safety factor must be at least 1.0");
+
+// Measured hardware: battery+ -- 21.6 kOhm -- PA0 -- 9.8 kOhm -- GND, with a
+// 100 nF capacitor from PA0 to GND. At 8.4 V, PA0 is approximately 2.622 V.
+// The theoretical input limit is approximately 10.57 V at the 3.3 V ADC
+// limit. Values below are the measured resistances, not their nominal markings.
+// theoretical input limit is approximately 10.35 V at the 3.3 V ADC limit.
+// Never connect the battery directly to PA0; battery- and STM32 GND must be
+// connected together.
+// Override these APP_BATTERY_* definitions at build time if the production
+// PCB uses a different ADC pin, divider, reference, or calibration factor.
+#ifndef APP_ENABLE_BATTERY_MONITOR
+#define APP_ENABLE_BATTERY_MONITOR 1
+#endif
+#ifndef APP_BATTERY_ADC_PIN
+#define APP_BATTERY_ADC_PIN PA0
+#endif
+#ifndef APP_BATTERY_DIVIDER_HIGH_OHMS
+#define APP_BATTERY_DIVIDER_HIGH_OHMS 21600.0f
+#endif
+#ifndef APP_BATTERY_DIVIDER_LOW_OHMS
+#define APP_BATTERY_DIVIDER_LOW_OHMS 9800.0f
+#endif
+#ifndef APP_BATTERY_ADC_REFERENCE_VOLTS
+#define APP_BATTERY_ADC_REFERENCE_VOLTS 3.3f
+#endif
+#ifndef APP_BATTERY_CALIBRATION_FACTOR
+#define APP_BATTERY_CALIBRATION_FACTOR 1.0f
+#endif
+
+constexpr bool kEnableBatteryMonitor =
+    APP_HAS_SENSORS && (APP_ENABLE_BATTERY_MONITOR != 0);
+constexpr uint32_t kBatteryAdcPin = APP_BATTERY_ADC_PIN;
+constexpr uint8_t kBatteryAdcResolutionBits = 12U;
+constexpr uint16_t kBatteryAdcMaximumCount = 4095U;
+constexpr uint8_t kBatterySampleCount = 16U;
+constexpr float kBatteryDividerHighOhms = APP_BATTERY_DIVIDER_HIGH_OHMS;
+constexpr float kBatteryDividerLowOhms = APP_BATTERY_DIVIDER_LOW_OHMS;
+constexpr float kBatteryAdcReferenceVolts = APP_BATTERY_ADC_REFERENCE_VOLTS;
+constexpr float kBatteryCalibrationFactor = APP_BATTERY_CALIBRATION_FACTOR;
+
+// HNDA (Honde RD-SMT-P-O) Modbus map from the supplied PDF:
+// 0x0000 = signed soil temperature * 10, 0x0001 = soil moisture * 10.
+// The factory default slave address is 0x01; use a unique address when the
+// flow meter is on the same RS485 bus.
+constexpr uint16_t kHndaTemperatureRegister = 0x0000;
+constexpr uint16_t kHndaMoistureRegister = 0x0001;
+constexpr float kHndaRegisterScale = 10.0f;
+
+// The supplied Sondas HP/Nutricontrol document identifies the EC-capable sensor
+// family but does not provide a Modbus register table. Keep this common
+// contiguous Modbus layout configurable here so it can be aligned with the
+// exact purchased probe without changing application code.
+constexpr uint16_t kSondasTemperatureRegister = 0x0000;
+constexpr uint16_t kSondasMoistureRegister = 0x0001;
+constexpr uint16_t kSondasElectricalConductivityRegister = 0x0002;
+constexpr float kSondasTemperatureScale = 10.0f;
+constexpr float kSondasMoistureScale = 10.0f;
+constexpr float kSondasElectricalConductivityScale = 1.0f;
+
+#if defined(PC13)
+constexpr uint32_t kOpenCloseNodeGpio = PC13;
+#elif defined(LED_BUILTIN)
+constexpr uint32_t kOpenCloseNodeGpio = LED_BUILTIN;
+#else
+constexpr uint32_t kOpenCloseNodeGpio = 13;
+#endif
+constexpr bool kOpenCloseNodeActiveLow = true;
+constexpr bool kOpenCloseNodeGpioConflictsWithLora =
+    APP_HAS_LORA && (kOpenCloseNodeGpio == kLoraAuxPin);
+constexpr bool kEnableOpenCloseNodeOutput = !kOpenCloseNodeGpioConflictsWithLora;
+
+constexpr size_t kAesBlockSize = 16;
+constexpr size_t kIvLength = 16;
+constexpr size_t kCodecBufferSize = 256;
+// PubSubClient's buffer contains the MQTT header and topic as well as the
+// encrypted payload. Flow-schema v2 can produce a 241-byte encrypted
+// Telemetry envelope, so the old 256-byte whole-packet buffer was marginal.
+constexpr size_t kMqttPacketBufferSize = MQTT_MAX_PACKET_SIZE;
+constexpr uint8_t kProtocolVersion = 1;
+
+constexpr uint32_t kDefaultSamplingPeriodMs = 10000UL;
+constexpr uint32_t kDefaultTransmissionPeriodMs = 15000UL;
+
+constexpr uint32_t kDefaultRtcEpoch = 1704067200UL;
+constexpr uint16_t kMqttPort = 1883;
+constexpr uint16_t kMqttKeepAliveSeconds = 45;
+constexpr uint16_t kMqttSocketTimeoutSeconds = 8;
+constexpr uint32_t kMqttReconnectIntervalMs = 3000UL;
+
+constexpr uint32_t kMinimumRateSeconds = 10UL;
+// When enabled, a successfully provisioned operator network is retained as a
+// fallback. The SSID/password compiled in AppConfig.cpp are always attempted
+// first and do not overwrite this saved fallback when they connect.
+constexpr bool kEnableWifiCredentialStore = true;
+constexpr bool kEnableGatewayHeartbeatLogs = true;
+constexpr bool kEnableVerboseMqttLogs = true;//false  or  true 
+constexpr bool kEnablePublishTimingLogs = true;//false  or  true 
+
+// STM32F401 independent hardware watchdog. The timeout is in microseconds,
+// as required by the STM32duino IWatchdog library. A healthy superloop feeds
+// it only after a bounded operation returns; a function that blocks for more
+// than 25 seconds is therefore reset by hardware. Network recovery is also
+// reset after two complete failed connection cycles, even if the modem APIs
+// continue returning instead of becoming permanently blocked.
+#ifndef APP_ENABLE_HARDWARE_WATCHDOG
+#define APP_ENABLE_HARDWARE_WATCHDOG 1
+#endif
+#ifndef APP_WATCHDOG_TIMEOUT_US
+#define APP_WATCHDOG_TIMEOUT_US 25000000UL
+#endif
+#ifndef APP_NETWORK_FAILURES_BEFORE_RESET
+#define APP_NETWORK_FAILURES_BEFORE_RESET 2U
+#endif
+constexpr bool kEnableHardwareWatchdog =
+    APP_ENABLE_HARDWARE_WATCHDOG != 0;
+constexpr uint32_t kWatchdogTimeoutUs = APP_WATCHDOG_TIMEOUT_US;
+constexpr uint32_t kWatchdogForcedResetTimeoutUs = 250000UL;
+constexpr uint8_t kNetworkFailuresBeforeReset =
+    APP_NETWORK_FAILURES_BEFORE_RESET;
+
+// Keep these enabled during LoRa commissioning. Every transmitted/accepted
+// application frame is printed in full, while rejected or incomplete streams
+// get their own dump so the two ends can be compared byte-for-byte.
+constexpr bool kEnableLoraFrameHexLogs = true;
+constexpr bool kEnableLoraErrorHexLogs = true;
+// The installed E32-TTL-100 does not expose RSSI over its UART interface
+// (datasheet electrical-parameter table: "RSSI - No support"). The
+// 0xAF/0x73 and 0xAF/0x74 diagnostic commands below belong to a different
+// AS32-TTL-1W V3 firmware family and must not be sent to an E32-TTL-100.
+// Override this only when the fitted radio is explicitly documented to
+// support those AS32 V3 commands.
+#ifndef APP_LORA_MODULE_SUPPORTS_AS32_V3_RSSI
+#define APP_LORA_MODULE_SUPPORTS_AS32_V3_RSSI 0
+#endif
+constexpr bool kLoraModuleSupportsRssi =
+    APP_LORA_MODULE_SUPPORTS_AS32_V3_RSSI != 0;
+constexpr bool kEnableAs32RssiDiagnostics = kLoraModuleSupportsRssi;
+constexpr uint32_t kLoraDiagnosticsPeriodMs = 5000UL;
+
+// The tested AS32 path has a 63-byte transport boundary. Every physical wire
+// frame is therefore independently framed and kept at or below 48 bytes.
+// Larger logical messages are fragmented and reassembled by message ID.
+constexpr size_t kLoraMaxWireFrameBytes = 48U;
+constexpr uint32_t kLoraAuxBusyDetectTimeoutMs = 200UL;
+constexpr uint32_t kLoraInterPacketGuardMs = 500UL;
+constexpr uint32_t kLoraFinalPacketGuardMs = 200UL;
+
+// The gateway acknowledges every node fragment. A lost fragment or ACK is
+// retransmitted without combining bytes from different logical messages.
+// ESP-AT/MQTT calls can occupy the gateway for up to the configured eight-
+// second socket timeout. The first fragment therefore waits long enough for
+// the gateway to return to the radio service before attempting a retry.
+constexpr uint32_t kLoraFragmentAckTimeoutMs = 12000UL;
+constexpr uint8_t kLoraFragmentMaxAttempts = 3U;
+constexpr uint32_t kLoraFragmentRetryBackoffMs = 250UL;
+constexpr uint32_t kLoraPostAckGuardMs = 500UL;
+
+// Stream timeout applies to one physical frame. Fragment timeout applies to
+// the complete logical message and supports interleaved multi-node traffic.
+constexpr uint32_t kLoraRxAssemblyTimeoutMs = 4000UL;
+constexpr uint32_t kLoraTransactionPriorityMs = 15000UL;
+constexpr uint32_t kLoraFragmentAssemblyTimeoutMs = 60000UL;
+constexpr size_t kLoraReassemblyContextCount = 8U;
+constexpr size_t kLoraPendingFrameCount = 4U;
+constexpr uint32_t kLoraUartWriteTimeoutMs = 3000UL;
+constexpr uint32_t kLoraTxCompleteTimeoutMs = 10000UL;
+}
+
+#if defined(USE_SIM800)
+extern const char kApn[];
+extern const char kNetworkUser[];
+extern const char kNetworkPassword[];
+#elif defined(USE_ESP8266)
+extern const char kWifiSsid[];
+extern const char kWifiPassword[];
+#endif
+
+extern const char kMqttServer[];
+extern const char kMqttClientId[];
+extern const char kMqttPublishTopicStatus[];
+extern const char kMqttPublishTopicTlm[];
+extern const char kMqttCommandTopic[];
+extern const char kMqttBroadcastTopic[];
+extern const char kMqttCompanyTopicPrefix[];
+extern const char kMqttGatewayCommandWildcardTopic[];
+
+#endif

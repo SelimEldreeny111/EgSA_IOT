@@ -1,0 +1,23 @@
+#include "AppConfig.h"
+
+// Copy this file to AppConfig.cpp and replace the placeholder values locally.
+// AppConfig.cpp is intentionally ignored by Git because it contains secrets.
+
+#if defined(USE_SIM800)
+const char kApn[] = "YOUR_APN";
+const char kNetworkUser[] = "";
+const char kNetworkPassword[] = "";
+#elif defined(USE_ESP8266)
+const char kWifiSsid[] = "YOUR_WIFI_SSID";
+const char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+#endif
+
+const char kMqttServer[] = "mqtt.example.com";
+const char kMqttClientId[] = "wiot-node-1";
+
+const char kMqttCompanyTopicPrefix[] = "EgSA/Company_1";
+const char kMqttPublishTopicStatus[] = "EgSA/Company_1/1/status";
+const char kMqttPublishTopicTlm[] = "EgSA/Company_1/1/telemetry";
+const char kMqttCommandTopic[] = "EgSA/Company_1/1/command";
+const char kMqttBroadcastTopic[] = "EgSA/Company_1/broadcast";
+const char kMqttGatewayCommandWildcardTopic[] = "EgSA/+/+/command";

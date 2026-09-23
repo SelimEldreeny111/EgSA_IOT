@@ -1,0 +1,6 @@
+Flask>=3.0,<4
+Flask-SocketIO>=5.3,<6
+cryptography>=42
+paho-mqtt>=1.6,<3
+protobuf>=6.33.5,<7
+tzdata>=2024.1

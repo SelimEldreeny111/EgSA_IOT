@@ -1,0 +1,297 @@
+/******************************************************************************
+
+
+ * 
+ * @file      IoT_Node_ESP32.ino
+ * @author    IoT Development Team
+ * @version   1.12.2-esp32.1
+ * @date      2026-09-07
+ * @brief     Secure IoT node with MQTT telemetry and RS485 sensor monitoring
+ *
+ * @details   This module implements a secure IoT monitoring node that:
+ *            - Supports TUF, Supmea, HNDA, and Sondas RS485 sensors
+ *            - Manages MQTT connection for telemetry transmission
+ *            - Handles periodic sampling and transmission cycles
+ *            - Provides optional watchdog-safe ESP32 deep-sleep cycles
+ *            - Provides debug monitoring via hardware serial
+ *
+ * @section HARDWARE_SETUP
+ *   - Debug Interface:  GPIO3 (RX), GPIO1 (TX) - UART0 / SerialMon
+ *   - External modem:   GPIO32 (RX), GPIO33 (TX) - UART1 / SerialAT
+ *   - LoRa:             GPIO16 (RX), GPIO17 (TX) - UART2 / SerialLoRa
+ *   - RS485 Sensors:    UART1 in LoRa-node mode; UART2 in direct-MQTT mode
+ *
+ * @section SYSTEM_ARCHITECTURE
+ *   The system operates in a main loop with two primary timed operations:
+ *   1. Sensor sampling at configurable intervals (samplingPeriodMs)
+ *   2. Telemetry transmission at configurable intervals (transmissionPeriodMs)
+ *
+ * @section CONFIGURATION
+ *   Modify these parameters in application configuration (AppConfig.h):
+ *   - MQTT broker address and port
+ *   - Sampling and transmission periods
+ *   - Topic subscriptions and publications
+ *
+ * @section SECURITY
+ *   - Encrypted MQTT communication (TLS/SSL support)
+ *   - Hardware serial isolation
+ *   - Secure state management with timestamp validation
+ *
+ ******************************************************************************/
+
+/* ================== INCLUDES ================== */
+#include "src/app/IoT_Node.h"
+#include "src/app/GatewayApp.h"
+#include "src/comm/CommandHandler.h"
+#include "src/comm/PacketCodec.h"
+#include "src/comm/TelemetryPayload.h"
+#include "src/config/AppConfig.h"
+#include "src/devices/HndaSensor.h"
+#include "src/devices/SondasSensor.h"
+#include "src/devices/SupmeaSensor.h"
+#include "src/devices/TufSensor.h"
+#include "src/platform/Watchdog.h"
+#include "src/platform/SerialPorts.h"
+#include "src/power/PowerManager.h"
+#include "src/radio/LoraLink.h"
+
+#if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
+void pollLoraCommands()
+{
+  LoraFrame frame;
+  while (receiveLoraFrame(frame))
+  {
+    // Reaching the next complete frame proves that the prior frame was fully
+    // handled. A single blocked command/LoRa operation is intentionally not
+    // serviced and will be recovered by the IWDG.
+    serviceHardwareWatchdog();
+    printLoraFrameSummary(frame, "LoRa CMD RX");
+
+    const bool isBroadcastCommand = frame.type == LoraPayloadType::BroadcastCommand;
+    const bool isDirectCommand = frame.type == LoraPayloadType::Command;
+    if (!isBroadcastCommand && !isDirectCommand)
+    {
+      SerialMon.println("Sensor node ignored non-command LoRa frame");
+      continue;
+    }
+
+    CMD_Message cmd = CMD_Message_init_zero;
+    if (!decodeEncryptedCommandPayload(frame.payload, frame.payloadLength, cmd))
+    {
+      SerialMon.println("Sensor node LoRa CMD decode failed");
+      continue;
+    }
+
+    if (cmd.cmd_id == CMD_GET_TELEMETRY)
+    {
+      if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
+      {
+        SerialMon.println("Telemetry request not for this LoRa node");
+        continue;
+      }
+
+      uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
+      size_t telemetryPayloadLength = 0;
+      if (handleGetTelemetryCommand(&cmd, telemetryPayload, telemetryPayloadLength) &&
+          sendLoraFrame(
+              LoraPayloadType::SystemTelemetry,
+              AppConfig::kNodeId,
+              telemetryPayload,
+              telemetryPayloadLength))
+      {
+        SerialMon.print("Telemetry response sent by LoRa: ");
+        SerialMon.print(telemetryPayloadLength);
+        SerialMon.println(" bytes");
+      }
+      else
+      {
+        SerialMon.println("LoRa telemetry response failed");
+      }
+      continue;
+    }
+
+    handleCommand(cmd, isBroadcastCommand);
+  }
+}
+#endif
+
+/* ======================================= SETUP ==================================== */
+/**
+ * @brief System initialization routine
+ * 
+ * Initializes hardware interfaces, state management, and MQTT connection.
+ * This function runs once during system startup.
+ */
+void setup()
+{
+  // Periodic power mode uses a checksummed reset-to-sleep handoff. This early
+  // hook must run before the independent watchdog is armed so the IWDG still
+  // protects every active operation without running through long Standby time.
+  powerManagerEarlyBoot();
+
+  // Arm the independent hardware watchdog before radio or network setup so a
+  // modem/library call that never returns is covered during boot as well.
+  initializeHardwareWatchdog();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  gatewaySetup();
+#else
+  setup_Init();
+#endif
+  initializePowerManagerAfterSetup();
+  serviceHardwareWatchdog();
+}
+
+/* ================================= LOOP =========================================== */
+/**
+ * @brief Main application loop
+ * 
+ * Implements the core system logic with two timed operations:
+ * 1. Periodic sensor data acquisition and processing
+ * 2. Periodic telemetry transmission via MQTT
+ * 
+ * @note This function runs continuously in an infinite loop
+ */
+void loop()
+{
+  // This checkpoint means the previous Arduino loop iteration completed.
+  serviceHardwareWatchdog();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  gatewayLoop();
+  serviceHardwareWatchdog();
+  return;
+#else
+  AppRuntimeState& state = appState();
+
+  // The async publish FSM owns the AT bus while non-IDLE. Anything that
+  // talks AT (connect, mqtt.loop) must be skipped while it runs.
+  const bool busy = isAsyncPublishBusy();
+  const bool allowSensorWork = powerManagerAllowsSensorWork();
+#if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
+  pollLoraCommands();
+#endif
+#if APP_HAS_IP_UPLINK
+  if (!busy)
+  {
+    ensureMqttConnection();
+    mqttLoop();
+    serviceHardwareWatchdog();
+  }
+#endif
+
+  // Sensor sampling runs on a different bus (RS485 Modbus), so it stays
+  // responsive even while the modem is mid-CIPSEND.
+  if (allowSensorWork &&
+      millis() - state.lastReadMs >= state.samplingPeriodMs)
+  {
+    state.lastReadMs = millis();
+    refreshBatteryVoltage();
+    if (AppConfig::kEnableBatteryMonitor)
+    {
+      SerialMon.print("Battery ADC reading: ");
+      SerialMon.print(state.batteryVoltage, 2);
+      SerialMon.println(" V (encoded in Status/Telemetry)");
+    }
+
+    if (AppConfig::kEnableTufSensor)
+    {
+      const TufSensorData data = readTufSensor();
+      updateTufMetrics(data);
+      printTufSensorData(data);
+      serviceHardwareWatchdog();
+    }
+
+    if (AppConfig::kEnableHndaSensor)
+    {
+      const HndaSensorData data = readHndaSensor();
+      updateHndaMetrics(data);
+      printHndaSensorData(data);
+      serviceHardwareWatchdog();
+    }
+
+    if (AppConfig::kEnableSondasSensor)
+    {
+      const SondasSensorData data = readSondasSensor();
+      updateSondasMetrics(data);
+      printSondasSensorData(data);
+      serviceHardwareWatchdog();
+    }
+
+    if (AppConfig::kEnableSupmeaSensorTest)
+    {
+      // Commissioning only: print the meter values locally. Do not copy them
+      // into AppState until the telemetry/schema change is explicitly approved.
+      const SupmeaSensorData data = readSupmeaSensor();
+      printSupmeaSensorData(data);
+      serviceHardwareWatchdog();
+    }
+  }
+
+  // Kick off a non-blocking publish when it's time AND the FSM is free.
+  if (allowSensorWork &&
+      !busy &&
+      (millis() - state.lastSendMs >= state.transmissionPeriodMs))
+  {
+#if APP_HAS_LORA
+    uint8_t payload[AppConfig::kCodecBufferSize];
+    size_t payloadLength = 0;
+    const bool telemetryDelivered =
+        buildEncryptedStatusPayload(payload, sizeof(payload), payloadLength) &&
+        sendLoraFrame(
+            LoraPayloadType::StatusTelemetry,
+            AppConfig::kNodeId,
+            payload,
+            payloadLength);
+    if (telemetryDelivered)
+    {
+      SerialMon.print("Telemetry sent by LoRa: ");
+      SerialMon.print(payloadLength);
+      SerialMon.println(" bytes");
+    }
+    else
+    {
+      SerialMon.println("LoRa telemetry send failed");
+    }
+    notifyPowerManagerTelemetryResult(telemetryDelivered);
+    state.lastSendMs = millis();
+#else
+    if (triggerAsyncPublish())
+    {
+      state.lastSendMs = millis();
+    }
+    else
+    {
+      // MQTT is not ready yet. Schedule the next attempt instead of printing
+      // this failure on every loop iteration.
+      state.lastSendMs = millis();
+    }
+#endif
+    serviceHardwareWatchdog();
+  }
+
+#if APP_HAS_IP_UPLINK
+  // Advance the FSM by one tiny step every loop iteration.
+  asyncPublishStep();
+  const AsyncPublishResult publishResult = takeAsyncPublishResult();
+  if (publishResult != AsyncPublishResult::None)
+  {
+    notifyPowerManagerTelemetryResult(
+        publishResult == AsyncPublishResult::Success);
+  }
+#endif
+
+#if APP_HAS_LORA
+  static uint32_t s_lastLoraDiagnosticsMs = 0U;
+  if (millis() - s_lastLoraDiagnosticsMs >= AppConfig::kLoraDiagnosticsPeriodMs)
+  {
+    s_lastLoraDiagnosticsMs = millis();
+    printLoraDiagnostics();
+  }
+#endif
+  servicePowerManager();
+  serviceHardwareWatchdog();
+#endif
+}
+
+/* =============================================================================
+ * END OF FILE - IoT_Node_ESP32.ino
+ * ============================================================================= */

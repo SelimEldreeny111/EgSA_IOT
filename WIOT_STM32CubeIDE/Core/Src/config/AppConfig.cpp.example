@@ -1,0 +1,23 @@
+#include "config/AppConfig.hpp"
+
+// Copy this file to AppConfig.cpp and replace the placeholder values locally.
+// AppConfig.cpp is intentionally ignored by Git because it contains secrets.
+
+namespace AppConfig
+{
+const Platform::GpioPin kLoraMd0Pin{LORA_MD0_GPIO_Port, LORA_MD0_Pin};
+const Platform::GpioPin kLoraMd1Pin{LORA_MD1_GPIO_Port, LORA_MD1_Pin};
+const Platform::GpioPin kLoraAuxPin{LORA_AUX_GPIO_Port, LORA_AUX_Pin};
+const Platform::GpioPin kRs485DirectionPin{RS485_DE_GPIO_Port, RS485_DE_Pin};
+}
+
+const char kWifiSsid[] = "YOUR_WIFI_SSID";
+const char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+const char kMqttServer[] = "mqtt.example.com";
+const char kMqttClientId[] = "wiot-stm32-node-1";
+const char kMqttCompanyTopicPrefix[] = "EgSA/Company_1";
+const char kMqttPublishTopicStatus[] = "EgSA/Company_1/1/status";
+const char kMqttPublishTopicTlm[] = "EgSA/Company_1/1/telemetry";
+const char kMqttCommandTopic[] = "EgSA/Company_1/1/command";
+const char kMqttBroadcastTopic[] = "EgSA/Company_1/broadcast";
+const char kMqttGatewayCommandWildcardTopic[] = "EgSA/+/+/command";

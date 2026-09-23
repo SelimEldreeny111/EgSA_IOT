@@ -1,0 +1,5 @@
+/SensorNode/
+/LoRaGateway/
+/build*/
+*.su
+/Tests/*.exe

@@ -1,0 +1,44 @@
+{
+  "mqtt": {
+    "broker": "mqtt.example.com",
+    "port": 1883,
+    "pub_topic": "EgSA/Company_1/1/telemetry",
+    "sub_topic_1": "EgSA/Company_1/1/status",
+    "sub_topic_2": "EgSA/Company_1/1/telemetry",
+    "client_id": "wiot-test-client",
+    "keepalive": 60,
+    "use_tls": false,
+    "username": null,
+    "password": null,
+    "reconnect_delay": 5,
+    "tx_period_s": 5,
+    "cmd_pub_topic": "EgSA/Company_1/1/command"
+  },
+  "encryption": {
+    "algorithm": "AES-128",
+    "mode": "CBC",
+    "key_hex": "REPLACE_WITH_32_HEX_CHARACTERS",
+    "iv_mode": "random_per_message"
+  },
+  "device_defaults": {
+    "node_id": 1,
+    "sensor_id": 1,
+    "battery_voltage": 8.0
+  },
+  "rs485": {
+    "enabled": true,
+    "port": "COM1",
+    "baudrate": 9600,
+    "parity": "N",
+    "stopbits": 1,
+    "bytesize": 8,
+    "timeout_s": 1.0,
+    "unit_id": 1,
+    "address_base": 0,
+    "poll_period_ms": 1000,
+    "registers": {
+      "flow_rate": 0
+    }
+  },
+  "sampling_rate_sec": 1
+}
