@@ -61,7 +61,11 @@ in files excluded from this reference.
 ## Build and generate this reference
 
 Open the Arduino sketch in this directory using the STM32 Arduino core and
-board settings in the [project README](README.md). To regenerate the API
+board settings in the [project README](README.md). A firmware build also needs
+local `src/config/AppConfig.cpp` (network/topic values) and
+`src/config/AppSecrets.h` (AES key). Both are Git-ignored and deliberately
+excluded from the published reference; never commit live credentials. Doxygen
+generation does not need either file. To regenerate the API
 reference, install Doxygen 1.14 or newer and Graphviz, then run from this
 directory in PowerShell:
 
