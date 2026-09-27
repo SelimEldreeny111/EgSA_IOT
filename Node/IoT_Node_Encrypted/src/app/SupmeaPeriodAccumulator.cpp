@@ -1,3 +1,4 @@
+/** @file SupmeaPeriodAccumulator.cpp @brief RTC-bucketed Supmea totals and persistence. */
 #include "SupmeaPeriodAccumulator.h"
 
 #include "../config/AppConfig.h"
@@ -18,6 +19,7 @@ constexpr uint8_t kInitializedFlag = 0x01U;
 constexpr uint32_t kFirstBackupRegister = RTC_BKP_DR0;
 constexpr size_t kBackupRegisterCount = 14U;
 
+/** @brief Checksummed, versioned flow state laid out for RTC backup registers. */
 struct StoredFlowState
 {
     uint32_t magic;
@@ -40,6 +42,7 @@ static_assert(
     sizeof(StoredFlowState) == kBackupRegisterCount * sizeof(uint32_t),
     "Supmea accumulator must fit RTC backup registers DR0-DR13");
 
+/** @brief In-memory cumulative reference and active calendar buckets. */
 struct RuntimeFlowState
 {
     bool initialized;
@@ -55,18 +58,21 @@ struct RuntimeFlowState
 RuntimeFlowState g_state = {};
 uint32_t g_lastFlashSaveEpoch = 0U;
 
+/** @brief Reassemble a 64-bit counter from two persisted words. */
 uint64_t joinU64(uint32_t low, uint32_t high)
 {
     return static_cast<uint64_t>(low) |
         (static_cast<uint64_t>(high) << 32U);
 }
 
+/** @brief Split a 64-bit counter for the 32-bit backup-register layout. */
 void splitU64(uint64_t value, uint32_t& low, uint32_t& high)
 {
     low = static_cast<uint32_t>(value);
     high = static_cast<uint32_t>(value >> 32U);
 }
 
+/** @brief Checksum persisted bytes other than the checksum field. */
 uint32_t stateChecksum(const StoredFlowState& stored)
 {
     const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&stored);
@@ -80,6 +86,7 @@ uint32_t stateChecksum(const StoredFlowState& stored)
     return hash;
 }
 
+/** @brief Pack version, meter type, quality, and initialization flag. */
 uint32_t buildHeader(const RuntimeFlowState& state)
 {
     const uint8_t flags = state.initialized ? kInitializedFlag : 0U;
@@ -89,6 +96,7 @@ uint32_t buildHeader(const RuntimeFlowState& state)
         (static_cast<uint32_t>(flags) << 24U);
 }
 
+/** @brief Serialize runtime counters into a checksummed persistent record. */
 StoredFlowState encodeState(const RuntimeFlowState& state)
 {
     StoredFlowState stored = {};
@@ -116,6 +124,7 @@ StoredFlowState encodeState(const RuntimeFlowState& state)
     return stored;
 }
 
+/** @brief Validate a persistent record before restoring flow counters. */
 bool decodeState(const StoredFlowState& stored, RuntimeFlowState& state)
 {
     const uint8_t version = static_cast<uint8_t>(stored.header);
@@ -152,6 +161,7 @@ bool decodeState(const StoredFlowState& stored, RuntimeFlowState& state)
     return true;
 }
 
+/** @brief Create the HAL RTC handle used by backup-register operations. */
 RTC_HandleTypeDef makeBackupHandle()
 {
     RTC_HandleTypeDef handle = {};
@@ -159,6 +169,7 @@ RTC_HandleTypeDef makeBackupHandle()
     return handle;
 }
 
+/** @brief Read the complete accumulator record from RTC backup registers. */
 StoredFlowState readBackupState()
 {
     StoredFlowState stored = {};
@@ -177,6 +188,7 @@ StoredFlowState readBackupState()
     return stored;
 }
 
+/** @brief Copy the accumulator record to RTC backup registers. */
 void writeBackupState(const StoredFlowState& stored)
 {
     const uint32_t* words = reinterpret_cast<const uint32_t*>(&stored);
@@ -194,6 +206,7 @@ void writeBackupState(const StoredFlowState& stored)
     HAL_PWR_DisableBkUpAccess();
 }
 
+/** @brief Clear both backup and EEPROM copies when explicit reset is configured. */
 void clearStoredState()
 {
     const StoredFlowState empty = {};
@@ -201,6 +214,7 @@ void clearStoredState()
     EEPROM.put(AppConfig::kFlowAccumulatorEepromAddress, empty);
 }
 
+/** @brief Load and validate the EEPROM fallback copy. */
 bool readFlashState(RuntimeFlowState& state)
 {
     StoredFlowState stored = {};
@@ -208,6 +222,7 @@ bool readFlashState(RuntimeFlowState& state)
     return decodeState(stored, state);
 }
 
+/** @brief Save a durable EEPROM copy and verify it by readback. */
 bool writeFlashState(const RuntimeFlowState& state)
 {
     const StoredFlowState stored = encodeState(state);
@@ -217,6 +232,7 @@ bool writeFlashState(const RuntimeFlowState& state)
     return memcmp(&stored, &verified, sizeof(stored)) == 0;
 }
 
+/** @brief Refresh the low-wear backup-register working copy. */
 void persistWorkingState()
 {
     if (g_state.initialized)
@@ -225,6 +241,7 @@ void persistWorkingState()
     }
 }
 
+/** @brief Save an EEPROM checkpoint with a serial-log reason. */
 void persistDurableState(const char* reason)
 {
     serviceHardwareWatchdog();
@@ -241,16 +258,19 @@ void persistDurableState(const char* reason)
     serviceHardwareWatchdog();
 }
 
+/** @brief Derive YYYYMM from a YYYYMMDD calendar key. */
 uint32_t monthKeyFromDay(uint32_t dayKey)
 {
     return dayKey / 100UL;
 }
 
+/** @brief Derive YYYY from a YYYYMMDD calendar key. */
 uint16_t yearKeyFromDay(uint32_t dayKey)
 {
     return static_cast<uint16_t>(dayKey / 10000UL);
 }
 
+/** @brief Reset crossed day, month, or year buckets without adding volume. */
 void rollPeriodsWithoutVolume(const CalendarPeriodKeys& currentKeys)
 {
     if (currentKeys.day == g_state.dayKey)
@@ -278,6 +298,7 @@ enum class KeyPart : uint8_t
     Year,
 };
 
+/** @brief Select the requested day, month, or year calendar key. */
 uint32_t selectKey(const CalendarPeriodKeys& keys, KeyPart part)
 {
     if (part == KeyPart::Day)
@@ -291,6 +312,7 @@ uint32_t selectKey(const CalendarPeriodKeys& keys, KeyPart part)
     return keys.year;
 }
 
+/** @brief Binary-search the first second of the current calendar bucket. */
 uint32_t findCurrentPeriodStart(
     uint32_t fromEpoch,
     uint32_t toEpoch,
@@ -316,6 +338,7 @@ uint32_t findCurrentPeriodStart(
     return low;
 }
 
+/** @brief Allocate an interval's liters in proportion to elapsed seconds. */
 uint64_t proportionalVolume(
     uint64_t volumeLiters,
     uint32_t numeratorSeconds,
@@ -331,6 +354,7 @@ uint64_t proportionalVolume(
         (remainder * numeratorSeconds) / denominatorSeconds;
 }
 
+/** @brief Estimate the part of a meter delta belonging to the current bucket. */
 uint64_t volumeInCurrentPeriod(
     uint64_t deltaLiters,
     uint32_t previousEpoch,
@@ -349,6 +373,7 @@ uint64_t volumeInCurrentPeriod(
         currentEpoch - previousEpoch);
 }
 
+/** @brief Flag deltas above the configured maximum-flow safety envelope. */
 bool jumpIsPhysicallyImpossible(uint64_t deltaLiters, uint32_t elapsedSeconds)
 {
     if (AppConfig::kSupmeaMaxExpectedFlowM3h <= 0.0f)
@@ -367,6 +392,7 @@ bool jumpIsPhysicallyImpossible(uint64_t deltaLiters, uint32_t elapsedSeconds)
     return static_cast<double>(deltaLiters) > maximumLiters;
 }
 
+/** @brief Package active bucket values with their validity and quality state. */
 SupmeaPeriodResult currentResult(bool valid)
 {
     SupmeaPeriodResult result = {};

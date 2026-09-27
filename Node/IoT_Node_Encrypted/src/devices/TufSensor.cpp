@@ -1,3 +1,4 @@
+/** @file TufSensor.cpp @brief TUF Modbus polling, register decoding, and reading validation. */
 #include <stdint.h>
 #include "TufSensor.h"
 
@@ -22,6 +23,7 @@ constexpr uint16_t kYearTotalRegister = 0x0090U;
 constexpr uint32_t kInterRequestDelayMs = 100UL;
 constexpr uint8_t kMaxReadAttempts = 2U;
 
+/** @brief Reinterpret a 32-bit TUF register pair as an IEEE-754 float. */
 float u32ToFloat(uint32_t value)
 {
     float result;
@@ -29,6 +31,7 @@ float u32ToFloat(uint32_t value)
     return result;
 }
 
+/** @brief Combine TUF response words in the meter's low-word-first order. */
 static uint32_t responseU32LowWordFirst(uint8_t lowWordIndex)
 {
     return
@@ -36,11 +39,13 @@ static uint32_t responseU32LowWordFirst(uint8_t lowWordIndex)
         tufSensor.getResponseBuffer(lowWordIndex);
 }
 
+/** @brief Decode a low-word-first TUF floating-point response. */
 static float responseFloat(uint8_t lowWordIndex)
 {
     return u32ToFloat(responseU32LowWordFirst(lowWordIndex));
 }
 
+/** @brief Report an optional register-read failure without invalidating core data. */
 static void logOptionalReadFailed(const char* name, uint8_t result)
 {
     SerialMon.print("Optional TUF ");
@@ -49,6 +54,7 @@ static void logOptionalReadFailed(const char* name, uint8_t result)
     SerialMon.println(result);
 }
 
+/** @brief Poll a TUF holding-register block with bounded retries. */
 static uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
 {
     static uint32_t lastTransactionMs = 0;

@@ -1,3 +1,4 @@
+/** @file Rs485Bus.cpp @brief Shared half-duplex RS485 UART and driver-enable timing. */
 #include "Rs485Bus.h"
 
 #include <Arduino.h>

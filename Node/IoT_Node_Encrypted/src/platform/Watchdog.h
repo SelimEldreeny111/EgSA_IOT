@@ -1,26 +1,35 @@
+/**
+ * @file Watchdog.h
+ * @brief STM32 independent-watchdog lifecycle and progress checkpoints.
+ */
 #ifndef HARDWARE_WATCHDOG_H
 #define HARDWARE_WATCHDOG_H
 
 #include <Arduino.h>
 
-// Starts the STM32 independent watchdog and captures the previous reset cause.
-// Call this at the very beginning of setup(), before any modem operation.
+/**
+ * @brief Capture the previous reset cause and start the STM32 IWDG.
+ * @pre Call near the start of setup(), before any potentially blocking modem work.
+ */
 void initializeHardwareWatchdog();
 
-// Prints the captured reset cause once SerialMon is initialized.
+/** @brief Print the captured reset cause after SerialMon is initialized. */
 void reportHardwareWatchdogStatus();
 
-// Reload only at explicit application progress checkpoints. Never call this
-// from inside an unknown or unbounded blocking operation.
+/**
+ * @brief Reload IWDG at an explicit application progress checkpoint.
+ * @warning Do not call from an unknown or unbounded blocking operation; that
+ * would hide the very stall the watchdog is intended to detect.
+ */
 void serviceHardwareWatchdog();
 
-// Intentional long delays may use this function. It services the watchdog in
-// short steps, but a stalled delay/tick implementation still causes a reset.
+/** @brief Delay in short, watchdog-serviced steps. @param durationMs Requested intentional wait in milliseconds. */
 void watchdogDelay(uint32_t durationMs);
 
-// Requests a fast IWDG reset while preserving the watchdog-reset cause flag.
+/** @brief Stop making progress and allow a prompt IWDG reset. @param reason Diagnostic explanation printed before reset. */
 [[noreturn]] void forceHardwareWatchdogReset(const char* reason);
 
+/** @brief Query the reset-cause flag captured at boot. @return True if the previous reset came from IWDG. */
 bool previousResetWasHardwareWatchdog();
 
 #endif

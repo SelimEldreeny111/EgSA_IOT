@@ -1,3 +1,4 @@
+/** @file AppState.cpp @brief Shared runtime measurements and validity-state updates. */
 #include "AppState.h"
 
 #include "../config/AppConfig.h"

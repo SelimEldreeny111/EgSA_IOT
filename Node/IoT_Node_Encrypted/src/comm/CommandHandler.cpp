@@ -1,3 +1,4 @@
+/** @file CommandHandler.cpp @brief Remote-command validation and node-side dispatch. */
 #include "CommandHandler.h"
 #include "SensorPayloadMapper.h"
 

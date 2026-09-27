@@ -1,3 +1,4 @@
+/** @file PacketCodec.cpp @brief Protobuf encoding and AES-CBC wire-envelope processing. */
 #include "PacketCodec.h"
 
 #include <Arduino.h>
@@ -33,6 +34,11 @@ const byte g_legacyAesIv[AppConfig::kIvLength] =
     0x55, 0x66, 0x77, 0x88
 };
 
+/**
+ * @brief Derive the outgoing CBC IV from runtime timer and counter values.
+ * @warning This derivation is not a cryptographically secure random generator;
+ *          do not treat the envelope as providing authenticated encryption.
+ */
 void generatePacketIv(byte* iv)
 {
     static uint32_t packetCounter = 0;
@@ -54,6 +60,7 @@ void generatePacketIv(byte* iv)
     ++packetCounter;
 }
 
+/** @brief Encrypt a buffer with AESLib, copying the IV because the library mutates it. */
 int encryptBuffer(uint8_t* input, int length, uint8_t* output, const byte* iv)
 {
     byte ivCopy[AppConfig::kIvLength];
@@ -62,6 +69,7 @@ int encryptBuffer(uint8_t* input, int length, uint8_t* output, const byte* iv)
     return g_aesLib.encrypt(input, length, output, g_aesKey, sizeof(g_aesKey), ivCopy);
 }
 
+/** @brief Decrypt a buffer with AESLib, preserving the caller's IV. */
 int decryptBuffer(uint8_t* input, int length, uint8_t* output, const byte* iv)
 {
     byte ivCopy[AppConfig::kIvLength];

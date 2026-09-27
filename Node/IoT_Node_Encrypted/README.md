@@ -1,11 +1,8 @@
 # IoT Node Encrypted
 
-> RSSI diagnostics, battery-divider wiring, protobuf field numbers, and web
-> migration details are documented in
-> `../Documentation/AS32_RSSI_AND_BATTERY_TELEMETRY.md`.
-
-A secure IoT monitoring system with encrypted communication capabilities for industrial flow measurement and telemetry.
-For the restored AS32 private-LoRa V1 build, module settings, reflashing sequence, diagnostics, and Wi-Fi flash-persistence test, see [AS32 Private-LoRa V1 Recovery and Acceptance Test](../Documentation/AS32_V1_RECOVERY_TEST.md).
+An IoT monitoring system with application-layer encrypted communication for industrial flow measurement and telemetry.
+The generated firmware API and architecture reference is described in
+[Doxygen documentation](DOXYGEN_MAINPAGE.md).
 
 For product selection, protobuf fields, Supmea calendar consumption, RTC
 setup, persistence, and commissioning, see [STM32 Flow-Meter Profiles and

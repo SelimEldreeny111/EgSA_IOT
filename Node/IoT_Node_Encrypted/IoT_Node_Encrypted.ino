@@ -6,11 +6,11 @@
  * @author    IoT Development Team
  * @version   1.13.0
  * @date      2026-09-12
- * @brief     Secure IoT node with MQTT telemetry and RS485 sensor monitoring
+ * @brief     STM32 sensor-node or LoRa-gateway sketch with RS485 acquisition.
  *
- * @details   This module implements a secure IoT monitoring node that:
+ * @details   This sketch selects a sensor-node or gateway role at build time. It:
  *            - Supports TUF, Supmea, HNDA, and Sondas RS485 sensors
- *            - Manages MQTT connection for telemetry transmission
+ *            - Sends encrypted telemetry over the selected MQTT or LoRa route
  *            - Handles periodic sampling and transmission cycles
  *            - Provides optional watchdog-safe RTC Standby cycles for LoRa or Wi-Fi nodes
  *            - Provides debug monitoring via hardware serial
@@ -31,10 +31,8 @@
  *   - Sampling and transmission periods
  *   - Topic subscriptions and publications
  *
- * @section SECURITY
- *   - Encrypted MQTT communication (TLS/SSL support)
- *   - Hardware serial isolation
- *   - Secure state management with timestamp validation
+ * @warning The application AES-CBC frame has no authentication tag. Encryption
+ *          alone does not prove the origin or integrity of a received command.
  *
  ******************************************************************************/
 
@@ -53,20 +51,31 @@
 #include "src/radio/LoraLink.h"
 
 /* ==================================== SERIAL ===================================== */
+/** @brief Debug UART (RX=PA3, TX=PA2). */
 HardwareSerial SerialMon(PA3, PA2);   // Debug interface (RX, TX)
 
 #if APP_HAS_IP_UPLINK
+/** @brief IP-modem UART when Wi-Fi or SIM800 is compiled in. */
 HardwareSerial SerialAT(PA12, PA11);  // ESP8266/SIM800 modem interface (RX, TX)
 #else
 // In LoRa-only sensor-node mode, PA12/PA11 belong exclusively to SerialLoRa.
 // Keep this unused placeholder away from the LoRa pins because MQTT.cpp still
 // references SerialAT at link time even though APP_HAS_IP_UPLINK is disabled.
+/** @brief Unused compatibility UART in LoRa-only builds. */
 HardwareSerial SerialAT(PB_11, PB_10);
 #endif
 
+/** @brief AS32/E32 LoRa module UART. */
 HardwareSerial SerialLoRa(AppConfig::kLoraRxPin, AppConfig::kLoraTxPin);
 
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
+/**
+ * @brief Process all complete LoRa command frames currently available.
+ *
+ * Only direct and broadcast command types are accepted. A direct telemetry
+ * request must target this node. The watchdog is serviced between complete
+ * frames, not inside a blocked receive or command operation.
+ */
 void pollLoraCommands()
 {
   LoraFrame frame;
@@ -128,10 +137,11 @@ void pollLoraCommands()
 
 /* ======================================= SETUP ==================================== */
 /**
- * @brief System initialization routine
- * 
- * Initializes hardware interfaces, state management, and MQTT connection.
- * This function runs once during system startup.
+ * @brief Initialize the selected node or gateway role after early power recovery.
+ *
+ * The power manager examines a previous standby handoff before the hardware
+ * watchdog is armed. Role-specific initialization then configures the active
+ * sensors and transport. MQTT initialization is not required for every role.
  */
 void setup()
 {
@@ -154,13 +164,11 @@ void setup()
 
 /* ================================= LOOP =========================================== */
 /**
- * @brief Main application loop
- * 
- * Implements the core system logic with two timed operations:
- * 1. Periodic sensor data acquisition and processing
- * 2. Periodic telemetry transmission via MQTT
- * 
- * @note This function runs continuously in an infinite loop
+ * @brief Run one cooperative gateway or sensor-node iteration.
+ *
+ * A completed iteration is a watchdog progress checkpoint. The sensor-node
+ * path polls commands, samples enabled sensors, advances the asynchronous
+ * publish state machine, and services the configured power policy.
  */
 void loop()
 {

@@ -1,3 +1,12 @@
+/**
+ * @file AppConfig.h
+ * @brief Compile-time role, transport, sensor, timing, pin, watchdog, and power policies.
+ *
+ * Select the product profile and each enabled sensor here before building.
+ * Invalid role/transport/power combinations are rejected by compile-time checks.
+ * Values in this file describe firmware policy; external modules that are not
+ * selected may still require hardware power isolation.
+ */
 #ifndef APP_CONFIG_H
 #define APP_CONFIG_H
 

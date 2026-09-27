@@ -1,5 +1,6 @@
-/*
- * AS32_Config.h
+/**
+ * @file AS32_Config.h
+ * @brief AS32-TTL-1W-C radio settings and optional configuration diagnostics.
  *
  * Central AS32-TTL-1W-C configuration selector.
  *
@@ -10,6 +11,7 @@
  *
  * The AS32 only accepts configuration commands in sleep/config mode:
  * MD0=HIGH and MD1=HIGH. Normal transparent mode is MD0=LOW and MD1=LOW.
+ * RSSI commands below are AS32 V3-specific and are not E32-TTL-100 commands.
  */
 
 #ifndef AS32_CONFIG_H
@@ -225,16 +227,18 @@ constexpr uint8_t kReadEnvironmentRssiCommand[6] = {
     0xAF, 0xAF, 0x74, 0x00, 0xAF, 0xF4
 };
 
+/** @brief Independently validated data and environmental RSSI replies. */
 struct RssiReadings
 {
-  bool dataValid;
-  int16_t dataDbm;
-  uint8_t dataRaw;
-  bool environmentValid;
-  int16_t environmentDbm;
-  uint8_t environmentRaw;
+  bool dataValid;         ///< Data-signal RSSI reply passed format checks.
+  int16_t dataDbm;        ///< Decoded negative dBm reading.
+  uint8_t dataRaw;        ///< One-byte magnitude returned by the module.
+  bool environmentValid;  ///< Ambient-channel RSSI reply passed checks.
+  int16_t environmentDbm; ///< Decoded ambient dBm reading.
+  uint8_t environmentRaw; ///< Raw ambient magnitude byte.
 };
 
+/** @brief Convert an AS32 UART-rate field to bits per second. @param code Encoded three-bit baud selection. @return UART baud rate. */
 constexpr uint32_t baudRateFromCode(uint8_t code)
 {
   return code == AS32_UART_BAUD_1200 ? 1200UL :
@@ -247,6 +251,7 @@ constexpr uint32_t baudRateFromCode(uint8_t code)
          115200UL;
 }
 
+/** @brief Convert the parity field to an Arduino serial mode. @param code Encoded AS32 parity selection. @return SERIAL_8N1, SERIAL_8O1, or SERIAL_8E1. */
 constexpr uint32_t serialModeFromParity(uint8_t code)
 {
   return code == AS32_UART_PARITY_8O1 ? SERIAL_8O1 :
@@ -260,6 +265,7 @@ constexpr uint32_t kCurrentConfigBaudRate = baudRateFromCode(AS32_CURRENT_CONFIG
 constexpr uint32_t kCurrentConfigSerialMode = serialModeFromParity(AS32_CURRENT_CONFIG_UART_PARITY_CODE);
 constexpr bool kAutoApplyConfig = AS32_AUTO_APPLY_CONFIG != 0;
 
+/** @brief Print one byte as two hexadecimal digits. @param out Destination diagnostic stream. @param value Byte to format. */
 inline void printHexByte(Print& out, uint8_t value)
 {
   if (value < 0x10)
@@ -269,6 +275,7 @@ inline void printHexByte(Print& out, uint8_t value)
   out.print(value, HEX);
 }
 
+/** @brief Print selected frequency, UART, option, and command bytes. @param out Destination diagnostic stream. */
 inline void printConfigSummary(Print& out)
 {
   out.print("AS32 config: freq=");
@@ -293,6 +300,7 @@ inline void printConfigSummary(Print& out)
   out.println();
 }
 
+/** @brief Wait until the module AUX pin reports idle/ready. @param auxPin Configured AUX input pin. @param timeoutMs Maximum wait in milliseconds. @return True after AUX becomes HIGH. */
 inline bool waitForAuxHigh(uint32_t auxPin, uint32_t timeoutMs)
 {
   const uint32_t startMs = millis();
@@ -308,6 +316,7 @@ inline bool waitForAuxHigh(uint32_t auxPin, uint32_t timeoutMs)
   return true;
 }
 
+/** @brief Discard pending radio UART bytes before a command exchange. @param radioSerial Module UART. */
 inline void drainSerial(HardwareSerial& radioSerial)
 {
   while (radioSerial.available() > 0)
@@ -316,6 +325,14 @@ inline void drainSerial(HardwareSerial& radioSerial)
   }
 }
 
+/**
+ * @brief Collect a bounded command reply until a fixed timeout expires.
+ * @param radioSerial Module UART.
+ * @param response Caller-owned receive buffer.
+ * @param responseCapacity Maximum stored reply bytes.
+ * @param timeoutMs Read window in milliseconds.
+ * @return Number of bytes stored; excess bytes are discarded.
+ */
 inline size_t readResponseBytes(
     HardwareSerial& radioSerial,
     uint8_t* response,
@@ -338,6 +355,15 @@ inline size_t readResponseBytes(
   return responseLength;
 }
 
+/**
+ * @brief Read a reply until the first-byte deadline or an inter-byte idle gap.
+ * @param radioSerial Module UART.
+ * @param response Caller-owned receive buffer.
+ * @param responseCapacity Maximum stored reply bytes.
+ * @param firstByteTimeoutMs Time allowed for the first reply byte.
+ * @param idleTimeoutMs Gap ending a reply after data starts.
+ * @return Number of bytes stored.
+ */
 inline size_t readResponseUntilIdle(
     HardwareSerial& radioSerial,
     uint8_t* response,
@@ -379,6 +405,14 @@ inline size_t readResponseUntilIdle(
   return responseLength;
 }
 
+/**
+ * @brief Decode one AS32 V3 unsigned RSSI magnitude as a negative dBm value.
+ * @param response Raw response bytes.
+ * @param responseLength Response size; exactly one byte is required.
+ * @param raw Receives the validated magnitude.
+ * @param dbm Receives minus the magnitude in dBm.
+ * @return False for empty, echoed, or out-of-range replies.
+ */
 inline bool decodeRssiResponse(
     const uint8_t* response,
     size_t responseLength,
@@ -397,6 +431,14 @@ inline bool decodeRssiResponse(
   return true;
 }
 
+/**
+ * @brief Query data and ambient RSSI without changing normal receive mode.
+ * @pre Call only for modules confirmed to support AS32 V3 RSSI commands.
+ * @param radioSerial Module UART.
+ * @param auxPin Module AUX input pin.
+ * @param readings Receives independent validity and values for both queries.
+ * @return True if at least one RSSI query returned a valid byte.
+ */
 inline bool queryRssi(
     HardwareSerial& radioSerial,
     uint32_t auxPin,
@@ -441,6 +483,7 @@ inline bool queryRssi(
   return readings.dataValid || readings.environmentValid;
 }
 
+/** @brief Print a command reply in hex. @param debug Destination stream. @param response Reply bytes. @param responseLength Number of reply bytes. */
 inline void printResponse(Print& debug, const uint8_t* response, size_t responseLength)
 {
   if (responseLength == 0)
@@ -456,6 +499,7 @@ inline void printResponse(Print& debug, const uint8_t* response, size_t response
   }
 }
 
+/** @brief Check the minimum shape of an AS32 configuration reply. @param response Reply bytes. @param responseLength Reply size. @return True for a recognized command header and at least six bytes. */
 inline bool isValidAs32ConfigResponse(const uint8_t* response, size_t responseLength)
 {
   if (responseLength < 6)
@@ -468,6 +512,7 @@ inline bool isValidAs32ConfigResponse(const uint8_t* response, size_t responseLe
          response[0] == AS32_CMD_WRITE_TEMPORARY;
 }
 
+/** @brief Detect an AT modem text reply on a UART expected to carry AS32 data. @param response Reply bytes. @param responseLength Reply size. @return True for an OK or ERROR prefix. */
 inline bool isAtModemTextResponse(const uint8_t* response, size_t responseLength)
 {
   if (responseLength >= 2 && response[0] == 'O' && response[1] == 'K')
@@ -488,6 +533,14 @@ inline bool isAtModemTextResponse(const uint8_t* response, size_t responseLength
   return false;
 }
 
+/**
+ * @brief Send the selected AS32 configuration at one candidate UART setting.
+ * @param radioSerial Module UART, restarted at @p baudRate and @p serialMode.
+ * @param debug Diagnostic stream.
+ * @param baudRate Candidate UART baud rate.
+ * @param serialMode Candidate parity/stop-bit mode.
+ * @return True when a minimally valid AS32 configuration reply is received.
+ */
 inline bool writeConfigAtBaud(
     HardwareSerial& radioSerial,
     Print& debug,
@@ -523,6 +576,15 @@ inline bool writeConfigAtBaud(
   return isValidAs32ConfigResponse(response, responseLength);
 }
 
+/**
+ * @brief Read module configuration back for diagnostics at one UART setting.
+ * @param radioSerial Module UART, restarted at @p baudRate and @p serialMode.
+ * @param debug Diagnostic stream.
+ * @param baudRate Candidate UART baud rate.
+ * @param serialMode Candidate serial mode.
+ * @param label Text label for the diagnostic line.
+ * @return True when a minimally valid AS32 configuration reply is received.
+ */
 inline bool readConfigAtBaud(
     HardwareSerial& radioSerial,
     Print& debug,
@@ -561,6 +623,16 @@ inline bool readConfigAtBaud(
   return isValidAs32ConfigResponse(response, responseLength);
 }
 
+/**
+ * @brief Optionally write settings in config mode, read them back, and resume normal mode.
+ * @param radioSerial Module UART.
+ * @param debug Diagnostic stream.
+ * @param md0Pin Module mode input MD0.
+ * @param md1Pin Module mode input MD1.
+ * @param auxPin Module ready/busy output AUX.
+ * @return Always true after the attempt; inspect diagnostics for write/readback
+ * failure. This return value is not proof that the module accepted settings.
+ */
 inline bool applyConfigurationIfEnabled(
     HardwareSerial& radioSerial,
     Print& debug,

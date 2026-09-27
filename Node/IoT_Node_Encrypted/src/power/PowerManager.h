@@ -1,23 +1,28 @@
+/**
+ * @file PowerManager.h
+ * @brief Coordinated component power policy and RTC-standby state machine.
+ */
 #ifndef POWER_MANAGER_H
 #define POWER_MANAGER_H
-// Must be called at the very start of setup(), before the IWDG is armed.
-// A valid pending sleep request enters STM32 Standby and does not return.
-// Invalid, expired, and completed requests are cleared safely.
+/**
+ * @brief Complete a validated pending standby request before IWDG startup.
+ *
+ * A valid request enters STM32 Standby and does not return. Invalid, expired,
+ * or completed requests are cleared without entering sleep.
+ * @pre Call before initializeHardwareWatchdog().
+ */
 void powerManagerEarlyBoot();
 
-// Called after normal setup. It reports every component policy and, in
-// controller POWER_DOWN mode, makes the first periodic sample immediately due.
+/** @brief Report the selected component policies and initialize cycle timing. */
 void initializePowerManagerAfterSetup();
 
-// Periodic mode stops new sensor and telemetry work after one successful
-// telemetry delivery, while keeping the selected command transport alive.
+/** @brief Check whether a new acquisition cycle may start. @return False while the post-delivery command window or standby transition is active. */
 bool powerManagerAllowsSensorWork();
 
-// Report the outcome of the scheduled LoRa or MQTT telemetry attempt. A
-// successful delivery opens the configured command-receive window.
+/** @brief Report a scheduled telemetry outcome to the sleep FSM. @param delivered True only after confirmed LoRa or MQTT delivery. */
 void notifyPowerManagerTelemetryResult(bool delivered);
 
-// Advances the non-blocking command-window/sleep state machine.
+/** @brief Advance the non-blocking command window and standby preparation. */
 void servicePowerManager();
 
 #endif

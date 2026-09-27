@@ -1,12 +1,23 @@
+/**
+ * @file SensorPayloadMapper.h
+ * @brief Common mapping from runtime measurements to protobuf sensor fields.
+ */
 #ifndef SENSOR_PAYLOAD_MAPPER_H
 #define SENSOR_PAYLOAD_MAPPER_H
 
 #include "../app/AppState.h"
 #include "../config/AppConfig.h"
 
-// Status_Message and Telemetry intentionally share this sensor field set.
-// Keeping the mapping in one template prevents the LoRa, direct-MQTT, and
-// command-response paths from silently producing different payloads.
+/**
+ * @brief Copy flow, soil, battery, and validity fields into a protobuf record.
+ *
+ * Status_Message and Telemetry intentionally share this sensor field set.
+ * Keeping this mapping central prevents the LoRa, direct-MQTT, and command
+ * response paths from silently producing different payloads.
+ * @tparam Message Status_Message or Telemetry nanopb structure.
+ * @param message Output message whose sensor fields are replaced.
+ * @param state Current application snapshot.
+ */
 template <typename Message>
 inline void populateSensorPayloadFields(
     Message& message,

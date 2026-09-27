@@ -1,3 +1,4 @@
+/** @file LoraLink.cpp @brief LoRa UART framing, addressing, receive, transmit, and link diagnostics. */
 #include "LoraLink.h"
 #include "../config/AppConfig.h"
 #include "../platform/Watchdog.h"
@@ -106,6 +107,7 @@ uint32_t g_lastRssiQueryWireFrameCount = 0U;
 uint32_t g_rssiQuerySuccesses = 0U;
 uint32_t g_rssiQueryFailures = 0U;
 
+/** @brief Calculate the CCITT CRC used to reject corrupted LoRa wire frames. */
 uint16_t crc16Ccitt(const uint8_t* data, size_t length)
 {
   uint16_t crc = 0xFFFFU;
@@ -122,6 +124,7 @@ uint16_t crc16Ccitt(const uint8_t* data, size_t length)
   return crc;
 }
 
+/** @brief Print one byte as two hexadecimal digits. */
 void printHexByte(uint8_t value)
 {
   if (value < 0x10U)
@@ -131,12 +134,14 @@ void printHexByte(uint8_t value)
   SerialMon.print(value, HEX);
 }
 
+/** @brief Print a 16-bit word as four hexadecimal digits. */
 void printHexWord(uint16_t value)
 {
   printHexByte(static_cast<uint8_t>((value >> 8) & 0xFFU));
   printHexByte(static_cast<uint8_t>(value & 0xFFU));
 }
 
+/** @brief Print a zero-padded hexadecimal buffer offset. */
 void printHexOffset(size_t value)
 {
   if (value < 0x1000U)
@@ -154,6 +159,7 @@ void printHexOffset(size_t value)
   SerialMon.print(static_cast<unsigned long>(value), HEX);
 }
 
+/** @brief Dump a labeled byte buffer in 16-byte rows for diagnostics. */
 void printRawBytes(const char* label, const uint8_t* data, size_t length)
 {
   SerialMon.print(label);
@@ -180,6 +186,7 @@ void printRawBytes(const char* label, const uint8_t* data, size_t length)
   }
 }
 
+/** @brief Print interpreted wire-header fields and the expected CRC. */
 void printDecodedHeader(
     const char* label,
     uint8_t version,
@@ -208,6 +215,7 @@ void printDecodedHeader(
   SerialMon.println();
 }
 
+/** @brief Print the first buffered RX bytes to help diagnose framing errors. */
 void printRxPrefix()
 {
   SerialMon.print("LoRa RX prefix:");
@@ -222,6 +230,7 @@ void printRxPrefix()
   SerialMon.println();
 }
 
+/** @brief Distinguish application frames from internal fragment transport types. */
 bool isApplicationType(LoraPayloadType type)
 {
   return type == LoraPayloadType::StatusTelemetry ||
@@ -231,6 +240,7 @@ bool isApplicationType(LoraPayloadType type)
          type == LoraPayloadType::SystemTelemetry;
 }
 
+/** @brief Return the compiled node or gateway radio identity. */
 uint16_t localRadioNodeId()
 {
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
@@ -240,6 +250,7 @@ uint16_t localRadioNodeId()
 #endif
 }
 
+/** @brief Remove consumed or rejected bytes from the RX assembly buffer. */
 void discardBytes(size_t count)
 {
   if (count >= g_rxLength)
@@ -253,6 +264,7 @@ void discardBytes(size_t count)
   g_rxLength -= count;
 }
 
+/** @brief Infer total frame length from a valid buffered wire header. */
 size_t expectedBufferedFrameLength()
 {
   if (g_rxLength < kHeaderLength ||
@@ -273,6 +285,7 @@ size_t expectedBufferedFrameLength()
   return kHeaderLength + payloadLength + kCrcLength;
 }
 
+/** @brief Drop an unfinished wire frame after the RX assembly timeout. */
 void expireIncompleteRxStream()
 {
   if (g_rxLength == 0U || g_lastRxByteMs == 0U)
@@ -306,6 +319,7 @@ void expireIncompleteRxStream()
   g_lastRxByteMs = 0U;
 }
 
+/** @brief Drain hardware UART bytes into the software frame buffer. */
 void drainLoraUart()
 {
   bool receivedBytes = false;
@@ -342,6 +356,7 @@ void drainLoraUart()
   }
 }
 
+/** @brief Transmit every UART byte within a bounded write window. */
 bool writeLoraUartReliably(const uint8_t* data, size_t length)
 {
   const uint32_t startMs = millis();
@@ -373,6 +388,7 @@ bool writeLoraUartReliably(const uint8_t* data, size_t length)
   return true;
 }
 
+/** @brief Wait for the AS32 AUX busy cycle, then apply a post-send guard. */
 bool waitForAs32PacketComplete(uint32_t guardMs)
 {
   const uint32_t busyStartMs = millis();
@@ -405,6 +421,7 @@ bool waitForAs32PacketComplete(uint32_t guardMs)
   return true;
 }
 
+/** @brief Encode one bounded wire frame, append CRC, and wait for radio completion. */
 bool transmitWireFrame(
     LoraPayloadType type,
     uint16_t sourceNodeId,
@@ -481,6 +498,7 @@ bool transmitWireFrame(
   return true;
 }
 
+/** @brief Resynchronize RX bytes and validate one complete header, payload, and CRC. */
 bool extractWireFrame(LoraFrame& frame)
 {
   while (g_rxLength >= 2U &&
@@ -592,6 +610,7 @@ bool extractWireFrame(LoraFrame& frame)
   return true;
 }
 
+/** @brief Queue a complete application frame, reporting overflow drops. */
 bool enqueuePendingFrame(const LoraFrame& frame)
 {
   if (g_pendingCount >= AppConfig::kLoraPendingFrameCount)
@@ -608,6 +627,7 @@ bool enqueuePendingFrame(const LoraFrame& frame)
   return true;
 }
 
+/** @brief Take the oldest complete application frame from the pending queue. */
 bool dequeuePendingFrame(LoraFrame& frame)
 {
   if (g_pendingCount == 0U)
@@ -622,11 +642,13 @@ bool dequeuePendingFrame(LoraFrame& frame)
   return true;
 }
 
+/** @brief Clear all state for one partially reassembled logical message. */
 void resetReassemblyContext(ReassemblyContext& context)
 {
   memset(&context, 0, sizeof(context));
 }
 
+/** @brief Reuse or select a bounded context for a fragmented logical message. */
 ReassemblyContext* acquireReassemblyContext(
     uint16_t sourceNodeId,
     uint16_t messageId,
@@ -723,6 +745,7 @@ ReassemblyContext* acquireReassemblyContext(
   return selected;
 }
 
+/** @brief Release incomplete logical messages after their fragment timeout. */
 void expireReassemblyContexts()
 {
   const uint32_t now = millis();
@@ -747,6 +770,7 @@ void expireReassemblyContexts()
   }
 }
 
+/** @brief Acknowledge one received fragment to the sending node. */
 bool sendFragmentAck(
     uint16_t targetNodeId,
     uint16_t messageId,
@@ -781,6 +805,7 @@ bool sendFragmentAck(
   return true;
 }
 
+/** @brief Validate and record a received transport-fragment ACK. */
 void handleFragmentAck(const LoraFrame& wireFrame)
 {
   if (wireFrame.payloadLength != kAckPayloadLength)
@@ -811,6 +836,7 @@ void handleFragmentAck(const LoraFrame& wireFrame)
   SerialMon.println(g_lastAck.fragmentIndex + 1U);
 }
 
+/** @brief Validate, store, and reassemble fragments into an application frame. */
 bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
 {
   if (wireFrame.payloadLength < kFragmentHeaderLength)
@@ -970,6 +996,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   return true;
 }
 
+/** @brief Route a validated wire frame to ACK handling or the application queue. */
 void processWireFrame(const LoraFrame& wireFrame)
 {
   if (wireFrame.type == LoraPayloadType::TransportFragmentAck)
@@ -1002,6 +1029,7 @@ void processWireFrame(const LoraFrame& wireFrame)
   enqueuePendingFrame(logicalFrame);
 }
 
+/** @brief Drain UART bytes and repeatedly parse all complete wire frames. */
 void processIncomingWireFrames()
 {
   drainLoraUart();
@@ -1027,6 +1055,7 @@ void processIncomingWireFrames()
   }
 }
 
+/** @brief Poll incoming frames until the expected fragment ACK or timeout. */
 bool waitForFragmentAck(
     uint16_t targetNodeId,
     uint16_t messageId,
@@ -1053,6 +1082,7 @@ bool waitForFragmentAck(
   return false;
 }
 
+/** @brief Allocate a nonzero wrapping identifier for fragmented messages. */
 uint16_t allocateMessageId()
 {
   const uint16_t result = g_nextMessageId;
@@ -1064,6 +1094,7 @@ uint16_t allocateMessageId()
   return result == 0U ? 1U : result;
 }
 
+/** @brief Decide whether this sensor-node uplink requires gateway ACKs. */
 bool nodeUplinkRequiresAck(uint16_t sourceNodeId)
 {
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_UPLINK == APP_UPLINK_LORA_TO_GATEWAY
@@ -1074,6 +1105,7 @@ bool nodeUplinkRequiresAck(uint16_t sourceNodeId)
 #endif
 }
 
+/** @brief Query module RSSI only when no frame transaction is active. */
 void refreshRssiDiagnosticsIfSafe()
 {
   if (!AppConfig::kLoraModuleSupportsRssi ||

@@ -1,3 +1,4 @@
+/** @file RTC.cpp @brief RTC initialization, trust state, time conversion, and backup registers. */
 #include "RTC.h"
 
 #include "../config/AppConfig.h"
@@ -12,11 +13,13 @@ bool g_rtcInitializedThisBoot = false;
 constexpr uint32_t kRtcTrustedMagic = 0x52544332UL; // "RTC2"
 constexpr uint32_t kRtcTrustedBackupRegister = RTC_BKP_DR14;
 
+/** @brief Apply Gregorian leap-year rules to a calendar year. */
 bool isLeapYear(uint16_t year)
 {
   return (year % 4U == 0U && year % 100U != 0U) || year % 400U == 0U;
 }
 
+/** @brief Return the number of days in a valid month, including leap February. */
 uint8_t daysInMonth(uint16_t year, uint8_t month)
 {
   static const uint8_t kMonthDays[] =
@@ -26,6 +29,7 @@ uint8_t daysInMonth(uint16_t year, uint8_t month)
       : kMonthDays[month - 1U];
 }
 
+/** @brief Create a HAL handle for RTC backup-register access. */
 RTC_HandleTypeDef makeBackupHandle()
 {
   RTC_HandleTypeDef handle = {};
@@ -33,6 +37,7 @@ RTC_HandleTypeDef makeBackupHandle()
   return handle;
 }
 
+/** @brief Read a backup register with temporary backup-domain access. */
 uint32_t readBackupRegister(uint32_t backupRegister)
 {
   __HAL_RCC_PWR_CLK_ENABLE();
@@ -44,6 +49,7 @@ uint32_t readBackupRegister(uint32_t backupRegister)
   return value;
 }
 
+/** @brief Write a backup register with temporary backup-domain access. */
 void writeBackupRegister(uint32_t backupRegister, uint32_t value)
 {
   __HAL_RCC_PWR_CLK_ENABLE();
@@ -54,6 +60,7 @@ void writeBackupRegister(uint32_t backupRegister, uint32_t value)
   HAL_PWR_DisableBkUpAccess();
 }
 
+/** @brief Derive the UTC calendar year from Unix seconds. */
 uint16_t yearFromEpoch(uint32_t epoch)
 {
   uint32_t days = epoch / 86400UL;
@@ -70,6 +77,7 @@ uint16_t yearFromEpoch(uint32_t epoch)
   }
 }
 
+/** @brief Split Unix seconds into UTC year, month, and day. */
 void epochToDate(
     uint32_t epoch,
     uint16_t& year,
@@ -98,6 +106,7 @@ void epochToDate(
   day = static_cast<uint8_t>(days + 1U);
 }
 
+/** @brief Return weekday as Sunday=0 through Saturday=6. */
 uint8_t weekday(uint16_t year, uint8_t month, uint8_t day)
 {
   // 1970-01-01 was Thursday. Return 0=Sunday through 6=Saturday.
@@ -105,6 +114,7 @@ uint8_t weekday(uint16_t year, uint8_t month, uint8_t day)
       ((dateToEpoch(year, month, day, 0U, 0U, 0U) / 86400UL) + 4UL) % 7UL);
 }
 
+/** @brief Find the final occurrence of a weekday in a valid month. */
 uint8_t lastWeekdayOfMonth(
     uint16_t year,
     uint8_t month,
@@ -118,6 +128,7 @@ uint8_t lastWeekdayOfMonth(
   return day;
 }
 
+/** @brief Apply the firmware's offline Cairo DST rule to a UTC epoch. */
 bool isCairoDst(uint32_t epoch)
 {
   const uint16_t year = yearFromEpoch(epoch);

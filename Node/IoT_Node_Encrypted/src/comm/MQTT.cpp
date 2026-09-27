@@ -1,3 +1,4 @@
+/** @file MQTT.cpp @brief IP uplink, MQTT connection, command intake, and async publish FSM. */
 #include "MQTT.h"
 
 #include "../config/AppConfig.h"
@@ -16,7 +17,9 @@
 extern HardwareSerial SerialMon;
 extern HardwareSerial SerialAT;
 
+/** @brief TinyGSM modem bound to the selected IP uplink UART. */
 TinyGsm modem(SerialAT);
+/** @brief IP socket transport used by the MQTT client. */
 TinyGsmClient gsmClient(modem);
 
 /**
@@ -37,11 +40,14 @@ namespace {
 constexpr size_t kClientWriteBufferSize = AppConfig::kMqttPacketBufferSize;
 }
 
+/** @brief Coalesce PubSubClient writes into one modem send per MQTT packet. */
 class BufferedClient : public Client
 {
 public:
+  /** @brief Wrap an existing network client without taking ownership. */
   BufferedClient(Client& wrapped) : _wrapped(wrapped), _len(0) {}
 
+  /** @brief Queue one byte, flushing first if the buffer is full. */
   size_t write(uint8_t b) override
   {
     if (_len >= sizeof(_buf)) {
@@ -51,6 +57,7 @@ public:
     return 1;
   }
 
+  /** @brief Queue a byte span, flushing full buffer segments as needed. */
   size_t write(const uint8_t* buf, size_t size) override
   {
     size_t total = 0;
@@ -69,6 +76,7 @@ public:
     return total;
   }
 
+  /** @brief Send queued bytes and flush the wrapped transport. */
   void flush() override
   {
     flushBuffer();
@@ -78,17 +86,27 @@ public:
   // Auto-flush before any read so that write→read sequences inside a single
   // PubSubClient call (e.g. connect writes CONNECT then reads CONNACK) don't
   // stall waiting for bytes that are still sitting in the write buffer.
+  /** @brief Flush pending output before checking incoming bytes. */
   int available() override { flushBuffer(); return _wrapped.available(); }
+  /** @brief Flush output before reading one byte. */
   int read() override { flushBuffer(); return _wrapped.read(); }
+  /** @brief Flush output before reading a byte span. */
   int read(uint8_t* buf, size_t size) override { flushBuffer(); return _wrapped.read(buf, size); }
+  /** @brief Flush output before peeking at input. */
   int peek() override { flushBuffer(); return _wrapped.peek(); }
+  /** @brief Report the wrapped client's connection state. */
   uint8_t connected() override { return _wrapped.connected(); }
+  /** @brief Report whether the wrapped client is usable. */
   operator bool() override { return static_cast<bool>(_wrapped); }
+  /** @brief Connect the wrapped client to an IP address. */
   int connect(IPAddress ip, uint16_t port) override { return _wrapped.connect(ip, port); }
+  /** @brief Connect the wrapped client to a hostname. */
   int connect(const char* host, uint16_t port) override { return _wrapped.connect(host, port); }
+  /** @brief Flush output before closing the wrapped connection. */
   void stop() override { flushBuffer(); _wrapped.stop(); }
 
 private:
+  /** @brief Transmit queued bytes, then clear the queue. */
   void flushBuffer()
   {
     if (_len == 0) {
@@ -104,6 +122,7 @@ private:
 };
 
 BufferedClient bufferedClient(gsmClient);
+/** @brief MQTT client using coalesced modem writes. */
 PubSubClient   mqtt(bufferedClient);
 
 namespace {
@@ -112,6 +131,7 @@ uint32_t g_lastMqttActivityMs = 0;
 uint32_t g_lastReconnectAttemptMs = 0;
 uint8_t g_mqttConnectFailureCount = 0;
 
+/** @brief Print a timed operation only when publish-timing logging is enabled. */
 void logElapsedMs(const char* label, uint32_t elapsedMs)
 {
   if (!AppConfig::kEnablePublishTimingLogs) {
@@ -124,6 +144,7 @@ void logElapsedMs(const char* label, uint32_t elapsedMs)
   SerialMon.println(" ms");
 }
 
+/** @brief Decode PubSubClient status codes for verbose diagnostics. */
 void logMqttStateDetails(int state)
 {
   if (!AppConfig::kEnableVerboseMqttLogs) {
@@ -169,6 +190,7 @@ void logMqttStateDetails(int state)
 }
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
+/** @brief Validate gateway command-topic structure and extract node/broadcast routing. */
 bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool& isBroadcastTopic)
 {
   topicNodeId = 0;
@@ -227,6 +249,7 @@ bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool
 #endif
 }
 
+/** @brief Query and print the ESP-AT firmware version on ESP8266 builds. */
 void printEspFirmwareVersion()
 {
 #if defined(USE_ESP8266)
@@ -262,6 +285,7 @@ void printEspFirmwareVersion()
 namespace
 {
 #if defined(USE_ESP8266)
+/** @brief Set the schematic's ESP enable signal with configured polarity. */
 void driveEspEnable(bool enabled)
 {
   const bool outputHigh =
@@ -269,6 +293,7 @@ void driveEspEnable(bool enabled)
   digitalWrite(AppConfig::kEspEnablePin, outputHigh ? HIGH : LOW);
 }
 
+/** @brief Set the schematic's ESP reset signal with configured polarity. */
 void driveEspReset(bool asserted)
 {
   const bool outputHigh =
@@ -276,6 +301,7 @@ void driveEspReset(bool asserted)
   digitalWrite(AppConfig::kEspResetPin, outputHigh ? HIGH : LOW);
 }
 
+/** @brief Re-enable and hardware-reset ESP8266 before UART use. */
 void resetAndWakeEsp8266()
 {
   // The supplied schematic connects PB7 to ESP_EN and PB8 to ESP_RST.
@@ -757,6 +783,7 @@ char         g_asyncPromptBuf[64];     // captures bytes received before '>'
 size_t       g_asyncPromptLen     = 0;
 uint32_t     g_asyncStepCallCount = 0;  // how many step() calls per publish
 
+/** @brief Enter an async publish stage and reset its timing checkpoints. */
 void setStage(PublishStage next)
 {
   g_asyncStage         = next;
@@ -764,12 +791,14 @@ void setStage(PublishStage next)
   g_asyncLastHeartbeat = millis();
 }
 
+/** @brief Reserved async-stage heartbeat hook; intentionally silent. */
 void heartbeat(const char* what)
 {
   // Silenced for cleaner logs. Enable if debugging async stalls.
   (void)what;
 }
 
+/** @brief Hex-dump an async buffer when deep debugging is enabled. */
 void dumpHex(const char* label, const uint8_t* buf, size_t len)
 {
   if (!kAsyncDeepDebug) return;
@@ -787,6 +816,7 @@ void dumpHex(const char* label, const uint8_t* buf, size_t len)
   SerialMon.println();
 }
 
+/** @brief Render a received AT byte for optional deep debugging. */
 void logRxByte(int c)
 {
   if (!kAsyncDeepDebug) return;
@@ -807,6 +837,7 @@ void logRxByte(int c)
 
 // Build a complete MQTT PUBLISH frame (QoS 0, no retain, no dup) into `out`.
 // Returns total length, or 0 on error.
+/** @brief Build a QoS-0 MQTT PUBLISH packet containing encrypted status data. */
 size_t buildEncryptedPublishFrame(const char* topic, uint8_t* out, size_t outCap)
 {
   if (kAsyncDeepDebug) {

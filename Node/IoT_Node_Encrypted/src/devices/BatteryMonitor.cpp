@@ -1,3 +1,4 @@
+/** @file BatteryMonitor.cpp @brief Battery ADC configuration and divider-scaled voltage reading. */
 #include "BatteryMonitor.h"
 
 #include "../config/AppConfig.h"

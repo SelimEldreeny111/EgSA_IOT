@@ -1,0 +1,67 @@
+# WIOT STM32F401 Arduino firmware API reference.
+# Run from this directory: doxygen Doxyfile
+PROJECT_NAME           = "WIOT STM32F401 Arduino Node"
+PROJECT_BRIEF          = "Firmware architecture and API reference"
+PROJECT_NUMBER         = "1.0"
+OUTPUT_DIRECTORY       = Documentation/Doxygen
+CREATE_SUBDIRS         = NO
+OUTPUT_LANGUAGE        = English
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = .
+
+INPUT                  = DOXYGEN_MAINPAGE.md \
+                         README.md \
+                         POWER_DOWN_MODE_USER_GUIDE.md \
+                         FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md \
+                         IoT_Node_Encrypted.ino \
+                         src
+FILE_PATTERNS          = *.h *.hpp *.c *.cpp *.ino *.md
+RECURSIVE              = YES
+EXCLUDE                = src/third_party \
+                         src/generated \
+                         src/config/AppConfig.cpp \
+                         src/config/AppSecrets.h \
+                         src/config/AppSecrets.example.h
+EXCLUDE_PATTERNS       = */.venv/* */build/* */dist/*
+EXTENSION_MAPPING      = ino=C++
+USE_MDFILE_AS_MAINPAGE = DOXYGEN_MAINPAGE.md
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_ANON_NSPACES   = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+SORT_MEMBER_DOCS       = YES
+SORT_BRIEF_DOCS        = YES
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 3
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = NO
+
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+GENERATE_TREEVIEW      = YES
+HTML_COLORSTYLE        = LIGHT
+GENERATE_HTML          = YES
+HTML_OUTPUT           = html
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_OUTPUT            = xml
+
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = NO
+DOT_GRAPH_MAX_NODES    = 50
+
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_LOGFILE           = Documentation/Doxygen/warnings.log
+QUIET                  = YES
