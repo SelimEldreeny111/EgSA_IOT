@@ -21,7 +21,8 @@ bool isRtcTimeSet();
 bool isRtcTrusted();
 void setRtcEpoch(uint32_t epoch);
 void printRtcDateTime();
-void syncRTCFromEpoch(uint32_t epoch);
+/** @brief Set UTC time; return true only after verifying clock and trust marker. */
+bool syncRTCFromEpoch(uint32_t epoch);
 bool scheduleRtcWakeAlarm(uint32_t epoch);
 void cancelRtcWakeAlarm();
 uint32_t dateToEpoch(

@@ -4,6 +4,7 @@
 #include "../comm/MQTT.h"
 #include "../config/AppConfig.h"
 #include "../devices/RTC.h"
+#include "../devices/BackupDomainAccess.h"
 #include "../platform/Watchdog.h"
 #include "../radio/LoraLink.h"
 
@@ -90,33 +91,19 @@ RTC_HandleTypeDef makeBackupHandle()
   return handle;
 }
 
-void enableBackupDomainAccess()
-{
-  __HAL_RCC_PWR_CLK_ENABLE();
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_RTC_ENABLE();
-}
-
-void disableBackupDomainAccess()
-{
-  HAL_PWR_DisableBkUpAccess();
-}
-
 uint32_t readBackupRegister(uint32_t backupRegister)
 {
-  enableBackupDomainAccess();
+  const BackupDomainAccess access;
   RTC_HandleTypeDef handle = makeBackupHandle();
   const uint32_t value = HAL_RTCEx_BKUPRead(&handle, backupRegister);
-  disableBackupDomainAccess();
   return value;
 }
 
 void writeBackupRegister(uint32_t backupRegister, uint32_t value)
 {
-  enableBackupDomainAccess();
+  const BackupDomainAccess access;
   RTC_HandleTypeDef handle = makeBackupHandle();
   HAL_RTCEx_BKUPWrite(&handle, backupRegister, value);
-  disableBackupDomainAccess();
 }
 
 uint32_t addChecksumWord(uint32_t hash, uint32_t word)
@@ -468,9 +455,7 @@ void powerManagerEarlyBoot()
   // Returning to normal mode is also an explicit recovery operation. Remove
   // only this feature's own magic-tagged backup record so re-enabling periodic
   // mode later cannot honor an old, still-future deadline.
-  __HAL_RCC_PWR_CLK_ENABLE();
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_RTC_ENABLE();
+  const BackupDomainAccess access;
   RTC_HandleTypeDef handle = {};
   handle.Instance = RTC;
   if (HAL_RTCEx_BKUPRead(&handle, RTC_BKP_DR15) == 0x50444E31UL)
@@ -482,7 +467,6 @@ void powerManagerEarlyBoot()
     HAL_RTCEx_BKUPWrite(&handle, RTC_BKP_DR18, 0U);
     g_stalePeriodicRequestCleared = true;
   }
-  HAL_PWR_DisableBkUpAccess();
 #endif
 }
 

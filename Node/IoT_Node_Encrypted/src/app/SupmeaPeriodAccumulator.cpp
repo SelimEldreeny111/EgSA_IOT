@@ -1,6 +1,7 @@
 #include "SupmeaPeriodAccumulator.h"
 
 #include "../config/AppConfig.h"
+#include "../devices/BackupDomainAccess.h"
 #include "../devices/RTC.h"
 #include "../platform/Watchdog.h"
 
@@ -39,6 +40,13 @@ struct StoredFlowState
 static_assert(
     sizeof(StoredFlowState) == kBackupRegisterCount * sizeof(uint32_t),
     "Supmea accumulator must fit RTC backup registers DR0-DR13");
+static_assert(
+    kFirstBackupRegister + kBackupRegisterCount - 1U == RTC_BKP_DR13,
+    "Supmea HAL backup indices must be DR0..DR13, not byte offsets");
+static_assert(
+    AppConfig::kFlowAccumulatorEepromAddress >= 0 &&
+    AppConfig::kFlowAccumulatorEepromAddress + sizeof(StoredFlowState) <= E2END + 1U,
+    "Supmea checkpoint must fit the EEPROM emulation buffer");
 
 struct RuntimeFlowState
 {
@@ -162,83 +170,132 @@ RTC_HandleTypeDef makeBackupHandle()
 StoredFlowState readBackupState()
 {
     StoredFlowState stored = {};
-    uint32_t* words = reinterpret_cast<uint32_t*>(&stored);
-    __HAL_RCC_PWR_CLK_ENABLE();
-    HAL_PWR_EnableBkUpAccess();
-    __HAL_RCC_RTC_ENABLE();
+    uint32_t words[kBackupRegisterCount] = {};
+    const BackupDomainAccess access;
     RTC_HandleTypeDef handle = makeBackupHandle();
     for (size_t index = 0U; index < kBackupRegisterCount; ++index)
     {
         words[index] = HAL_RTCEx_BKUPRead(
             &handle,
-            kFirstBackupRegister + static_cast<uint32_t>(index) * 4U);
+            kFirstBackupRegister + static_cast<uint32_t>(index));
     }
-    HAL_PWR_DisableBkUpAccess();
+    memcpy(&stored, words, sizeof(stored));
     return stored;
 }
 
 void writeBackupState(const StoredFlowState& stored)
 {
-    const uint32_t* words = reinterpret_cast<const uint32_t*>(&stored);
-    __HAL_RCC_PWR_CLK_ENABLE();
-    HAL_PWR_EnableBkUpAccess();
-    __HAL_RCC_RTC_ENABLE();
+    uint32_t words[kBackupRegisterCount] = {};
+    memcpy(words, &stored, sizeof(stored));
+    const BackupDomainAccess access;
     RTC_HandleTypeDef handle = makeBackupHandle();
-    for (size_t index = 0U; index < kBackupRegisterCount; ++index)
+    // Publish the nonzero magic last: a reset during any payload write leaves
+    // an invalid record, even in the unlikely case of a zero checksum.
+    HAL_RTCEx_BKUPWrite(&handle, RTC_BKP_DR0, 0U);
+    for (size_t index = 1U; index < kBackupRegisterCount; ++index)
     {
         HAL_RTCEx_BKUPWrite(
             &handle,
-            kFirstBackupRegister + static_cast<uint32_t>(index) * 4U,
+            kFirstBackupRegister + static_cast<uint32_t>(index),
             words[index]);
     }
-    HAL_PWR_DisableBkUpAccess();
+    HAL_RTCEx_BKUPWrite(&handle, RTC_BKP_DR0, words[0]);
 }
 
-void clearStoredState()
+/** @brief Read the entire checkpoint with one flash-to-RAM buffer fill. */
+StoredFlowState readStoredFlashState()
+{
+    StoredFlowState stored = {};
+    uint8_t* bytes = reinterpret_cast<uint8_t*>(&stored);
+    eeprom_buffer_fill();
+    for (size_t index = 0U; index < sizeof(stored); ++index)
+    {
+        bytes[index] = eeprom_buffered_read_byte(
+            AppConfig::kFlowAccumulatorEepromAddress + index);
+    }
+    return stored;
+}
+
+/**
+ * @brief Preserve surrounding data, commit at most once, then verify from flash.
+ *
+ * STM32F401 EEPROM.put() flushes flash for each changed byte. Buffer all 56
+ * bytes first instead; no watchdog feeding occurs inside the flash operation.
+ */
+bool writeStoredFlashState(const StoredFlowState& stored)
+{
+    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&stored);
+    eeprom_buffer_fill(); // Preserve WiFi credentials and other EEPROM records.
+    bool changed = false;
+    for (size_t index = 0U; index < sizeof(stored); ++index)
+    {
+        const uint32_t address = AppConfig::kFlowAccumulatorEepromAddress + index;
+        if (eeprom_buffered_read_byte(address) != bytes[index])
+        {
+            eeprom_buffered_write_byte(address, bytes[index]);
+            changed = true;
+        }
+    }
+    if (changed)
+    {
+        eeprom_buffer_flush(); // One bounded erase/program cycle per checkpoint.
+    }
+    const StoredFlowState verified = readStoredFlashState();
+    return memcmp(&stored, &verified, sizeof(stored)) == 0;
+}
+
+bool clearStoredState()
 {
     const StoredFlowState empty = {};
     writeBackupState(empty);
-    EEPROM.put(AppConfig::kFlowAccumulatorEepromAddress, empty);
+    serviceHardwareWatchdog(WatchdogStage::SupmeaFlashStorage);
+    const bool saved = writeStoredFlashState(empty);
+    serviceHardwareWatchdog();
+    return saved;
 }
 
 bool readFlashState(RuntimeFlowState& state)
 {
-    StoredFlowState stored = {};
-    EEPROM.get(AppConfig::kFlowAccumulatorEepromAddress, stored);
+    const StoredFlowState stored = readStoredFlashState();
     return decodeState(stored, state);
 }
 
 bool writeFlashState(const RuntimeFlowState& state)
 {
     const StoredFlowState stored = encodeState(state);
-    EEPROM.put(AppConfig::kFlowAccumulatorEepromAddress, stored);
-    StoredFlowState verified = {};
-    EEPROM.get(AppConfig::kFlowAccumulatorEepromAddress, verified);
-    return memcmp(&stored, &verified, sizeof(stored)) == 0;
+    return writeStoredFlashState(stored);
 }
 
 void persistWorkingState()
 {
     if (g_state.initialized)
     {
+        markHardwareWatchdogStage(WatchdogStage::SupmeaBackupStorage);
         writeBackupState(encodeState(g_state));
+        markHardwareWatchdogStage(WatchdogStage::SupmeaPeriodCalculation);
     }
 }
 
 void persistDurableState(const char* reason)
 {
-    serviceHardwareWatchdog();
+    serviceHardwareWatchdog(WatchdogStage::SupmeaFlashStorage);
+    SerialMon.print("Supmea flash checkpoint starting: ");
+    SerialMon.println(reason);
+    const uint32_t startedMs = millis();
     if (writeFlashState(g_state))
     {
         g_lastFlashSaveEpoch = g_state.lastEpoch;
         SerialMon.print("Supmea period state saved to EEPROM: ");
-        SerialMon.println(reason);
+        SerialMon.print(reason);
+        SerialMon.print(" (");
+        SerialMon.print(millis() - startedMs);
+        SerialMon.println(" ms)");
     }
     else
     {
         SerialMon.println("ERROR: Supmea period state EEPROM verification failed");
     }
-    serviceHardwareWatchdog();
+    serviceHardwareWatchdog(WatchdogStage::SupmeaPeriodCalculation);
 }
 
 uint32_t monthKeyFromDay(uint32_t dayKey)
@@ -383,10 +440,11 @@ void initializeSupmeaPeriodAccumulator()
 {
     if (AppConfig::kResetSupmeaPeriodState)
     {
-        clearStoredState();
+        const bool cleared = clearStoredState();
         g_state = {};
-        SerialMon.println(
-            "Supmea period state RESET; set APP_RESET_SUPMEA_PERIOD_STATE back to 0");
+        SerialMon.println(cleared
+            ? "Supmea period state RESET; set APP_RESET_SUPMEA_PERIOD_STATE back to 0"
+            : "ERROR: Supmea period state EEPROM reset verification failed");
         return;
     }
 

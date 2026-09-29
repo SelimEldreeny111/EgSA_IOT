@@ -28,7 +28,7 @@ WatchdogStage g_previousWatchdogStage = WatchdogStage::Unknown;
 
 bool isKnownStage(uint32_t rawStage)
 {
-    return rawStage <= static_cast<uint32_t>(WatchdogStage::SelfTestMainLoop);
+    return rawStage <= static_cast<uint32_t>(WatchdogStage::RtcSynchronization);
 }
 
 bool persistentStageIsValid()
@@ -76,6 +76,10 @@ const char* stageName(WatchdogStage stage)
     case WatchdogStage::DeliberateReset: return "deliberate recovery reset";
     case WatchdogStage::SelfTestAfterSetup: return "watchdog self-test after setup";
     case WatchdogStage::SelfTestMainLoop: return "watchdog self-test in main loop";
+    case WatchdogStage::SupmeaPeriodCalculation: return "Supmea RTC consumption calculation";
+    case WatchdogStage::SupmeaBackupStorage: return "Supmea RTC backup snapshot";
+    case WatchdogStage::SupmeaFlashStorage: return "Supmea flash checkpoint";
+    case WatchdogStage::RtcSynchronization: return "RTC STIME synchronization";
     case WatchdogStage::Unknown:
     default:
         return "unknown/not recorded";

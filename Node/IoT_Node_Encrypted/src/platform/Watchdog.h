@@ -31,7 +31,12 @@ enum class WatchdogStage : uint8_t
     PowerTransition,
     DeliberateReset,
     SelfTestAfterSetup,
-    SelfTestMainLoop
+    SelfTestMainLoop,
+    // Append new values so previous firmware's persisted stage IDs stay valid.
+    SupmeaPeriodCalculation,
+    SupmeaBackupStorage,
+    SupmeaFlashStorage,
+    RtcSynchronization
 };
 
 enum class WatchdogSelfTestPoint : uint8_t

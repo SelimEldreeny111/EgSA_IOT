@@ -187,3 +187,12 @@ message must say `watchdog self-test in main loop`.
 
 Record firmware commit, configuration, measured reset time, last-stage log,
 and pass/fail result for every acceptance run.
+
+### Test H - STIME and Supmea checkpoint
+
+Follow [SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md](SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md)
+to verify STIME readback, a one-commit baseline save, known consumption deltas,
+and reset recovery. Additional stages distinguish RTC synchronization, Supmea
+RTC calculation, backup snapshot and flash checkpoint. Old persisted stage
+numbers are preserved. Keep the normal watchdog timeout; flash operations do
+not contain an automatic watchdog-reload loop.

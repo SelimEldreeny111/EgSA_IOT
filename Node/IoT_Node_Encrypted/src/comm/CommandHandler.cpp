@@ -84,11 +84,15 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     {
       SerialMon.println("CMD: SYNC_RTC");
 
-      state.lastTimestamp = cmd.cmd_data;
-      syncRTCFromEpoch(cmd.cmd_data);
+      if (!syncRTCFromEpoch(cmd.cmd_data))
+      {
+        SerialMon.println("STIME failed; clock was not marked trusted");
+        break;
+      }
 
+      state.lastTimestamp = getEpochTime();
       SerialMon.print("RTC synced to epoch: ");
-      SerialMon.println(cmd.cmd_data);
+      SerialMon.println(state.lastTimestamp);
       break;
     }
 

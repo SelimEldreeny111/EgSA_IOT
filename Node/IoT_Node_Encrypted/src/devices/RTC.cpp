@@ -1,6 +1,8 @@
 #include "RTC.h"
+#include "BackupDomainAccess.h"
 
 #include "../config/AppConfig.h"
+#include "../platform/Watchdog.h"
 
 STM32RTC& rtc = STM32RTC::getInstance();
 
@@ -35,23 +37,17 @@ RTC_HandleTypeDef makeBackupHandle()
 
 uint32_t readBackupRegister(uint32_t backupRegister)
 {
-  __HAL_RCC_PWR_CLK_ENABLE();
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_RTC_ENABLE();
+  const BackupDomainAccess access;
   RTC_HandleTypeDef handle = makeBackupHandle();
   const uint32_t value = HAL_RTCEx_BKUPRead(&handle, backupRegister);
-  HAL_PWR_DisableBkUpAccess();
   return value;
 }
 
 void writeBackupRegister(uint32_t backupRegister, uint32_t value)
 {
-  __HAL_RCC_PWR_CLK_ENABLE();
-  HAL_PWR_EnableBkUpAccess();
-  __HAL_RCC_RTC_ENABLE();
+  const BackupDomainAccess access;
   RTC_HandleTypeDef handle = makeBackupHandle();
   HAL_RTCEx_BKUPWrite(&handle, backupRegister, value);
-  HAL_PWR_DisableBkUpAccess();
 }
 
 uint16_t yearFromEpoch(uint32_t epoch)
@@ -165,6 +161,7 @@ bool isRtcTrusted()
 
 void setRtcEpoch(uint32_t epoch)
 {
+  const BackupDomainAccess access;
   rtc.setEpoch(epoch);
   // Placeholder dates must never drive calendar consumption. Only STIME
   // synchronization marks the backup-domain clock as trusted.
@@ -202,6 +199,7 @@ bool scheduleRtcWakeAlarm(uint32_t epoch)
     initializeRtc();
   }
 
+  const BackupDomainAccess access;
   rtc.disableAlarm(STM32RTC::ALARM_A);
   rtc.setAlarmEpoch(
       static_cast<time_t>(epoch),
@@ -221,6 +219,7 @@ void cancelRtcWakeAlarm()
     initializeRtc();
   }
 
+  const BackupDomainAccess access;
   rtc.disableAlarm(STM32RTC::ALARM_A);
   RTC_HandleTypeDef* handle = rtc.getHandle();
   if (handle == nullptr || handle->Instance == nullptr)
@@ -257,8 +256,18 @@ uint32_t dateToEpoch(
       static_cast<uint32_t>(minute) * 60UL + second;
 }
 
-void syncRTCFromEpoch(uint32_t epoch)
+bool syncRTCFromEpoch(uint32_t epoch)
 {
+  // STM32RTC's calendar stores two-digit years in the range 2000..2099.
+  constexpr uint32_t kFirstUnsupportedEpoch = 4102444800UL; // 2100-01-01 UTC
+  if (epoch < AppConfig::kPowerMinimumValidRtcEpoch ||
+      epoch >= kFirstUnsupportedEpoch)
+  {
+    SerialMon.println("ERROR: STIME epoch outside supported RTC range");
+    return false;
+  }
+
+  serviceHardwareWatchdog(WatchdogStage::RtcSynchronization);
   if (!g_rtcInitializedThisBoot)
   {
     initializeRtc();
@@ -275,17 +284,44 @@ void syncRTCFromEpoch(uint32_t epoch)
   uint8_t day = 0U;
   epochToDate(epoch, year, month, day);
 
-  rtc.setYear(year - 2000);
-  rtc.setMonth(month);
-  rtc.setDay(day);
-  rtc.setHours(hour);
-  rtc.setMinutes(minute);
-  rtc.setSeconds(second);
-  writeBackupRegister(
-      kRtcTrustedBackupRegister,
-      epoch >= AppConfig::kPowerMinimumValidRtcEpoch ? kRtcTrustedMagic : 0U);
+  const BackupDomainAccess access;
+  writeBackupRegister(kRtcTrustedBackupRegister, 0U);
+  if (readBackupRegister(kRtcTrustedBackupRegister) != 0U)
+  {
+    // Do not partially replace an already trusted clock if invalidation failed.
+    SerialMon.println("ERROR: RTC trust marker could not be cleared");
+    serviceHardwareWatchdog();
+    return false;
+  }
+  const uint8_t rtcWeekday = static_cast<uint8_t>(
+      (weekday(year, month, day) + 6U) % 7U + 1U); // Monday=1, Sunday=7
+  // Two complete writes avoid intermediate invalid dates (e.g. Jan 31 -> Feb).
+  rtc.setDate(rtcWeekday, day, month, static_cast<uint8_t>(year - 2000U));
+  rtc.setTime(hour, minute, second);
 
-  SerialMon.println("RTC synced from epoch");
+  const uint32_t actualEpoch = getEpochTime();
+  if (!rtc.isTimeSet() || actualEpoch < epoch || actualEpoch - epoch > 2U)
+  {
+    SerialMon.print("ERROR: RTC sync verification failed; requested=");
+    SerialMon.print(epoch);
+    SerialMon.print(" actual=");
+    SerialMon.println(actualEpoch);
+    serviceHardwareWatchdog();
+    return false;
+  }
+
+  writeBackupRegister(kRtcTrustedBackupRegister, kRtcTrustedMagic);
+  if (readBackupRegister(kRtcTrustedBackupRegister) != kRtcTrustedMagic)
+  {
+    SerialMon.println("ERROR: RTC trust marker write failed");
+    serviceHardwareWatchdog();
+    return false;
+  }
+
+  SerialMon.println("RTC synced from epoch (verified)");
+  printRtcDateTime();
+  serviceHardwareWatchdog();
+  return true;
 }
 
 int16_t getCalendarUtcOffsetMinutes(uint32_t epoch)

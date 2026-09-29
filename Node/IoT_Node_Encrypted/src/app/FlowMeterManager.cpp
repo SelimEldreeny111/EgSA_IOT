@@ -6,6 +6,7 @@
 #include "../devices/RTC.h"
 #include "../devices/SupmeaSensor.h"
 #include "../devices/TufSensor.h"
+#include "../platform/Watchdog.h"
 
 #include <Arduino.h>
 #include <math.h>
@@ -150,6 +151,7 @@ void sampleSupmea()
 {
     const SupmeaSensorData data = readSupmeaSensor();
     printSupmeaSensorData(data);
+    serviceHardwareWatchdog(WatchdogStage::SupmeaPeriodCalculation);
 
     FlowMeterMetrics metrics = appState().supmeaFlow;
     metrics.type = FlowMeterType::Supmea;

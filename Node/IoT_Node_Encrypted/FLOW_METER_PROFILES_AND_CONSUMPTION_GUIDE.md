@@ -132,12 +132,18 @@ battery loss, or RTC reset:
 1. Start the node and server.
 2. Connect the server to MQTT.
 3. Send STIME to the node.
-4. Confirm the serial output says RTC synced from epoch.
+4. Confirm the serial output says `RTC synced from epoch (verified)` and prints
+   the actual current UTC date/time, not the 2024 placeholder.
 5. On the next valid Supmea read, confirm RTC trusted: YES.
 
 Until then, live and cumulative values remain available, but calendar
 consumption is invalid. The first synchronized Supmea baseline is partial by
 design.
+
+For the STIME/Supmea watchdog-reset correction and its step-by-step acceptance
+tests, see [SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md](SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md).
+The snapshot is committed once through buffered EEPROM emulation; this does
+not change the 25-second watchdog deadline or the protobuf fields.
 
 ## 6. Protobuf compatibility and sensor data
 
