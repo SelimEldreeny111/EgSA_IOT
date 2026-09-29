@@ -62,12 +62,17 @@ message Status_Message {
   uint32 flow_period_quality = 29;
   uint32 flow_meter_alarm_flags = 30;
   FlowReading secondary_flow_meter = 31;
+  // Power v3: 0=legacy unknown; mode 1=NORMAL, 2=RTC_PERIODIC, 3=REMOTE_WAKE.
+  uint32 power_mode = 32;
+  uint32 power_state = 33;                 // 1=ACTIVE, 2=REACHABLE_IDLE
+  uint32 wake_remaining_seconds = 34;      // active lease/window, not idle time
 }
 
 message CMD_Message {
   uint32 node_id = 1;
   uint32 cmd_id = 2;
   uint64 cmd_data = 3;
+  uint32 request_id = 4;                   // WAKE correlation; 0=legacy/manual
 }
 
 message Telemetry {
@@ -110,4 +115,9 @@ message Telemetry {
   uint32 flow_period_quality = 33;
   uint32 flow_meter_alarm_flags = 34;
   FlowReading secondary_flow_meter = 35;
+  uint32 power_mode = 36;
+  uint32 power_state = 37;
+  uint32 wake_remaining_seconds = 38;
+  bool wake_command_ack = 39;              // explicit accepted WAKE response
+  uint32 wake_request_id = 40;             // echoes CMD request_id on WAKE ACK
 }

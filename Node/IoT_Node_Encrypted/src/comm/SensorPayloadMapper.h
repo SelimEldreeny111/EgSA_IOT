@@ -4,6 +4,7 @@
 #include "../app/AppState.h"
 #include "../config/AppConfig.h"
 #include "../generated/sensor.pb.h"
+#include "../power/PowerManager.h"
 
 template <typename FlowFields>
 inline void populateFlowFields(
@@ -66,6 +67,9 @@ inline void populateSensorPayloadFields(
     message.soil_moisture_temp_ec_valid = state.sondas.isValid ? 1U : 0U;
     message.active_sensor_count = state.activeSensorCount;
     message.sensor_mask = state.sensorMask;
+    message.power_mode = powerManagerMode();
+    message.power_state = powerManagerState();
+    message.wake_remaining_seconds = powerManagerWakeRemainingSeconds();
 }
 
 #endif

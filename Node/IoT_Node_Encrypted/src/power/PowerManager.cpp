@@ -1,4 +1,5 @@
 #include "PowerManager.h"
+#include "RemoteWakeCycle.h"
 
 #include "../app/AppState.h"
 #include "../comm/MQTT.h"
@@ -12,9 +13,26 @@
 #include <stm32f4xx_hal.h>
 
 extern HardwareSerial SerialMon;
+extern HardwareSerial SerialAT;
+extern HardwareSerial SerialLoRa;
 
 namespace
 {
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+RemoteWakeCycle g_remoteWakeCycle;
+uint32_t g_lastRemotePollMs = 0U;
+uint32_t g_lastWakeRequestId = 0U;
+uint64_t g_lastWakeRequestSeconds = 0U;
+#endif
+
+void scheduleFreshSensorCycle()
+{
+  AppRuntimeState& state = appState();
+  const uint32_t nowMs = millis();
+  state.lastReadMs = nowMs - state.samplingPeriodMs;
+  state.lastSendMs = nowMs - state.transmissionPeriodMs;
+}
+
 const char* componentModeName(bool powerDown)
 {
   return powerDown ? "POWER_DOWN" : "NORMAL";
@@ -473,10 +491,14 @@ void powerManagerEarlyBoot()
 void initializePowerManagerAfterSetup()
 {
   SerialMon.println("Power configuration:");
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  SerialMon.println("  STM32 controller: REMOTE_WAKE [ACTIVE]");
+#else
   printComponentMode(
       "STM32 controller",
       AppConfig::kControllerPowerDown,
       true);
+#endif
   printComponentMode(
       "LoRa module",
       AppConfig::kLoraPowerDown,
@@ -512,11 +534,19 @@ void initializePowerManagerAfterSetup()
 
   // Make one fresh sample and one telemetry send due on the first loop after
   // every cold boot or RTC wake. Unsigned arithmetic keeps millis() rollover safe.
-  AppRuntimeState& state = appState();
-  const uint32_t nowMs = millis();
-  state.lastReadMs = nowMs - state.samplingPeriodMs;
-  state.lastSendMs = nowMs - state.transmissionPeriodMs;
+  scheduleFreshSensorCycle();
   g_commandWindowActive = false;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  SerialMon.println("Power mode: REMOTE_WAKE (CPU Sleep; selected radio remains NORMAL)");
+  SerialMon.print("Power: reachable idle interval=");
+  SerialMon.print(AppConfig::kPowerSleepSeconds);
+  SerialMon.print(" s; default WAKE lease=");
+  SerialMon.print(AppConfig::kRemoteWakeDefaultSeconds);
+  SerialMon.println(" s; watchdog remains armed");
+  g_remoteWakeCycle.begin(millis(), AppConfig::kPowerSleepSeconds * 1000UL,
+                         AppConfig::kPowerCommandWindowMs);
+  g_lastRemotePollMs = millis();
+  scheduleFreshSensorCycle();
 #else
   SerialMon.println("Power mode: NORMAL (continuous operation; Standby disabled)");
   if (g_stalePeriodicRequestCleared)
@@ -530,6 +560,8 @@ bool powerManagerAllowsSensorWork()
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
   return !g_commandWindowActive;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  return g_remoteWakeCycle.active();
 #else
   return true;
 #endif
@@ -559,6 +591,9 @@ void notifyPowerManagerTelemetryResult(bool delivered)
   SerialMon.print(" commands for ");
   SerialMon.print(AppConfig::kPowerCommandWindowMs);
   SerialMon.println(" ms");
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  if (delivered) g_remoteWakeCycle.telemetryDelivered(millis());
+  else SerialMon.println("Power: report failed; radio remains connected for retry");
 #else
   (void)delivered;
 #endif
@@ -566,7 +601,24 @@ void notifyPowerManagerTelemetryResult(bool delivered)
 
 void servicePowerManager()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  bool transportIdle = true;
+#if APP_HAS_IP_UPLINK
+  transportIdle = !isAsyncPublishBusy();
+#elif APP_HAS_LORA
+  transportIdle = isLoraIdleForPowerDown();
+#endif
+  const auto transition = g_remoteWakeCycle.advance(millis(), transportIdle);
+  if (transition == RemoteWakeCycle::Transition::EnteredIdle)
+  {
+    SerialMon.println("Power: REACHABLE_IDLE; sensor work paused, radio and watchdog remain active");
+  }
+  else if (transition == RemoteWakeCycle::Transition::PeriodicWake)
+  {
+    SerialMon.println("Power: periodic wake from reachable idle; sampling/reporting");
+    scheduleFreshSensorCycle();
+  }
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
   if (!g_commandWindowActive ||
       millis() - g_commandWindowStartedMs < AppConfig::kPowerCommandWindowMs)
   {
@@ -601,5 +653,115 @@ void servicePowerManager()
     state.lastSendMs = nowMs;
     SerialMon.println("Power: periodic sleep cycle aborted; active scheduling resumed");
   }
+#endif
+}
+
+bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  if (requestId != 0U && requestId == g_lastWakeRequestId)
+  {
+    // QoS retransmission: acknowledge the same active lease without resetting
+    // its timer or scheduling another sample. Reject changed/expired repeats.
+    if (seconds != g_lastWakeRequestSeconds || !g_remoteWakeCycle.active() ||
+        g_remoteWakeCycle.remainingSeconds(millis()) == 0U)
+    {
+      SerialMon.println("WAKE rejected: changed or expired duplicate request");
+      return false;
+    }
+    SerialMon.println("Power: duplicate WAKE acknowledged; original deadline unchanged");
+    return true;
+  }
+  if (!g_remoteWakeCycle.requestWake(millis(), seconds, AppConfig::kRemoteWakeDefaultSeconds))
+  {
+    SerialMon.println("WAKE rejected: duration must be 0 (default) or 1..86400 seconds");
+    return false;
+  }
+  g_lastWakeRequestId = requestId;
+  g_lastWakeRequestSeconds = seconds;
+  scheduleFreshSensorCycle();
+  SerialMon.print("Power: WAKE accepted; ACTIVE for ");
+  SerialMon.print(g_remoteWakeCycle.remainingSeconds(millis()));
+  SerialMon.println(" seconds (no controller reset)");
+  return true;
+#else
+  (void)seconds;
+  (void)requestId;
+  SerialMon.println("WAKE rejected: select controller REMOTE_WAKE; NORMAL/RTC_PERIODIC are unchanged");
+  return false;
+#endif
+}
+
+bool powerManagerShouldRunApplication()
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  if (g_remoteWakeCycle.active()) return true;
+  bool uartReady = false;
+#if APP_HAS_IP_UPLINK
+  uartReady = SerialAT.available() > 0;
+#elif APP_HAS_LORA
+  uartReady = SerialLoRa.available() > 0;
+#endif
+  const uint32_t nowMs = millis();
+  if (uartReady || nowMs - g_lastRemotePollMs >= AppConfig::kRemoteWakePollIntervalMs)
+  {
+    g_lastRemotePollMs = nowMs;
+    return true;
+  }
+  return false;
+#else
+  return true;
+#endif
+}
+
+void powerManagerIdleCpu()
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  if (!g_remoteWakeCycle.active())
+  {
+    // Keep SysTick and UART interrupts running. The 1-ms tick bounds a lost
+    // wake-edge race; regular application checkpoints feed IWDG, never an ISR.
+    SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+    __DSB();
+    __WFI();
+  }
+#endif
+}
+
+uint32_t powerManagerMode()
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  return 3U;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+  return 2U;
+#else
+  return 1U;
+#endif
+}
+
+uint32_t powerManagerState()
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  return g_remoteWakeCycle.active() ? 1U : 2U;
+#else
+  return 1U;
+#endif
+}
+
+uint32_t powerManagerWakeRemainingSeconds()
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  return g_remoteWakeCycle.remainingSeconds(millis());
+#else
+  return 0U;
+#endif
+}
+
+uint32_t powerManagerWakeRequestId()
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  return g_lastWakeRequestId;
+#else
+  return 0U;
 #endif
 }

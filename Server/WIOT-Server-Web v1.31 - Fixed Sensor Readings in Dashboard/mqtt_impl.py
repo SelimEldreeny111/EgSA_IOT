@@ -43,6 +43,7 @@ CMD_NAMES = {
     3: "STIME",
     4: "GOSTM",
     5: "VALVE",
+    6: "WAKE",
 }
 
 
@@ -224,7 +225,9 @@ class MqttNodeClient:
             self.on_status(f"[TX#{frame['tx_counter']}] RAW MQTT TX topic={topic} len={frame['frame_len']}")
             self.on_status(f"MQTT outgoing frame bytes: {frame['payload'].hex(' ')}")
             self.on_status("")
-        self.client.publish(topic, frame["payload"], qos=qos)
+        result = self.client.publish(topic, frame["payload"], qos=qos, retain=False)
+        if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            raise RuntimeError(f"MQTT publish rejected (rc={result.rc})")
         return frame
 
     def publish_raw(self, topic: str, payload: bytes, qos: int = 1, note: str = "raw"):

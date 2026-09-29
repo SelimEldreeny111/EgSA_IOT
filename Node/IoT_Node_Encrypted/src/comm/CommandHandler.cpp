@@ -5,11 +5,23 @@
 #include "../app/AppState.h"
 #include "PacketCodec.h"
 #include "../devices/RTC.h"
+#include "../power/PowerManager.h"
 
 #include <Arduino.h>
 #include <string.h>
 
 extern HardwareSerial SerialMon;
+
+bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic)
+{
+  if (cmd.cmd_id != CMD_REMOTE_WAKE ||
+      (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId))
+  {
+    SerialMon.println("WAKE rejected: command/node mismatch");
+    return false;
+  }
+  return requestRemoteWake(cmd.cmd_data, cmd.request_id);
+}
 
 void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 {
@@ -155,6 +167,10 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload, size_t&
   tlm.sampling_rate = state.samplingPeriodMs;
   tlm.Transmission_rate = state.transmissionPeriodMs;
   populateSensorPayloadFields(tlm, state);
+  // This acknowledges acceptance, not a fresh RS485 sample. The next normal
+  // loop is explicitly scheduled to sample and send a fresh Status message.
+  tlm.wake_command_ack = cmd != nullptr && cmd->cmd_id == CMD_REMOTE_WAKE;
+  tlm.wake_request_id = tlm.wake_command_ack ? powerManagerWakeRequestId() : 0U;
 
   SerialMon.println("Telemetry struct filled");
 
@@ -169,7 +185,7 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload, size_t&
   SerialMon.println(payloadLength);
 
   SerialMon.println("Encoded Payload (HEX):");
-  for (int i = 0; i < payloadLength; i++) 
+  for (size_t i = 0; i < payloadLength; i++)
   {
     if (payload[i] < 0x10) SerialMon.print("0");
     SerialMon.print(payload[i], HEX);

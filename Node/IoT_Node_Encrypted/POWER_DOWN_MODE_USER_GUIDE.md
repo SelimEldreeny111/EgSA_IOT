@@ -15,6 +15,12 @@ The firmware provides a separate NORMAL/POWER_DOWN policy for:
 NORMAL is the default for every device. The compiler rejects unsafe or
 unsupported combinations before a firmware image is produced.
 
+The controller also supports **REMOTE_WAKE** (value 2): CPU Sleep with the
+selected radio kept NORMAL/connected. It is a separate, lighter-power profile
+that accepts server WAKE commands without waiting for the RTC interval.
+See [Remote Wake Configuration and Bench Tests](REMOTE_WAKE_USER_GUIDE.md).
+The Standby/deep-sleep sequences below remain RTC_PERIODIC only.
+
 ## 2. Configuration block
 
 Open `src/config/AppConfig.h`. The first block contains:
@@ -22,6 +28,7 @@ Open `src/config/AppConfig.h`. The first block contains:
 ```cpp
 #define APP_COMPONENT_MODE_NORMAL 0
 #define APP_COMPONENT_MODE_POWER_DOWN 1
+#define APP_COMPONENT_MODE_REMOTE_WAKE 2 // controller only; selected radio NORMAL
 
 #define APP_CONTROLLER_POWER_MODE APP_COMPONENT_MODE_NORMAL
 #define APP_LORA_POWER_MODE       APP_COMPONENT_MODE_NORMAL
@@ -34,6 +41,7 @@ These selections are compile-time policies. The transport selected by
 
 - NORMAL controller + NORMAL active radio: continuous operation;
 - POWER_DOWN controller + POWER_DOWN active radio: scheduled RTC cycle.
+- REMOTE_WAKE controller + NORMAL active radio: reachable application idle.
 
 An unselected radio is not initialized. A configuration value alone is not a
 replacement for removing its supply or adding a load switch.
@@ -87,6 +95,7 @@ interval.
 | Direct Wi-Fi sensor, periodic | POWER_DOWN | Wi-Fi POWER_DOWN | Supported |
 | Direct SIM800L sensor, continuous | NORMAL | SIM NORMAL | Supported |
 | Direct SIM800L sensor, periodic | POWER_DOWN | SIM POWER_DOWN | Blocked by present PCB |
+| LoRa / Wi-Fi / SIM800 sensor, remote wake | REMOTE_WAKE | Selected radio NORMAL | Supported; less saving than deep sleep |
 | LoRa/IP gateway | NORMAL | Active modules NORMAL | Supported and required |
 | Gateway controller Standby | POWER_DOWN | Any | Rejected; gateway would become unreachable |
 

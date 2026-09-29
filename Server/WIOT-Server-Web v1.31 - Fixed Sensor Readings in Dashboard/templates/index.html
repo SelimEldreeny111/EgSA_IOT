@@ -506,11 +506,13 @@
                                     <option value="STIME">STIME</option>
                                     <option value="GOSTM">GOSTM</option>
                                     <option value="VALVE">VALVE</option>
+                                    <option value="WAKE">WAKE — remote active period</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Command Data</label>
                                 <input type="text" class="form-control" id="cmd-data" value="5">
+                                <div class="status-note small" id="cmd-data-help">Command-specific data.</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">STIME Interval (sec)</label>
@@ -531,6 +533,9 @@
                                     <span class="stime-text">Periodic STIME is active</span>
                                 </div>
                                 <span class="status-note" id="stime-status">Periodic STIME is stopped.</span>
+                            </div>
+                            <div class="col-12">
+                                <div class="status-note" id="wake-status" role="status" aria-live="polite">WAKE requires REMOTE_WAKE firmware. Deep-sleep nodes cannot receive it until their RTC wake.</div>
                             </div>
                         </div>
                     </div>
@@ -854,6 +859,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/static/js/app.js?v=20260709-2"></script>
+<script src="/static/js/wake_control.js?v=20260929-1"></script>
+<script src="/static/js/app.js?v=20260929-1"></script>
 </body>
 </html>

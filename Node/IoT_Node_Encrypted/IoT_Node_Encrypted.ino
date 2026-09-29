@@ -93,11 +93,17 @@ void pollLoraCommands()
       continue;
     }
 
-    if (cmd.cmd_id == CMD_GET_TELEMETRY)
+    if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
     {
       if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
       {
         SerialMon.println("Telemetry request not for this LoRa node");
+        continue;
+      }
+
+      if (cmd.cmd_id == CMD_REMOTE_WAKE &&
+          !handleRemoteWakeCommand(cmd, isBroadcastCommand))
+      {
         continue;
       }
 
@@ -181,10 +187,20 @@ void loop()
 #else
   AppRuntimeState& state = appState();
 
+  // Reachable-idle is CPU Sleep, never Standby. Short foreground passes still
+  // service radio/MQTT keepalive and IWDG; RX interrupts or SysTick resume WFI.
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  servicePowerManager();
+  if (!powerManagerShouldRunApplication())
+  {
+    powerManagerIdleCpu();
+    return;
+  }
+#endif
+
   // The async publish FSM owns the AT bus while non-IDLE. Anything that
   // talks AT (connect, mqtt.loop) must be skipped while it runs.
   const bool busy = isAsyncPublishBusy();
-  const bool allowSensorWork = powerManagerAllowsSensorWork();
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
   pollLoraCommands();
 #endif
@@ -196,6 +212,10 @@ void loop()
     serviceHardwareWatchdog();
   }
 #endif
+
+  // Re-evaluate after receiving commands: WAKE must enable fresh sampling in
+  // this same iteration, rather than using a pre-command idle decision.
+  const bool allowSensorWork = powerManagerAllowsSensorWork();
 
   // Sensor sampling runs on a different bus (RS485 Modbus), so it stays
   // responsive even while the modem is mid-CIPSEND.
@@ -299,6 +319,7 @@ void loop()
 #endif
   servicePowerManager();
   serviceHardwareWatchdog(WatchdogStage::MainLoop);
+  powerManagerIdleCpu();
 #endif
 }
 

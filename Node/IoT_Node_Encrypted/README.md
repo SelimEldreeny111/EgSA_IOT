@@ -13,6 +13,12 @@ Consumption Guide](FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md).
 
 ## Power mode selection
 
+For server-command wake-up, select controller `APP_COMPONENT_MODE_REMOTE_WAKE`
+and keep the selected radio `APP_COMPONENT_MODE_NORMAL`. This uses lighter CPU
+Sleep, not Standby, and preserves MQTT/LoRa reception and watchdog coverage.
+The server Commands tab provides **WAKE** (active seconds, 0=node default).
+See [Remote Wake Configuration and Bench Tests](REMOTE_WAKE_USER_GUIDE.md).
+
 The Arduino firmware has a separate, safe policy for each main device at the
 beginning of `src/config/AppConfig.h`:
 

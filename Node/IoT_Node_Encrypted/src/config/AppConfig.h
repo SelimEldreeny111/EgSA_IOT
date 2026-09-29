@@ -14,6 +14,9 @@
 // removed, disabled, or power-gated by hardware if it is physically fitted.
 #define APP_COMPONENT_MODE_NORMAL 0
 #define APP_COMPONENT_MODE_POWER_DOWN 1
+// Controller-only mode: CPU Sleep while the selected radio stays NORMAL.
+// This permits server WAKE commands; it is not RTC-only Standby/deep sleep.
+#define APP_COMPONENT_MODE_REMOTE_WAKE 2
 
 #ifndef APP_CONTROLLER_POWER_MODE
 #define APP_CONTROLLER_POWER_MODE APP_COMPONENT_MODE_NORMAL
@@ -43,11 +46,22 @@
 #ifndef APP_POWER_SLEEP_ENTRY_TIMEOUT_MS
 #define APP_POWER_SLEEP_ENTRY_TIMEOUT_MS 1000UL
 #endif
+
+// REMOTE_WAKE: automatic measurement/report cycle while otherwise reachable.
+// WAKE data is active seconds; 0 selects the configured default below.
+#ifndef APP_REMOTE_WAKE_DEFAULT_SECONDS
+#define APP_REMOTE_WAKE_DEFAULT_SECONDS 60UL
+#endif
+#ifndef APP_REMOTE_WAKE_POLL_INTERVAL_MS
+#define APP_REMOTE_WAKE_POLL_INTERVAL_MS 100UL
+#endif
 /*********************************************************/
 
 /**************** TRANSPORT SELECT ****************/
+#if !defined(USE_SIM800) && !defined(USE_ESP8266)
 #define USE_SIM800
 //#define USE_ESP8266
+#endif
 /*************************************************/
 
 #if defined(USE_SIM800) && defined(USE_ESP8266)
@@ -100,29 +114,39 @@
 #endif
 
 #if (APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
-     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN && \
+     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE) || \
     (APP_LORA_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
      APP_LORA_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
     (APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
      APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
     (APP_SIM_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
      APP_SIM_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN)
-#error "Every APP_*_POWER_MODE must be APP_COMPONENT_MODE_NORMAL or APP_COMPONENT_MODE_POWER_DOWN"
+#error "Controller supports NORMAL, POWER_DOWN or REMOTE_WAKE; radio policies support NORMAL or POWER_DOWN"
 #endif
 
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN && \
+#if APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
     APP_ROLE == APP_ROLE_LORA_GATEWAY
-#error "A gateway must remain reachable; controller Standby is supported only on a sensor node"
+#error "A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node"
 #endif
 
 #if APP_HAS_LORA && \
+    APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE && \
     APP_CONTROLLER_POWER_MODE != APP_LORA_POWER_MODE
 #error "The active LoRa transport and controller must both be NORMAL or both be POWER_DOWN"
 #endif
 
 #if APP_HAS_IP_UPLINK && defined(USE_ESP8266) && \
+    APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE && \
     APP_CONTROLLER_POWER_MODE != APP_WIFI_POWER_MODE
 #error "The active ESP8266 transport and controller must both be NORMAL or both be POWER_DOWN"
+#endif
+
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE && \
+    ((APP_HAS_LORA && APP_LORA_POWER_MODE != APP_COMPONENT_MODE_NORMAL) || \
+     (APP_HAS_IP_UPLINK && defined(USE_ESP8266) && APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_NORMAL) || \
+     (APP_HAS_IP_UPLINK && defined(USE_SIM800) && APP_SIM_POWER_MODE != APP_COMPONENT_MODE_NORMAL))
+#error "REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE"
 #endif
 
 #if APP_HAS_IP_UPLINK && defined(USE_SIM800) && \
@@ -142,6 +166,13 @@
 #if APP_POWER_SLEEP_ENTRY_TIMEOUT_MS < 100UL || \
     APP_POWER_SLEEP_ENTRY_TIMEOUT_MS > 5000UL
 #error "APP_POWER_SLEEP_ENTRY_TIMEOUT_MS must be between 100 and 5000 milliseconds"
+#endif
+
+#if APP_REMOTE_WAKE_DEFAULT_SECONDS < 1UL || APP_REMOTE_WAKE_DEFAULT_SECONDS > 86400UL
+#error "APP_REMOTE_WAKE_DEFAULT_SECONDS must be between 1 and 86400 seconds"
+#endif
+#if APP_REMOTE_WAKE_POLL_INTERVAL_MS < 10UL || APP_REMOTE_WAKE_POLL_INTERVAL_MS > 1000UL
+#error "APP_REMOTE_WAKE_POLL_INTERVAL_MS must be between 10 and 1000 milliseconds"
 #endif
 /*************************************************************/
 
@@ -166,7 +197,9 @@
 namespace AppConfig 
 {
 constexpr bool kPowerDownEnabled =
-    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+    APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_NORMAL;
+constexpr bool kRemoteWakeEnabled =
+    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE;
 constexpr bool kControllerPowerDown =
     APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
 constexpr bool kLoraPowerDown =
@@ -181,6 +214,9 @@ constexpr uint32_t kPowerSleepEntryTimeoutMs =
     APP_POWER_SLEEP_ENTRY_TIMEOUT_MS;
 constexpr uint32_t kPowerMinimumValidRtcEpoch = 1704067200UL;
 constexpr uint32_t kPowerMaximumSleepSeconds = 604800UL;
+constexpr uint32_t kRemoteWakeDefaultSeconds = APP_REMOTE_WAKE_DEFAULT_SECONDS;
+constexpr uint32_t kRemoteWakeMaximumSeconds = 86400UL;
+constexpr uint32_t kRemoteWakePollIntervalMs = APP_REMOTE_WAKE_POLL_INTERVAL_MS;
 
 #ifndef APP_NODE_ID
 #define APP_NODE_ID 1
@@ -456,10 +492,10 @@ constexpr bool kEnableOpenCloseNodeOutput = !kOpenCloseNodeGpioConflictsWithLora
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;
-// Worst-case dual-flow protobuf is 310 bytes; AES-CBC framing needs 337.
+// Worst-case dual-flow/power protobuf is 341 bytes; AES-CBC framing needs 369.
 constexpr size_t kCodecBufferSize = 384;
 // PubSubClient's buffer contains the MQTT header and topic as well as the
-// encrypted payload. The dual-flow envelope can reach 337 bytes, so the
+// encrypted payload. The dual-flow/power envelope can reach 369 bytes, so the
 // 512-byte whole-packet buffer still has room for the MQTT topic and header.
 constexpr size_t kMqttPacketBufferSize = MQTT_MAX_PACKET_SIZE;
 constexpr uint8_t kProtocolVersion = 1;

@@ -10,6 +10,7 @@ Supported command IDs (from WIOT command list):
 - 3: STIME  -> configure system time
 - 4: GOSTM  -> request system telemetry
 - 5: VALVE  -> control valve (0=close, 1=open)
+- 6: WAKE   -> STM32 REMOTE_WAKE active lease (simulator does not emulate CPU sleep)
 """
 
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ CMD_NAMES = {
     3: "STIME",
     4: "GOSTM",
     5: "VALVE",
+    6: "WAKE",
 }
 
 @dataclass
@@ -58,6 +60,8 @@ def apply_command(state: SimState, cmd_bytes: bytes):
     elif msg.cmd_id == 5:
         state.valve_open = bool(int(msg.cmd_data))
         result = "valve_opened" if state.valve_open else "valve_closed"
+    elif msg.cmd_id == 6:
+        result = "wake_not_supported_by_legacy_node_simulator"
 
     summary = {
         "node_id": msg.node_id,

@@ -7,6 +7,12 @@ not only GSM or Wi-Fi connection code. It starts before application, modem, or
 LoRa initialization. If execution stops reaching verified progress
 checkpoints, the IWDG resets the controller.
 
+In the optional REMOTE_WAKE profile the IWDG remains armed during reachable
+idle. CPU Sleep keeps UART/SysTick clocks enabled, and foreground loop progress
+continues to service network keepalive and watchdog checkpoints. Neither WFI
+nor a timer/UART ISR feeds IWDG. A blocked function still resets the controller.
+This differs from RTC_PERIODIC Standby's reset-before-sleep handoff.
+
 Network retry exhaustion remains a second policy. It deliberately requests a
 fast watchdog reset after the configured number of complete failures even
 when every modem function returns normally.

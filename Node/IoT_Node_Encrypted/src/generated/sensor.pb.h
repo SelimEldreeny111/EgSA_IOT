@@ -10,6 +10,8 @@
 #endif
 
 /* Struct definitions */
+/* When both flow meters are enabled, the original flow fields carry TUF for
+ backward compatibility, and this optional record carries Supmea. */
 typedef struct _FlowReading {
     float flow_rate;
     float velocity;
@@ -33,7 +35,6 @@ typedef struct _Status_Message {
     uint32_t node_id;
     uint32_t sensor_id;
     uint64_t timestamp;
-    float battery_voltage;
     float flow_rate;
     float velocity;
     float flow_rate_per_day;
@@ -49,8 +50,12 @@ typedef struct _Status_Message {
     uint32_t soil_moisture_temp_ec_valid;
     uint32_t active_sensor_count;
     uint32_t sensor_mask;
-    uint32_t flow_meter_type;
-    uint32_t flow_period_source;
+    /* Added in V1.1. Tag 19 preserves compatibility with deployed tags 4..18,
+ while nanopb still places this member directly after timestamp. */
+    float battery_voltage;
+    /* Flow schema v2. Existing field numbers 1-19 remain wire-compatible. */
+    uint32_t flow_meter_type; /* 0=none, 1=TUF, 2=Supmea */
+    uint32_t flow_period_source; /* 1=meter native, 2=node RTC */
     bool flow_live_valid;
     bool flow_period_totals_valid;
     bool flow_cumulative_totals_valid;
@@ -62,12 +67,17 @@ typedef struct _Status_Message {
     uint32_t flow_meter_alarm_flags;
     bool has_secondary_flow_meter;
     FlowReading secondary_flow_meter;
+    /* Power v3: 0=legacy unknown; mode 1=NORMAL, 2=RTC_PERIODIC, 3=REMOTE_WAKE. */
+    uint32_t power_mode;
+    uint32_t power_state; /* 1=ACTIVE, 2=REACHABLE_IDLE */
+    uint32_t wake_remaining_seconds; /* active lease/window, not idle time */
 } Status_Message;
 
 typedef struct _CMD_Message {
     uint32_t node_id;
     uint32_t cmd_id;
     uint64_t cmd_data;
+    uint32_t request_id; /* WAKE correlation; 0=legacy/manual */
 } CMD_Message;
 
 typedef struct _Telemetry {
@@ -75,6 +85,8 @@ typedef struct _Telemetry {
     uint64_t timestamp;
     uint32_t sampling_rate;
     uint32_t Transmission_rate;
+    /* V1 reserved1 was never assigned application data. Its tag is now the
+ battery voltage field requested for system telemetry. */
     float battery_voltage;
     uint32_t reserved2;
     uint32_t reserved3;
@@ -107,6 +119,11 @@ typedef struct _Telemetry {
     uint32_t flow_meter_alarm_flags;
     bool has_secondary_flow_meter;
     FlowReading secondary_flow_meter;
+    uint32_t power_mode;
+    uint32_t power_state;
+    uint32_t wake_remaining_seconds;
+    bool wake_command_ack; /* explicit accepted WAKE response */
+    uint32_t wake_request_id; /* echoes CMD request_id on WAKE ACK */
 } Telemetry;
 
 
@@ -116,13 +133,13 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default}
-#define CMD_Message_init_default                 {0, 0, 0}
-#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default}
+#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0}
+#define CMD_Message_init_default                 {0, 0, 0, 0}
+#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0}
 #define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero}
-#define CMD_Message_init_zero                    {0, 0, 0}
-#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero}
+#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0}
+#define CMD_Message_init_zero                    {0, 0, 0, 0}
+#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define FlowReading_flow_rate_tag                1
@@ -144,7 +161,6 @@ extern "C" {
 #define Status_Message_node_id_tag               1
 #define Status_Message_sensor_id_tag             2
 #define Status_Message_timestamp_tag             3
-#define Status_Message_battery_voltage_tag       19
 #define Status_Message_flow_rate_tag             4
 #define Status_Message_velocity_tag              5
 #define Status_Message_flow_rate_per_day_tag     6
@@ -160,6 +176,7 @@ extern "C" {
 #define Status_Message_soil_moisture_temp_ec_valid_tag 16
 #define Status_Message_active_sensor_count_tag   17
 #define Status_Message_sensor_mask_tag           18
+#define Status_Message_battery_voltage_tag       19
 #define Status_Message_flow_meter_type_tag       20
 #define Status_Message_flow_period_source_tag    21
 #define Status_Message_flow_live_valid_tag       22
@@ -172,9 +189,13 @@ extern "C" {
 #define Status_Message_flow_period_quality_tag   29
 #define Status_Message_flow_meter_alarm_flags_tag 30
 #define Status_Message_secondary_flow_meter_tag  31
+#define Status_Message_power_mode_tag            32
+#define Status_Message_power_state_tag           33
+#define Status_Message_wake_remaining_seconds_tag 34
 #define CMD_Message_node_id_tag                  1
 #define CMD_Message_cmd_id_tag                   2
 #define CMD_Message_cmd_data_tag                 3
+#define CMD_Message_request_id_tag               4
 #define Telemetry_node_id_tag                    1
 #define Telemetry_timestamp_tag                  2
 #define Telemetry_sampling_rate_tag              3
@@ -210,6 +231,11 @@ extern "C" {
 #define Telemetry_flow_period_quality_tag        33
 #define Telemetry_flow_meter_alarm_flags_tag     34
 #define Telemetry_secondary_flow_meter_tag       35
+#define Telemetry_power_mode_tag                 36
+#define Telemetry_power_state_tag                37
+#define Telemetry_wake_remaining_seconds_tag     38
+#define Telemetry_wake_command_ack_tag           39
+#define Telemetry_wake_request_id_tag            40
 
 /* Struct field encoding specification for nanopb */
 #define FlowReading_FIELDLIST(X, a) \
@@ -263,7 +289,10 @@ X(a, STATIC,   SINGULAR, UINT64,   reverse_total_liters,  27) \
 X(a, STATIC,   SINGULAR, SINT64,   net_total_liters,  28) \
 X(a, STATIC,   SINGULAR, UINT32,   flow_period_quality,  29) \
 X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  30) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  31)
+X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  31) \
+X(a, STATIC,   SINGULAR, UINT32,   power_mode,       32) \
+X(a, STATIC,   SINGULAR, UINT32,   power_state,      33) \
+X(a, STATIC,   SINGULAR, UINT32,   wake_remaining_seconds,  34)
 #define Status_Message_CALLBACK NULL
 #define Status_Message_DEFAULT NULL
 #define Status_Message_secondary_flow_meter_MSGTYPE FlowReading
@@ -271,7 +300,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  31)
 #define CMD_Message_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   node_id,           1) \
 X(a, STATIC,   SINGULAR, UINT32,   cmd_id,            2) \
-X(a, STATIC,   SINGULAR, UINT64,   cmd_data,          3)
+X(a, STATIC,   SINGULAR, UINT64,   cmd_data,          3) \
+X(a, STATIC,   SINGULAR, UINT32,   request_id,        4)
 #define CMD_Message_CALLBACK NULL
 #define CMD_Message_DEFAULT NULL
 
@@ -310,7 +340,12 @@ X(a, STATIC,   SINGULAR, UINT64,   reverse_total_liters,  31) \
 X(a, STATIC,   SINGULAR, SINT64,   net_total_liters,  32) \
 X(a, STATIC,   SINGULAR, UINT32,   flow_period_quality,  33) \
 X(a, STATIC,   SINGULAR, UINT32,   flow_meter_alarm_flags,  34) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  35)
+X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  35) \
+X(a, STATIC,   SINGULAR, UINT32,   power_mode,       36) \
+X(a, STATIC,   SINGULAR, UINT32,   power_state,      37) \
+X(a, STATIC,   SINGULAR, UINT32,   wake_remaining_seconds,  38) \
+X(a, STATIC,   SINGULAR, BOOL,     wake_command_ack,  39) \
+X(a, STATIC,   SINGULAR, UINT32,   wake_request_id,  40)
 #define Telemetry_CALLBACK NULL
 #define Telemetry_DEFAULT NULL
 #define Telemetry_secondary_flow_meter_MSGTYPE FlowReading
@@ -327,11 +362,11 @@ extern const pb_msgdesc_t Telemetry_msg;
 #define Telemetry_fields &Telemetry_msg
 
 /* Maximum encoded size of messages (where known) */
-#define CMD_Message_size                         23
+#define CMD_Message_size                         29
 #define FlowReading_size                         91
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size
-#define Status_Message_size                      282
-#define Telemetry_size                           310
+#define Status_Message_size                      303
+#define Telemetry_size                           341
 
 #ifdef __cplusplus
 } /* extern "C" */

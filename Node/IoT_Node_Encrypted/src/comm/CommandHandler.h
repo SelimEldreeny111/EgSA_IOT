@@ -10,10 +10,13 @@ enum CMD_ID : uint8_t {
   CMD_SET_TRANSMISSION_PERIOD = 2,
   CMD_SYNC_RTC = 3,
   CMD_GET_TELEMETRY = 4,
-  CMD_OPEN_CLOSE_NODE = 5
+  CMD_OPEN_CLOSE_NODE = 5,
+  CMD_REMOTE_WAKE = 6  // data: active seconds, 0=configured default, max=86400
 };
 
 void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic);
+// Called by MQTT/LoRa before sending a Telemetry WAKE acknowledgement.
+bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic);
 bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload, size_t& payloadLength);
 
 #endif

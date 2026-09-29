@@ -1,0 +1,60 @@
+param([string]$CompilerPath = 'g++')
+$ErrorActionPreference = 'Stop'
+$wakeConfigRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
+$wakeConfigCompiler = (Get-Command $CompilerPath -ErrorAction Stop).Source
+$wakeConfigDefaults = @{
+    APP_ROLE = '1'; APP_UPLINK = '1'; APP_CONTROLLER_POWER_MODE = '0';
+    APP_LORA_POWER_MODE = '0'; APP_WIFI_POWER_MODE = '0'; APP_SIM_POWER_MODE = '0';
+    APP_POWER_SLEEP_SECONDS = '30UL'; APP_POWER_COMMAND_WINDOW_MS = '5000UL';
+    APP_REMOTE_WAKE_DEFAULT_SECONDS = '60UL'; APP_REMOTE_WAKE_POLL_INTERVAL_MS = '100UL'
+}
+$wakeConfigCases = @(
+    @{Name='normal-sim'; Modem='USE_SIM800'; Defines=@{}; Error=$null},
+    @{Name='remote-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2'}; Error=$null},
+    @{Name='remote-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2'}; Error=$null},
+    @{Name='remote-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_UPLINK='2'}; Error=$null},
+    @{Name='rtc-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='1';APP_WIFI_POWER_MODE='1'}; Error=$null},
+    @{Name='rtc-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='1';APP_LORA_POWER_MODE='1';APP_UPLINK='2'}; Error=$null},
+    @{Name='gateway-wifi'; Modem='USE_ESP8266'; Defines=@{APP_ROLE='2'}; Error=$null},
+    @{Name='reject-remote-sleeping-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_WIFI_POWER_MODE='1'}; Error='REMOTE_WAKE requires'},
+    @{Name='reject-remote-sleeping-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_LORA_POWER_MODE='1';APP_UPLINK='2'}; Error='REMOTE_WAKE requires'},
+    @{Name='reject-remote-sleeping-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_SIM_POWER_MODE='1'}; Error='REMOTE_WAKE requires'},
+    @{Name='reject-remote-gateway'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_ROLE='2'}; Error='gateway must remain NORMAL'},
+    @{Name='reject-rtc-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='1';APP_SIM_POWER_MODE='1'}; Error='SIM800L periodic POWER_DOWN is unsafe'},
+    @{Name='reject-radio-remote-policy'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_WIFI_POWER_MODE='2'}; Error='radio policies support NORMAL or POWER_DOWN'},
+    @{Name='reject-controller-policy'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3'}; Error='Controller supports NORMAL'},
+    @{Name='reject-zero-default'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_DEFAULT_SECONDS='0UL'}; Error='APP_REMOTE_WAKE_DEFAULT_SECONDS must'},
+    @{Name='reject-large-default'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_DEFAULT_SECONDS='86401UL'}; Error='APP_REMOTE_WAKE_DEFAULT_SECONDS must'},
+    @{Name='reject-fast-poll'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_POLL_INTERVAL_MS='9UL'}; Error='APP_REMOTE_WAKE_POLL_INTERVAL_MS must'},
+    @{Name='reject-slow-poll'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_POLL_INTERVAL_MS='1001UL'}; Error='APP_REMOTE_WAKE_POLL_INTERVAL_MS must'}
+)
+$wakeConfigOriginalPath = $env:PATH
+try {
+    $env:PATH = (Split-Path -Parent $wakeConfigCompiler) + ';' + $env:PATH
+    foreach ($wakeConfigCase in $wakeConfigCases) {
+        $wakeConfigDefines = $wakeConfigDefaults.Clone()
+        foreach ($wakeConfigName in $wakeConfigCase.Defines.Keys) {
+            $wakeConfigDefines[$wakeConfigName] = $wakeConfigCase.Defines[$wakeConfigName]
+        }
+        $wakeConfigArguments = @('-E','-P','-x','c++','-I', (Join-Path $PSScriptRoot 'fakes'), ('-D' + $wakeConfigCase.Modem))
+        foreach ($wakeConfigName in $wakeConfigDefines.Keys) {
+            $wakeConfigArguments += '-D' + $wakeConfigName + '=' + $wakeConfigDefines[$wakeConfigName]
+        }
+        $wakeConfigArguments += @((Join-Path $wakeConfigRoot 'src/config/AppConfig.h'), '-o', 'NUL')
+        # An intentional compiler #error is expected for rejected policies.
+        $ErrorActionPreference = 'Continue'
+        $wakeConfigDiagnostic = (& $wakeConfigCompiler @wakeConfigArguments 2>&1 | Out-String)
+        $wakeConfigExitCode = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($null -eq $wakeConfigCase.Error) {
+            if ($wakeConfigExitCode -ne 0) { throw "Valid config failed: $($wakeConfigCase.Name): $wakeConfigDiagnostic" }
+        } elseif ($wakeConfigExitCode -eq 0 -or -not $wakeConfigDiagnostic.Contains($wakeConfigCase.Error)) {
+            throw "Expected guard not observed: $($wakeConfigCase.Name): $wakeConfigDiagnostic"
+        }
+        Write-Host "PASS config: $($wakeConfigCase.Name)"
+    }
+    Write-Host "PASS: $($wakeConfigCases.Count) real AppConfig preprocessor policy checks (no configuration edits)"
+} finally {
+    $env:PATH = $wakeConfigOriginalPath
+    $ErrorActionPreference = 'Stop'
+}

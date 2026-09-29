@@ -434,8 +434,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   }
   return;
 #else
-  if (cmd.cmd_id == CMD_GET_TELEMETRY)
+  if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
   {
+    if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
+    {
+      SerialMon.println("Telemetry/WAKE request not for this MQTT node");
+      return;
+    }
+    if (cmd.cmd_id == CMD_REMOTE_WAKE &&
+        !handleRemoteWakeCommand(cmd, isBroadcastTopic))
+    {
+      return;
+    }
     uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
     size_t telemetryPayloadLength = 0;
     if (handleGetTelemetryCommand(&cmd, telemetryPayload, telemetryPayloadLength))

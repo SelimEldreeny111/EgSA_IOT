@@ -676,6 +676,13 @@ async function disconnect() {
 }
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
+const wakeTracker = new WakeTracker();
+
+function setWakeStatus(text) {
+    const status = document.getElementById('wake-status');
+    if (status) status.textContent = text;
+}
+
 function handleCmdChange() {
     // Guard: command elements only exist for admin role
     if (!document.getElementById('cmd-type')) {
@@ -686,6 +693,10 @@ function handleCmdChange() {
     const inp  = document.getElementById('cmd-data');
     const intervalInput = document.getElementById('cmd-interval');
     const startBtn = document.getElementById('start-stime-btn');
+    const help = document.getElementById('cmd-data-help');
+    if (help) help.textContent = type === 'WAKE'
+        ? 'Active seconds: 1–86400. Use 0 for the node default. Requires REMOTE_WAKE mode.'
+        : 'Command-specific data.';
 
     if (type === 'STIME') {
         inp.disabled = true; inp.value = 'Epoch Time';
@@ -693,6 +704,10 @@ function handleCmdChange() {
         if (startBtn) startBtn.disabled = !isBrokerConnected;
     } else if (type === 'GOSTM') {
         inp.disabled = true; inp.value = 'No Data Required';
+        intervalInput.disabled = true;
+        if (startBtn && !stimePeriodicHandle) startBtn.disabled = true;
+    } else if (type === 'WAKE') {
+        inp.disabled = false; inp.value = '60';
         intervalInput.disabled = true;
         if (startBtn && !stimePeriodicHandle) startBtn.disabled = true;
     } else if (type === 'VALVE') {
@@ -720,8 +735,20 @@ async function sendCommand(broadcast, suppressToast = false) {
     };
     const res = await fetch('/api/command', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const result = await res.json();
+    if (result.success && data.cmd_type === 'WAKE') {
+        const alreadyAcknowledged = wakeTracker.published(data.company, nodeValue, result.request_id, broadcast);
+        setWakeStatus(alreadyAcknowledged
+            ? `${broadcast ? 'At least one broadcast node' : `Node ${nodeValue}`} acknowledged WAKE request ${result.request_id}.`
+            : `WAKE request ${result.request_id} published. Waiting for ${broadcast ? 'individual broadcast node acknowledgements' : `Node ${nodeValue} acknowledgement`}.`);
+        if (!alreadyAcknowledged) setTimeout(() => {
+            if (wakeTracker.waiting(data.company, broadcast ? '*' : nodeValue, result.request_id)) {
+                setWakeStatus(`No acknowledgement yet for WAKE ${result.request_id}. The node may be offline, in RTC deep sleep, or not running REMOTE_WAKE firmware. Publication alone does not confirm wake.`);
+            }
+        }, 20000);
+    }
     if (!suppressToast) {
-        if (result.success) showToast(`Command ${data.cmd_type} sent to Node ${nodeValue}.`, 'success');
+        if (result.success && data.cmd_type === 'WAKE') showToast('WAKE published; waiting for node acknowledgement.', 'info');
+        else if (result.success) showToast(`Command ${data.cmd_type} sent to Node ${nodeValue}.`, 'success');
         else showToast('Command failed: ' + result.error, 'danger');
     }
     return result;
@@ -787,6 +814,10 @@ socket.on('iot_message', function(msg) {
     // The supervisor receives every company's stream; show only the one
     // currently selected. Other users are room-scoped server-side already.
     if (IS_SUPERVISOR && msg.Company && msg.Company !== getSelectedCompany()) return;
+    if (wakeTracker.receive(msg)) {
+        setWakeStatus(`Node ${msg['Node ID']} confirmed ACTIVE: WAKE ${msg['Wake Request ID']}, ${msg['Wake Remaining Seconds']} seconds remaining at acknowledgement.`);
+        showToast(`Node ${msg['Node ID']} acknowledged WAKE.`, 'success');
+    }
 
     // Prepend to historical table
     const tbody = document.querySelector('#message-table tbody');

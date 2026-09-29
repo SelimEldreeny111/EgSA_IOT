@@ -15,6 +15,10 @@ from flask_socketio import SocketIO, join_room
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import messages_pb2
+from power_commands import (
+    WAKE_COMMAND_ID, validate_wake_seconds, power_metadata,
+    power_dashboard_fields, is_confirmed_wake,
+)
 from flow_schema import (
     build_sample_fingerprint,
     calendar_period_rows,
@@ -51,7 +55,7 @@ def _required_secret(name: str) -> str:
     return value
 # Admins/supervisor join this room and receive every company's live messages.
 GLOBAL_ROOM = '__all__'
-CMD_NAMES = {"SRATE": 1, "STRAN": 2, "STIME": 3, "GOSTM": 4, "VALVE": 5}
+CMD_NAMES = {"SRATE": 1, "STRAN": 2, "STIME": 3, "GOSTM": 4, "VALVE": 5, "WAKE": WAKE_COMMAND_ID}
 CMD_NAMES_REV = {v: k for k, v in CMD_NAMES.items()}
 
 def log_event(msg: str):
@@ -183,7 +187,12 @@ def _migrate_messages_table_to_integer_timestamp(conn):
                    flow_period_quality INTEGER DEFAULT 0,
                    flow_meter_alarm_flags INTEGER DEFAULT 0,
                    legacy_flow_schema INTEGER DEFAULT 0,
-                   secondary_flow_json TEXT)''')
+                   secondary_flow_json TEXT,
+                   power_mode INTEGER DEFAULT 0,
+                   power_state INTEGER DEFAULT 0,
+                   wake_remaining_seconds INTEGER DEFAULT 0,
+                   wake_command_ack INTEGER DEFAULT 0,
+                   wake_request_id INTEGER DEFAULT 0)''')
 
     target_columns = [
         "timestamp", "type", "node_id", "sensor_id", "flow", "velocity",
@@ -267,7 +276,12 @@ def ensure_message_db(company: str) -> str:
                    flow_period_quality INTEGER DEFAULT 0,
                    flow_meter_alarm_flags INTEGER DEFAULT 0,
                    legacy_flow_schema INTEGER DEFAULT 0,
-                   secondary_flow_json TEXT)''')
+                   secondary_flow_json TEXT,
+                   power_mode INTEGER DEFAULT 0,
+                   power_state INTEGER DEFAULT 0,
+                   wake_remaining_seconds INTEGER DEFAULT 0,
+                   wake_command_ack INTEGER DEFAULT 0,
+                   wake_request_id INTEGER DEFAULT 0)''')
     conn.commit()
     c.execute("PRAGMA table_info(messages)")
     cols = {row[1].lower(): row[2].upper() for row in c.fetchall()}
@@ -302,7 +316,12 @@ def ensure_message_db(company: str) -> str:
         ("flow_period_quality", "INTEGER DEFAULT 0"),
         ("flow_meter_alarm_flags", "INTEGER DEFAULT 0"),
         ("legacy_flow_schema", "INTEGER DEFAULT 0"),
-        ("secondary_flow_json", "TEXT")
+        ("secondary_flow_json", "TEXT"),
+        ("power_mode", "INTEGER DEFAULT 0"),
+        ("power_state", "INTEGER DEFAULT 0"),
+        ("wake_remaining_seconds", "INTEGER DEFAULT 0"),
+        ("wake_command_ack", "INTEGER DEFAULT 0"),
+        ("wake_request_id", "INTEGER DEFAULT 0"),
     ]
     for col_name, col_type in new_cols:
         if col_name not in cols:
@@ -605,12 +624,14 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                  ec_temp=0.0, ec_moist=0.0, ec_cond=0.0, ec_valid=0,
                  active_sensors=1, sensor_mask=1, battery_voltage=None,
                  flow_metadata=None, measured_at=None, time_source="server_received",
-                 sample_fingerprint=None, period_rows=None, secondary_flow=None):
+                 sample_fingerprint=None, period_rows=None, secondary_flow=None,
+                 power_info=None):
     conn = None
     try:
         flow_metadata = flow_metadata or {}
         period_rows = period_rows or []
         secondary_flow = secondary_flow or {}
+        power_info = power_info or {}
         db_path = ensure_message_db(company)
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
@@ -626,8 +647,9 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        flow_meter_type, flow_period_source, flow_live_valid, flow_period_totals_valid,
                        flow_cumulative_totals_valid, rtc_valid, forward_total_liters, reverse_total_liters,
                        net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema,
-                       secondary_flow_json)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                       secondary_flow_json, power_mode, power_state,
+                       wake_remaining_seconds, wake_command_ack, wake_request_id)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                   (epoch_ts, m_type, n_id, str(s_id), flow, vel, fday, fmonth, fyear, det, company, node_status,
                    soil_temp, soil_moist, soil_valid, ec_temp, ec_moist, ec_cond, ec_valid, active_sensors, sensor_mask,
                    battery_voltage, measured_epoch, time_source,
@@ -643,7 +665,12 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                    flow_metadata.get("flow_period_quality", 0),
                    flow_metadata.get("flow_meter_alarm_flags", 0),
                    flow_metadata.get("legacy_flow_schema", 0),
-                   json.dumps(secondary_flow.get("snapshot")) if secondary_flow else None))
+                   json.dumps(secondary_flow.get("snapshot")) if secondary_flow else None,
+                   power_info.get("power_mode", 0),
+                   power_info.get("power_state", 0),
+                   power_info.get("wake_remaining_seconds", 0),
+                   power_info.get("wake_command_ack", 0),
+                   power_info.get("wake_request_id", 0)))
 
         samples = [{
             "metadata": flow_metadata,
@@ -776,6 +803,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             
             log_event(f"[PLAINTEXT] Saving Status message - node={msg.node_id}, flow={msg.flow_rate}")
             flow_metadata = extract_flow_metadata(msg)
+            power_info = power_metadata(msg)
             measured_at, time_source = select_measurement_timestamp(
                 msg, timestamp_epoch
             )
@@ -793,7 +821,8 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          time_source=time_source,
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
-                         secondary_flow=secondary_flow)
+                         secondary_flow=secondary_flow,
+                         power_info=power_info)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Status", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -807,6 +836,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 "Measured Epoch": measured_at, "Time Source": time_source
             }
             payload.update(dashboard_flow_fields(flow_metadata))
+            payload.update(power_dashboard_fields(power_info))
             payload["Secondary Flow Meter"] = (
                 secondary_flow["snapshot"] if secondary_flow else None
             )
@@ -833,6 +863,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                     return
             
             flow_metadata = extract_flow_metadata(msg)
+            power_info = power_metadata(msg)
             measured_at, time_source = select_measurement_timestamp(
                 msg, timestamp_epoch
             )
@@ -845,6 +876,24 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                        f"T-Rate:{msg.Transmission_rate} sensors:{msg.active_sensor_count} "
                        f"meter:{flow_metadata['flow_meter_name']} "
                        f"period:{flow_metadata['flow_period_source_name']}")
+            if power_info["wake_command_ack"]:
+                # WAKE acknowledges state before the next fresh RS485 sample.
+                # Keep the response in message history, but never manufacture
+                # a meter sample, chart point or consumption snapshot from it.
+                sample_fingerprint = None
+                period_rows = []
+                time_source = "wake_ack_cached"
+                flow_metadata["flow_live_valid"] = 0
+                if secondary_flow:
+                    secondary_flow["fingerprint"] = None
+                    secondary_flow["period_rows"] = []
+                details += (f" WAKE_ACK request={power_info['wake_request_id']} "
+                            f"power={power_info['power_mode']} state={power_info['power_state']} "
+                            f"remaining={power_info['wake_remaining_seconds']}s (cached sensors)")
+                if is_confirmed_wake(power_info):
+                    log_event(f"[WAKE ACK] Company={company} Node={msg.node_id} "
+                              f"request={power_info['wake_request_id']} ACTIVE "
+                              f"remaining={power_info['wake_remaining_seconds']}s")
             log_event(f"[PLAINTEXT] Saving Telemetry message - node={msg.node_id}, details={details}")
             save_message(timestamp_epoch, "Telemetry", msg.node_id, msg.sensor_id, msg.flow_rate, msg.velocity,
                          msg.flow_rate_per_day, msg.flow_rate_per_month, msg.flow_rate_per_year, details, company, msg.node_status,
@@ -855,7 +904,8 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          time_source=time_source,
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
-                         secondary_flow=secondary_flow)
+                         secondary_flow=secondary_flow,
+                         power_info=power_info)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Telemetry", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -869,6 +919,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 "Measured Epoch": measured_at, "Time Source": time_source
             }
             payload.update(dashboard_flow_fields(flow_metadata))
+            payload.update(power_dashboard_fields(power_info))
             payload["Secondary Flow Meter"] = (
                 secondary_flow["snapshot"] if secondary_flow else None
             )
@@ -1330,17 +1381,45 @@ def api_command():
         log_event(f"[CMD] ERROR: {err}")
         return jsonify({"success": False, "error": err})
         
-    data = request.json
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"success": False, "error": "Command body must be a JSON object"}), 400
     try:
-        node_id = int(data.get("node_id", 1))
+        raw_node_id = data.get("node_id", 1)
+        try:
+            node_id = int(raw_node_id)
+        except (TypeError, ValueError, OverflowError):
+            return jsonify({"success": False, "error": "Invalid node ID"}), 400
         cmd_type = data.get("cmd_type", "SRATE")
-        cmd_data_val = data.get("cmd_data", 5)
+        cmd_data_val = data.get("cmd_data", 0 if cmd_type == "WAKE" else 5)
         broadcast = data.get("broadcast", False)
-        company = data.get("company", "Company_ID").strip()
+        company = data.get("company", "Company_ID")
+        if not isinstance(company, str) or not isinstance(cmd_type, str):
+            return jsonify({"success": False, "error": "Company and command type must be strings"}), 400
+        company = company.strip()
+
+        if cmd_type not in CMD_NAMES:
+            return jsonify({"success": False, "error": "Unknown command type"}), 400
+        if cmd_type == "WAKE":
+            if not can_manage_company(company):
+                return jsonify({"success": False, "error": "Cannot command another company"}), 403
+            if not company or any(char in company for char in "/+#"):
+                return jsonify({"success": False, "error": "Invalid company topic"}), 400
+            if isinstance(raw_node_id, (bool, float)) or not 1 <= node_id <= 65535:
+                return jsonify({"success": False, "error": "Node ID must be 1..65535"}), 400
+            if not isinstance(broadcast, bool):
+                return jsonify({"success": False, "error": "broadcast must be true or false"}), 400
+            if not mqtt_client.is_connected():
+                return jsonify({"success": False, "error": "Broker is not connected"}), 503
         
         cmd_id = CMD_NAMES.get(cmd_type, 0)
         if cmd_type == "STIME": cmd_data = int(time.time())
         elif cmd_type == "GOSTM": cmd_data = 0
+        elif cmd_type == "WAKE":
+            try:
+                cmd_data = validate_wake_seconds(cmd_data_val)
+            except ValueError as exc:
+                return jsonify({"success": False, "error": str(exc)}), 400
         else:
             try: cmd_data = int(cmd_data_val)
             except ValueError:
@@ -1352,17 +1431,26 @@ def api_command():
         msg.node_id = node_id
         msg.cmd_id = cmd_id
         msg.cmd_data = cmd_data
+        request_id = (secrets.randbelow(0xFFFFFFFF) + 1) if cmd_type == "WAKE" else 0
+        msg.request_id = request_id
         plain = msg.SerializeToString()
         topic = f"EgSA/{company}/BroadCast/CMD" if broadcast else f"EgSA/{company}/{node_id}/CMD"
             
         data_info = f" with Data={cmd_data}" if cmd_type != "GOSTM" else ""
+        if cmd_type == "WAKE":
+            data_info += f" request={request_id}"
         log_event(f"[CMD] Publishing '{cmd_type}' (id={cmd_id}) to '{topic}'{data_info}...")
         logging.info(f"[CMD] node={node_id} type={cmd_type} data={cmd_data} topic={topic}")
         
         mqtt_client.publish_plaintext(topic, plain)
-        save_message(int(time.time()), "Command", node_id, "-", 0, 0, 0, 0, 0, f"{cmd_type}{data_info}", company, 0)
-        log_event("[CMD] Command successfully encrypted, published, and saved.")
+        save_message(int(time.time()), "Command", node_id, "-", 0, 0, 0, 0, 0, f"{cmd_type}{data_info}", company, 0,
+                     power_info={"wake_request_id": request_id})
+        log_event("[CMD] Command encrypted, submitted to broker, and saved (not a node acknowledgement).")
         logging.info(f"[CMD] Success - command {cmd_type} published to {topic}")
+        if cmd_type == "WAKE":
+            return jsonify({"success": True, "request_id": request_id,
+                            "awaiting_node_ack": True, "node_awake": False,
+                            "message": "WAKE published; waiting for the node acknowledgement"})
         return jsonify({"success": True})
     except Exception as e:
         err = f"Command failed: {type(e).__name__}: {e}"
