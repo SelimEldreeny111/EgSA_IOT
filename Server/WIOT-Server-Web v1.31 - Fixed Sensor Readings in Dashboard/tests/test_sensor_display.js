@@ -21,7 +21,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(source.slice(start,end),context);
-const good = {'Sensor Mask':15, 'Flow Live Valid':1, 'Period Totals Valid':1,
+const good = {'WDT Resets':27, 'Sensor Mask':15, 'Flow Live Valid':1, 'Period Totals Valid':1,
     'Cumulative Totals Valid':1, Flow:12, Velocity:2, 'Flow Day':3,
     'Flow Month':4, 'Flow Year':5, 'Forward Total Liters':10000,
     'Reverse Total Liters':1000, 'Net Total Liters':9000,
@@ -34,6 +34,7 @@ context.nodeLatestData['7']=good;
 context.renderLiveNode();
 assert.equal(element('m-flow').textContent,'12.000');
 assert.equal(element('m-soil-temp').textContent,'22.0');
+assert.equal(element('m-wdt-resets').textContent,'27');
 const failed = {...good, 'Flow Live Valid':0, 'Period Totals Valid':0,
     'Cumulative Totals Valid':0, 'Soil Valid':0, 'EC Valid':0,
     'Secondary Flow Meter':{...good['Secondary Flow Meter'], flow_live_valid:0, flow_period_totals_valid:0}};
@@ -48,13 +49,22 @@ for (const id of ['m-soil-temp','m-soil-moist','m-ec-temp','m-ec-moist']) {
     assert.equal(element(id).textContent,'0.0',id);
 }
 assert.equal(element('m-ec-cond').textContent,'0');
+assert.equal(element('m-wdt-resets').textContent,'27'); // sensor failure does not clear node diagnostics
 assert.equal(element('m-soil-status').textContent,'Sensor Error');
 assert.equal(element('m-ec-status').textContent,'Sensor Error');
 context.nodeLatestData['7']=good;
 context.renderLiveNode();
 assert.equal(element('m-flow').textContent,'12.000');
 assert.equal(element('m-soil-status').textContent,'Normal');
+context.nodeLatestData['7']={...good, 'WDT Resets':4294967295};
+context.renderLiveNode();
+assert.equal(element('m-wdt-resets').textContent,'4294967295');
+context.nodeLatestData['7']={...good};
+delete context.nodeLatestData['7']['WDT Resets'];
+context.renderLiveNode();
+assert.equal(element('m-wdt-resets').textContent,'0'); // old firmware omitted the field
 delete context.nodeLatestData['7'];
 context.renderLiveNode();
 assert.equal(element('m-flow').textContent,'-'); // offline/no message is distinct
+assert.equal(element('m-wdt-resets').textContent,'-');
 console.log('PASS: real dashboard render valid -> unavailable zeros -> recovery');

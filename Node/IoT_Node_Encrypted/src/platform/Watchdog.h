@@ -77,4 +77,7 @@ void runHardwareWatchdogSelfTest(WatchdogSelfTestPoint point);
 
 bool previousResetWasHardwareWatchdog();
 
+/** @brief Cumulative IWDG reset count, retained in flash; normal boots do not increment. */
+uint32_t hardwareWatchdogResetCount();
+
 #endif

@@ -16,6 +16,7 @@ static uint64_t previousForward=0, accumulated=0;
 bool isRtcTrusted() { return true; }
 uint32_t getEpochTime() { return 1800000000U; }
 void serviceHardwareWatchdog(WatchdogStage) {}
+uint32_t hardwareWatchdogResetCount() { return 7U; }
 float readBatteryVoltage() { return 3.7f; }
 uint32_t powerManagerMode() { return 1; }
 uint32_t powerManagerState() { return 1; }
@@ -65,6 +66,7 @@ int main() {
     assert(appState().tufFlow.flowRateM3h==0 && appState().supmeaFlow.flowRateM3h==0);
     Status_Message status=Status_Message_init_zero; Telemetry telemetry=Telemetry_init_zero;
     populateSensorPayloadFields(status,appState()); populateSensorPayloadFields(telemetry,appState());
+    assert(status.wdt_reset_count == 7U && telemetry.wdt_reset_count == 7U);
     checkZero(status); checkZero(telemetry);
     // Restore a real counter: lost communication must not discard history.
     tuf={8,1,6,7,8,0,true,true,true,true,true,true};

@@ -262,7 +262,7 @@ class RemoteWakeServerTests(unittest.TestCase):
         self.server.ensure_message_db(self.company) # migration is idempotent
         conn = sqlite3.connect(db)
         try:
-            self.assertEqual(conn.execute('SELECT details,power_mode,wake_request_id FROM messages').fetchone(), ('keep',0,0))
+            self.assertEqual(conn.execute('SELECT details,power_mode,wake_request_id,wdt_reset_count FROM messages').fetchone(), ('keep',0,0,0))
         finally: conn.close()
 
 

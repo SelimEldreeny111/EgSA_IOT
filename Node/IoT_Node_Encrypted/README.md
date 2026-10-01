@@ -52,6 +52,9 @@ See [STM32 Global Watchdog Recovery and Test Guide](WATCHDOG_RECOVERY_AND_TEST_G
 for the blocking-path timing audit, selected global deadline, reset-stage
 diagnostics, controlled fault injection, and acceptance procedure.
 
+See [Watchdog Reset Counter Guide](WDT_RESET_COUNTER_GUIDE.md) for the persistent
+`wdt_reset_count` protobuf field, server display, storage limits and bench tests.
+
 ## Overview
 
 This project implements an IoT node that reads the TUF, Supmea, HNDA, and

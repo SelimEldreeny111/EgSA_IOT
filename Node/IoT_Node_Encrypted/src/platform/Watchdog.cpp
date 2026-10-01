@@ -1,4 +1,5 @@
 #include "Watchdog.h"
+#include "WatchdogResetCounter.h"
 
 #include "../config/AppConfig.h"
 
@@ -24,6 +25,7 @@ __attribute__((section(".noinit"))) volatile PersistentWatchdogStage g_persisten
 
 bool g_previousResetWasWatchdog = false;
 bool g_watchdogStarted = false;
+bool g_watchdogInitialized = false;
 WatchdogStage g_previousWatchdogStage = WatchdogStage::Unknown;
 
 bool isKnownStage(uint32_t rawStage)
@@ -96,6 +98,8 @@ WatchdogStage selfTestStage(WatchdogSelfTestPoint point)
 
 void initializeHardwareWatchdog()
 {
+    if (g_watchdogInitialized) return;
+    g_watchdogInitialized = true;
     g_previousResetWasWatchdog = IWatchdog.isReset(true);
     if (g_previousResetWasWatchdog && persistentStageIsValid())
     {
@@ -111,15 +115,26 @@ void initializeHardwareWatchdog()
 
     if (!AppConfig::kEnableHardwareWatchdog)
     {
+        WatchdogResetCounter::initialize(g_previousResetWasWatchdog);
         return;
     }
 
     IWatchdog.begin(AppConfig::kWatchdogTimeoutUs);
     g_watchdogStarted = IWatchdog.isEnabled();
+    // Protect the bounded EEPROM commit with the normal watchdog timeout.
+    // Never feed inside an erase/program operation that might have stalled.
+    WatchdogResetCounter::initialize(g_previousResetWasWatchdog);
+    serviceHardwareWatchdog();
 }
 
 void reportHardwareWatchdogStatus()
 {
+    SerialMon.print("Cumulative WDT resets: ");
+    SerialMon.println(hardwareWatchdogResetCount());
+    if (WatchdogResetCounter::recoveredInvalidRecord())
+        SerialMon.println("WARNING: WDT counter record invalid; counting restarted at zero");
+    if (!WatchdogResetCounter::storageHealthy())
+        SerialMon.println("ERROR: WDT counter flash verification failed; current count is RAM-only");
     if (!AppConfig::kEnableHardwareWatchdog)
     {
         SerialMon.println("Hardware watchdog: disabled by configuration");
@@ -246,4 +261,9 @@ void runHardwareWatchdogSelfTest(WatchdogSelfTestPoint point)
 bool previousResetWasHardwareWatchdog()
 {
     return g_previousResetWasWatchdog;
+}
+
+uint32_t hardwareWatchdogResetCount()
+{
+    return WatchdogResetCounter::value();
 }

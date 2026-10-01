@@ -226,7 +226,8 @@ def _migrate_messages_table_to_integer_timestamp(conn):
                    power_state INTEGER DEFAULT 0,
                    wake_remaining_seconds INTEGER DEFAULT 0,
                    wake_command_ack INTEGER DEFAULT 0,
-                   wake_request_id INTEGER DEFAULT 0)''')
+                   wake_request_id INTEGER DEFAULT 0,
+                   wdt_reset_count INTEGER DEFAULT 0)''')
 
     target_columns = [
         "timestamp", "type", "node_id", "sensor_id", "flow", "velocity",
@@ -240,6 +241,8 @@ def _migrate_messages_table_to_integer_timestamp(conn):
         "flow_cumulative_totals_valid", "rtc_valid", "forward_total_liters",
         "reverse_total_liters", "net_total_liters", "flow_period_quality",
         "flow_meter_alarm_flags", "legacy_flow_schema", "secondary_flow_json",
+        "power_mode", "power_state", "wake_remaining_seconds",
+        "wake_command_ack", "wake_request_id", "wdt_reset_count",
     ]
     copy_columns = [column for column in target_columns if column in old_columns]
     select_expressions = []
@@ -315,7 +318,8 @@ def ensure_message_db(company: str) -> str:
                    power_state INTEGER DEFAULT 0,
                    wake_remaining_seconds INTEGER DEFAULT 0,
                    wake_command_ack INTEGER DEFAULT 0,
-                   wake_request_id INTEGER DEFAULT 0)''')
+                   wake_request_id INTEGER DEFAULT 0,
+                   wdt_reset_count INTEGER DEFAULT 0)''')
     conn.commit()
     c.execute("PRAGMA table_info(messages)")
     cols = {row[1].lower(): row[2].upper() for row in c.fetchall()}
@@ -354,6 +358,7 @@ def ensure_message_db(company: str) -> str:
         ("power_mode", "INTEGER DEFAULT 0"),
         ("power_state", "INTEGER DEFAULT 0"),
         ("wake_remaining_seconds", "INTEGER DEFAULT 0"),
+        ("wdt_reset_count", "INTEGER DEFAULT 0"),
         ("wake_command_ack", "INTEGER DEFAULT 0"),
         ("wake_request_id", "INTEGER DEFAULT 0"),
     ]
@@ -682,8 +687,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        flow_cumulative_totals_valid, rtc_valid, forward_total_liters, reverse_total_liters,
                        net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema,
                        secondary_flow_json, power_mode, power_state,
-                       wake_remaining_seconds, wake_command_ack, wake_request_id)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                   (epoch_ts, m_type, n_id, str(s_id), flow, vel, fday, fmonth, fyear, det, company, node_status,
                    soil_temp, soil_moist, soil_valid, ec_temp, ec_moist, ec_cond, ec_valid, active_sensors, sensor_mask,
                    battery_voltage, measured_epoch, time_source,
@@ -704,7 +709,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                    power_info.get("power_state", 0),
                    power_info.get("wake_remaining_seconds", 0),
                    power_info.get("wake_command_ack", 0),
-                   power_info.get("wake_request_id", 0)))
+                   power_info.get("wake_request_id", 0),
+                   power_info.get("wdt_reset_count", 0)))
 
         samples = [{
             "metadata": flow_metadata,
@@ -1709,7 +1715,7 @@ def export_csv():
     def generate():
         data = StringIO()
         writer = csv.writer(data)
-        writer.writerow(('Received At', 'Measured At', 'Time Source', 'Type', 'Node ID', 'Sensor ID', 'Node Status', 'Battery Voltage',
+        writer.writerow(('Received At', 'Measured At', 'Time Source', 'Type', 'Node ID', 'Sensor ID', 'Node Status', 'Battery Voltage', 'WDT Resets',
                          'Flow (m3/h)', 'Velocity (m/s)', 'Consumption Today (m3)', 'Consumption Month (m3)', 'Consumption Year (m3)',
                          'Flow Meter Type', 'Period Source', 'Flow Valid', 'Period Valid', 'Cumulative Valid', 'RTC Valid',
                          'Forward Total (L)', 'Reverse Total (L)', 'Net Total (L)', 'Period Quality', 'Alarm Flags',
@@ -1721,6 +1727,7 @@ def export_csv():
             writer.writerow((
                 row['timestamp'], row.get('measured_at', ''), row.get('time_source', ''),
                 row['type'], row['node_id'], row['sensor_id'], row.get('node_status', ''), row.get('battery_voltage', ''),
+                row.get('wdt_reset_count', 0),
                 row['flow'], row['velocity'], row['flow_day'], row['flow_month'], row['flow_year'],
                 row.get('flow_meter_type', ''), row.get('flow_period_source', ''), row.get('flow_live_valid', ''),
                 row.get('flow_period_totals_valid', ''), row.get('flow_cumulative_totals_valid', ''), row.get('rtc_valid', ''),

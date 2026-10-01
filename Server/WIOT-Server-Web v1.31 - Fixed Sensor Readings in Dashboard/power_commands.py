@@ -34,6 +34,7 @@ def power_metadata(message) -> dict:
         "wake_remaining_seconds": remaining,
         "wake_command_ack": int(bool(getattr(message, "wake_command_ack", False))),
         "wake_request_id": int(getattr(message, "wake_request_id", 0)),
+        "wdt_reset_count": int(getattr(message, "wdt_reset_count", 0)),
     }
 
 
@@ -44,6 +45,7 @@ def power_dashboard_fields(metadata: dict) -> dict:
         "Wake Remaining Seconds": metadata["wake_remaining_seconds"],
         "Wake Command ACK": bool(metadata["wake_command_ack"]),
         "Wake Request ID": metadata["wake_request_id"],
+        "WDT Resets": metadata.get("wdt_reset_count", 0),
     }
 
 

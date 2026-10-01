@@ -234,6 +234,52 @@ class ServerDatabaseTests(unittest.TestCase):
     def setUp(self):
         self.server_web._initialized_company_dbs.clear()
 
+    def test_watchdog_counter_status_telemetry_database_api_and_export(self):
+        import csv
+        import io
+        company = "WDT Counter"
+        for kind, message_class, count in (
+            ("Status", messages_pb2.Status_Message, 27),
+            ("Telemetry", messages_pb2.Telemetry, 4294967295),
+        ):
+            msg = message_class(node_id=35, sensor_id=1, timestamp=1_800_000_000,
+                                wdt_reset_count=count)
+            with patch.object(self.server_web, "emit_iot_message") as emit, \
+                 patch.object(self.server_web, "dispatch_queued_command"):
+                self.server_web.on_mqtt_plaintext(
+                    f"EgSA/{company}/35/{kind}", msg.SerializeToString())
+            self.assertEqual(emit.call_args.args[0]["WDT Resets"], count)
+        with closing(sqlite3.connect(self.server_web.get_company_db_path(company))) as db:
+            self.assertEqual(db.execute("SELECT wdt_reset_count FROM messages ORDER BY id").fetchall(),
+                             [(27,), (4294967295,)])
+        with patch.dict(self.server_web.app.config, TESTING=True), self.server_web.app.test_client() as client:
+            with client.session_transaction() as session:
+                session.update(role="user", username="tester", company=company)
+            latest = client.get("/api/node_latest")
+            history = client.get("/export_csv?start=2026-01-01%2000:00:00&end=2030-12-31%2023:59:59", buffered=True)
+            self.assertEqual(history.status_code, 200, history.get_data(as_text=True)[:300])
+        self.assertEqual(latest.status_code, 200)
+        self.assertEqual(latest.get_json()["latest"][0]["wdt_reset_count"], 4294967295)
+        rows = list(csv.DictReader(io.StringIO(history.get_data(as_text=True))))
+        self.assertIn("WDT Resets", rows[0], history.get_data(as_text=True)[:300])
+        self.assertEqual([row["WDT Resets"] for row in rows], ["4294967295", "27"])
+
+    def test_timestamp_migration_preserves_existing_watchdog_count(self):
+        company = "WDT Text Timestamp"
+        db_path = self.server_web.get_company_db_path(company)
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(db_path)) as db:
+            db.execute("CREATE TABLE messages (id INTEGER PRIMARY KEY, timestamp TEXT, "
+                       "type TEXT, node_id INTEGER, sensor_id TEXT, details TEXT, "
+                       "company TEXT, wdt_reset_count INTEGER)")
+            db.execute("INSERT INTO messages VALUES (1,'2026-10-01 10:00:00',"
+                       "'Status',35,'1','keep',?,12)", (company,))
+            db.commit()
+        self.server_web.ensure_message_db(company)
+        with closing(sqlite3.connect(db_path)) as db:
+            self.assertEqual(db.execute("SELECT details,wdt_reset_count FROM messages").fetchone(),
+                             ("keep", 12))
+
     def test_dual_flow_samples_and_periods_are_stored_separately(self):
         company = "Dual Flow"
         measured_at = 1_800_000_000

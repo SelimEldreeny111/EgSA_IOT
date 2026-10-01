@@ -471,6 +471,8 @@ constexpr uint32_t kFlowFlashCheckpointSeconds =
 constexpr bool kResetSupmeaPeriodState =
     APP_RESET_SUPMEA_PERIOD_STATE != 0;
 constexpr int kFlowAccumulatorEepromAddress = 128;
+// 20-byte versioned IWDG counter; do not overlap WiFi [0,112) or flow [128,184).
+constexpr int kWatchdogCounterEepromAddress = 192;
 static_assert(
     kCalendarFixedUtcOffsetMinutes >= -720 &&
     kCalendarFixedUtcOffsetMinutes <= 840,
@@ -554,7 +556,7 @@ constexpr bool kEnableOpenCloseNodeOutput = !kOpenCloseNodeGpioConflictsWithLora
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;
-// Worst-case v4 Telemetry protobuf is 358 bytes; AES-CBC framing needs 385.
+// Worst-case Telemetry protobuf is 365 bytes; AES-CBC framing needs 385.
 constexpr size_t kCodecBufferSize = 416;
 // PubSubClient's buffer contains the MQTT header and topic as well as the
 // encrypted payload. The dual-flow/power envelope can reach 385 bytes, so the

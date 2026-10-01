@@ -557,6 +557,7 @@ async function preloadCompanyData(company) {
                 'Flow Year':  row.flow_year,
                 'Node Status':row.node_status,
                 'Battery Voltage': row.battery_voltage,
+                'WDT Resets': row.wdt_reset_count ?? 0,
                 Details:      row.details || '',
                 Company:      company,
                 'Soil Temp':  row.soil_temperature,
@@ -1090,6 +1091,7 @@ function renderLiveNode() {
     document.getElementById('m-time').textContent     = d ? d.Time || '-' : '-';
     document.getElementById('m-sensor').textContent   = d ? d['Sensor ID'] || '-' : '-';
     document.getElementById('m-battery').textContent  = d ? formatNumberOrDash(d['Battery Voltage'], 2) : '-';
+    document.getElementById('m-wdt-resets').textContent = d ? String(d['WDT Resets'] ?? 0) : '-';
     document.getElementById('m-status').textContent   = d ? nodeStatusLabel(d['Node Status']) : '-';
     const flowValid = d && Number(d['Flow Live Valid']) === 1;
     const periodsValid = d && Number(d['Period Totals Valid']) === 1;
@@ -1661,6 +1663,7 @@ function buildPopupHtml(nid) {
         <tr><td style="color:#98a2c3;padding-right:12px">Flow</td><td><b>${liveValid ? formatNumberOrDash(d.Flow) + ' m³/h' : '-'}</b></td></tr>
         <tr><td style="color:#98a2c3">Velocity</td><td><b>${liveValid ? formatNumberOrDash(d.Velocity) + ' m/s' : '-'}</b></td></tr>
         <tr><td style="color:#98a2c3">Battery</td><td><b>${formatNumberOrDash(d['Battery Voltage'], 2)} V</b></td></tr>
+        <tr><td style="color:#98a2c3">WDT Resets</td><td><b>${Number(d['WDT Resets'] ?? 0)}</b></td></tr>
         <tr><td style="color:#98a2c3">Today</td><td>${periodsValid ? formatNumberOrDash(d['Flow Day']) + ' m³' : '-'}</td></tr>
         <tr><td style="color:#98a2c3">Last seen</td><td style="font-size:0.78rem">${d.Time}</td></tr>` : '';
     return `<div style="min-width:170px">
