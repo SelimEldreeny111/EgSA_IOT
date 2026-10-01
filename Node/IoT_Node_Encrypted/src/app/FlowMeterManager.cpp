@@ -102,7 +102,8 @@ void sampleTuf()
     const TufSensorData data = readTufSensor();
     printTufSensorData(data);
 
-    FlowMeterMetrics metrics = appState().tufFlow;
+    // Each poll replaces the published snapshot; failed groups stay zero.
+    FlowMeterMetrics metrics = {};
     metrics.type = FlowMeterType::Tuf;
     metrics.periodSource = FlowPeriodSource::MeterNative;
     metrics.rtcValid = isRtcTrusted();
@@ -153,7 +154,9 @@ void sampleSupmea()
     printSupmeaSensorData(data);
     serviceHardwareWatchdog(WatchdogStage::SupmeaPeriodCalculation);
 
-    FlowMeterMetrics metrics = appState().supmeaFlow;
+    // Do not retain old wire readings when the current Modbus poll fails.
+    // The independent RTC accumulator keeps its baseline/history internally.
+    FlowMeterMetrics metrics = {};
     metrics.type = FlowMeterType::Supmea;
     metrics.periodSource = FlowPeriodSource::NodeRtcCalculated;
     metrics.liveDataValid = false;

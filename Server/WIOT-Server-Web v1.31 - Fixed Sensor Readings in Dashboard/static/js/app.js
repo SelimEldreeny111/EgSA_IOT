@@ -1094,11 +1094,13 @@ function renderLiveNode() {
     const flowValid = d && Number(d['Flow Live Valid']) === 1;
     const periodsValid = d && Number(d['Period Totals Valid']) === 1;
     const cumulativeValid = d && Number(d['Cumulative Totals Valid']) === 1;
-    document.getElementById('m-flow').textContent     = flowValid ? formatNumberOrDash(d.Flow) : '-';
-    document.getElementById('m-velocity').textContent = flowValid ? formatNumberOrDash(d.Velocity) : '-';
-    document.getElementById('m-fday').textContent     = periodsValid ? formatNumberOrDash(d['Flow Day'], 3) : '-';
-    document.getElementById('m-fmonth').textContent   = periodsValid ? formatNumberOrDash(d['Flow Month'], 3) : '-';
-    document.getElementById('m-fyear').textContent    = periodsValid ? formatNumberOrDash(d['Flow Year'], 3) : '-';
+    // A received failed poll displays zero, never a previous sensor value.
+    // Validity/quality remain separate; invalid zeros are not chart samples.
+    document.getElementById('m-flow').textContent     = d ? formatNumberOrDash(flowValid ? d.Flow : 0) : '-';
+    document.getElementById('m-velocity').textContent = d ? formatNumberOrDash(flowValid ? d.Velocity : 0) : '-';
+    document.getElementById('m-fday').textContent     = d ? formatNumberOrDash(periodsValid ? d['Flow Day'] : 0, 3) : '-';
+    document.getElementById('m-fmonth').textContent   = d ? formatNumberOrDash(periodsValid ? d['Flow Month'] : 0, 3) : '-';
+    document.getElementById('m-fyear').textContent    = d ? formatNumberOrDash(periodsValid ? d['Flow Year'] : 0, 3) : '-';
     const setFlowText = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
@@ -1107,19 +1109,19 @@ function renderLiveNode() {
     setFlowText('m-period-source', d ? d['Period Source'] || '-' : '-');
     setFlowText('m-period-quality', d ? d['Period Quality'] || '-' : '-');
     setFlowText('m-rtc-valid', d ? (Number(d['RTC Valid']) === 1 ? 'Trusted' : 'Not trusted') : '-');
-    setFlowText('m-forward-total', cumulativeValid ? formatNumberOrDash(Number(d['Forward Total Liters']) / 1000, 3) : '-');
-    setFlowText('m-reverse-total', cumulativeValid ? formatNumberOrDash(Number(d['Reverse Total Liters']) / 1000, 3) : '-');
-    setFlowText('m-net-total', cumulativeValid ? formatNumberOrDash(Number(d['Net Total Liters']) / 1000, 3) : '-');
+    setFlowText('m-forward-total', d ? formatNumberOrDash(cumulativeValid ? Number(d['Forward Total Liters']) / 1000 : 0, 3) : '-');
+    setFlowText('m-reverse-total', d ? formatNumberOrDash(cumulativeValid ? Number(d['Reverse Total Liters']) / 1000 : 0, 3) : '-');
+    setFlowText('m-net-total', d ? formatNumberOrDash(cumulativeValid ? Number(d['Net Total Liters']) / 1000 : 0, 3) : '-');
     const secondary = d && d['Secondary Flow Meter'];
     const secondaryCard = document.getElementById('m-secondary-flow-card');
     if (secondaryCard) secondaryCard.classList.toggle('d-none', !secondary);
     if (secondary) {
         setFlowText('m-secondary-name', secondary.flow_meter_name || flowMeterName(secondary.flow_meter_type));
-        setFlowText('m-secondary-flow', Number(secondary.flow_live_valid) === 1 ? formatNumberOrDash(secondary.flow_rate, 3) : '-');
+        setFlowText('m-secondary-flow', formatNumberOrDash(Number(secondary.flow_live_valid) === 1 ? secondary.flow_rate : 0, 3));
         const secondaryPeriodsValid = Number(secondary.flow_period_totals_valid) === 1;
-        setFlowText('m-secondary-day', secondaryPeriodsValid ? formatNumberOrDash(secondary.flow_rate_per_day, 3) : '-');
-        setFlowText('m-secondary-month', secondaryPeriodsValid ? formatNumberOrDash(secondary.flow_rate_per_month, 3) : '-');
-        setFlowText('m-secondary-year', secondaryPeriodsValid ? formatNumberOrDash(secondary.flow_rate_per_year, 3) : '-');
+        setFlowText('m-secondary-day', formatNumberOrDash(secondaryPeriodsValid ? secondary.flow_rate_per_day : 0, 3));
+        setFlowText('m-secondary-month', formatNumberOrDash(secondaryPeriodsValid ? secondary.flow_rate_per_month : 0, 3));
+        setFlowText('m-secondary-year', formatNumberOrDash(secondaryPeriodsValid ? secondary.flow_rate_per_year : 0, 3));
         setFlowText('m-secondary-quality', `${secondary.flow_period_source_name || '-'} · ${secondary.flow_period_quality_name || '-'}`);
     }
     document.getElementById('m-details').textContent  = d ? d.Details || '-' : 'No active data for selected node.';
@@ -1147,8 +1149,8 @@ function renderLiveNode() {
         if (soilMoistEl) soilMoistEl.textContent = '-';
     } else if (!soilValid) {
         if (soilStatusEl) { soilStatusEl.textContent = 'Sensor Error'; soilStatusEl.className = 'badge bg-danger'; }
-        if (soilTempEl) soilTempEl.textContent = '-';
-        if (soilMoistEl) soilMoistEl.textContent = '-';
+        if (soilTempEl) soilTempEl.textContent = formatNumberOrDash(0, 1);
+        if (soilMoistEl) soilMoistEl.textContent = formatNumberOrDash(0, 1);
     } else {
         if (soilStatusEl) { soilStatusEl.textContent = 'Normal'; soilStatusEl.className = 'badge bg-success'; }
         if (soilTempEl) soilTempEl.textContent = formatNumberOrDash(d['Soil Temp'], 1);
@@ -1178,9 +1180,9 @@ function renderLiveNode() {
         if (ecCondEl) ecCondEl.textContent = '-';
     } else if (!ecValid) {
         if (ecStatusEl) { ecStatusEl.textContent = 'Sensor Error'; ecStatusEl.className = 'badge bg-danger'; }
-        if (ecTempEl) ecTempEl.textContent = '-';
-        if (ecMoistEl) ecMoistEl.textContent = '-';
-        if (ecCondEl) ecCondEl.textContent = '-';
+        if (ecTempEl) ecTempEl.textContent = formatNumberOrDash(0, 1);
+        if (ecMoistEl) ecMoistEl.textContent = formatNumberOrDash(0, 1);
+        if (ecCondEl) ecCondEl.textContent = formatNumberOrDash(0, 0);
     } else {
         if (ecStatusEl) { ecStatusEl.textContent = 'Normal'; ecStatusEl.className = 'badge bg-success'; }
         if (ecTempEl) ecTempEl.textContent = formatNumberOrDash(d['EC Temp'], 1);

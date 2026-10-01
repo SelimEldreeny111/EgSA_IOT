@@ -47,12 +47,12 @@ void updateSupmeaFlowMetrics(const FlowMeterMetrics& metrics)
 
 void updateHndaMetrics(const HndaSensorData& data)
 {
-    appState().hnda = data;
+    appState().hnda = data.isValid ? data : HndaSensorData{};
 }
 
 void updateSondasMetrics(const SondasSensorData& data)
 {
-    appState().sondas = data;
+    appState().sondas = data.isValid ? data : SondasSensorData{};
 }
 
 void refreshBatteryVoltage()

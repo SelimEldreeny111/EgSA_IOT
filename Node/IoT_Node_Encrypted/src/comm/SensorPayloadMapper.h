@@ -11,20 +11,22 @@ inline void populateFlowFields(
     FlowFields& fields,
     const FlowMeterMetrics& flow)
 {
-    fields.flow_rate = flow.flowRateM3h;
-    fields.velocity = flow.velocityMps;
-    fields.flow_rate_per_day = flow.volumeTodayM3;
-    fields.flow_rate_per_month = flow.volumeThisMonthM3;
-    fields.flow_rate_per_year = flow.volumeThisYearM3;
+    // Invalid is unavailable, not a real zero-flow measurement. Encode zero
+    // and preserve validity bits so consumers can distinguish the two.
+    fields.flow_rate = flow.liveDataValid ? flow.flowRateM3h : 0.0f;
+    fields.velocity = flow.liveDataValid ? flow.velocityMps : 0.0f;
+    fields.flow_rate_per_day = flow.periodTotalsValid ? flow.volumeTodayM3 : 0.0f;
+    fields.flow_rate_per_month = flow.periodTotalsValid ? flow.volumeThisMonthM3 : 0.0f;
+    fields.flow_rate_per_year = flow.periodTotalsValid ? flow.volumeThisYearM3 : 0.0f;
     fields.flow_meter_type = static_cast<uint32_t>(flow.type);
     fields.flow_period_source = static_cast<uint32_t>(flow.periodSource);
     fields.flow_live_valid = flow.liveDataValid;
     fields.flow_period_totals_valid = flow.periodTotalsValid;
     fields.flow_cumulative_totals_valid = flow.cumulativeTotalsValid;
     fields.rtc_valid = flow.rtcValid;
-    fields.forward_total_liters = flow.forwardTotalLiters;
-    fields.reverse_total_liters = flow.reverseTotalLiters;
-    fields.net_total_liters = flow.netTotalLiters;
+    fields.forward_total_liters = flow.cumulativeTotalsValid ? flow.forwardTotalLiters : 0U;
+    fields.reverse_total_liters = flow.cumulativeTotalsValid ? flow.reverseTotalLiters : 0U;
+    fields.net_total_liters = flow.cumulativeTotalsValid ? flow.netTotalLiters : 0;
     fields.flow_period_quality = static_cast<uint32_t>(flow.periodQuality);
     fields.flow_meter_alarm_flags = flow.alarmFlags;
 }
@@ -58,13 +60,15 @@ inline void populateSensorPayloadFields(
     }
     message.node_status = state.nodeStatus;
 
-    message.soil_temperature = state.hnda.temperatureC;
-    message.soil_moisture = state.hnda.moisturePercent;
-    message.soil_moisture_temp_valid = state.hnda.isValid ? 1U : 0U;
-    message.ec_temperature = state.sondas.temperatureC;
-    message.ec_moisture = state.sondas.moisturePercent;
-    message.electrical_conductivity = state.sondas.electricalConductivity;
-    message.soil_moisture_temp_ec_valid = state.sondas.isValid ? 1U : 0U;
+    const bool hndaValid = AppConfig::kEnableHndaSensor && state.hnda.isValid;
+    const bool sondasValid = AppConfig::kEnableSondasSensor && state.sondas.isValid;
+    message.soil_temperature = hndaValid ? state.hnda.temperatureC : 0.0f;
+    message.soil_moisture = hndaValid ? state.hnda.moisturePercent : 0.0f;
+    message.soil_moisture_temp_valid = hndaValid ? 1U : 0U;
+    message.ec_temperature = sondasValid ? state.sondas.temperatureC : 0.0f;
+    message.ec_moisture = sondasValid ? state.sondas.moisturePercent : 0.0f;
+    message.electrical_conductivity = sondasValid ? state.sondas.electricalConductivity : 0.0f;
+    message.soil_moisture_temp_ec_valid = sondasValid ? 1U : 0U;
     message.active_sensor_count = state.activeSensorCount;
     message.sensor_mask = state.sensorMask;
     message.power_mode = powerManagerMode();

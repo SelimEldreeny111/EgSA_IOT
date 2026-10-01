@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from contextlib import closing
 import importlib
 import math
 import os
@@ -341,6 +342,47 @@ class ServerDatabaseTests(unittest.TestCase):
         finally:
             conn.close()
         self.assertEqual(types, [1, 2])
+
+    def test_failed_poll_replaces_latest_values_with_zero_without_erasing_history(self):
+        company = "Unavailable Sensors"
+        good = messages_pb2.Status_Message(
+            node_id=34, sensor_id=1, timestamp=1_800_000_000,
+            sensor_mask=15, active_sensor_count=4,
+            flow_meter_type=1, flow_period_source=1, flow_rate=12,
+            flow_live_valid=True, flow_rate_per_day=3,
+            flow_period_totals_valid=True, flow_period_quality=1,
+            soil_temperature=22, soil_moisture=55, soil_moisture_temp_valid=1,
+            ec_temperature=23, ec_moisture=56, electrical_conductivity=1500,
+            soil_moisture_temp_ec_valid=1)
+        good.secondary_flow_meter.flow_meter_type = 2
+        good.secondary_flow_meter.flow_period_source = 2
+        good.secondary_flow_meter.flow_rate = 36
+        good.secondary_flow_meter.flow_live_valid = True
+        bad = messages_pb2.Status_Message(
+            node_id=34, sensor_id=1, timestamp=1_800_000_060,
+            sensor_mask=15, active_sensor_count=4,
+            flow_meter_type=1, flow_period_source=1)
+        bad.secondary_flow_meter.flow_meter_type = 2
+        bad.secondary_flow_meter.flow_period_source = 2
+        with patch.object(self.server_web, "emit_iot_message") as emit, \
+             patch.object(self.server_web, "log_event"), \
+             patch.object(self.server_web, "dispatch_queued_command"):
+            for msg in (good, bad):
+                self.server_web.on_mqtt_plaintext(
+                    f"EgSA/{company}/34/Status", msg.SerializeToString())
+        payload = emit.call_args.args[0]
+        for field in ("Flow", "Velocity", "Flow Day", "Flow Month", "Flow Year",
+                      "Soil Temp", "Soil Moist", "EC Temp", "EC Moist", "EC Cond",
+                      "Flow Live Valid", "Soil Valid", "EC Valid"):
+            self.assertEqual(payload[field], 0, field)
+        self.assertEqual(payload["Secondary Flow Meter"]["flow_rate"], 0)
+        with closing(sqlite3.connect(self.server_web.get_company_db_path(company))) as db:
+            self.assertEqual(db.execute(
+                'SELECT flow, soil_temperature, electrical_conductivity, flow_live_valid '
+                'FROM messages ORDER BY id DESC LIMIT 1').fetchone(), (0, 0, 0, 0))
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM messages').fetchone()[0], 2)
+            self.assertEqual(db.execute('SELECT volume_liters FROM consumption_periods '
+                                       "WHERE period_type='day'").fetchone()[0], 3000)
 
     def test_consumption_api_returns_readable_m3_snapshot(self):
         company = "API Test"

@@ -13,6 +13,9 @@ Consumption Guide](FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md).
 
 ## Power mode selection
 
+Failed sensor replies now send zero readings with false validity flags rather
+than previous readings. See [Unavailable Sensor Behavior and Tests](SENSOR_UNAVAILABLE_ZERO_GUIDE.md).
+
 For server-command wake-up, select controller `APP_COMPONENT_MODE_REMOTE_WAKE`
 and keep the selected radio `APP_COMPONENT_MODE_NORMAL`. This uses lighter CPU
 Sleep, not Standby, and preserves MQTT/LoRa reception and watchdog coverage.
