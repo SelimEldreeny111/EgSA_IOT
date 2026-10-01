@@ -17,6 +17,7 @@ sys.path.insert(0, str(SERVER_DIR))
 import messages_pb2
 import power_commands
 from mqtt_impl import MqttNodeClient
+from command_queue import CommandQueue
 
 
 class PowerWireTests(unittest.TestCase):
@@ -32,6 +33,9 @@ class PowerWireTests(unittest.TestCase):
         self.assertEqual(messages_pb2.CMD_Message.DESCRIPTOR.fields_by_name['request_id'].number, 4)
         self.assertEqual(messages_pb2.Status_Message.DESCRIPTOR.fields_by_name['power_mode'].number, 32)
         self.assertEqual(messages_pb2.Telemetry.DESCRIPTOR.fields_by_name['wake_request_id'].number, 40)
+        for name, tag in [('command_ack_request_id', 41), ('command_ack_cmd_id', 42),
+                          ('command_ack_success', 43)]:
+            self.assertEqual(messages_pb2.Telemetry.DESCRIPTOR.fields_by_name[name].number, tag)
         msg = messages_pb2.CMD_Message(node_id=7, cmd_id=6, cmd_data=60, request_id=42)
         parsed = messages_pb2.CMD_Message.FromString(msg.SerializeToString())
         self.assertEqual((parsed.cmd_id, parsed.cmd_data, parsed.request_id), (6, 60, 42))
@@ -43,7 +47,9 @@ class PowerWireTests(unittest.TestCase):
 
     def test_ack_requires_explicit_remote_active_state_and_request(self):
         msg = messages_pb2.Telemetry(power_mode=3, power_state=1, wake_command_ack=True, wake_request_id=42)
-        self.assertTrue(power_commands.is_confirmed_wake(power_commands.power_metadata(msg)))
+        for mode in (3, 4, 5):
+            msg.power_mode = mode
+            self.assertTrue(power_commands.is_confirmed_wake(power_commands.power_metadata(msg)))
         for field, value in [('power_mode', 1), ('power_state', 2), ('wake_command_ack', False), ('wake_request_id', 0)]:
             modified = messages_pb2.Telemetry(); modified.CopyFrom(msg); setattr(modified, field, value)
             self.assertFalse(power_commands.is_confirmed_wake(power_commands.power_metadata(modified)))
@@ -103,6 +109,53 @@ class RemoteWakeServerTests(unittest.TestCase):
         data = dict(node_id='7', cmd_type='WAKE', cmd_data='60', broadcast=False, company=self.company)
         data.update(updates)
         return self.client.post('/api/command', json=data)
+
+    def test_queued_command_dispatch_and_node_ack(self):
+        queue = CommandQueue(Path(self.temp.name) / f'queue_{uuid.uuid4().hex}.db')
+        with patch.object(self.server, '_command_queue', queue):
+            with patch.object(self.server, 'mqtt_client', None):
+                response = self.post(cmd_type='SRATE', cmd_data='60',
+                                     delivery='next_wake')
+            self.assertEqual(response.status_code, 200)
+            result = response.get_json()
+            self.assertTrue(result['queued'])
+            self.assertEqual(self.sent, [])
+            request_id = result['request_id']
+            status = messages_pb2.Status_Message(node_id=7)
+            topic = f'EgSA/{self.company}/7/Status'
+            with patch.object(self.server, 'save_message'), patch.object(
+                    self.server, 'emit_iot_message'):
+                self.server.on_mqtt_plaintext(topic, status.SerializeToString())
+                self.assertEqual(len(self.sent), 1)
+                sent_cmd = messages_pb2.CMD_Message.FromString(self.sent[0][1])
+                self.assertEqual((sent_cmd.node_id, sent_cmd.cmd_id, sent_cmd.cmd_data,
+                                  sent_cmd.request_id), (7, 1, 60, request_id))
+                ack = messages_pb2.Telemetry(
+                    node_id=7, command_ack_request_id=request_id,
+                    command_ack_cmd_id=1, command_ack_success=True)
+                self.server.on_mqtt_plaintext(
+                    f'EgSA/{self.company}/7/Telemetry', ack.SerializeToString())
+            self.assertEqual(queue.get(request_id, self.company, 7)['state'],
+                             'acknowledged')
+            status_response = self.client.get(
+                f'/api/queued_command/{request_id}',
+                query_string={'company': self.company, 'node_id': 7})
+            self.assertEqual(status_response.get_json()['state'], 'acknowledged')
+
+    def test_queued_broadcast_rejected(self):
+        response = self.post(cmd_type='SRATE', cmd_data='60',
+                             delivery='next_wake', broadcast=True)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.sent, [])
+
+    def test_queued_ttl_rejects_fractional_and_boolean_values(self):
+        for ttl in (True, 60.5, 86400.0, '60.5', 59, 604801):
+            with self.subTest(ttl=ttl):
+                response = self.post(cmd_type='SRATE', cmd_data='60',
+                                     delivery='next_wake', ttl_seconds=ttl)
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.get_json()['success'])
+        self.assertEqual(self.sent, [])
 
     def test_wake_api_publishes_correlated_command_not_awake_claim(self):
         result = self.post().get_json()

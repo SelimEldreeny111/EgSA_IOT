@@ -15,7 +15,7 @@ PB_BIND(Status_Message, Status_Message, AUTO)
 PB_BIND(CMD_Message, CMD_Message, AUTO)
 
 
-PB_BIND(Telemetry, Telemetry, AUTO)
+PB_BIND(Telemetry, Telemetry, 2)
 
 
 

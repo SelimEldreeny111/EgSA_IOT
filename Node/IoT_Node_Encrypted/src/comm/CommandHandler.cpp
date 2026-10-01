@@ -23,9 +23,10 @@ bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   return requestRemoteWake(cmd.cmd_data, cmd.request_id);
 }
 
-void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
+bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 {
   AppRuntimeState& state = appState();
+  bool applied = false;
 
   SerialMon.println("\n========== CMD RECEIVED ==========");
   SerialMon.print("Node ID : "); SerialMon.println(cmd.node_id);
@@ -36,7 +37,7 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId) 
   {
     SerialMon.println(" Not for this node (node topic)");
-    return;
+    return false;
   }
 
   if (isBroadcastTopic) 
@@ -65,6 +66,7 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
       }
 
       state.samplingPeriodMs = cmd.cmd_data * 1000UL;
+      applied = true;
 
       SerialMon.print("New Sampling Period: ");
       SerialMon.print(cmd.cmd_data);
@@ -85,6 +87,7 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
       }
 
       state.transmissionPeriodMs = cmd.cmd_data * 1000UL;
+      applied = true;
 
       SerialMon.print("New Transmission Period: ");
       SerialMon.print(cmd.cmd_data);
@@ -103,6 +106,7 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
       }
 
       state.lastTimestamp = getEpochTime();
+      applied = true;
       SerialMon.print("RTC synced to epoch: ");
       SerialMon.println(state.lastTimestamp);
       break;
@@ -129,6 +133,7 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
           ? (state.nodeStatus ? LOW : HIGH)
           : (state.nodeStatus ? HIGH : LOW);
       digitalWrite(AppConfig::kOpenCloseNodeGpio, outputLevel);
+      applied = true;
 
       SerialMon.print("Node Status: ");
       SerialMon.println(state.nodeStatus ? "OPEN/ON" : "CLOSE/OFF");
@@ -147,9 +152,11 @@ void handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   }
 
   SerialMon.println("=====================================\n");
+  return applied;
 }
 
-bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload, size_t& payloadLength)
+bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload,
+                               size_t& payloadLength, bool commandApplied)
 {
   SerialMon.println("\n============= HANDLE GET TELEMETRY CMD =============");
 
@@ -167,10 +174,20 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload, size_t&
   tlm.sampling_rate = state.samplingPeriodMs;
   tlm.Transmission_rate = state.transmissionPeriodMs;
   populateSensorPayloadFields(tlm, state);
+  tlm.power_mode = powerManagerMode();
+  tlm.power_state = powerManagerState();
+  tlm.wake_remaining_seconds = powerManagerWakeRemainingSeconds();
   // This acknowledges acceptance, not a fresh RS485 sample. The next normal
   // loop is explicitly scheduled to sample and send a fresh Status message.
-  tlm.wake_command_ack = cmd != nullptr && cmd->cmd_id == CMD_REMOTE_WAKE;
+  tlm.wake_command_ack = commandApplied && cmd != nullptr &&
+      cmd->cmd_id == CMD_REMOTE_WAKE;
   tlm.wake_request_id = tlm.wake_command_ack ? powerManagerWakeRequestId() : 0U;
+  if (cmd != nullptr && cmd->request_id != 0U)
+  {
+    tlm.command_ack_request_id = cmd->request_id;
+    tlm.command_ack_cmd_id = cmd->cmd_id;
+    tlm.command_ack_success = commandApplied;
+  }
 
   SerialMon.println("Telemetry struct filled");
 

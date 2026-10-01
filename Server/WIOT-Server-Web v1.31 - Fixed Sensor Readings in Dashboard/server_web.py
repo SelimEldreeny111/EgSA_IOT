@@ -32,6 +32,7 @@ from flow_schema import (
     secondary_flow_reading,
 )
 from mqtt_impl import MqttNodeClient
+from command_queue import CommandQueue
 
 MAIN_DB_FILE = 'iot_data.db'
 MESSAGE_DB_DIR = 'messages_dbs'
@@ -44,6 +45,39 @@ socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 # Configure Logging
 logging.basicConfig(filename='system.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 mqtt_client = None
+_command_queue = None
+
+
+def command_mailbox():
+    """Open the durable mailbox only when this feature is used."""
+    global _command_queue
+    if _command_queue is None:
+        _command_queue = CommandQueue(os.path.join(os.path.dirname(__file__), 'pending_commands.db'))
+    return _command_queue
+
+
+def dispatch_queued_command(company, node_id):
+    """A valid Status proves the sleeping node has opened its RX window."""
+    if mqtt_client is None or not mqtt_client.is_connected():
+        return
+    item = command_mailbox().claim_on_status(company, node_id)
+    if item is None:
+        return
+    msg = messages_pb2.CMD_Message()
+    msg.node_id = node_id
+    msg.cmd_id = item['cmd_id']
+    msg.cmd_data = int(time.time()) if item['cmd_type'] == 'STIME' else item['cmd_data']
+    msg.request_id = item['request_id']
+    topic = f"EgSA/{company}/{node_id}/CMD"
+    try:
+        mqtt_client.publish_plaintext(topic, msg.SerializeToString())
+        log_event(f"[QUEUE] Dispatched {item['cmd_type']} request={item['request_id']} "
+                  f"to {company}/{node_id}; awaiting node ACK")
+    except Exception as exc:
+        # Value-setting commands remain retryable at the next awake Status.
+        # WAKE is single-dispatch even on failure: publication might have
+        # reached the broker before the error. PUBACK is not execution proof.
+        log_event(f"[QUEUE] Publish failed for request={item['request_id']}: {exc}")
 
 
 def _required_secret(name: str) -> str:
@@ -841,6 +875,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 secondary_flow["snapshot"] if secondary_flow else None
             )
             emit_iot_message(payload, company)
+            dispatch_queued_command(company, msg.node_id)
 
         elif "telemetry" in topic.lower():
             log_event(f"[PLAINTEXT] Parsing as Telemetry...")
@@ -876,17 +911,28 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                        f"T-Rate:{msg.Transmission_rate} sensors:{msg.active_sensor_count} "
                        f"meter:{flow_metadata['flow_meter_name']} "
                        f"period:{flow_metadata['flow_period_source_name']}")
-            if power_info["wake_command_ack"]:
+            if msg.command_ack_request_id:
+                if command_mailbox().acknowledge(
+                        company, msg.node_id, msg.command_ack_request_id,
+                        msg.command_ack_cmd_id, success=msg.command_ack_success):
+                    log_event(f"[QUEUE {'ACK' if msg.command_ack_success else 'REJECTED'}] "
+                              f"{company}/{msg.node_id} "
+                              f"request={msg.command_ack_request_id} cmd={msg.command_ack_cmd_id}")
+                details += (f" CMD_{'ACK' if msg.command_ack_success else 'REJECTED'} "
+                            f"request={msg.command_ack_request_id} "
+                            f"cmd={msg.command_ack_cmd_id}")
+            if power_info["wake_command_ack"] or msg.command_ack_request_id:
                 # WAKE acknowledges state before the next fresh RS485 sample.
                 # Keep the response in message history, but never manufacture
                 # a meter sample, chart point or consumption snapshot from it.
                 sample_fingerprint = None
                 period_rows = []
-                time_source = "wake_ack_cached"
+                time_source = "wake_ack_cached" if power_info["wake_command_ack"] else "command_ack_cached"
                 flow_metadata["flow_live_valid"] = 0
                 if secondary_flow:
                     secondary_flow["fingerprint"] = None
                     secondary_flow["period_rows"] = []
+            if power_info["wake_command_ack"]:
                 details += (f" WAKE_ACK request={power_info['wake_request_id']} "
                             f"power={power_info['power_mode']} state={power_info['power_state']} "
                             f"remaining={power_info['wake_remaining_seconds']}s (cached sensors)")
@@ -916,7 +962,10 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 "Soil Temp": msg.soil_temperature, "Soil Moist": msg.soil_moisture, "Soil Valid": msg.soil_moisture_temp_valid,
                 "EC Temp": msg.ec_temperature, "EC Moist": msg.ec_moisture, "EC Cond": msg.electrical_conductivity, "EC Valid": msg.soil_moisture_temp_ec_valid,
                 "Active Sensors": msg.active_sensor_count, "Sensor Mask": msg.sensor_mask,
-                "Measured Epoch": measured_at, "Time Source": time_source
+                "Measured Epoch": measured_at, "Time Source": time_source,
+                "Command ACK Request ID": int(msg.command_ack_request_id),
+                "Command ACK Cmd ID": int(msg.command_ack_cmd_id),
+                "Command ACK Success": bool(msg.command_ack_success)
             }
             payload.update(dashboard_flow_fields(flow_metadata))
             payload.update(power_dashboard_fields(power_info))
@@ -1375,12 +1424,7 @@ def api_broker_status():
 @admin_required
 def api_command():
     global mqtt_client
-    
-    if not mqtt_client:
-        err = "Not connected to broker"
-        log_event(f"[CMD] ERROR: {err}")
-        return jsonify({"success": False, "error": err})
-        
+
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"success": False, "error": "Command body must be a JSON object"}), 400
@@ -1391,6 +1435,7 @@ def api_command():
         except (TypeError, ValueError, OverflowError):
             return jsonify({"success": False, "error": "Invalid node ID"}), 400
         cmd_type = data.get("cmd_type", "SRATE")
+        delivery = data.get("delivery", "now")
         cmd_data_val = data.get("cmd_data", 0 if cmd_type == "WAKE" else 5)
         broadcast = data.get("broadcast", False)
         company = data.get("company", "Company_ID")
@@ -1400,17 +1445,24 @@ def api_command():
 
         if cmd_type not in CMD_NAMES:
             return jsonify({"success": False, "error": "Unknown command type"}), 400
+        if delivery not in ("now", "next_wake"):
+            return jsonify({"success": False, "error": "delivery must be now or next_wake"}), 400
+        if not can_manage_company(company):
+            return jsonify({"success": False, "error": "Cannot command another company"}), 403
+        if not company or any(char in company for char in "/+#"):
+            return jsonify({"success": False, "error": "Invalid company topic"}), 400
+        if delivery == "next_wake":
+            if broadcast is not False:
+                return jsonify({"success": False, "error": "Queued commands must target one node"}), 400
+            if isinstance(raw_node_id, (bool, float)) or not 1 <= node_id <= 65535:
+                return jsonify({"success": False, "error": "Node ID must be 1..65535"}), 400
+        elif mqtt_client is None or not mqtt_client.is_connected():
+            return jsonify({"success": False, "error": "Broker is not connected"}), 503
         if cmd_type == "WAKE":
-            if not can_manage_company(company):
-                return jsonify({"success": False, "error": "Cannot command another company"}), 403
-            if not company or any(char in company for char in "/+#"):
-                return jsonify({"success": False, "error": "Invalid company topic"}), 400
             if isinstance(raw_node_id, (bool, float)) or not 1 <= node_id <= 65535:
                 return jsonify({"success": False, "error": "Node ID must be 1..65535"}), 400
             if not isinstance(broadcast, bool):
                 return jsonify({"success": False, "error": "broadcast must be true or false"}), 400
-            if not mqtt_client.is_connected():
-                return jsonify({"success": False, "error": "Broker is not connected"}), 503
         
         cmd_id = CMD_NAMES.get(cmd_type, 0)
         if cmd_type == "STIME": cmd_data = int(time.time())
@@ -1421,18 +1473,40 @@ def api_command():
             except ValueError as exc:
                 return jsonify({"success": False, "error": str(exc)}), 400
         else:
-            try: cmd_data = int(cmd_data_val)
-            except ValueError:
+            try:
+                if isinstance(cmd_data_val, (bool, float)):
+                    raise ValueError()
+                cmd_data = int(cmd_data_val)
+            except (ValueError, TypeError, OverflowError):
                 err = f"Invalid command data: {cmd_data_val}"
                 log_event(f"[CMD] ERROR: {err}")
                 return jsonify({"success": False, "error": err})
+            if (cmd_type in ("SRATE", "STRAN") and not 5 <= cmd_data <= 86400) or \
+               (cmd_type == "VALVE" and cmd_data not in (0, 1)):
+                return jsonify({"success": False, "error": "Command data outside supported range"}), 400
                 
         msg = messages_pb2.CMD_Message()
         msg.node_id = node_id
         msg.cmd_id = cmd_id
         msg.cmd_data = cmd_data
-        request_id = (secrets.randbelow(0xFFFFFFFF) + 1) if cmd_type == "WAKE" else 0
+        request_id = (secrets.randbelow(0xFFFFFFFF) + 1) if cmd_type == "WAKE" or delivery == "next_wake" else 0
         msg.request_id = request_id
+        if delivery == "next_wake":
+            try:
+                ttl = data.get("ttl_seconds", 86400)
+                if isinstance(ttl, (bool, float)):
+                    raise ValueError("Command TTL must be a whole number of seconds")
+                ttl = int(ttl)
+                result = command_mailbox().enqueue(
+                    company, node_id, cmd_id, cmd_type, cmd_data, request_id, ttl)
+            except (ValueError, TypeError, OverflowError) as exc:
+                return jsonify({"success": False, "error": str(exc)}), 400
+            log_event(f"[QUEUE] Saved {cmd_type} for {company}/{node_id} "
+                      f"request={request_id}; expires={result['expires_at']}")
+            return jsonify({"success": True, "queued": True,
+                            "request_id": request_id,
+                            "expires_at": result["expires_at"],
+                            "message": "Command queued until the node's next Status"})
         plain = msg.SerializeToString()
         topic = f"EgSA/{company}/BroadCast/CMD" if broadcast else f"EgSA/{company}/{node_id}/CMD"
             
@@ -1457,6 +1531,24 @@ def api_command():
         logging.exception(f"[CMD] {err}")
         log_event(f"[CMD] ERROR: {err}")
         return jsonify({"success": False, "error": err})
+
+@app.route('/api/queued_command/<int:request_id>', methods=['GET'])
+@admin_required
+def api_queued_command(request_id):
+    company = request.args.get('company', '').strip()
+    if not company or not can_manage_company(company):
+        return jsonify({"success": False, "error": "Cannot inspect another company"}), 403
+    try:
+        node_id = int(request.args.get('node_id', '0'))
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid node ID"}), 400
+    if not 1 <= node_id <= 65535:
+        return jsonify({"success": False, "error": "Invalid node ID"}), 400
+    item = command_mailbox().get(request_id, company, node_id)
+    if item is None:
+        return jsonify({"success": False, "error": "Command not found"}), 404
+    return jsonify({"success": True, **item})
+
 
 @app.route('/api/messages', methods=['GET'])
 @login_required

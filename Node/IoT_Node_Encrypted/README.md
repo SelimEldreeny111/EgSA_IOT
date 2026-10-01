@@ -40,6 +40,11 @@ See [Arduino Node Power-Down Configuration and Test Guide](POWER_DOWN_MODE_USER_
 for ready-to-use profiles, schematic pin mapping, required M0/M1 and RS485
 hardware pulls, ESP reset behavior, expected logs, and the complete test plan.
 
+The additional opt-in **LORA_WOR_STOP** and **RTC_QUEUED** profiles, gateway
+configuration, server command mailbox, and commissioning sequence are in
+[Additional Power Modes User Guide](NEW_POWER_MODES_USER_GUIDE.md). The three
+earlier profiles remain selectable.
+
 See [STM32 Global Watchdog Recovery and Test Guide](WATCHDOG_RECOVERY_AND_TEST_GUIDE.md)
 for the blocking-path timing audit, selected global deadline, reset-stage
 diagnostics, controlled fault injection, and acceptance procedure.

@@ -21,7 +21,8 @@
         }
         receive(msg) {
             if (msg.Type !== 'Telemetry' || msg['Wake Command ACK'] !== true ||
-                msg['Power Mode'] !== 'REMOTE_WAKE' || msg['Power State'] !== 'ACTIVE' ||
+                !['REMOTE_WAKE', 'RTC_QUEUED', 'LORA_WOR_STOP'].includes(msg['Power Mode']) ||
+                msg['Power State'] !== 'ACTIVE' ||
                 !Number.isInteger(msg['Wake Request ID']) || msg['Wake Request ID'] <= 0) return false;
             const key = this.key(msg.Company, msg['Node ID']);
             const duplicate = this.recent.get(key) === msg['Wake Request ID'];

@@ -101,15 +101,14 @@ void pollLoraCommands()
         continue;
       }
 
-      if (cmd.cmd_id == CMD_REMOTE_WAKE &&
-          !handleRemoteWakeCommand(cmd, isBroadcastCommand))
-      {
-        continue;
-      }
+      const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
+          handleRemoteWakeCommand(cmd, isBroadcastCommand);
+      if (!applied && cmd.request_id == 0U) continue;
 
       uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
       size_t telemetryPayloadLength = 0;
-      if (handleGetTelemetryCommand(&cmd, telemetryPayload, telemetryPayloadLength) &&
+      if (handleGetTelemetryCommand(&cmd, telemetryPayload,
+                                    telemetryPayloadLength, applied) &&
           sendLoraFrame(
               LoraPayloadType::SystemTelemetry,
               AppConfig::kNodeId,
@@ -127,7 +126,20 @@ void pollLoraCommands()
       continue;
     }
 
-    handleCommand(cmd, isBroadcastCommand);
+    const bool applied = handleCommand(cmd, isBroadcastCommand);
+    if (cmd.request_id != 0U)
+    {
+      uint8_t ackPayload[AppConfig::kCodecBufferSize];
+      size_t ackLength = 0U;
+      if (handleGetTelemetryCommand(&cmd, ackPayload, ackLength, applied))
+      {
+        sendLoraFrame(
+            LoraPayloadType::SystemTelemetry,
+            AppConfig::kNodeId,
+            ackPayload,
+            ackLength);
+      }
+    }
   }
 }
 #endif

@@ -21,7 +21,8 @@ void notifyPowerManagerTelemetryResult(bool delivered);
 // Advances the non-blocking command-window/sleep state machine.
 void servicePowerManager();
 
-/** @brief Accept a timed WAKE lease only in the REMOTE_WAKE controller profile.
+/** @brief Accept a timed WAKE lease in REMOTE_WAKE, RTC_QUEUED or LORA_WOR_STOP.
+ * Queued mode accepts it only while awake; it cannot interrupt Standby.
  * @param seconds 1..86400 seconds, or 0 for the compile-time default.
  * @param requestId Nonzero correlation ID; an active identical retry is re-ACKed
  * without timer extension. 0 is the legacy/manual non-deduplicated command.
@@ -35,7 +36,8 @@ bool powerManagerShouldRunApplication();
 // WFI only: UART/SysTick clocks stay enabled; no Standby/reset or ISR watchdog feed.
 void powerManagerIdleCpu();
 
-// Wire values: mode 1=NORMAL, 2=RTC_PERIODIC, 3=REMOTE_WAKE (0=legacy unknown).
+// Wire modes: 1=NORMAL, 2=RTC_PERIODIC, 3=REMOTE_WAKE, 4=RTC_QUEUED,
+// 5=LORA_WOR_STOP (0=legacy unknown). These differ from config macro values.
 uint32_t powerManagerMode();
 // Wire values: state 1=ACTIVE, 2=REACHABLE_IDLE (0=legacy unknown).
 uint32_t powerManagerState();

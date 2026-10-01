@@ -127,13 +127,16 @@ function updateFleetSummary() {
 }
 
 function updateCommandAvailability() {
-    document.querySelectorAll('.command-action').forEach(btn => {
-        btn.disabled = !isBrokerConnected;
-    });
+    const queued = document.getElementById('cmd-delivery')?.value === 'next_wake';
+    const sendBtn = document.getElementById('send-command-btn');
+    const broadcastBtn = document.getElementById('broadcast-command-btn');
+    if (sendBtn) sendBtn.disabled = !queued && !isBrokerConnected;
+    if (broadcastBtn) broadcastBtn.disabled = queued || !isBrokerConnected;
+    const ttl = document.getElementById('cmd-ttl');
+    if (ttl) ttl.disabled = !queued;
     const startBtn = document.getElementById('start-stime-btn');
-    if (startBtn && isBrokerConnected) {
-        startBtn.disabled = document.getElementById('cmd-type')?.value !== 'STIME' || !!stimePeriodicHandle;
-    }
+    if (startBtn) startBtn.disabled = queued || !isBrokerConnected ||
+        document.getElementById('cmd-type')?.value !== 'STIME' || !!stimePeriodicHandle;
 }
 
 function saveBrokerConfig(settings) {
@@ -731,23 +734,28 @@ async function sendCommand(broadcast, suppressToast = false) {
         cmd_type: document.getElementById('cmd-type').value,
         cmd_data: document.getElementById('cmd-data').value,
         broadcast: broadcast,
-        company: getSelectedCompany()
+        company: getSelectedCompany(),
+        delivery: document.getElementById('cmd-delivery')?.value || 'now',
+        ttl_seconds: Number(document.getElementById('cmd-ttl')?.value || 86400)
     };
     const res = await fetch('/api/command', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const result = await res.json();
-    if (result.success && data.cmd_type === 'WAKE') {
+    if (result.success && result.queued) {
+        setWakeStatus(`Command ${data.cmd_type} queued as request ${result.request_id}. It will be sent after Node ${nodeValue} next reports Status; expiry ${new Date(result.expires_at * 1000).toLocaleString()}.`);
+    } else if (result.success && data.cmd_type === 'WAKE') {
         const alreadyAcknowledged = wakeTracker.published(data.company, nodeValue, result.request_id, broadcast);
         setWakeStatus(alreadyAcknowledged
             ? `${broadcast ? 'At least one broadcast node' : `Node ${nodeValue}`} acknowledged WAKE request ${result.request_id}.`
             : `WAKE request ${result.request_id} published. Waiting for ${broadcast ? 'individual broadcast node acknowledgements' : `Node ${nodeValue} acknowledgement`}.`);
         if (!alreadyAcknowledged) setTimeout(() => {
             if (wakeTracker.waiting(data.company, broadcast ? '*' : nodeValue, result.request_id)) {
-                setWakeStatus(`No acknowledgement yet for WAKE ${result.request_id}. The node may be offline, in RTC deep sleep, or not running REMOTE_WAKE firmware. Publication alone does not confirm wake.`);
+                setWakeStatus(`No acknowledgement yet for WAKE ${result.request_id}. The node may be offline, in RTC deep sleep, or using an unsupported profile. Publication alone does not confirm wake.`);
             }
         }, 20000);
     }
     if (!suppressToast) {
-        if (result.success && data.cmd_type === 'WAKE') showToast('WAKE published; waiting for node acknowledgement.', 'info');
+        if (result.success && result.queued) showToast(`Command ${data.cmd_type} queued until Node ${nodeValue} wakes.`, 'info');
+        else if (result.success && data.cmd_type === 'WAKE') showToast('WAKE published; waiting for node acknowledgement.', 'info');
         else if (result.success) showToast(`Command ${data.cmd_type} sent to Node ${nodeValue}.`, 'success');
         else showToast('Command failed: ' + result.error, 'danger');
     }
@@ -814,6 +822,13 @@ socket.on('iot_message', function(msg) {
     // The supervisor receives every company's stream; show only the one
     // currently selected. Other users are room-scoped server-side already.
     if (IS_SUPERVISOR && msg.Company && msg.Company !== getSelectedCompany()) return;
+    if (msg['Command ACK Success'] && msg['Command ACK Request ID']) {
+        setWakeStatus(`Node ${msg['Node ID']} acknowledged command request ${msg['Command ACK Request ID']}.`);
+        showToast(`Node ${msg['Node ID']} acknowledged command execution.`, 'success');
+    } else if (msg['Command ACK Request ID']) {
+        setWakeStatus(`Node ${msg['Node ID']} rejected command request ${msg['Command ACK Request ID']}. Check node logs.`);
+        showToast(`Node ${msg['Node ID']} rejected the command.`, 'danger');
+    }
     if (wakeTracker.receive(msg)) {
         setWakeStatus(`Node ${msg['Node ID']} confirmed ACTIVE: WAKE ${msg['Wake Request ID']}, ${msg['Wake Remaining Seconds']} seconds remaining at acknowledgement.`);
         showToast(`Node ${msg['Node ID']} acknowledged WAKE.`, 'success');

@@ -518,12 +518,23 @@
                                 <label class="form-label">STIME Interval (sec)</label>
                                 <input type="number" class="form-control" id="cmd-interval" value="30" min="1">
                             </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Delivery</label>
+                                <select id="cmd-delivery" class="form-select" onchange="stopPeriodicStime(); updateCommandAvailability()">
+                                    <option value="now">Now (node online)</option>
+                                    <option value="next_wake">Queue until next Status</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Queued command expiry (sec)</label>
+                                <input type="number" class="form-control" id="cmd-ttl" value="86400" min="60" max="604800">
+                            </div>
                             <div class="col-12">
                                 <div class="status-note" id="cmd-node-note">Commands may be sent to any node, even inactive ones.</div>
                             </div>
                             <div class="col-12 d-flex flex-wrap gap-2">
-                                <button class="btn btn-primary command-action" onclick="sendCommand(false)" disabled><i class="bi bi-send me-1"></i>Send Command</button>
-                                <button class="btn btn-outline-light command-action" onclick="sendCommand(true)" disabled><i class="bi bi-broadcast me-1"></i>Broadcast</button>
+                                <button class="btn btn-primary command-action" id="send-command-btn" onclick="sendCommand(false)" disabled><i class="bi bi-send me-1"></i>Send Command</button>
+                                <button class="btn btn-outline-light command-action" id="broadcast-command-btn" onclick="sendCommand(true)" disabled><i class="bi bi-broadcast me-1"></i>Broadcast</button>
                                 <button class="btn btn-outline-light command-action" id="start-stime-btn" onclick="startPeriodicStime()" disabled><i class="bi bi-play-circle me-1"></i>Start Periodic STIME</button>
                                 <button class="btn btn-danger" id="stop-stime-btn" onclick="stopPeriodicStime()" disabled><i class="bi bi-stop-circle me-1"></i>Stop</button>
                             </div>
@@ -535,7 +546,7 @@
                                 <span class="status-note" id="stime-status">Periodic STIME is stopped.</span>
                             </div>
                             <div class="col-12">
-                                <div class="status-note" id="wake-status" role="status" aria-live="polite">WAKE requires REMOTE_WAKE firmware. Deep-sleep nodes cannot receive it until their RTC wake.</div>
+                                <div class="status-note" id="wake-status" role="status" aria-live="polite">Immediate WAKE requires a reachable node. Queued WAKE waits for the node's next Status and requires RTC_QUEUED firmware.</div>
                             </div>
                         </div>
                     </div>

@@ -93,6 +93,9 @@ int main()
   uint8_t output[10]={}; size_t length=0U;
   assert(handleGetTelemetryCommand(&cmd,output,length));
   assert(encodedTelemetry.wake_command_ack && encodedTelemetry.wake_request_id==42U);
+  assert(encodedTelemetry.command_ack_request_id==42U &&
+         encodedTelemetry.command_ack_cmd_id==CMD_REMOTE_WAKE &&
+         encodedTelemetry.command_ack_success);
   assert(encodedTelemetry.power_mode==3U && encodedTelemetry.power_state==1U);
   nowMs+=10000U;
   assert(handleRemoteWakeCommand(cmd,false)); // duplicate keeps original deadline
@@ -109,5 +112,16 @@ int main()
   cmd.cmd_id=CMD_GET_TELEMETRY;
   assert(handleGetTelemetryCommand(&cmd,output,length));
   assert(!encodedTelemetry.wake_command_ack && encodedTelemetry.wake_request_id==0U);
+  cmd={7U,CMD_OPEN_CLOSE_NODE,1U,44U};
+  assert(handleCommand(cmd,false));
+  assert(handleGetTelemetryCommand(&cmd,output,length,true));
+  assert(encodedTelemetry.command_ack_request_id==44U &&
+         encodedTelemetry.command_ack_cmd_id==CMD_OPEN_CLOSE_NODE &&
+         encodedTelemetry.command_ack_success);
+  cmd.cmd_data=2U;
+  assert(!handleCommand(cmd,false));
+  assert(handleGetTelemetryCommand(&cmd,output,length,false));
+  assert(!encodedTelemetry.command_ack_success &&
+         !encodedTelemetry.wake_command_ack);
   std::cout << "PASS: remote policy, actual power manager, WAKE filtering/ACK, rollover, retry, duplicate, WDT and UART checks\n";
 }

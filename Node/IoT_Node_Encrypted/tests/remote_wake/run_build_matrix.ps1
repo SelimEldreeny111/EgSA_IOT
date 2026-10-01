@@ -1,7 +1,9 @@
 param(
     [string]$ArduinoCli = 'arduino-cli',
     [string]$ConfigFile = (Join-Path $env:USERPROFILE '.arduinoIDE/arduino-cli.yaml'),
-    [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora','rtc-wifi','rtc-lora','gateway-wifi')
+    [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora',
+        'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora',
+        'gateway-wifi','gateway-wor')
 )
 $ErrorActionPreference = 'Stop'
 $wakeBuildNode = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
@@ -15,7 +17,11 @@ $wakeBuildFlags = @{
     'remote-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=2';
     'rtc-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=1 -DAPP_WIFI_POWER_MODE=1';
     'rtc-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=1 -DAPP_LORA_POWER_MODE=1';
-    'gateway-wifi' = '-DUSE_ESP8266 -DAPP_ROLE=2 -DAPP_CONTROLLER_POWER_MODE=0'
+    'queued-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=4 -DAPP_WIFI_POWER_MODE=1';
+    'queued-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=4 -DAPP_LORA_POWER_MODE=1';
+    'wor-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=3 -DAPP_LORA_POWER_MODE=2';
+    'gateway-wifi' = '-DUSE_ESP8266 -DAPP_ROLE=2 -DAPP_CONTROLLER_POWER_MODE=0';
+    'gateway-wor' = '-DUSE_ESP8266 -DAPP_ROLE=2 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_LORA_GATEWAY_WOR_TX=1'
 }
 $wakeBuildSensors = ' -DAPP_ENABLE_TUF_SENSOR=true -DAPP_ENABLE_HNDA_SENSOR=true -DAPP_ENABLE_SUPMEA_SENSOR=true -DAPP_ENABLE_SONDAS_SENSOR=true'
 $wakeBuildToolRoot = Join-Path $env:LOCALAPPDATA 'Arduino15/packages/STMicroelectronics/tools/xpack-arm-none-eabi-gcc'
@@ -33,6 +39,8 @@ foreach ($wakeBuildProfile in $Profiles) {
     $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0'
     if ($wakeBuildProfile -eq 'rtc-wifi') { $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     if ($wakeBuildProfile -eq 'rtc-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
+    if ($wakeBuildProfile -eq 'queued-wifi') { $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
+    if ($wakeBuildProfile -eq 'queued-lora' -or $wakeBuildProfile -eq 'wor-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     $wakeBuildArguments = @('compile', '--fqbn', $wakeBuildFqbn,
         '--build-path', $wakeBuildDirectory,
         '--build-property', ('compiler.cpp.extra_flags=' + $wakeBuildFlags[$wakeBuildProfile] + $wakeBuildPolicyFlags + $wakeBuildSensors))

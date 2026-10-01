@@ -14,6 +14,9 @@
 // removed, disabled, or power-gated by hardware if it is physically fitted.
 #define APP_COMPONENT_MODE_NORMAL 0
 #define APP_COMPONENT_MODE_POWER_DOWN 1
+#define APP_COMPONENT_MODE_WAKE_ON_RADIO 2
+#define APP_COMPONENT_MODE_LORA_WOR 3
+#define APP_COMPONENT_MODE_QUEUED 4
 // Controller-only mode: CPU Sleep while the selected radio stays NORMAL.
 // This permits server WAKE commands; it is not RTC-only Standby/deep sleep.
 #define APP_COMPONENT_MODE_REMOTE_WAKE 2
@@ -45,6 +48,22 @@
 #endif
 #ifndef APP_POWER_SLEEP_ENTRY_TIMEOUT_MS
 #define APP_POWER_SLEEP_ENTRY_TIMEOUT_MS 1000UL
+#endif
+#ifndef APP_QUEUED_COMMAND_WINDOW_MS
+#define APP_QUEUED_COMMAND_WINDOW_MS 20000UL
+#endif
+// Stop mode retains RAM but the IWDG still runs. Wake on the RTC this often
+// to check application progress and feed the watchdog in foreground code.
+#ifndef APP_LORA_WOR_WATCHDOG_WAKE_SECONDS
+#define APP_LORA_WOR_WATCHDOG_WAKE_SECONDS 8UL
+#endif
+#ifndef APP_LORA_WOR_COMMAND_WINDOW_MS
+#define APP_LORA_WOR_COMMAND_WINDOW_MS 5000UL
+#endif
+// Set to 1 on a separately built LoRa gateway when its nodes use LORA_WOR.
+// It sends a Mode-1 wake probe before forwarding each command.
+#ifndef APP_LORA_GATEWAY_WOR_TX
+#define APP_LORA_GATEWAY_WOR_TX 0
 #endif
 
 // REMOTE_WAKE: automatic measurement/report cycle while otherwise reachable.
@@ -115,31 +134,58 @@
 
 #if (APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
      APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN && \
-     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE) || \
+     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE && \
+     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_LORA_WOR && \
+     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_QUEUED) || \
     (APP_LORA_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
-     APP_LORA_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+     APP_LORA_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN && \
+     APP_LORA_POWER_MODE != APP_COMPONENT_MODE_WAKE_ON_RADIO) || \
     (APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
      APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
     (APP_SIM_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
      APP_SIM_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN)
-#error "Controller supports NORMAL, POWER_DOWN or REMOTE_WAKE; radio policies support NORMAL or POWER_DOWN"
+#error "Invalid controller or radio power mode"
 #endif
+
+#define APP_CONTROLLER_USES_STANDBY \
+    (APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN || \
+     APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED)
 
 #if APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_NORMAL && \
     APP_ROLE == APP_ROLE_LORA_GATEWAY
 #error "A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node"
 #endif
 
-#if APP_HAS_LORA && \
-    APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE && \
-    APP_CONTROLLER_POWER_MODE != APP_LORA_POWER_MODE
-#error "The active LoRa transport and controller must both be NORMAL or both be POWER_DOWN"
+#if APP_HAS_LORA && APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR && \
+    APP_LORA_POWER_MODE != APP_COMPONENT_MODE_WAKE_ON_RADIO
+#error "LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO"
+#endif
+
+#if APP_HAS_LORA && APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_LORA_WOR && \
+    APP_LORA_POWER_MODE == APP_COMPONENT_MODE_WAKE_ON_RADIO
+#error "WAKE_ON_RADIO is supported only by the LORA_WOR controller profile"
+#endif
+
+#if APP_HAS_LORA && APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE && \
+    APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_LORA_WOR && \
+    ((APP_CONTROLLER_USES_STANDBY && APP_LORA_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+     (!APP_CONTROLLER_USES_STANDBY && APP_LORA_POWER_MODE != APP_COMPONENT_MODE_NORMAL))
+#error "LoRa NORMAL/Standby profiles require the matching LoRa power policy"
 #endif
 
 #if APP_HAS_IP_UPLINK && defined(USE_ESP8266) && \
     APP_CONTROLLER_POWER_MODE != APP_COMPONENT_MODE_REMOTE_WAKE && \
-    APP_CONTROLLER_POWER_MODE != APP_WIFI_POWER_MODE
-#error "The active ESP8266 transport and controller must both be NORMAL or both be POWER_DOWN"
+    ((APP_CONTROLLER_USES_STANDBY && APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_POWER_DOWN) || \
+     (!APP_CONTROLLER_USES_STANDBY && APP_WIFI_POWER_MODE != APP_COMPONENT_MODE_NORMAL))
+#error "ESP8266 NORMAL/Standby profiles require the matching ESP power policy"
+#endif
+
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR && !APP_HAS_LORA
+#error "LORA_WOR requires a LoRa sensor node; direct SIM/WiFi cannot wake this PCB"
+#endif
+
+#if APP_LORA_GATEWAY_WOR_TX && APP_ROLE != APP_ROLE_LORA_GATEWAY
+#error "APP_LORA_GATEWAY_WOR_TX is only valid on a LoRa gateway build"
 #endif
 
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE && \
@@ -150,7 +196,7 @@
 #endif
 
 #if APP_HAS_IP_UPLINK && defined(USE_SIM800) && \
-    (APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN || \
+    (APP_CONTROLLER_USES_STANDBY || \
      APP_SIM_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN)
 #error "SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on"
 #endif
@@ -161,6 +207,15 @@
 
 #if APP_POWER_COMMAND_WINDOW_MS > 60000UL
 #error "APP_POWER_COMMAND_WINDOW_MS must not exceed 60000 milliseconds"
+#endif
+#if APP_QUEUED_COMMAND_WINDOW_MS < 5000UL || APP_QUEUED_COMMAND_WINDOW_MS > 60000UL
+#error "APP_QUEUED_COMMAND_WINDOW_MS must be 5000..60000 milliseconds"
+#endif
+#if APP_LORA_WOR_COMMAND_WINDOW_MS < 1000UL || APP_LORA_WOR_COMMAND_WINDOW_MS > 60000UL
+#error "APP_LORA_WOR_COMMAND_WINDOW_MS must be 1000..60000 milliseconds"
+#endif
+#if APP_LORA_WOR_WATCHDOG_WAKE_SECONDS < 2UL || APP_LORA_WOR_WATCHDOG_WAKE_SECONDS > 15UL
+#error "APP_LORA_WOR_WATCHDOG_WAKE_SECONDS must be 2..15 seconds"
 #endif
 
 #if APP_POWER_SLEEP_ENTRY_TIMEOUT_MS < 100UL || \
@@ -201,7 +256,11 @@ constexpr bool kPowerDownEnabled =
 constexpr bool kRemoteWakeEnabled =
     APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE;
 constexpr bool kControllerPowerDown =
-    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
+    APP_CONTROLLER_USES_STANDBY;
+constexpr bool kQueuedCommands =
+    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED;
+constexpr bool kLoraWakeOnRadio =
+    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR;
 constexpr bool kLoraPowerDown =
     APP_LORA_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
 constexpr bool kWifiPowerDown =
@@ -210,6 +269,9 @@ constexpr bool kSimPowerDown =
     APP_SIM_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN;
 constexpr uint32_t kPowerSleepSeconds = APP_POWER_SLEEP_SECONDS;
 constexpr uint32_t kPowerCommandWindowMs = APP_POWER_COMMAND_WINDOW_MS;
+constexpr uint32_t kQueuedCommandWindowMs = APP_QUEUED_COMMAND_WINDOW_MS;
+constexpr uint32_t kLoraWorCommandWindowMs = APP_LORA_WOR_COMMAND_WINDOW_MS;
+constexpr uint32_t kLoraWorWatchdogWakeSeconds = APP_LORA_WOR_WATCHDOG_WAKE_SECONDS;
 constexpr uint32_t kPowerSleepEntryTimeoutMs =
     APP_POWER_SLEEP_ENTRY_TIMEOUT_MS;
 constexpr uint32_t kPowerMinimumValidRtcEpoch = 1704067200UL;
@@ -492,10 +554,10 @@ constexpr bool kEnableOpenCloseNodeOutput = !kOpenCloseNodeGpioConflictsWithLora
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;
-// Worst-case dual-flow/power protobuf is 341 bytes; AES-CBC framing needs 369.
-constexpr size_t kCodecBufferSize = 384;
+// Worst-case v4 Telemetry protobuf is 358 bytes; AES-CBC framing needs 385.
+constexpr size_t kCodecBufferSize = 416;
 // PubSubClient's buffer contains the MQTT header and topic as well as the
-// encrypted payload. The dual-flow/power envelope can reach 369 bytes, so the
+// encrypted payload. The dual-flow/power envelope can reach 385 bytes, so the
 // 512-byte whole-packet buffer still has room for the MQTT topic and header.
 constexpr size_t kMqttPacketBufferSize = MQTT_MAX_PACKET_SIZE;
 constexpr uint8_t kProtocolVersion = 1;
@@ -549,6 +611,11 @@ constexpr bool kEnablePublishTimingLogs = true;//false  or  true
 constexpr bool kEnableHardwareWatchdog =
     APP_ENABLE_HARDWARE_WATCHDOG != 0;
 constexpr uint32_t kWatchdogTimeoutUs = APP_WATCHDOG_TIMEOUT_US;
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR && \
+    APP_ENABLE_HARDWARE_WATCHDOG && \
+    APP_WATCHDOG_TIMEOUT_US <= (APP_LORA_WOR_WATCHDOG_WAKE_SECONDS + 2UL) * 1000000UL
+#error "LORA_WOR RTC heartbeat must be at least 2 seconds shorter than IWDG timeout"
+#endif
 constexpr uint32_t kWatchdogForcedResetTimeoutUs = 250000UL;
 constexpr uint8_t kNetworkFailuresBeforeReset =
     APP_NETWORK_FAILURES_BEFORE_RESET;

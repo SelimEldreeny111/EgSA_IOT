@@ -15,14 +15,150 @@
 extern HardwareSerial SerialMon;
 extern HardwareSerial SerialAT;
 extern HardwareSerial SerialLoRa;
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+extern STM32RTC& rtc;
+extern "C" void SystemClock_Config(void);
+#endif
 
 namespace
 {
+void scheduleFreshSensorCycle();
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
 RemoteWakeCycle g_remoteWakeCycle;
 uint32_t g_lastRemotePollMs = 0U;
 uint32_t g_lastWakeRequestId = 0U;
 uint64_t g_lastWakeRequestSeconds = 0U;
+#endif
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
+    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+uint32_t g_queuedWakeStartedMs = 0U;
+uint32_t g_queuedWakeDurationMs = 0U;
+uint32_t g_queuedWakeRequestId = 0U;
+uint64_t g_queuedWakeRequestSeconds = 0U;
+
+bool queuedWakeActive()
+{
+  return g_queuedWakeDurationMs != 0U &&
+      millis() - g_queuedWakeStartedMs < g_queuedWakeDurationMs;
+}
+#endif
+
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+volatile bool g_worAuxInterrupt = false;
+volatile bool g_worRtcInterrupt = false;
+bool g_worCommandWindow = false;
+uint32_t g_worWindowStartedMs = 0U;
+uint32_t g_worNextReportEpoch = 0U;
+
+void onWorAuxInterrupt() { g_worAuxInterrupt = true; }
+void onWorRtcInterrupt(void*) { g_worRtcInterrupt = true; }
+
+void runLoraWorStopCycle()
+{
+  const uint32_t nowEpoch = getEpochTime();
+  if (!isRtcTrusted() || nowEpoch < AppConfig::kPowerMinimumValidRtcEpoch)
+  {
+    g_worCommandWindow = false;
+    SerialMon.println("Power: Stop requires trusted RTC; send STIME before sleeping");
+    return;
+  }
+  if (g_worNextReportEpoch <= nowEpoch ||
+      g_worNextReportEpoch - nowEpoch > AppConfig::kPowerSleepSeconds + 5UL)
+  {
+    g_worCommandWindow = false;
+    scheduleFreshSensorCycle();
+    return;
+  }
+  if (!prepareLoraForWakeOnRadio(AppConfig::kPowerSleepEntryTimeoutMs))
+  {
+    SerialMon.println("Power: E32 Mode 2 preparation failed; staying awake");
+    g_worCommandWindow = false;
+    return;
+  }
+
+  attachInterrupt(digitalPinToInterrupt(AppConfig::kLoraAuxPin),
+                  onWorAuxInterrupt, FALLING);
+  rtc.attachInterrupt(onWorRtcInterrupt, STM32RTC::ALARM_A);
+  bool radioWake = false;
+  bool failed = false;
+  while (getEpochTime() < g_worNextReportEpoch)
+  {
+    serviceHardwareWatchdog(WatchdogStage::PowerTransition);
+    const uint32_t now = getEpochTime();
+    uint32_t alarmEpoch = now + AppConfig::kLoraWorWatchdogWakeSeconds;
+    if (alarmEpoch > g_worNextReportEpoch) alarmEpoch = g_worNextReportEpoch;
+    g_worAuxInterrupt = false;
+    g_worRtcInterrupt = false;
+    if (!scheduleRtcWakeAlarm(alarmEpoch))
+    {
+      failed = true;
+      break;
+    }
+    if (digitalRead(AppConfig::kLoraAuxPin) == LOW)
+    {
+      radioWake = true;
+      break;
+    }
+    HAL_SuspendTick();
+    SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
+    // Close the check-to-WFI race: a pending AUX/RTC IRQ must prevent a lost
+    // wake. Restore clocks before pending handlers are allowed to run.
+    __disable_irq();
+    __DSB();
+    __ISB();
+    if (!g_worAuxInterrupt && !g_worRtcInterrupt &&
+        digitalRead(AppConfig::kLoraAuxPin) != LOW)
+    {
+      HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+    }
+    // F401 returns on HSI after Stop. Restore the Arduino board PLL before
+    // touching Serial, millis(), or the LoRa UART.
+    SystemClock_Config();
+    SystemCoreClockUpdate();
+    HAL_ResumeTick();
+    __enable_irq();
+    if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW)
+    {
+      radioWake = true;
+      break;
+    }
+    if (!g_worRtcInterrupt && getEpochTime() < alarmEpoch)
+    {
+      failed = true;
+      break;
+    }
+    cancelRtcWakeAlarm();
+  }
+  cancelRtcWakeAlarm();
+  rtc.detachInterrupt(STM32RTC::ALARM_A);
+  detachInterrupt(digitalPinToInterrupt(AppConfig::kLoraAuxPin));
+  serviceHardwareWatchdog(WatchdogStage::PowerTransition);
+  if (!resumeLoraFromWakeOnRadio(AppConfig::kLoraTxCompleteTimeoutMs))
+  {
+    // Fail open and reinitialize the radio; never silently claim a reachable
+    // sleep state when Mode 0 could not be restored.
+    SerialMon.println("Power: E32 Mode 0 restore failed; radio reinitialized");
+    initializeLoraLink();
+    failed = true;
+  }
+  if (failed)
+  {
+    g_worCommandWindow = false;
+    SerialMon.println("Power: Stop cycle aborted; active scheduling resumed");
+  }
+  else if (radioWake)
+  {
+    g_worCommandWindow = true;
+    g_worWindowStartedMs = millis();
+    SerialMon.println("Power: LoRa AUX woke STM32; listening for Mode-1 command");
+  }
+  else
+  {
+    g_worCommandWindow = false;
+    scheduleFreshSensorCycle();
+    SerialMon.println("Power: RTC report deadline woke STM32");
+  }
+}
 #endif
 
 void scheduleFreshSensorCycle()
@@ -50,7 +186,7 @@ void printComponentMode(
   SerialMon.println(selected ? " [ACTIVE]" : " [NOT SELECTED]");
 }
 
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#if APP_CONTROLLER_USES_STANDBY
 constexpr uint32_t kSleepStateMagic = 0x50444E31UL; // "PDN1"
 constexpr uint32_t kBackupMagicRegister = RTC_BKP_DR15;
 constexpr uint32_t kBackupRequestEpochRegister = RTC_BKP_DR16;
@@ -300,7 +436,8 @@ PowerDownRequestOutcome requestPowerDownCycle()
 {
   serviceHardwareWatchdog(WatchdogStage::PowerTransition);
   const uint32_t requestEpoch = getEpochTime();
-  if (requestEpoch < AppConfig::kPowerMinimumValidRtcEpoch)
+  if (requestEpoch < AppConfig::kPowerMinimumValidRtcEpoch ||
+      (AppConfig::kQueuedCommands && !isRtcTrusted()))
   {
     SerialMon.println("Power: sleep rejected because RTC time is invalid");
     return PowerDownRequestOutcome::AbortActiveCycle;
@@ -382,7 +519,7 @@ bool g_stalePeriodicRequestCleared = false;
 
 void powerManagerEarlyBoot()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#if APP_CONTROLLER_USES_STANDBY
   __HAL_RCC_PWR_CLK_ENABLE();
   const bool resumedFromStandby =
       __HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET;
@@ -493,16 +630,19 @@ void initializePowerManagerAfterSetup()
   SerialMon.println("Power configuration:");
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   SerialMon.println("  STM32 controller: REMOTE_WAKE [ACTIVE]");
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  SerialMon.println("  STM32 controller: LORA_WOR_STOP [ACTIVE]");
 #else
   printComponentMode(
       "STM32 controller",
       AppConfig::kControllerPowerDown,
       true);
 #endif
-  printComponentMode(
-      "LoRa module",
-      AppConfig::kLoraPowerDown,
-      APP_HAS_LORA != 0);
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  SerialMon.println("  LoRa module: E32 MODE_2_WAKE_ON_RADIO [ACTIVE]");
+#else
+  printComponentMode("LoRa module", AppConfig::kLoraPowerDown, APP_HAS_LORA != 0);
+#endif
 #if defined(USE_ESP8266)
   printComponentMode(
       "ESP8266",
@@ -517,12 +657,16 @@ void initializePowerManagerAfterSetup()
       APP_HAS_IP_UPLINK != 0);
 #endif
 
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#if APP_CONTROLLER_USES_STANDBY
   reportEarlyBootEvent();
-  SerialMon.print("Power cycle: RTC_PERIODIC, sleep=");
+  SerialMon.print(AppConfig::kQueuedCommands
+      ? "Power cycle: RTC_QUEUED, sleep="
+      : "Power cycle: RTC_PERIODIC, sleep=");
   SerialMon.print(AppConfig::kPowerSleepSeconds);
   SerialMon.print(" s, command window=");
-  SerialMon.print(AppConfig::kPowerCommandWindowMs);
+  SerialMon.print(AppConfig::kQueuedCommands
+      ? AppConfig::kQueuedCommandWindowMs
+      : AppConfig::kPowerCommandWindowMs);
   SerialMon.println(" ms");
 #if APP_HAS_LORA
   SerialMon.println(
@@ -547,6 +691,15 @@ void initializePowerManagerAfterSetup()
                          AppConfig::kPowerCommandWindowMs);
   g_lastRemotePollMs = millis();
   scheduleFreshSensorCycle();
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  SerialMon.print("Power: RTC report interval=");
+  SerialMon.print(AppConfig::kPowerSleepSeconds);
+  SerialMon.print(" s, IWDG RTC heartbeat=");
+  SerialMon.print(AppConfig::kLoraWorWatchdogWakeSeconds);
+  SerialMon.println(" s; gateway must enable Mode-1 wake probe");
+  initializeRtc();
+  scheduleFreshSensorCycle();
+  g_worCommandWindow = false;
 #else
   SerialMon.println("Power mode: NORMAL (continuous operation; Standby disabled)");
   if (g_stalePeriodicRequestCleared)
@@ -558,10 +711,15 @@ void initializePowerManagerAfterSetup()
 
 bool powerManagerAllowsSensorWork()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#if APP_CONTROLLER_USES_STANDBY
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
+  if (queuedWakeActive()) return true;
+#endif
   return !g_commandWindowActive;
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   return g_remoteWakeCycle.active();
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  return queuedWakeActive() || !g_worCommandWindow;
 #else
   return true;
 #endif
@@ -569,7 +727,7 @@ bool powerManagerAllowsSensorWork()
 
 void notifyPowerManagerTelemetryResult(bool delivered)
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#if APP_CONTROLLER_USES_STANDBY
   if (!delivered || g_commandWindowActive)
   {
     if (!delivered)
@@ -589,11 +747,23 @@ void notifyPowerManagerTelemetryResult(bool delivered)
   SerialMon.print("server");
 #endif
   SerialMon.print(" commands for ");
-  SerialMon.print(AppConfig::kPowerCommandWindowMs);
+  SerialMon.print(AppConfig::kQueuedCommands
+      ? AppConfig::kQueuedCommandWindowMs
+      : AppConfig::kPowerCommandWindowMs);
   SerialMon.println(" ms");
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   if (delivered) g_remoteWakeCycle.telemetryDelivered(millis());
   else SerialMon.println("Power: report failed; radio remains connected for retry");
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  if (delivered)
+  {
+    g_worCommandWindow = true;
+    g_worWindowStartedMs = millis();
+    const uint32_t now = getEpochTime();
+    g_worNextReportEpoch = now + AppConfig::kPowerSleepSeconds;
+    SerialMon.println("Power: report delivered; LoRa command window opened");
+  }
+  else SerialMon.println("Power: report failed; staying awake for retry");
 #else
   (void)delivered;
 #endif
@@ -618,9 +788,20 @@ void servicePowerManager()
     SerialMon.println("Power: periodic wake from reachable idle; sampling/reporting");
     scheduleFreshSensorCycle();
   }
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  if (!g_worCommandWindow || queuedWakeActive() ||
+      millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs ||
+      !isLoraIdleForPowerDown()) return;
+  runLoraWorStopCycle();
+#elif APP_CONTROLLER_USES_STANDBY
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
+  if (queuedWakeActive()) return;
+#endif
+  const uint32_t commandWindowMs = AppConfig::kQueuedCommands
+      ? AppConfig::kQueuedCommandWindowMs
+      : AppConfig::kPowerCommandWindowMs;
   if (!g_commandWindowActive ||
-      millis() - g_commandWindowStartedMs < AppConfig::kPowerCommandWindowMs)
+      millis() - g_commandWindowStartedMs < commandWindowMs)
   {
     return;
   }
@@ -684,6 +865,27 @@ bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
   SerialMon.print(g_remoteWakeCycle.remainingSeconds(millis()));
   SerialMon.println(" seconds (no controller reset)");
   return true;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
+      APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  const uint64_t acceptedSeconds = seconds == 0U
+      ? AppConfig::kRemoteWakeDefaultSeconds : seconds;
+  if (acceptedSeconds == 0U || acceptedSeconds > AppConfig::kRemoteWakeMaximumSeconds)
+  {
+    return false;
+  }
+  if (requestId != 0U && requestId == g_queuedWakeRequestId)
+  {
+    return seconds == g_queuedWakeRequestSeconds && queuedWakeActive();
+  }
+  g_queuedWakeRequestId = requestId;
+  g_queuedWakeRequestSeconds = seconds;
+  g_queuedWakeStartedMs = millis();
+  g_queuedWakeDurationMs = static_cast<uint32_t>(acceptedSeconds * 1000ULL);
+  scheduleFreshSensorCycle();
+  SerialMon.print("Power: WAKE accepted for ");
+  SerialMon.print(static_cast<uint32_t>(acceptedSeconds));
+  SerialMon.println(" seconds; low-power entry postponed");
+  return true;
 #else
   (void)seconds;
   (void)requestId;
@@ -732,7 +934,11 @@ uint32_t powerManagerMode()
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   return 3U;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_POWER_DOWN
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
+  return 4U;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  return 5U;
+#elif APP_CONTROLLER_USES_STANDBY
   return 2U;
 #else
   return 1U;
@@ -752,6 +958,11 @@ uint32_t powerManagerWakeRemainingSeconds()
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   return g_remoteWakeCycle.remainingSeconds(millis());
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
+      APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  return queuedWakeActive()
+      ? (g_queuedWakeDurationMs - (millis() - g_queuedWakeStartedMs) + 999U) / 1000U
+      : 0U;
 #else
   return 0U;
 #endif
@@ -761,6 +972,9 @@ uint32_t powerManagerWakeRequestId()
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   return g_lastWakeRequestId;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
+      APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  return g_queuedWakeRequestId;
 #else
   return 0U;
 #endif

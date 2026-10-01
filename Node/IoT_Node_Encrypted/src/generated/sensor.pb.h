@@ -124,6 +124,9 @@ typedef struct _Telemetry {
     uint32_t wake_remaining_seconds;
     bool wake_command_ack; /* explicit accepted WAKE response */
     uint32_t wake_request_id; /* echoes CMD request_id on WAKE ACK */
+    uint32_t command_ack_request_id; /* nonzero queued command correlation */
+    uint32_t command_ack_cmd_id; /* command accepted by this node */
+    bool command_ack_success; /* application-level confirmation */
 } Telemetry;
 
 
@@ -135,11 +138,11 @@ extern "C" {
 #define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0}
 #define CMD_Message_init_default                 {0, 0, 0, 0}
-#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0}
+#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0}
 #define CMD_Message_init_zero                    {0, 0, 0, 0}
-#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0}
+#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define FlowReading_flow_rate_tag                1
@@ -236,6 +239,9 @@ extern "C" {
 #define Telemetry_wake_remaining_seconds_tag     38
 #define Telemetry_wake_command_ack_tag           39
 #define Telemetry_wake_request_id_tag            40
+#define Telemetry_command_ack_request_id_tag     41
+#define Telemetry_command_ack_cmd_id_tag         42
+#define Telemetry_command_ack_success_tag        43
 
 /* Struct field encoding specification for nanopb */
 #define FlowReading_FIELDLIST(X, a) \
@@ -345,7 +351,10 @@ X(a, STATIC,   SINGULAR, UINT32,   power_mode,       36) \
 X(a, STATIC,   SINGULAR, UINT32,   power_state,      37) \
 X(a, STATIC,   SINGULAR, UINT32,   wake_remaining_seconds,  38) \
 X(a, STATIC,   SINGULAR, BOOL,     wake_command_ack,  39) \
-X(a, STATIC,   SINGULAR, UINT32,   wake_request_id,  40)
+X(a, STATIC,   SINGULAR, UINT32,   wake_request_id,  40) \
+X(a, STATIC,   SINGULAR, UINT32,   command_ack_request_id,  41) \
+X(a, STATIC,   SINGULAR, UINT32,   command_ack_cmd_id,  42) \
+X(a, STATIC,   SINGULAR, BOOL,     command_ack_success,  43)
 #define Telemetry_CALLBACK NULL
 #define Telemetry_DEFAULT NULL
 #define Telemetry_secondary_flow_meter_MSGTYPE FlowReading
@@ -366,7 +375,7 @@ extern const pb_msgdesc_t Telemetry_msg;
 #define FlowReading_size                         91
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size
 #define Status_Message_size                      303
-#define Telemetry_size                           341
+#define Telemetry_size                           358
 
 #ifdef __cplusplus
 } /* extern "C" */

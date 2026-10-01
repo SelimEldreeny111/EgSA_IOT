@@ -16,13 +16,23 @@ $wakeConfigCases = @(
     @{Name='rtc-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='1';APP_WIFI_POWER_MODE='1'}; Error=$null},
     @{Name='rtc-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='1';APP_LORA_POWER_MODE='1';APP_UPLINK='2'}; Error=$null},
     @{Name='gateway-wifi'; Modem='USE_ESP8266'; Defines=@{APP_ROLE='2'}; Error=$null},
+    @{Name='queued-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='4';APP_WIFI_POWER_MODE='1'}; Error=$null},
+    @{Name='queued-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='4';APP_LORA_POWER_MODE='1';APP_UPLINK='2'}; Error=$null},
+    @{Name='wor-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_UPLINK='2'}; Error=$null},
+    @{Name='gateway-wor'; Modem='USE_ESP8266'; Defines=@{APP_ROLE='2';APP_LORA_GATEWAY_WOR_TX='1'}; Error=$null},
+    @{Name='reject-queued-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='4'}; Error='SIM800L periodic POWER_DOWN is unsafe'},
+    @{Name='reject-wor-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='3'}; Error='LORA_WOR requires a LoRa sensor node'},
+    @{Name='reject-wor-radio-policy'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3';APP_UPLINK='2'}; Error='LORA_WOR requires APP_LORA_POWER_MODE'},
+    @{Name='reject-wor-gateway'; Modem='USE_ESP8266'; Defines=@{APP_ROLE='2';APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2'}; Error='gateway must remain NORMAL'},
+    @{Name='reject-wor-tx-node'; Modem='USE_SIM800'; Defines=@{APP_LORA_GATEWAY_WOR_TX='1'}; Error='only valid on a LoRa gateway'},
+    @{Name='reject-wor-watchdog-margin'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3';APP_UPLINK='2';APP_LORA_POWER_MODE='2';APP_WATCHDOG_TIMEOUT_US='9000000UL'}; Error='RTC heartbeat must be at least 2 seconds shorter'},
     @{Name='reject-remote-sleeping-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_WIFI_POWER_MODE='1'}; Error='REMOTE_WAKE requires'},
     @{Name='reject-remote-sleeping-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_LORA_POWER_MODE='1';APP_UPLINK='2'}; Error='REMOTE_WAKE requires'},
     @{Name='reject-remote-sleeping-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_SIM_POWER_MODE='1'}; Error='REMOTE_WAKE requires'},
     @{Name='reject-remote-gateway'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_ROLE='2'}; Error='gateway must remain NORMAL'},
     @{Name='reject-rtc-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='1';APP_SIM_POWER_MODE='1'}; Error='SIM800L periodic POWER_DOWN is unsafe'},
-    @{Name='reject-radio-remote-policy'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_WIFI_POWER_MODE='2'}; Error='radio policies support NORMAL or POWER_DOWN'},
-    @{Name='reject-controller-policy'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3'}; Error='Controller supports NORMAL'},
+    @{Name='reject-radio-remote-policy'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_WIFI_POWER_MODE='2'}; Error='Invalid controller or radio power mode'},
+    @{Name='reject-controller-policy'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='99'}; Error='Invalid controller or radio power mode'},
     @{Name='reject-zero-default'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_DEFAULT_SECONDS='0UL'}; Error='APP_REMOTE_WAKE_DEFAULT_SECONDS must'},
     @{Name='reject-large-default'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_DEFAULT_SECONDS='86401UL'}; Error='APP_REMOTE_WAKE_DEFAULT_SECONDS must'},
     @{Name='reject-fast-poll'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_POLL_INTERVAL_MS='9UL'}; Error='APP_REMOTE_WAKE_POLL_INTERVAL_MS must'},
@@ -58,3 +68,5 @@ try {
     $env:PATH = $wakeConfigOriginalPath
     $ErrorActionPreference = 'Stop'
 }
+# Expected compiler rejections are successful test cases, not script failures.
+exit 0

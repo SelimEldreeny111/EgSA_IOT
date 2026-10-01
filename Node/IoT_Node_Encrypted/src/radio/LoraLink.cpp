@@ -228,7 +228,8 @@ bool isApplicationType(LoraPayloadType type)
          type == LoraPayloadType::Command ||
          type == LoraPayloadType::Ack ||
          type == LoraPayloadType::BroadcastCommand ||
-         type == LoraPayloadType::SystemTelemetry;
+         type == LoraPayloadType::SystemTelemetry ||
+         type == LoraPayloadType::WakeProbe;
 }
 
 uint16_t localRadioNodeId()
@@ -1268,6 +1269,67 @@ bool prepareLoraForPowerDown(uint32_t timeoutMs)
 
   SerialLoRa.end();
   return true;
+}
+
+bool prepareLoraForWakeOnRadio(uint32_t timeoutMs)
+{
+  if (!isLoraIdleForPowerDown()) return false;
+  SerialLoRa.flush();
+  if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin, timeoutMs)) return false;
+  // E32 Mode 2: M1=1, M0=0. RF listening remains possible; UART TX is off.
+  digitalWrite(AppConfig::kLoraMd0Pin, LOW);
+  digitalWrite(AppConfig::kLoraMd1Pin, HIGH);
+  delay(5);
+  if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin, timeoutMs))
+  {
+    digitalWrite(AppConfig::kLoraMd1Pin, LOW);
+    return false;
+  }
+  SerialLoRa.end();
+  return true;
+}
+
+bool resumeLoraFromWakeOnRadio(uint32_t timeoutMs)
+{
+  // AUX may be low because the wake probe is being delivered. Wait for the
+  // radio to finish it before changing mode; the probe is deliberately lost.
+  if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin, timeoutMs)) return false;
+  SerialLoRa.begin(AS32Config::kUartBaudRate, AS32Config::kSerialMode);
+  digitalWrite(AppConfig::kLoraMd1Pin, LOW);
+  digitalWrite(AppConfig::kLoraMd0Pin, LOW);
+  delay(5);
+  return AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin, timeoutMs);
+}
+
+bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* payload, size_t length)
+{
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && APP_LORA_GATEWAY_WOR_TX
+  if (type != LoraPayloadType::Command && type != LoraPayloadType::BroadcastCommand)
+    return false;
+  if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin,
+                                 AppConfig::kLoraTxCompleteTimeoutMs)) return false;
+  // Mode 1 prefixes both the probe and command with the configured WOR
+  // preamble. The probe buys time to restore the STM32 clock and UART.
+  digitalWrite(AppConfig::kLoraMd0Pin, HIGH);
+  digitalWrite(AppConfig::kLoraMd1Pin, LOW);
+  delay(5);
+  const bool probeSent = sendLoraFrame(LoraPayloadType::WakeProbe,
+                                      AppConfig::kGatewayNodeId, nullptr, 0U);
+  if (probeSent)
+  {
+    serviceHardwareWatchdog();
+    delay(250);
+  }
+  const bool sent = probeSent && sendLoraFrame(type, AppConfig::kGatewayNodeId,
+                                              payload, length);
+  AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin,
+                             AppConfig::kLoraTxCompleteTimeoutMs);
+  digitalWrite(AppConfig::kLoraMd0Pin, LOW);
+  delay(5);
+  return sent;
+#else
+  return sendLoraFrame(type, AppConfig::kGatewayNodeId, payload, length);
+#endif
 }
 
 void forceLoraPowerDownPins()

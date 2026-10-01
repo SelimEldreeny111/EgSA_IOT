@@ -423,7 +423,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 
   const LoraPayloadType loraCommandType =
       isBroadcastTopic ? LoraPayloadType::BroadcastCommand : LoraPayloadType::Command;
-  if (sendLoraFrame(loraCommandType, AppConfig::kGatewayNodeId, payload, length))
+  if (sendLoraWakeCommand(loraCommandType, payload, length))
   {
     SerialMon.print(" Gateway forwarded MQTT CMD to LoRa ");
     SerialMon.println(isBroadcastTopic ? "broadcast" : "node");
@@ -441,14 +441,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
       SerialMon.println("Telemetry/WAKE request not for this MQTT node");
       return;
     }
-    if (cmd.cmd_id == CMD_REMOTE_WAKE &&
-        !handleRemoteWakeCommand(cmd, isBroadcastTopic))
-    {
-      return;
-    }
+    const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
+        handleRemoteWakeCommand(cmd, isBroadcastTopic);
+    if (!applied && cmd.request_id == 0U) return;
     uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
     size_t telemetryPayloadLength = 0;
-    if (handleGetTelemetryCommand(&cmd, telemetryPayload, telemetryPayloadLength))
+    if (handleGetTelemetryCommand(&cmd, telemetryPayload,
+                                  telemetryPayloadLength, applied))
     {
       mqtt.publish(kMqttPublishTopicTlm, telemetryPayload, telemetryPayloadLength);
       bufferedClient.flush();
@@ -459,7 +458,17 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   }
   else
   {
-    handleCommand(cmd, isBroadcastTopic);
+    const bool applied = handleCommand(cmd, isBroadcastTopic);
+    if (cmd.request_id != 0U)
+    {
+      uint8_t ackPayload[AppConfig::kCodecBufferSize];
+      size_t ackLength = 0U;
+      if (handleGetTelemetryCommand(&cmd, ackPayload, ackLength, applied))
+      {
+        mqtt.publish(kMqttPublishTopicTlm, ackPayload, ackLength);
+        bufferedClient.flush();
+      }
+    }
   }
 #endif
 }

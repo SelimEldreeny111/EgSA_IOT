@@ -2,7 +2,8 @@
 
 WAKE_COMMAND_ID = 6
 MAX_WAKE_SECONDS = 86400
-POWER_MODES = {0: "Unknown / legacy", 1: "NORMAL", 2: "RTC_PERIODIC", 3: "REMOTE_WAKE"}
+POWER_MODES = {0: "Unknown / legacy", 1: "NORMAL", 2: "RTC_PERIODIC",
+               3: "REMOTE_WAKE", 4: "RTC_QUEUED", 5: "LORA_WOR_STOP"}
 POWER_STATES = {0: "Unknown / legacy", 1: "ACTIVE", 2: "REACHABLE_IDLE"}
 
 
@@ -47,5 +48,5 @@ def power_dashboard_fields(metadata: dict) -> dict:
 
 
 def is_confirmed_wake(metadata: dict) -> bool:
-    return bool(metadata["wake_command_ack"] and metadata["power_mode"] == 3
+    return bool(metadata["wake_command_ack"] and metadata["power_mode"] in (3, 4, 5)
                 and metadata["power_state"] == 1 and metadata["wake_request_id"] != 0)

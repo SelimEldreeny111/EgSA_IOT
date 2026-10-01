@@ -21,4 +21,10 @@ assert.equal(broadcast.published('Test',7,42,true),false);
 assert.equal(broadcast.receive({...ack,'Node ID':8}),true);
 assert.equal(broadcast.waiting('Test','*',42),false); // at least one, not all nodes
 assert.equal(broadcast.receive({...ack,'Node ID':9}),true);
-console.log('PASS: WAKE UI pending/ACK correlation, wrong node/company, duplicate, early response and broadcast');
+for (const mode of ['RTC_QUEUED', 'LORA_WOR_STOP']) {
+    const newMode = new WakeTracker();
+    assert.equal(newMode.published('Test',7,42),false);
+    assert.equal(newMode.receive({...ack, 'Power Mode':mode}),true);
+    assert.equal(newMode.waiting('Test',7,42),false);
+}
+console.log('PASS: WAKE UI pending/ACK correlation, wrong node/company, duplicate, early response, broadcast and new power modes');

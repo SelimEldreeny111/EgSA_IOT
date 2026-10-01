@@ -5,6 +5,9 @@
 #define APP_COMPONENT_MODE_NORMAL 0
 #define APP_COMPONENT_MODE_POWER_DOWN 1
 #define APP_COMPONENT_MODE_REMOTE_WAKE 2
+#define APP_COMPONENT_MODE_LORA_WOR 3
+#define APP_COMPONENT_MODE_QUEUED 4
+#define APP_CONTROLLER_USES_STANDBY 0
 #define APP_CONTROLLER_POWER_MODE 2
 #define USE_SIM800
 #define APP_HAS_IP_UPLINK 1
@@ -43,6 +46,8 @@ struct Telemetry {
   uint32_t power_mode=0U, power_state=0U, wake_remaining_seconds=0U;
   bool wake_command_ack=false;
   uint32_t wake_request_id=0U;
+  uint32_t command_ack_request_id=0U, command_ack_cmd_id=0U;
+  bool command_ack_success=false;
 };
 #define Telemetry_init_zero {}
 extern const void* Telemetry_fields;
