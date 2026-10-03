@@ -25,7 +25,8 @@ void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef*, uint32_t index, uint32_t value) { b
 void serviceHardwareWatchdog(WatchdogStage) { ++watchdogFeeds; }
 void digitalWrite(uint32_t, uint8_t) {}
 uint32_t getEpochTime() { return 1800000000U; }
-bool syncRTCFromEpoch(uint64_t) { return true; }
+uint32_t rtcSyncCalls=0U;
+bool syncRTCFromEpoch(uint32_t) { ++rtcSyncCalls; return true; }
 void refreshBatteryVoltage() {}
 void populateSensorPayloadFields(Telemetry& message, const AppRuntimeState&) {
   message.power_mode=powerManagerMode(); message.power_state=powerManagerState();
@@ -123,5 +124,21 @@ int main()
   assert(handleGetTelemetryCommand(&cmd,output,length,false));
   assert(!encodedTelemetry.command_ack_success &&
          !encodedTelemetry.wake_command_ack);
-  std::cout << "PASS: remote policy, actual power manager, WAKE filtering/ACK, rollover, retry, duplicate, WDT and UART checks\n";
+  for (const uint32_t id : {uint32_t(CMD_SET_SAMPLING_PERIOD), uint32_t(CMD_SET_TRANSMISSION_PERIOD)}) {
+    cmd={7U,id,10U,45U};
+    assert(handleCommand(cmd,false));
+    cmd.cmd_data=86400U; assert(handleCommand(cmd,false));
+    assert((id==CMD_SET_SAMPLING_PERIOD?state.samplingPeriodMs:state.transmissionPeriodMs)==86400000U);
+    for (const uint64_t invalid : {uint64_t(0),uint64_t(9),uint64_t(86401),uint64_t(4294968),UINT64_MAX}) {
+      cmd.cmd_data=invalid; assert(!handleCommand(cmd,false));
+      assert((id==CMD_SET_SAMPLING_PERIOD?state.samplingPeriodMs:state.transmissionPeriodMs)==86400000U);
+    }
+  }
+  cmd={7U,CMD_SYNC_RTC,1800000000ULL,46U};
+  assert(handleCommand(cmd,false) && rtcSyncCalls==1U);
+  cmd.cmd_data=uint64_t(UINT32_MAX)+1ULL+1800000000ULL;
+  assert(!handleCommand(cmd,false) && rtcSyncCalls==1U);
+  cmd.cmd_data=UINT64_MAX;
+  assert(!handleCommand(cmd,false) && rtcSyncCalls==1U);
+  std::cout << "PASS: remote policy, actual power manager, WAKE filtering/ACK, rollover, retry, duplicate, WDT, UART and command-width/rate bounds\n";
 }

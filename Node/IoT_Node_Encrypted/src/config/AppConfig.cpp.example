@@ -16,8 +16,10 @@ const char kMqttServer[] = "mqtt.example.com";
 const char kMqttClientId[] = "wiot-node-1";
 
 const char kMqttCompanyTopicPrefix[] = "EgSA/Company_1";
-const char kMqttPublishTopicStatus[] = "EgSA/Company_1/1/status";
-const char kMqttPublishTopicTlm[] = "EgSA/Company_1/1/telemetry";
-const char kMqttCommandTopic[] = "EgSA/Company_1/1/command";
-const char kMqttBroadcastTopic[] = "EgSA/Company_1/broadcast";
-const char kMqttGatewayCommandWildcardTopic[] = "EgSA/+/+/command";
+// Topic suffixes and BroadCast capitalization are part of the server contract.
+// Change Company_1 and node 1 consistently with APP_NODE_ID/server selection.
+const char kMqttPublishTopicStatus[] = "EgSA/Company_1/1/Status";
+const char kMqttPublishTopicTlm[] = "EgSA/Company_1/1/Telemetry";
+const char kMqttCommandTopic[] = "EgSA/Company_1/1/CMD";
+const char kMqttBroadcastTopic[] = "EgSA/Company_1/BroadCast/CMD";
+const char kMqttGatewayCommandWildcardTopic[] = "EgSA/Company_1/+/CMD";

@@ -20,6 +20,13 @@ configured address-2 data. Up to 247 unique unicast addresses can be defined.
 
 ## Main capabilities
 
+For the current STM32 four-sensor bench, load `stm32_four_sensor_config.json`
+instead of the demonstration fleet. It uses TUF 1, Supmea 2, HNDA 3 and Sondas 4
+at 9600 8N1, fixed distinctive live values and evolving flow totalizers. Select
+your actual COM port. Enable all four sensors in AppConfig.h and keep their
+addresses matched; the committed node default enables only TUF. For Supmea
+calendar tests, send STIME and allow a baseline plus subsequent totalizer samples.
+
 - Add one sensor, clone a sensor, or create a fleet in one operation.
 - Create multiple sensors of the same type with sequential or explicit
   addresses, for example `1,2,7,10-15`.

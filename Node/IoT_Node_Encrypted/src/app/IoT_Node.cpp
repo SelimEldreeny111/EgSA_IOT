@@ -1,3 +1,4 @@
+/** @file IoT_Node.cpp @brief Sensor-node startup and configuration initialization. */
 /* ================== INCLUDES ================== */
 #include "../config/AppConfig.h"
 #include "IoT_Node.h"
@@ -26,6 +27,7 @@ namespace
 {
 uint8_t g_consecutiveNetworkFailures = 0U;
 
+/** @brief Clear the consecutive network-failure counter after a successful connection. */
 bool recordNetworkConnectionSuccess()
 {
     g_consecutiveNetworkFailures = 0U;
@@ -33,6 +35,7 @@ bool recordNetworkConnectionSuccess()
     return true;
 }
 
+/** @brief Count a complete failed network attempt and request watchdog reset at the configured limit. */
 bool recordNetworkConnectionFailure()
 {
     if (g_consecutiveNetworkFailures < UINT8_MAX)
@@ -67,6 +70,7 @@ constexpr int kWifiCredentialEepromAddress = 0;
 constexpr uint32_t kWifiSerialInputTimeoutMs = 180000UL;
 bool g_wifiProvisioningPromptUsed = false;
 
+/** @brief Versioned, checksummed EEPROM copy of a previously working Wi-Fi network. */
 struct StoredWifiCredentials
 {
     uint32_t magic;
@@ -76,6 +80,7 @@ struct StoredWifiCredentials
     uint32_t checksum;
 };
 
+/** @brief Compute the stored-credential FNV-style checksum, excluding the checksum field. */
 uint32_t calculateCredentialChecksum(const StoredWifiCredentials& credentials)
 {
     const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&credentials);
@@ -91,6 +96,7 @@ uint32_t calculateCredentialChecksum(const StoredWifiCredentials& credentials)
     return hash;
 }
 
+/** @brief Open the EEPROM abstraction on platforms requiring explicit initialization. */
 void beginCredentialStore()
 {
 #if defined(ESP8266) || defined(ESP32)
@@ -98,6 +104,7 @@ void beginCredentialStore()
 #endif
 }
 
+/** @brief Commit pending EEPROM writes where the platform requires it. */
 void commitCredentialStore()
 {
 #if defined(ESP8266) || defined(ESP32)
@@ -105,6 +112,7 @@ void commitCredentialStore()
 #endif
 }
 
+/** @brief Load a fallback network only if its magic, version, and checksum pass validation. */
 bool loadSavedWifiCredentials(StoredWifiCredentials& credentials)
 {
     if (!AppConfig::kEnableWifiCredentialStore)
@@ -128,11 +136,13 @@ bool loadSavedWifiCredentials(StoredWifiCredentials& credentials)
     return true;
 }
 
+/** @brief Compare both SSID and password with the stored fallback pair. */
 bool wifiCredentialsMatch(const StoredWifiCredentials& credentials, const char* ssid, const char* password)
 {
     return strcmp(credentials.ssid, ssid) == 0 && strcmp(credentials.password, password) == 0;
 }
 
+/** @brief Persist a connected network and verify the EEPROM write by reading it back. */
 bool saveWifiCredentials(const char* ssid, const char* password)
 {
     if (!AppConfig::kEnableWifiCredentialStore)
@@ -184,6 +194,7 @@ bool saveWifiCredentials(const char* ssid, const char* password)
     return true;
 }
 
+/** @brief Try one Wi-Fi credential source with bounded retries and watchdog-safe delays. */
 bool connectWifiWithCredentials(const char* source, const char* ssid, const char* password)
 {
     for (int retryCount = 0; retryCount < WIFI_MAX_RETRIES; ++retryCount)
@@ -216,6 +227,7 @@ bool connectWifiWithCredentials(const char* source, const char* ssid, const char
     return false;
 }
 
+/** @brief Save the active Wi-Fi network as fallback and report storage failures. */
 bool saveConnectedWifiAsFallback(const char* source, const char* ssid, const char* password)
 {
     if (saveWifiCredentials(ssid, password))
@@ -232,6 +244,7 @@ bool saveConnectedWifiAsFallback(const char* source, const char* ssid, const cha
     return false;
 }
 
+/** @brief Read a bounded serial-console line while keeping the watchdog alive. */
 bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool allowEmpty)
 {
     if (buffer == nullptr || bufferSize == 0)
@@ -268,6 +281,7 @@ bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool al
     return allowEmpty || index > 0;
 }
 
+/** @brief Prompt for an SSID and optional password after automatic networks fail. */
 bool promptForWifiCredentials(char* ssid, size_t ssidSize, char* password, size_t passwordSize)
 {
     SerialMon.println();

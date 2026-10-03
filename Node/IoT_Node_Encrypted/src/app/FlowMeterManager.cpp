@@ -1,3 +1,4 @@
+/** @file FlowMeterManager.cpp @brief Selected flow-meter startup and sampling orchestration. */
 #include "FlowMeterManager.h"
 
 #include "AppState.h"
@@ -15,6 +16,7 @@ extern HardwareSerial SerialMon;
 
 namespace
 {
+/** @brief Convert a finite, nonnegative cumulative cubic-meter value to integer liters. */
 bool unsignedM3ToLiters(float valueM3, uint64_t& liters)
 {
     if (!isfinite(valueM3) || valueM3 < 0.0f)
@@ -30,6 +32,7 @@ bool unsignedM3ToLiters(float valueM3, uint64_t& liters)
     return true;
 }
 
+/** @brief Convert a finite signed net cubic-meter value to integer liters. */
 bool signedM3ToLiters(float valueM3, int64_t& liters)
 {
     if (!isfinite(valueM3))
@@ -46,6 +49,7 @@ bool signedM3ToLiters(float valueM3, int64_t& liters)
     return true;
 }
 
+/** @brief Normalize Supmea volumetric rate units; reject unsupported mass-flow units. */
 bool normalizeSupmeaFlowToM3h(
     float rawFlow,
     uint16_t unitCode,
@@ -83,6 +87,7 @@ bool normalizeSupmeaFlowToM3h(
     }
 }
 
+/** @brief Give each period-validity state a readable serial diagnostic name. */
 const char* qualityName(FlowPeriodQuality quality)
 {
     switch (quality)
@@ -97,6 +102,7 @@ const char* qualityName(FlowPeriodQuality quality)
     }
 }
 
+/** @brief Read TUF native daily, monthly, and yearly totals into shared state. */
 void sampleTuf()
 {
     const TufSensorData data = readTufSensor();
@@ -129,6 +135,7 @@ void sampleTuf()
     updateTufFlowMetrics(metrics);
 }
 
+/** @brief Print RTC-derived Supmea totals and the associated quality flag. */
 void printSupmeaCalculatedPeriods(const FlowMeterMetrics& metrics)
 {
     SerialMon.println("---------- SUPMEA RTC CONSUMPTION ----------");
@@ -148,6 +155,7 @@ void printSupmeaCalculatedPeriods(const FlowMeterMetrics& metrics)
     SerialMon.println("--------------------------------------------");
 }
 
+/** @brief Read Supmea totals, normalize live flow, and update RTC-based periods. */
 void sampleSupmea()
 {
     const SupmeaSensorData data = readSupmeaSensor();

@@ -39,6 +39,15 @@ def read_request(address: int, start: int, count: int) -> bytes:
     )
 
 
+class Stm32BenchPresetTests(unittest.TestCase):
+    def test_bench_preset_matches_four_default_stm32_addresses(self):
+        bus, devices = load_configuration(SIMULATOR_DIR / "stm32_four_sensor_config.json")
+        self.assertEqual(bus.baudrate, 9600)
+        self.assertEqual({device.sensor_type.value: device.address for device in devices},
+                         {"TUF": 1, "SUPMEA": 2, "HNDA": 3, "SONDAS": 4})
+        self.assertTrue(all(device.enabled for device in devices))
+
+
 def response_registers(response: bytes) -> list[int]:
     payload = response[3 : 3 + response[2]]
     return [

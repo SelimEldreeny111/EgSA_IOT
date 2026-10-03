@@ -1,3 +1,4 @@
+/** @file TelemetryPayload.cpp @brief Status protobuf assembly and encrypted telemetry output. */
 #include "TelemetryPayload.h"
 
 #include "../app/AppState.h"

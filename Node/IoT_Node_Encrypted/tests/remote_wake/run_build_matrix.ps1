@@ -1,14 +1,21 @@
 param(
     [string]$ArduinoCli = 'arduino-cli',
     [string]$ConfigFile = (Join-Path $env:USERPROFILE '.arduinoIDE/arduino-cli.yaml'),
+    [string]$BuildRoot = '',
     [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora',
         'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora',
         'gateway-wifi','gateway-wor')
 )
 $ErrorActionPreference = 'Stop'
 $wakeBuildNode = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$wakeBuildRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('wiot-wake-builds-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $wakeBuildRoot | Out-Null
+if ($BuildRoot) {
+    # Explicitly reuse compiler outputs only; never reset or delete source files.
+    $wakeBuildRoot = (Resolve-Path -LiteralPath $BuildRoot -ErrorAction Stop).Path
+    if (!(Test-Path -LiteralPath $wakeBuildRoot -PathType Container)) { throw 'BuildRoot must be an existing compiler-output directory' }
+} else {
+    $wakeBuildRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('wiot-wake-builds-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $wakeBuildRoot | Out-Null
+}
 $wakeBuildFqbn = 'STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F401CC'
 $wakeBuildFlags = @{
     'normal-sim' = '-DUSE_SIM800 -DAPP_CONTROLLER_POWER_MODE=0';

@@ -17,7 +17,7 @@ bool isAsyncPublishBusy();
 #define LORA_LINK_H
 #define RTC_HELPERS_H
 uint32_t getEpochTime();
-bool syncRTCFromEpoch(uint64_t);
+bool syncRTCFromEpoch(uint32_t);
 #define HARDWARE_WATCHDOG_H
 enum class WatchdogStage { MainLoop, PowerTransition };
 void serviceHardwareWatchdog(WatchdogStage = WatchdogStage::MainLoop);
@@ -34,7 +34,7 @@ constexpr bool kControllerPowerDown=false, kRemoteWakeEnabled=true;
 constexpr bool kLoraPowerDown=false, kWifiPowerDown=false, kSimPowerDown=false;
 constexpr uint32_t kPowerSleepSeconds=30U, kPowerCommandWindowMs=5000U;
 constexpr uint32_t kRemoteWakeDefaultSeconds=60U, kRemoteWakePollIntervalMs=100U;
-constexpr uint32_t kNodeId=7U, kMinimumRateSeconds=1U;
+constexpr uint32_t kNodeId=7U, kMinimumRateSeconds=10U;
 constexpr bool kEnableOpenCloseNodeOutput=true, kOpenCloseNodeActiveLow=false;
 constexpr uint32_t kOpenCloseNodeGpio=13U;
 constexpr size_t kCodecBufferSize=384U;

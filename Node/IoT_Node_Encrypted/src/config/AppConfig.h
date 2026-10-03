@@ -1,3 +1,12 @@
+/**
+ * @file AppConfig.h
+ * @brief Compile-time role, transport, sensor, timing, pin, watchdog, and power policies.
+ *
+ * Select the role, transport and each sensor's enable/address before building.
+ * Invalid role/transport/power combinations are rejected by compile-time checks.
+ * Values in this file describe firmware policy; external modules that are not
+ * selected may still require hardware power isolation.
+ */
 #ifndef APP_CONFIG_H
 #define APP_CONFIG_H
 
@@ -486,9 +495,8 @@ static_assert(
 
 // Measured hardware: battery+ -- 21.6 kOhm -- PA0 -- 9.8 kOhm -- GND, with a
 // 100 nF capacitor from PA0 to GND. At 8.4 V, PA0 is approximately 2.622 V.
-// The theoretical input limit is approximately 10.57 V at the 3.3 V ADC
+  // The theoretical input limit is approximately 10.57 V at the 3.3 V ADC
 // limit. Values below are the measured resistances, not their nominal markings.
-// theoretical input limit is approximately 10.35 V at the 3.3 V ADC limit.
 // Never connect the battery directly to PA0; battery- and STM32 GND must be
 // connected together.
 // Override these APP_BATTERY_* definitions at build time if the production

@@ -1,3 +1,7 @@
+/**
+ * @file Watchdog.h
+ * @brief STM32 independent-watchdog lifecycle and progress checkpoints.
+ */
 #ifndef HARDWARE_WATCHDOG_H
 #define HARDWARE_WATCHDOG_H
 
@@ -45,36 +49,41 @@ enum class WatchdogSelfTestPoint : uint8_t
     MainLoop = 2
 };
 
-// Starts the STM32 independent watchdog and captures the previous reset cause.
-// Call this at the very beginning of setup(), before any modem operation.
+/** @brief Capture reset cause, persist IWDG count and arm IWDG before modem setup. */
 void initializeHardwareWatchdog();
 
-// Prints the captured reset cause once SerialMon is initialized.
+/** @brief Print the captured reset cause after SerialMon is initialized. */
 void reportHardwareWatchdogStatus();
 
-// Reload only at explicit application progress checkpoints. Never call this
-// from inside an unknown or unbounded blocking operation.
+/**
+ * @brief Reload IWDG at an explicit application progress checkpoint.
+ * @warning Do not call from an unknown or unbounded blocking operation; that
+ * would hide the very stall the watchdog is intended to detect.
+ */
 void serviceHardwareWatchdog();
 
-// Records the active stage and reloads the IWDG. Call this immediately before
-// a bounded operation to give it one complete watchdog window. On return, the
-// caller must record/service the next verified progress stage.
+/** @brief Record a stage and reload IWDG unless service is paused.
+ * @param stage Diagnostic operation about to run, at a verified checkpoint.
+ */
 void serviceHardwareWatchdog(WatchdogStage stage);
 
-// Records a diagnostic stage without reloading the IWDG.
+/** @brief Record a stage without feeding IWDG. @param stage Active operation. */
 void markHardwareWatchdogStage(WatchdogStage stage);
 
-// Intentional long delays may use this function. It services the watchdog in
-// short steps, but a stalled delay/tick implementation still causes a reset.
+/** @brief Intentional bounded delay with foreground watchdog checkpoints.
+ * @param durationMs Requested wait; a stalled tick/delay still causes reset.
+ */
 void watchdogDelay(uint32_t durationMs);
 
-// Requests a fast IWDG reset while preserving the watchdog-reset cause flag.
+/** @brief Stop making progress and allow a prompt IWDG reset. @param reason Diagnostic explanation printed before reset. */
 [[noreturn]] void forceHardwareWatchdogReset(const char* reason);
 
-// Optional controlled hang used to prove that the global watchdog resets code
-// outside the network retry path. It is disabled in production configuration.
+/** @brief Optional deliberate stall, disabled in production.
+ * @param point Requested setup/main-loop fault-injection point.
+ */
 void runHardwareWatchdogSelfTest(WatchdogSelfTestPoint point);
 
+/** @brief Query the reset cause captured at boot. @return True for IWDG reset. */
 bool previousResetWasHardwareWatchdog();
 
 /** @brief Cumulative IWDG reset count, retained in flash; normal boots do not increment. */

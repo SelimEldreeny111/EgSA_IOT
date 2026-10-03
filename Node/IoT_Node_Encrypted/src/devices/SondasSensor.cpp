@@ -1,3 +1,4 @@
+/** @file SondasSensor.cpp @brief Sondas probe Modbus polling and measurement decoding. */
 #include "SondasSensor.h"
 
 #include <Arduino.h>
@@ -10,16 +11,19 @@ extern HardwareSerial SerialMon;
 ModbusMaster sondasSensor;
 
 namespace {
+/** @brief Interpret a Modbus register as signed fixed-point data. */
 float scaledSignedRegister(uint16_t value, float scale)
 {
     return static_cast<float>(static_cast<int16_t>(value)) / scale;
 }
 
+/** @brief Interpret a Modbus register as unsigned fixed-point data. */
 float scaledUnsignedRegister(uint16_t value, float scale)
 {
     return static_cast<float>(value) / scale;
 }
 
+/** @brief Bind the shared RS485 driver-enable callbacks to this Modbus client. */
 void attachRs485DirectionCallbacks(ModbusMaster& sensor)
 {
     sensor.preTransmission(rs485PreTransmission);

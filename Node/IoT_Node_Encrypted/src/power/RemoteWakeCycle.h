@@ -1,3 +1,4 @@
+/** @file RemoteWakeCycle.h @brief Rollover-safe reachable-idle and WAKE timers. */
 #ifndef REMOTE_WAKE_CYCLE_H
 #define REMOTE_WAKE_CYCLE_H
 
@@ -26,7 +27,9 @@ public:
   }
 
   /** @brief Replace the current phase with a bounded, server-requested active lease.
+   * @param nowMs Monotonic millis snapshot when the command is applied.
    * @param seconds 0 selects defaultSeconds; otherwise 1..86400 is required.
+   * @param defaultSeconds Valid configured lease, used when seconds is zero.
    * @return False on invalid duration, preserving the complete existing phase.
    */
   bool requestWake(uint32_t nowMs, uint64_t seconds, uint32_t defaultSeconds)

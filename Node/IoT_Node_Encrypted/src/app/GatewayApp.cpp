@@ -1,3 +1,4 @@
+/** @file GatewayApp.cpp @brief LoRa gateway startup, receive routing, and forwarding. */
 #include "GatewayApp.h"
 
 #include "../comm/MQTT.h"
@@ -12,6 +13,7 @@ extern HardwareSerial SerialMon;
 
 namespace
 {
+/** @brief Format a node-scoped MQTT topic, rejecting a truncated result. */
 bool buildNodeMqttTopic(uint16_t nodeId, const char* suffix, char* topic, size_t topicSize)
 {
   const int written = snprintf(

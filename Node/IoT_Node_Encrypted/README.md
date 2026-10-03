@@ -1,11 +1,10 @@
 # IoT Node Encrypted
 
-> RSSI diagnostics, battery-divider wiring, protobuf field numbers, and web
-> migration details are documented in
-> `../Documentation/AS32_RSSI_AND_BATTERY_TELEMETRY.md`.
-
-A secure IoT monitoring system with encrypted communication capabilities for industrial flow measurement and telemetry.
-For the restored AS32 private-LoRa V1 build, module settings, reflashing sequence, diagnostics, and Wi-Fi flash-persistence test, see [AS32 Private-LoRa V1 Recovery and Acceptance Test](../Documentation/AS32_V1_RECOVERY_TEST.md).
+An IoT monitoring system with application-layer encrypted communication for industrial flow measurement and telemetry.
+The generated firmware API and architecture reference is described in
+[Doxygen documentation](DOXYGEN_MAINPAGE.md).
+For current radio configuration, role-specific UART wiring, unsupported RSSI
+behavior and battery-voltage tests, see [Radio and Voltage Guide](RADIO_AND_VOLTAGE_GUIDE.md).
 
 For independent sensor selection, protobuf fields, Supmea calendar consumption, RTC
 setup, persistence, and commissioning, see [STM32 Four-Sensor RS485 and
@@ -76,8 +75,8 @@ Sondas RS485 sensors and transmits encrypted telemetry over LoRa or MQTT.
 |----------|-----|----------|
 | Debug TX | PA2 | Serial debug output |
 | Debug RX | PA3 | Serial debug input |
-| SIM800 TX | PA11 | Cellular modem receive |
-| SIM800 RX | PA12 | Cellular modem transmit |
+| STM32 modem RX | PA11 | Connect to SIM800/ESP8266 TX |
+| STM32 modem TX | PA12 | Connect to SIM800/ESP8266 RX |
 
 ## Architecture
 
@@ -99,9 +98,11 @@ Setup Phase:
   → Establish MQTT connection
 
 Main Loop:
-  → Check sampling period → Read sensor data → Process flow metrics
-  → Check transmission period → Publish telemetry data
-  → Maintain MQTT connection
+  → Receive commands / maintain MQTT → Send priority replies
+  → Check sampling period → Read one enabled sensor per pass
+  → Service commands in Modbus receive gaps (without feeding WDT)
+  → Complete sensor cycle → Queue/send periodic Status
+  → Advance power policy and verified watchdog checkpoints
 ```
 
 ## Functional Description
@@ -141,7 +142,13 @@ validity flags.
 
 ### Communication
 
-- **MQTT Protocol**: Secure message transmission via `ensureMqttConnection()`
+The latest SIM800/ESP8266 path uses TinyGSM exclusively for AT transactions.
+Queued command replies precede periodic Status; local write acceptance is
+checked but does not confirm server delivery. See
+[SIM MQTT Recovery and Priority Tests](SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md).
+
+- **MQTT Protocol**: Connection management via `ensureMqttConnection()`;
+  application payloads use the existing AES envelope, not authenticated TLS.
 - **Telemetry**: Periodic data publishing via `publishTelemetry()`
 - **Debug Interface**: Real-time monitoring through hardware serial
 

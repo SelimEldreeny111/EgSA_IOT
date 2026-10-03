@@ -1,3 +1,4 @@
+/** @file MQTT.cpp @brief IP uplink, MQTT connection, command intake, and async publish FSM. */
 #include "MQTT.h"
 
 #include "../config/AppConfig.h"
@@ -16,6 +17,7 @@
 extern HardwareSerial SerialMon;
 extern HardwareSerial SerialAT;
 
+/** @brief TinyGSM modem bound to the selected IP uplink UART. */
 TinyGsm modem(SerialAT);
 #include "CachedTinyGsmClient.h"
 CachedTinyGsmClient gsmClient(modem);
@@ -37,6 +39,7 @@ bool g_modemOperationActive = false;
 bool g_commandHandledThisPass = false;
 bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t length);
 
+/** @brief Print a timed operation only when publish-timing logging is enabled. */
 void logElapsedMs(const char* label, uint32_t elapsedMs)
 {
   if (!AppConfig::kEnablePublishTimingLogs) {
@@ -49,6 +52,7 @@ void logElapsedMs(const char* label, uint32_t elapsedMs)
   SerialMon.println(" ms");
 }
 
+/** @brief Decode PubSubClient status codes for verbose diagnostics. */
 void logMqttStateDetails(int state)
 {
   if (!AppConfig::kEnableVerboseMqttLogs) {
@@ -94,6 +98,7 @@ void logMqttStateDetails(int state)
 }
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
+/** @brief Validate gateway command-topic structure and extract node/broadcast routing. */
 bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool& isBroadcastTopic)
 {
   topicNodeId = 0;
@@ -152,6 +157,7 @@ bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool
 #endif
 }
 
+/** @brief Query and print the ESP-AT firmware version on ESP8266 builds. */
 void printEspFirmwareVersion()
 {
 #if defined(USE_ESP8266)
@@ -187,6 +193,7 @@ void printEspFirmwareVersion()
 namespace
 {
 #if defined(USE_ESP8266)
+/** @brief Set the schematic's ESP enable signal with configured polarity. */
 void driveEspEnable(bool enabled)
 {
   const bool outputHigh =
@@ -194,6 +201,7 @@ void driveEspEnable(bool enabled)
   digitalWrite(AppConfig::kEspEnablePin, outputHigh ? HIGH : LOW);
 }
 
+/** @brief Set the schematic's ESP reset signal with configured polarity. */
 void driveEspReset(bool asserted)
 {
   const bool outputHigh =
@@ -201,6 +209,7 @@ void driveEspReset(bool asserted)
   digitalWrite(AppConfig::kEspResetPin, outputHigh ? HIGH : LOW);
 }
 
+/** @brief Re-enable and hardware-reset ESP8266 before UART use. */
 void resetAndWakeEsp8266()
 {
   // The supplied schematic connects PB7 to ESP_EN and PB8 to ESP_RST.

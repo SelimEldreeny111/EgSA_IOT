@@ -1,3 +1,4 @@
+/** @file PowerManager.cpp @brief Per-component power policy and RTC-standby coordination. */
 #include "PowerManager.h"
 #include "RemoteWakeCycle.h"
 
@@ -174,6 +175,7 @@ const char* componentModeName(bool powerDown)
   return powerDown ? "POWER_DOWN" : "NORMAL";
 }
 
+/** @brief Print one component's selected power mode and support status. */
 void printComponentMode(
     const char* component,
     bool powerDown,

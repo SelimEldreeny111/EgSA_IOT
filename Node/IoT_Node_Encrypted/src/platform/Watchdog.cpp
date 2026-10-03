@@ -1,3 +1,4 @@
+/** @file Watchdog.cpp @brief Independent watchdog setup, servicing, and reset reporting. */
 #include "Watchdog.h"
 #include "WatchdogResetCounter.h"
 

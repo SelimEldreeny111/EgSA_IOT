@@ -1,3 +1,4 @@
+/** @file CommandHandler.cpp @brief Remote-command validation and node-side dispatch. */
 #include "CommandHandler.h"
 #include "SensorPayloadMapper.h"
 
@@ -11,6 +12,11 @@
 #include <string.h>
 
 extern HardwareSerial SerialMon;
+
+namespace {
+// Match the server's accepted maximum; validate before narrowing to millis.
+constexpr uint64_t kMaximumRateSeconds = 86400ULL;
+}
 
 bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 {
@@ -57,15 +63,16 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     {
       SerialMon.println("CMD: SET_SAMPLING_PERIOD");
 
-      if (cmd.cmd_data < AppConfig::kMinimumRateSeconds) 
+      if (cmd.cmd_data < AppConfig::kMinimumRateSeconds ||
+          cmd.cmd_data > kMaximumRateSeconds)
       {
-        SerialMon.print(" Sampling period too low! Minimum is ");
+        SerialMon.print(" Invalid sampling period. Minimum is ");
         SerialMon.print(AppConfig::kMinimumRateSeconds);
-        SerialMon.println(" seconds");
+        SerialMon.println(" seconds; maximum is 86400 seconds");
         break;
       }
 
-      state.samplingPeriodMs = cmd.cmd_data * 1000UL;
+      state.samplingPeriodMs = static_cast<uint32_t>(cmd.cmd_data) * 1000UL;
       applied = true;
 
       SerialMon.print("New Sampling Period: ");
@@ -78,15 +85,16 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     {
       SerialMon.println("CMD: SET_TRANSMISSION_PERIOD");
 
-      if (cmd.cmd_data < AppConfig::kMinimumRateSeconds) 
+      if (cmd.cmd_data < AppConfig::kMinimumRateSeconds ||
+          cmd.cmd_data > kMaximumRateSeconds)
       {
-        SerialMon.print(" Transmission period too low! Minimum is ");
+        SerialMon.print(" Invalid transmission period. Minimum is ");
         SerialMon.print(AppConfig::kMinimumRateSeconds);
-        SerialMon.println(" seconds");
+        SerialMon.println(" seconds; maximum is 86400 seconds");
         break;
       }
 
-      state.transmissionPeriodMs = cmd.cmd_data * 1000UL;
+      state.transmissionPeriodMs = static_cast<uint32_t>(cmd.cmd_data) * 1000UL;
       applied = true;
 
       SerialMon.print("New Transmission Period: ");
@@ -99,7 +107,12 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     {
       SerialMon.println("CMD: SYNC_RTC");
 
-      if (!syncRTCFromEpoch(cmd.cmd_data))
+      if (cmd.cmd_data > UINT32_MAX)
+      {
+        SerialMon.println("STIME rejected: epoch exceeds the 32-bit RTC range");
+        break;
+      }
+      if (!syncRTCFromEpoch(static_cast<uint32_t>(cmd.cmd_data)))
       {
         SerialMon.println("STIME failed; clock was not marked trusted");
         break;

@@ -1,5 +1,8 @@
 # EgSA WIOT
 
+For the complete current STM32 release, package contents, retained features,
+fresh-clone setup and repeatable verification, start with [Release Guide](RELEASE_GUIDE.md).
+
 EgSA WIOT is an industrial IoT platform for flow and soil sensing. This
 repository contains the production STM32 Arduino node, its native
 STM32CubeIDE/HAL port, an independent ESP32 port, the Python server, sensor
@@ -16,8 +19,9 @@ simulators, documentation, and software requirement specifications.
 | `SENSORS` | Sensor manuals, individual simulators, and the multi-sensor RS485 lab |
 | `Node SW Specs` and `outputs` | Requirements and test documentation |
 
-The STM32 Arduino node supports TUF + HNDA and Supmea + Sondas product
-profiles, SIM800L, ESP8266 and E32/AS32 LoRa communication, encrypted nanopb
+The STM32 Arduino node supports independent TUF, Supmea, HNDA and Sondas
+enables/addresses, including all four together, SIM800L, ESP8266 and E32/AS32
+LoRa communication, encrypted nanopb
 telemetry, voltage measurement, watchdog recovery, and configurable power
 modes. See the README inside each firmware directory for its build, pinout,
 and commissioning details.

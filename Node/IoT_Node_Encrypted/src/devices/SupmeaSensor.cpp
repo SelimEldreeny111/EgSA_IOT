@@ -1,3 +1,4 @@
+/** @file SupmeaSensor.cpp @brief Supmea Modbus block reads and flow-quality decoding. */
 #include "SupmeaSensor.h"
 
 #include <Arduino.h>
@@ -22,6 +23,7 @@ constexpr uint16_t kLiveRegisterCount = 10U;  // 98-107
 constexpr uint32_t kInterRequestDelayMs = 100UL;
 constexpr uint8_t kMaxReadAttempts = 2U;
 
+/** @brief Bind half-duplex direction callbacks to the Supmea Modbus client. */
 void attachRs485DirectionCallbacks(ModbusMaster& sensor)
 {
     sensor.preTransmission(rs485PreTransmission);
@@ -29,6 +31,7 @@ void attachRs485DirectionCallbacks(ModbusMaster& sensor)
     sensor.idle(rs485ServiceCommands);
 }
 
+/** @brief Read a register block with configured retry count and watchdog service. */
 uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
 {
     uint8_t result = supmeaSensor.ku8MBResponseTimedOut;
@@ -63,6 +66,7 @@ uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
     return result;
 }
 
+/** @brief Decode a Supmea IEEE-754 response from high-word-first registers. */
 float responseFloat(uint8_t highWordIndex)
 {
     // The FMC240 manual defines Register 1 as BYTE1/BYTE2 and Register 2 as
@@ -76,6 +80,7 @@ float responseFloat(uint8_t highWordIndex)
     return value;
 }
 
+/** @brief Reject NaN and infinite meter readings before publication. */
 bool isFiniteMeasurement(float value)
 {
     return isfinite(value);

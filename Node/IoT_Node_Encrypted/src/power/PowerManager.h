@@ -1,3 +1,7 @@
+/**
+ * @file PowerManager.h
+ * @brief Coordinated component power policy and RTC-standby state machine.
+ */
 #ifndef POWER_MANAGER_H
 #define POWER_MANAGER_H
 #include <stdint.h>
@@ -10,15 +14,16 @@ void powerManagerEarlyBoot();
 // low-power controller modes, makes the first periodic sample immediately due.
 void initializePowerManagerAfterSetup();
 
-// Periodic mode stops new sensor and telemetry work after one successful
-// telemetry delivery, while keeping the selected command transport alive.
+/** @brief Check whether a new acquisition cycle may start. @return False while the post-delivery command window or standby transition is active. */
 bool powerManagerAllowsSensorWork();
 
-// Report the outcome of the scheduled LoRa or MQTT telemetry attempt. A
-// successful delivery opens the configured command-receive window.
+/** @brief Report a scheduled local transport outcome to the sleep FSM.
+ * @param delivered True after LoRa link acceptance or a full MQTT driver write.
+ * @warning MQTT QoS-0 acceptance is not confirmation of server receipt.
+ */
 void notifyPowerManagerTelemetryResult(bool delivered);
 
-// Advances the non-blocking command-window/sleep state machine.
+/** @brief Advance the non-blocking command window and standby preparation. */
 void servicePowerManager();
 
 /** @brief Accept a timed WAKE lease in REMOTE_WAKE, RTC_QUEUED or LORA_WOR_STOP.

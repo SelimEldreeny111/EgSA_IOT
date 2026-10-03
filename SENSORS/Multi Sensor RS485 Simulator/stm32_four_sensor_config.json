@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "description": "STM32 bench: TUF 1, Supmea 2, HNDA 3, Sondas 4; fixed live signals and evolving flow totalizers",
+  "bus": {"port": "COM3", "baudrate": 9600, "parity": "N", "stopbits": 1, "response_delay_ms": 20},
+  "fleet_summary": {"TUF": 1, "SUPMEA": 1, "HNDA": 1, "SONDAS": 1},
+  "devices": [
+    {
+      "id": "stm32-tuf-1", "name": "TUF address 1", "type": "TUF", "address": 1,
+      "enabled": true, "auto_totalizers": true, "time_multiplier": 1.0,
+      "signals": {"flow_rate_m3h": {"mode": "fixed", "value": 12.5}, "velocity_mps": {"mode": "fixed", "value": 1.25}}
+    },
+    {
+      "id": "stm32-supmea-2", "name": "Supmea address 2", "type": "SUPMEA", "address": 2,
+      "enabled": true, "auto_totalizers": true, "time_multiplier": 1.0,
+      "signals": {
+        "flow_rate": {"mode": "fixed", "value": 38.0}, "flow_rate_unit": {"mode": "fixed", "value": 3},
+        "velocity_mps": {"mode": "fixed", "value": 4.0}, "epd_alarm": {"mode": "fixed", "value": 0},
+        "excitation_alarm": {"mode": "fixed", "value": 0}
+      }
+    },
+    {
+      "id": "stm32-hnda-3", "name": "HNDA address 3", "type": "HNDA", "address": 3, "enabled": true,
+      "signals": {"temperature_c": {"mode": "fixed", "value": 23.5}, "moisture_percent": {"mode": "fixed", "value": 35.6}}
+    },
+    {
+      "id": "stm32-sondas-4", "name": "Sondas compatibility address 4", "type": "SONDAS", "address": 4, "enabled": true,
+      "signals": {
+        "temperature_c": {"mode": "fixed", "value": 24.0}, "moisture_percent": {"mode": "fixed", "value": 42.0},
+        "electrical_conductivity": {"mode": "fixed", "value": 850}
+      }
+    }
+  ]
+}

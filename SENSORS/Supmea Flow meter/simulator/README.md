@@ -7,6 +7,11 @@ rate.
 
 ## What the test covers
 
+For a standalone Windows application, run `./build_exe.ps1` in this directory.
+It checks the protocol tests and creates `dist/SUPMEA_FMC240_Simulator.exe`.
+Pass `-Python 'C:/Python314/python.exe'` to select an interpreter, or
+`-SkipDependencyInstall` when pyserial/PyInstaller are already installed.
+
 The simulator implements function `0x03` for the FMC240 register block used by
 the node:
 

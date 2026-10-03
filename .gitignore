@@ -65,6 +65,7 @@ Desktop.ini
 
 # Bundled generated vendor documentation is reproducible and very large
 /WIOT_STM32CubeIDE/Drivers/Documentation/
+/Node/IoT_Node_Encrypted/Documentation/Doxygen/
 
 # Spreadsheet inspection intermediates
 *.inspect.ndjson
