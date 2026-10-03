@@ -24,6 +24,7 @@ void attachRs485DirectionCallbacks(ModbusMaster& sensor)
 {
     sensor.preTransmission(rs485PreTransmission);
     sensor.postTransmission(rs485PostTransmission);
+    sensor.idle(rs485ServiceCommands);
 }
 }
 

@@ -3,5 +3,8 @@
 
 void initializeConfiguredFlowMeter();
 void sampleConfiguredFlowMeter();
+/** @brief Sample only TUF/Supmea so command servicing can run between meters. */
+void sampleTufFlowMeter();
+void sampleSupmeaFlowMeter();
 
 #endif

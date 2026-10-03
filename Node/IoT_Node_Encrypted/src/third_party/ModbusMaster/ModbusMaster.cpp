@@ -746,7 +746,12 @@ digitalWrite(__MODBUSMASTER_DEBUG_PIN_B__, true);
 #endif
 if (_idle)
       {
+        // Foreground command servicing may block on a bounded modem call.
+        // Do not charge that unrelated work to this sensor's response timeout.
+        // The independent hardware watchdog still protects a stalled callback.
+        const uint32_t idleStarted = millis();
         _idle();
+        u32StartTime += millis() - idleStarted;
       }
 
 #if __MODBUSMASTER_DEBUG__

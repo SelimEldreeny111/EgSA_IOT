@@ -26,6 +26,7 @@ __attribute__((section(".noinit"))) volatile PersistentWatchdogStage g_persisten
 bool g_previousResetWasWatchdog = false;
 bool g_watchdogStarted = false;
 bool g_watchdogInitialized = false;
+uint32_t g_watchdogServicePauseDepth = 0U;
 WatchdogStage g_previousWatchdogStage = WatchdogStage::Unknown;
 
 bool isKnownStage(uint32_t rawStage)
@@ -164,7 +165,7 @@ void reportHardwareWatchdogStatus()
 
 void serviceHardwareWatchdog()
 {
-    if (g_watchdogStarted)
+    if (g_watchdogStarted && g_watchdogServicePauseDepth == 0U)
     {
         IWatchdog.reload();
     }
@@ -178,7 +179,7 @@ void serviceHardwareWatchdog(WatchdogStage stage)
 
 void markHardwareWatchdogStage(WatchdogStage stage)
 {
-    storeStage(stage);
+    if (g_watchdogServicePauseDepth == 0U) storeStage(stage);
 }
 
 void watchdogDelay(uint32_t durationMs)
@@ -266,4 +267,13 @@ bool previousResetWasHardwareWatchdog()
 uint32_t hardwareWatchdogResetCount()
 {
     return WatchdogResetCounter::value();
+}
+
+HardwareWatchdogServicePause::HardwareWatchdogServicePause()
+{
+    ++g_watchdogServicePauseDepth;
+}
+HardwareWatchdogServicePause::~HardwareWatchdogServicePause()
+{
+    --g_watchdogServicePauseDepth;
 }

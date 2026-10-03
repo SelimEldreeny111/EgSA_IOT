@@ -67,7 +67,7 @@ void gatewayLoop()
     previousLoraPriority = loraPriority;
   }
 
-  if (!loraPriority && !isAsyncPublishBusy())
+  if (!loraPriority)
   {
     ensureMqttConnection();
     mqttLoop();
@@ -114,9 +114,8 @@ void gatewayLoop()
     serviceHardwareWatchdog();
   }
 
-  // Even the cooperative ESP-AT publisher owns the modem bus. Do not advance
-  // it between LoRa fragments; ACK turnaround has priority until reassembly
-  // completes or its priority window expires.
+  // Queued MQTT sends run only between LoRa receive transactions; keep fragment
+  // ACK turnaround intact. The foreground TinyGSM driver is the only AT owner.
   if (!isLoraReceiveTransactionActive())
   {
     asyncPublishStep();

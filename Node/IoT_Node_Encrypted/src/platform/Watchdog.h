@@ -80,4 +80,15 @@ bool previousResetWasHardwareWatchdog();
 /** @brief Cumulative IWDG reset count, retained in flash; normal boots do not increment. */
 uint32_t hardwareWatchdogResetCount();
 
+/** @brief Prevent nested idle callbacks from feeding/hiding a stuck operation.
+ * Service is restored on scope exit, but the watchdog is not reloaded there.
+ */
+class HardwareWatchdogServicePause {
+public:
+    HardwareWatchdogServicePause();
+    ~HardwareWatchdogServicePause();
+    HardwareWatchdogServicePause(const HardwareWatchdogServicePause&) = delete;
+    HardwareWatchdogServicePause& operator=(const HardwareWatchdogServicePause&) = delete;
+};
+
 #endif

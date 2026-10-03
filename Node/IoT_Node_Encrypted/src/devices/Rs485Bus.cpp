@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "../config/AppConfig.h"
+#include "../platform/Watchdog.h"
 
 extern HardwareSerial SerialMon;
 
@@ -11,6 +12,24 @@ namespace
 bool g_rs485Initialized = false;
 uint32_t g_lastTransmitReleaseUs = 0U;
 constexpr uint32_t kMinimumSilentIntervalUs = 4000U;
+void (*g_commandService)() = nullptr;
+uint32_t g_lastCommandServiceMs = 0U;
+constexpr uint32_t kCommandServiceIntervalMs = 100U;
+}
+
+void setRs485CommandService(void (*service)())
+{
+    g_commandService = service;
+}
+
+void rs485ServiceCommands()
+{
+    if (!g_commandService || millis() - g_lastCommandServiceMs < kCommandServiceIntervalMs) return;
+    // The parent Modbus read is bounded. A broken read must not stay alive
+    // indefinitely by reaching an idle hook that reloads the watchdog.
+    const HardwareWatchdogServicePause pause;
+    g_commandService();
+    g_lastCommandServiceMs = millis();
 }
 
 void rs485PreTransmission()

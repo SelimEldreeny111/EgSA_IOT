@@ -27,20 +27,18 @@ void publishTelemetry();
 bool publishMqttPayload(const char* topic, const uint8_t* payload, size_t payloadLength);
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 
-// --- Async (non-blocking) publish FSM ---
-// Driven cooperatively from the main loop. While the FSM is busy, the AT bus
-// is owned by the FSM and PubSubClient must NOT be invoked.
-//
-// Usage:
-//   if (!isAsyncPublishBusy()) {
-//     ensureMqttConnection();
-//     mqttLoop();
-//     if (timeToPublish) triggerAsyncPublish();
-//   }
-//   asyncPublishStep();        // advance one tiny step every loop iteration
-bool triggerAsyncPublish();    // returns true if a publish was kicked off
-void asyncPublishStep();       // advance the FSM (call every loop iter)
-bool isAsyncPublishBusy();     // true while the FSM owns the AT bus
+// Queue a periodic Status and send through the same PubSubClient/TinyGSM path
+// as command replies. Driver calls are bounded but may block until AT response.
+// "Busy" means queued/outstanding work, NOT permission to skip MQTT reception.
+bool triggerAsyncPublish();
+void asyncPublishStep();
+bool isAsyncPublishBusy();
+/** @brief Start a foreground priority pass and receive one MQTT packet first. */
+void beginMqttCommandPriorityPass();
+/** @brief Receive commands without reconnecting or transmitting queued replies. */
+void serviceMqttPriorityCommands();
+/** @brief Commands received this pass or queued replies outrank sensor/status work. */
+bool mqttCommandWorkPending();
 
 enum class AsyncPublishResult : uint8_t
 {

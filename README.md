@@ -67,3 +67,7 @@ Hardware acceptance and power-mode test procedures are documented alongside
 the STM32 node. The node's `WATCHDOG_RECOVERY_AND_TEST_GUIDE.md` contains the
 global WDT timing audit, configuration, diagnostic stages, and fault-injection
 acceptance tests.
+
+For SIM800 publish recovery and command-first scheduling, see the node's
+`SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md`. It explains the old SEND OK mismatch,
+verified driver writes, priority replies, configuration checks and bench tests.

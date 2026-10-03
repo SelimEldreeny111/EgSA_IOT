@@ -37,7 +37,15 @@ field measurements.
 | SIM800 network registration attempt | 10 s | Normal |
 | SIM800 `gprsConnect()` | up to roughly 492 s (8.2 min) | More than 25 s is treated as stuck |
 | Operator Wi-Fi credential entry | 180 s per field | Intentional bounded wait; watchdog-aware delay keeps it alive |
-| Async ESP publish FSM | 5 s prompt plus 12 s send-result limits | Non-blocking; the superloop continues to run |
+| MQTT publish through TinyGSM | Driver-specific AT send timeout | Bounded but blocking; more than 25 s without progress is treated as stuck |
+
+MQTT now uses a priority packet queue, not the old raw-AT publish FSM. Commands
+are checked before routine work, between sensors, and in Modbus idle gaps.
+Those idle callbacks do not reload IWDG or replace the parent sensor stage.
+Modbus's response deadline excludes callback time, but hardware IWDG still
+bounds the entire uninterrupted request/callback phase. Long library calls can
+therefore still cause an intentional watchdog reset. See
+`SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md` for transport and bench-test details.
 
 The absolute longest path is therefore the SIM800 library GPRS sequence, but
 it is not a suitable watchdog period. STM32duino's STM32F401 IWDG supports a

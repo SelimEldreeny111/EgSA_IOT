@@ -70,5 +70,18 @@ int main(int argc,char** argv) {
     WatchdogResetCounter::initialize(true);
     assert(hardwareWatchdogResetCount()==expected && flushes==expectedFlushes && IWatchdog.captures==1);
     reportHardwareWatchdogStatus();
+    const int reloads=IWatchdog.reloads;
+    {
+        const HardwareWatchdogServicePause outer;
+        serviceHardwareWatchdog();
+        {
+            const HardwareWatchdogServicePause inner;
+            serviceHardwareWatchdog(WatchdogStage::MqttService);
+        }
+        serviceHardwareWatchdog();
+        assert(IWatchdog.reloads==reloads);
+    }
+    serviceHardwareWatchdog();
+    assert(IWatchdog.reloads==reloads+(testWatchdogEnabled?1:0));
     std::cout << "PASS " << scenario << '\n';
 }

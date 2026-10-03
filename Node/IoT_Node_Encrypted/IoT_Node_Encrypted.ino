@@ -42,6 +42,8 @@
 #include "src/app/IoT_Node.h"
 #include "src/app/GatewayApp.h"
 #include "src/app/FlowMeterManager.h"
+#include "src/app/SensorPollCycle.h"
+#include "src/devices/Rs485Bus.h"
 #include "src/comm/CommandHandler.h"
 #include "src/comm/PacketCodec.h"
 #include "src/comm/TelemetryPayload.h"
@@ -65,6 +67,7 @@ HardwareSerial SerialAT(PB_11, PB_10);
 #endif
 
 HardwareSerial SerialLoRa(AppConfig::kLoraRxPin, AppConfig::kLoraTxPin);
+bool g_loraCommandHandledThisPass = false;
 
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
 void pollLoraCommands()
@@ -93,6 +96,7 @@ void pollLoraCommands()
       continue;
     }
 
+    g_loraCommandHandledThisPass = true;
     if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
     {
       if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
@@ -144,12 +148,20 @@ void pollLoraCommands()
 }
 #endif
 
+/** @brief Foreground command pump invoked only in receive gaps, never an ISR. */
+void serviceNodeCommandsDuringSensorWait()
+{
+#if APP_HAS_IP_UPLINK
+  serviceMqttPriorityCommands();
+#endif
+#if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
+  pollLoraCommands();
+#endif
+}
+
 /* ======================================= SETUP ==================================== */
-/**
- * @brief System initialization routine
- * 
- * Initializes hardware interfaces, state management, and MQTT connection.
- * This function runs once during system startup.
+/** @brief Initialize hardware, application state, transport and power policy.
+ * @note Runs once after reset; IWDG is armed before blocking setup operations.
  */
 void setup()
 {
@@ -168,6 +180,7 @@ void setup()
   setup_Init();
 #endif
   initializePowerManagerAfterSetup();
+  setRs485CommandService(serviceNodeCommandsDuringSensorWait);
   serviceHardwareWatchdog(WatchdogStage::Setup);
   runHardwareWatchdogSelfTest(WatchdogSelfTestPoint::AfterSetup);
 }
@@ -210,28 +223,26 @@ void loop()
   }
 #endif
 
-  // The async publish FSM owns the AT bus while non-IDLE. Anything that
-  // talks AT (connect, mqtt.loop) must be skipped while it runs.
-  const bool busy = isAsyncPublishBusy();
+  // Command reception and queued replies are the first foreground work.
+  // Queued publishes no longer seize the UART or disable TinyGSM reception.
+  g_loraCommandHandledThisPass = false;
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
   pollLoraCommands();
 #endif
 #if APP_HAS_IP_UPLINK
-  if (!busy)
-  {
-    ensureMqttConnection();
-    mqttLoop();
-    serviceHardwareWatchdog();
-  }
+  beginMqttCommandPriorityPass();
+  ensureMqttConnection();
+  serviceMqttPriorityCommands();
+  asyncPublishStep(); // correlated replies precede routine sensor/status work
 #endif
 
-  // Re-evaluate after receiving commands: WAKE must enable fresh sampling in
-  // this same iteration, rather than using a pre-command idle decision.
   const bool allowSensorWork = powerManagerAllowsSensorWork();
-
-  // Sensor sampling runs on a different bus (RS485 Modbus), so it stays
-  // responsive even while the modem is mid-CIPSEND.
-  if (allowSensorWork &&
+  bool commandPriority = g_loraCommandHandledThisPass;
+#if APP_HAS_IP_UPLINK
+  commandPriority = commandPriority || mqttCommandWorkPending();
+#endif
+  static SensorPollCycle sensorCycle;
+  if (allowSensorWork && !commandPriority && !sensorCycle.active() &&
       millis() - state.lastReadMs >= state.samplingPeriodMs)
   {
     state.lastReadMs = millis();
@@ -242,34 +253,53 @@ void loop()
       SerialMon.print(state.batteryVoltage, 2);
       SerialMon.println(" V (encoded in Status/Telemetry)");
     }
-
-    serviceHardwareWatchdog(WatchdogStage::FlowMeterRead);
-    sampleConfiguredFlowMeter();
-    serviceHardwareWatchdog();
-
-    if (AppConfig::kEnableHndaSensor)
-    {
-      serviceHardwareWatchdog(WatchdogStage::HndaRead);
-      const HndaSensorData data = readHndaSensor();
-      updateHndaMetrics(data);
-      printHndaSensorData(data);
-      serviceHardwareWatchdog();
-    }
-
-    if (AppConfig::kEnableSondasSensor)
-    {
-      serviceHardwareWatchdog(WatchdogStage::SondasRead);
-      const SondasSensorData data = readSondasSensor();
-      updateSondasMetrics(data);
-      printSondasSensorData(data);
-      serviceHardwareWatchdog();
-    }
-
+    sensorCycle.begin();
   }
 
-  // Kick off a non-blocking publish when it's time AND the FSM is free.
+  // Exactly one enabled sensor per pass; RX is serviced between every sensor
+  // and in rate-limited Modbus wait gaps. Never publish a half-finished cycle.
+  if (allowSensorWork && !commandPriority && sensorCycle.active())
+  {
+    const auto sensor = sensorCycle.next(AppConfig::kEnableTufSensor,
+        AppConfig::kEnableSupmeaSensor, AppConfig::kEnableHndaSensor,
+        AppConfig::kEnableSondasSensor);
+    switch (sensor)
+    {
+      case SensorPollCycle::Sensor::Tuf:
+        serviceHardwareWatchdog(WatchdogStage::FlowMeterRead);
+        sampleTufFlowMeter();
+        break;
+      case SensorPollCycle::Sensor::Supmea:
+        serviceHardwareWatchdog(WatchdogStage::FlowMeterRead);
+        sampleSupmeaFlowMeter();
+        break;
+      case SensorPollCycle::Sensor::Hnda: {
+        serviceHardwareWatchdog(WatchdogStage::HndaRead);
+        const HndaSensorData data = readHndaSensor();
+        updateHndaMetrics(data); printHndaSensorData(data);
+        break;
+      }
+      case SensorPollCycle::Sensor::Sondas: {
+        serviceHardwareWatchdog(WatchdogStage::SondasRead);
+        const SondasSensorData data = readSondasSensor();
+        updateSondasMetrics(data); printSondasSensorData(data);
+        break;
+      }
+      case SensorPollCycle::Sensor::None: break;
+    }
+    sensorCycle.completed();
+    (void)sensorCycle.next(AppConfig::kEnableTufSensor, AppConfig::kEnableSupmeaSensor,
+        AppConfig::kEnableHndaSensor, AppConfig::kEnableSondasSensor);
+    serviceHardwareWatchdog();
+  }
+
+  commandPriority = g_loraCommandHandledThisPass;
+#if APP_HAS_IP_UPLINK
+  commandPriority = commandPriority || mqttCommandWorkPending();
+#endif
+  // Only complete sensor snapshots are eligible for a routine Status send.
   if (allowSensorWork &&
-      !busy &&
+      !sensorCycle.active() && !commandPriority && !isAsyncPublishBusy() &&
       (millis() - state.lastSendMs >= state.transmissionPeriodMs))
   {
 #if APP_HAS_LORA
@@ -311,7 +341,8 @@ void loop()
   }
 
 #if APP_HAS_IP_UPLINK
-  // Advance the FSM by one tiny step every loop iteration.
+  // Catch commands that arrived during sampling before sending routine data.
+  serviceMqttPriorityCommands();
   asyncPublishStep();
   const AsyncPublishResult publishResult = takeAsyncPublishResult();
   if (publishResult != AsyncPublishResult::None)

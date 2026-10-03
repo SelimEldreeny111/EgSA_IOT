@@ -98,6 +98,7 @@ void initializeTufSensor()
 
     tufSensor.preTransmission(rs485PreTransmission);
     tufSensor.postTransmission(rs485PostTransmission);
+    tufSensor.idle(rs485ServiceCommands);
 
     SerialMon.print("Modbus test... ");
     const uint8_t res = readHoldingRegistersWithRetry(kErrorCodeRegister, 1U);

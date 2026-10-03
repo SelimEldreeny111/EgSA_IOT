@@ -254,10 +254,20 @@ void initializeConfiguredFlowMeter()
 
 void sampleConfiguredFlowMeter()
 {
+    sampleTufFlowMeter();
+    sampleSupmeaFlowMeter();
+}
+
+void sampleTufFlowMeter()
+{
     if (AppConfig::kEnableTufSensor)
     {
         sampleTuf();
     }
+}
+
+void sampleSupmeaFlowMeter()
+{
     if (AppConfig::kEnableSupmeaSensor)
     {
         sampleSupmea();

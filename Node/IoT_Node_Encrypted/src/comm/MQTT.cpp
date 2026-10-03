@@ -17,100 +17,25 @@ extern HardwareSerial SerialMon;
 extern HardwareSerial SerialAT;
 
 TinyGsm modem(SerialAT);
-TinyGsmClient gsmClient(modem);
+#include "CachedTinyGsmClient.h"
+CachedTinyGsmClient gsmClient(modem);
 
-/**
- * BufferedClient: coalesces successive write() calls into a single underlying
- * write() so AT-modem transports (notably ESP-AT on ESP8266) only pay the
- * AT+CIPSEND round-trip once per MQTT packet instead of three times.
- *
- * Why: PubSubClient emits each packet as 3 sequential writes (header byte,
- * remaining-length VLQ, topic+payload). On ESP-AT each underlying write maps
- * to a separate CIPSEND with a multi-second prompt/SEND-OK round-trip; on
- * SIM800 the same firmware path is fast (~70 ms) so the issue is invisible
- * there. Buffering reduces 3 round-trips to 1.
- *
- * The caller MUST invoke flush() at every MQTT packet boundary
- * (after connect / publish / subscribe / loop / disconnect).
- */
-namespace {
-constexpr size_t kClientWriteBufferSize = AppConfig::kMqttPacketBufferSize;
-}
+#include "VerifiedBufferedClient.h"
+#include "PriorityPublishQueue.h"
+#include "TelemetryPayload.h"
 
-class BufferedClient : public Client
-{
-public:
-  BufferedClient(Client& wrapped) : _wrapped(wrapped), _len(0) {}
-
-  size_t write(uint8_t b) override
-  {
-    if (_len >= sizeof(_buf)) {
-      flushBuffer();
-    }
-    _buf[_len++] = b;
-    return 1;
-  }
-
-  size_t write(const uint8_t* buf, size_t size) override
-  {
-    size_t total = 0;
-    while (size > 0) {
-      if (_len == sizeof(_buf)) {
-        flushBuffer();
-      }
-      const size_t space = sizeof(_buf) - _len;
-      const size_t take = (size < space) ? size : space;
-      memcpy(_buf + _len, buf, take);
-      _len += take;
-      buf += take;
-      size -= take;
-      total += take;
-    }
-    return total;
-  }
-
-  void flush() override
-  {
-    flushBuffer();
-    _wrapped.flush();
-  }
-
-  // Auto-flush before any read so that write→read sequences inside a single
-  // PubSubClient call (e.g. connect writes CONNECT then reads CONNACK) don't
-  // stall waiting for bytes that are still sitting in the write buffer.
-  int available() override { flushBuffer(); return _wrapped.available(); }
-  int read() override { flushBuffer(); return _wrapped.read(); }
-  int read(uint8_t* buf, size_t size) override { flushBuffer(); return _wrapped.read(buf, size); }
-  int peek() override { flushBuffer(); return _wrapped.peek(); }
-  uint8_t connected() override { return _wrapped.connected(); }
-  operator bool() override { return static_cast<bool>(_wrapped); }
-  int connect(IPAddress ip, uint16_t port) override { return _wrapped.connect(ip, port); }
-  int connect(const char* host, uint16_t port) override { return _wrapped.connect(host, port); }
-  void stop() override { flushBuffer(); _wrapped.stop(); }
-
-private:
-  void flushBuffer()
-  {
-    if (_len == 0) {
-      return;
-    }
-    _wrapped.write(_buf, _len);
-    _len = 0;
-  }
-
-  Client&  _wrapped;
-  uint8_t  _buf[kClientWriteBufferSize];
-  size_t   _len;
-};
-
-BufferedClient bufferedClient(gsmClient);
+VerifiedBufferedClient<AppConfig::kMqttPacketBufferSize> bufferedClient(gsmClient);
 PubSubClient   mqtt(bufferedClient);
 
 namespace {
-constexpr bool kLogPayloadHex = false;
 uint32_t g_lastMqttActivityMs = 0;
 uint32_t g_lastReconnectAttemptMs = 0;
 uint8_t g_mqttConnectFailureCount = 0;
+PriorityPublishQueue<AppConfig::kCodecBufferSize, 4U> g_publishQueue;
+AsyncPublishResult g_asyncResult = AsyncPublishResult::None;
+bool g_modemOperationActive = false;
+bool g_commandHandledThisPass = false;
+bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t length);
 
 void logElapsedMs(const char* label, uint32_t elapsedMs)
 {
@@ -434,6 +359,17 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   }
   return;
 #else
+  if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
+  {
+    SerialMon.println("CMD rejected: topic/payload node mismatch");
+    return;
+  }
+  g_commandHandledThisPass = true;
+  if (g_publishQueue.hasStatus())
+  {
+    g_publishQueue.dropStatus();
+    g_asyncResult = AsyncPublishResult::Failure;
+  }
   if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
   {
     if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
@@ -449,11 +385,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
     if (handleGetTelemetryCommand(&cmd, telemetryPayload,
                                   telemetryPayloadLength, applied))
     {
-      mqtt.publish(kMqttPublishTopicTlm, telemetryPayload, telemetryPayloadLength);
-      bufferedClient.flush();
-      if (AppConfig::kEnableVerboseMqttLogs) {
-        SerialMon.println(" Telemetry response published");
-      }
+      if (!g_publishQueue.pushReply(telemetryPayload, telemetryPayloadLength))
+        SerialMon.println("ERROR: command-reply queue full; reply was NOT sent");
+      else SerialMon.println("[CMD] Telemetry reply queued with highest transmit priority");
     }
   }
   else
@@ -465,8 +399,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
       size_t ackLength = 0U;
       if (handleGetTelemetryCommand(&cmd, ackPayload, ackLength, applied))
       {
-        mqtt.publish(kMqttPublishTopicTlm, ackPayload, ackLength);
-        bufferedClient.flush();
+        if (!g_publishQueue.pushReply(ackPayload, ackLength))
+          SerialMon.println("ERROR: command-reply queue full; ACK was NOT sent");
       }
     }
   }
@@ -475,6 +409,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 
 bool ensureMqttConnection()
 {
+  if (g_modemOperationActive) return false;
   serviceHardwareWatchdog(WatchdogStage::MqttStatus);
   const bool alreadyConnected = mqtt.connected();
   serviceHardwareWatchdog();
@@ -548,27 +483,38 @@ bool ensureMqttConnection()
   g_mqttConnectFailureCount = 0;
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  mqtt.subscribe(kMqttGatewayCommandWildcardTopic);
-  bufferedClient.flush();
+  const bool nodeSubscribed = mqtt.subscribe(kMqttGatewayCommandWildcardTopic);
+  const bool nodeFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
+  const bool subscriptionsSent = nodeSubscribed && nodeFlushed;
 #else
-  mqtt.subscribe(kMqttCommandTopic);
-  bufferedClient.flush();
+  const bool nodeSubscribed = mqtt.subscribe(kMqttCommandTopic);
+  const bool nodeFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
-  mqtt.subscribe(kMqttBroadcastTopic);
-  bufferedClient.flush();
+  const bool broadcastSubscribed = mqtt.subscribe(kMqttBroadcastTopic);
+  const bool broadcastFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
+  const bool subscriptionsSent = nodeSubscribed && nodeFlushed &&
+      broadcastSubscribed && broadcastFlushed;
 #endif
+
+  if (!subscriptionsSent)
+  {
+    SerialMon.println("ERROR: command SUBSCRIBE send failed; reconnecting next pass");
+    mqtt.disconnect();
+    serviceHardwareWatchdog();
+    return false;
+  }
 
   if (AppConfig::kEnableVerboseMqttLogs) {
     SerialMon.println("CONNECTED");
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-    SerialMon.print("Subscribed to: ");
+    SerialMon.print("Command subscription sent: ");
     SerialMon.println(kMqttGatewayCommandWildcardTopic);
 #else
-    SerialMon.print("Subscribed to: ");
+    SerialMon.print("Command subscription sent: ");
     SerialMon.println(kMqttCommandTopic);
-    SerialMon.print("Subscribed to: ");
+    SerialMon.print("Command subscription sent: ");
     SerialMon.println(kMqttBroadcastTopic);
 #endif
   }
@@ -578,12 +524,21 @@ bool ensureMqttConnection()
 
 void mqttLoop()
 {
+  // Callback only applies commands and queues responses. It never publishes
+  // recursively while PubSubClient is decoding the inbound MQTT packet.
+  if (g_modemOperationActive || mqtt.state() != 0 || g_publishQueue.replyFull()) return;
+  g_modemOperationActive = true;
   serviceHardwareWatchdog(WatchdogStage::MqttService);
   mqtt.loop();
   // Flushes any PINGREQ that mqtt.loop() may have emitted, so it leaves
   // in a single AT+CIPSEND instead of sitting in the buffer until the next
   // publish/subscribe call.
-  bufferedClient.flush();
+  if (!bufferedClient.finishPacket())
+  {
+    SerialMon.println("[MQTT] Keepalive/socket send failed; closing connection");
+    mqtt.disconnect();
+  }
+  g_modemOperationActive = false;
   serviceHardwareWatchdog();
 }
 
@@ -613,326 +568,57 @@ bool checkNetworkStatus()
   return true;
 }
 
+namespace {
+/** @brief Validate both PubSubClient's buffer write and TinyGSM's modem result. */
+bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t length)
+{
+  serviceHardwareWatchdog(WatchdogStage::MqttPublish);
+  const uint32_t started = millis();
+  const bool queued = mqtt.publish(topic, payload, length);
+  const bool flushed = bufferedClient.finishPacket();
+  serviceHardwareWatchdog();
+  logElapsedMs("MQTT driver send time", millis() - started);
+  if (!queued || !flushed) {
+    // An ambiguous/partial MQTT packet must not be followed by another packet
+    // on this TCP stream. TinyGSM owns recovery and receive-URC processing.
+    mqtt.disconnect();
+    serviceHardwareWatchdog();
+    return false;
+  }
+  g_lastMqttActivityMs = millis();
+  return true;
+}
+}
+
 void publishTelemetry()
 {
-  const uint32_t publishStartMs = millis();
-  if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("\n================= PUBLISH Status =================");
-    SerialMon.println("\n--- Struct filling  ---");
-  }
-
-  logElapsedMs("MQTT ready time", millis() - publishStartMs);
-
-  // Note: do NOT call mqtt.connected() here. On ESP-AT 1.x it issues
-  // AT+CIPSTATUS which costs ~6 s. The connection state is already kept
-  // current by mqtt.loop() in the main loop, and mqtt.publish() returns
-  // false on a dead socket — that is our reconnect trigger below.
-
-  AppRuntimeState& state = appState();
-  const uint32_t rtcStartMs = millis();
-  state.lastTimestamp = getEpochTime();
-  refreshBatteryVoltage();
-  logElapsedMs("RTC read time (getEpochTime)", millis() - rtcStartMs);
-
-  Status_Message status = Status_Message_init_zero;
-  status.node_id = AppConfig::kNodeId;
-  status.timestamp = state.lastTimestamp;
-  populateSensorPayloadFields(status, state);
-
-  if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("Status struct filled");
-    SerialMon.println("\n--- Encode & Encrypt  ---");
-  }
-
-  uint8_t payload[AppConfig::kCodecBufferSize];
-  size_t payloadLength = 0;
-  const uint32_t encodeStartMs = millis();
-  if (!encodeEncryptedMessage(Status_Message_fields, &status, payload, sizeof(payload), payloadLength))
-  {
-    SerialMon.println(" Telemetry encode FAILED");
-    return;
-  }
-  logElapsedMs("Encode time", millis() - encodeStartMs);
-
-  if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.print("Encoded Data : ");
-    SerialMon.print(payloadLength);
-    SerialMon.println(" Bytes ");
-  }
-
-  if (kLogPayloadHex)
-  {
-    SerialMon.println("Encoded Payload (HEX):");
-    for (size_t i = 0; i < payloadLength; i++)
-    {
-      if (payload[i] < 0x10) SerialMon.print("0");
-      SerialMon.print(payload[i], HEX);
-      SerialMon.print(" ");
-    }
-    SerialMon.println();
-  }
-
-  if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("\n--- Publish ---");
-  }
-
-  const uint32_t publishCallStartMs = millis();
-  serviceHardwareWatchdog(WatchdogStage::MqttPublish);
-  const bool published = mqtt.publish(kMqttPublishTopicStatus, payload, payloadLength);
-  bufferedClient.flush();
-  serviceHardwareWatchdog();
-  logElapsedMs("Publish call time", millis() - publishCallStartMs);
-  if (!published)
-  {
-    SerialMon.println(" Telemetry publish FAILED");
-    SerialMon.print("MQTT State after publish: ");
-    SerialMon.println(mqtt.state());
-    SerialMon.print("Network connected: ");
-    const bool networkConnected = modem.isNetworkConnected();
-    serviceHardwareWatchdog();
-    SerialMon.println(networkConnected ? "YES" : "NO");
-    // The publish failed: the socket is most likely dead. Trigger a reconnect
-    // so the next cycle gets a fresh CONNECT (replaces the old pre-check).
-    ensureMqttConnection();
-    return;
-  }
-
-  g_lastMqttActivityMs = millis();
-  if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("Telemetry Published Successfully");
-    logElapsedMs("Total publishTelemetry time", millis() - publishStartMs);
-    SerialMon.println("====================================================\n");
-  }
+  if (triggerAsyncPublish()) asyncPublishStep();
 }
 
 bool publishMqttPayload(const char* topic, const uint8_t* payload, size_t payloadLength)
 {
-  if (topic == nullptr || payload == nullptr || payloadLength == 0)
-  {
-    return false;
+  if (!topic || !payload || !payloadLength || g_modemOperationActive) return false;
+  if (!ensureMqttConnection()) return false;
+  serviceMqttPriorityCommands();
+  if (g_publishQueue.hasReplies()) {
+    asyncPublishStep();
+    if (g_publishQueue.hasReplies()) return false;
   }
-
-  if (!ensureMqttConnection())
-  {
-    return false;
-  }
-  serviceHardwareWatchdog();
-
-  serviceHardwareWatchdog(WatchdogStage::MqttPublish);
-  const bool published = mqtt.publish(topic, payload, payloadLength);
-  bufferedClient.flush();
-  serviceHardwareWatchdog();
-  if (published)
-  {
-    g_lastMqttActivityMs = millis();
-  }
-  return published;
+  g_modemOperationActive = true;
+  const bool accepted = sendCheckedMqttPayload(topic, payload, payloadLength);
+  g_modemOperationActive = false;
+  return accepted;
 }
 
-/* =============================================================================
- *                    ASYNC (NON-BLOCKING) PUBLISH FSM
- * =============================================================================
- * The synchronous mqtt.publish() blocks the STM32 superloop for ~6.5 s on
- * ESP-AT 1.x because TinyGsmClient::write() waits for "SEND OK". This FSM
- * builds the same encrypted MQTT PUBLISH frame, then drives the AT bus
- * directly with AT+CIPSEND in cooperative steps so loop() returns in <1 ms
- * per iteration. Sensor sampling, RTC reads, and encryption stay responsive.
- *
- * Bus arbitration: while the FSM is non-IDLE, the caller MUST gate
- * ensureMqttConnection()/mqttLoop() on isAsyncPublishBusy() == false.
- * Inbound CMD messages (+IPD) are deferred by the ESP firmware until after
- * SEND OK; they are picked up on the next mqttLoop() call.
- *
- * Mux: assumes mux=0 (only one TinyGsmClient instance is created). If you
- * add a second client, kAsyncMux must be updated.
- * ============================================================================= */
-
-namespace {
-
-// ============= DEBUG SWITCH =============
-// Set to true for detailed async FSM tracing (verbose).
-constexpr bool kAsyncDeepDebug = false;
-// ========================================
-
-enum class PublishStage : uint8_t {
-  IDLE,
-  ISSUE_CIPSEND,
-  WAIT_PROMPT,
-  SEND_PAYLOAD,
-  WAIT_SEND_OK,
-};
-
-constexpr uint8_t  kAsyncMux             = 0;
-constexpr size_t   kAsyncFrameCap        = AppConfig::kMqttPacketBufferSize;
-constexpr size_t   kAsyncPayloadChunk    = 64;
-constexpr uint32_t kAsyncPromptTimeoutMs = 5000;
-constexpr uint32_t kAsyncSendOkTimeoutMs = 12000;
-constexpr uint32_t kAsyncHeartbeatMs     = 1000;   // print "still waiting" every 1s
-
-PublishStage g_asyncStage         = PublishStage::IDLE;
-AsyncPublishResult g_asyncResult  = AsyncPublishResult::None;
-uint32_t     g_asyncStageStartMs  = 0;
-uint32_t     g_asyncTriggerStartMs = 0;
-uint32_t     g_asyncLastHeartbeat = 0;
-uint8_t      g_asyncFrame[kAsyncFrameCap];
-size_t       g_asyncFrameLen      = 0;
-size_t       g_asyncFrameSent     = 0;
-char         g_asyncLineBuf[80];
-size_t       g_asyncLineLen       = 0;
-char         g_asyncPromptBuf[64];     // captures bytes received before '>'
-size_t       g_asyncPromptLen     = 0;
-uint32_t     g_asyncStepCallCount = 0;  // how many step() calls per publish
-
-void setStage(PublishStage next)
-{
-  g_asyncStage         = next;
-  g_asyncStageStartMs  = millis();
-  g_asyncLastHeartbeat = millis();
-}
-
-void heartbeat(const char* what)
-{
-  // Silenced for cleaner logs. Enable if debugging async stalls.
-  (void)what;
-}
-
-void dumpHex(const char* label, const uint8_t* buf, size_t len)
-{
-  if (!kAsyncDeepDebug) return;
-  SerialMon.print("[async] ");
-  SerialMon.print(label);
-  SerialMon.print(" (");
-  SerialMon.print(len);
-  SerialMon.print(" B):");
-  for (size_t i = 0; i < len; ++i) {
-    if ((i & 0x0F) == 0) SerialMon.println();
-    if (buf[i] < 0x10) SerialMon.print('0');
-    SerialMon.print(buf[i], HEX);
-    SerialMon.print(' ');
-  }
-  SerialMon.println();
-}
-
-void logRxByte(int c)
-{
-  if (!kAsyncDeepDebug) return;
-  // Print printable as char, otherwise as <HH>
-  if (c >= 0x20 && c < 0x7F) {
-    SerialMon.write(static_cast<uint8_t>(c));
-  } else if (c == '\r') {
-    SerialMon.print("\\r");
-  } else if (c == '\n') {
-    SerialMon.print("\\n");
-  } else {
-    SerialMon.print('<');
-    if (c < 0x10) SerialMon.print('0');
-    SerialMon.print(c, HEX);
-    SerialMon.print('>');
-  }
-}
-
-// Build a complete MQTT PUBLISH frame (QoS 0, no retain, no dup) into `out`.
-// Returns total length, or 0 on error.
-size_t buildEncryptedPublishFrame(const char* topic, uint8_t* out, size_t outCap)
-{
-  if (kAsyncDeepDebug) {
-    SerialMon.print("[async] buildFrame: topic='");
-    SerialMon.print(topic);
-    SerialMon.print("' (len=");
-    SerialMon.print(strlen(topic));
-    SerialMon.print("), outCap=");
-    SerialMon.println(outCap);
-  }
-
-  AppRuntimeState& state = appState();
-  const uint32_t rtcStart = millis();
-  state.lastTimestamp = getEpochTime();
-  refreshBatteryVoltage();
-  if (kAsyncDeepDebug) {
-    SerialMon.print("[async] buildFrame: getEpochTime=");
-    SerialMon.print(state.lastTimestamp);
-    SerialMon.print(" (");
-    SerialMon.print(millis() - rtcStart);
-    SerialMon.println(" ms)");
-  }
-
-  Status_Message status = Status_Message_init_zero;
-  status.node_id            = AppConfig::kNodeId;
-  status.timestamp          = state.lastTimestamp;
-  populateSensorPayloadFields(status, state);
-
-  SerialMon.println("--- Encode & Encrypt  ---");
-  uint8_t payload[AppConfig::kCodecBufferSize];
-  size_t  payloadLen = 0;
-  const uint32_t encStart = millis();
-  if (!encodeEncryptedMessage(Status_Message_fields, &status, payload, sizeof(payload), payloadLen)) {
-    SerialMon.println("[async] buildFrame: encodeEncryptedMessage FAILED");
-    return 0;
-  }
-  SerialMon.print("Encode time: ");
-  SerialMon.print(millis() - encStart);
-  SerialMon.println(" ms");
-  SerialMon.print("Encoded Data : ");
-  SerialMon.print(payloadLen);
-  SerialMon.println(" Bytes ");
-  if (kAsyncDeepDebug) {
-    dumpHex("encrypted payload", payload, payloadLen);
-  }
-
-  const size_t topicLen        = strlen(topic);
-  const size_t variableHdrLen  = 2 + topicLen;
-  const size_t remainingLen    = variableHdrLen + payloadLen;
-
-  // VLQ-encode remainingLen (1..4 bytes).
-  uint8_t vlq[4];
-  size_t  vlqLen = 0;
-  size_t  r = remainingLen;
-  do {
-    uint8_t b = static_cast<uint8_t>(r & 0x7F);
-    r >>= 7;
-    if (r > 0) b |= 0x80;
-    vlq[vlqLen++] = b;
-  } while (r > 0 && vlqLen < 4);
-
-  const size_t totalLen = 1 + vlqLen + variableHdrLen + payloadLen;
-  if (totalLen > outCap) {
-    SerialMon.print("[async] buildFrame: OVERFLOW totalLen=");
-    SerialMon.print(totalLen);
-    SerialMon.print(" > cap=");
-    SerialMon.println(outCap);
-    return 0;
-  }
-
-  SerialMon.println();
-  SerialMon.println("--- Publish ---");
-
-  size_t off = 0;
-  out[off++] = 0x30;                                              // PUBLISH | QoS0 | retain=0 | dup=0
-  memcpy(out + off, vlq, vlqLen); off += vlqLen;                  // remaining length
-  out[off++] = static_cast<uint8_t>((topicLen >> 8) & 0xFF);      // topic len MSB
-  out[off++] = static_cast<uint8_t>(topicLen & 0xFF);             // topic len LSB
-  memcpy(out + off, topic, topicLen); off += topicLen;            // topic
-  memcpy(out + off, payload, payloadLen); off += payloadLen;      // payload
-
-  if (kAsyncDeepDebug) {
-    SerialMon.print("[async] buildFrame: totalLen=");
-    SerialMon.print(off);
-    SerialMon.print(" B  (header=1, vlq=");
-    SerialMon.print(vlqLen);
-    SerialMon.print(", topicLenField=2, topic=");
-    SerialMon.print(topicLen);
-    SerialMon.print(", payload=");
-    SerialMon.print(payloadLen);
-    SerialMon.println(")");
-    dumpHex("full MQTT PUBLISH frame", out, off);
-  }
-  return off;
-}
-}  // namespace
-
+/** @brief Legacy async API now queues packets through PubSubClient/TinyGSM.
+ * SIM800 CIPQSEND=1 returns DATA ACCEPT, not SEND OK. Only TinyGSM owns the
+ * modem UART, including receive URCs; PubSubClient maintains MQTT keepalive.
+ * Calls remain cooperative between bounded driver operations, not interruptible
+ * within an AT transaction. Command replies always precede periodic Status.
+ */
 bool isAsyncPublishBusy()
 {
-  return g_asyncStage != PublishStage::IDLE;
+  return g_modemOperationActive || g_publishQueue.pending();
 }
 
 AsyncPublishResult takeAsyncPublishResult()
@@ -944,202 +630,54 @@ AsyncPublishResult takeAsyncPublishResult()
 
 bool triggerAsyncPublish()
 {
-  if (g_asyncStage != PublishStage::IDLE) {
+  if (g_publishQueue.pending() || g_commandHandledThisPass || mqtt.state() != 0)
     return false;
-  }
-  const int mqttState = mqtt.state();
-  if (mqttState != 0) {
-    return false;
-  }
-
-  SerialMon.println("\n================= PUBLISH Status =================");
-  SerialMon.println();
-  SerialMon.println("--- Struct filling  ---");
-  g_asyncFrameLen = buildEncryptedPublishFrame(
-      kMqttPublishTopicStatus, g_asyncFrame, sizeof(g_asyncFrame));
-  SerialMon.print("Status struct filled\n\n");
-  if (g_asyncFrameLen == 0) {
-    SerialMon.println("[PUB] Frame build FAILED");
-    return false;
-  }
-
-  g_asyncFrameSent      = 0;
-  g_asyncLineLen        = 0;
-  g_asyncPromptLen      = 0;
-  g_asyncStepCallCount  = 0;
-  g_asyncTriggerStartMs = millis();
-  g_asyncResult         = AsyncPublishResult::None;
-  setStage(PublishStage::ISSUE_CIPSEND);
-  return true;
+  uint8_t payload[AppConfig::kCodecBufferSize];
+  size_t length = 0U;
+  if (!buildEncryptedStatusPayload(payload, sizeof(payload), length)) return false;
+  g_asyncResult = AsyncPublishResult::None;
+  return g_publishQueue.pushStatus(payload, length);
 }
 
 void asyncPublishStep()
 {
-  if (g_asyncStage != PublishStage::IDLE) {
-    g_asyncStepCallCount++;
+  if (g_modemOperationActive || mqtt.state() != 0 || !g_publishQueue.pending()) return;
+  // A command can invalidate a previously queued periodic control-state snapshot.
+  if (g_commandHandledThisPass && !g_publishQueue.hasReplies()) return;
+  const bool reply = g_publishQueue.hasReplies();
+  const auto& packet = g_publishQueue.front();
+  g_modemOperationActive = true;
+  const bool accepted = sendCheckedMqttPayload(
+      reply ? kMqttPublishTopicTlm : kMqttPublishTopicStatus, packet.bytes, packet.length);
+  g_modemOperationActive = false;
+  if (accepted) {
+    g_publishQueue.pop();
+    SerialMon.println(reply ? "[MQTT] Command reply accepted by modem (server receipt not confirmed)"
+                            : "[MQTT] Status accepted by modem (server receipt not confirmed)");
+    if (!reply) g_asyncResult = AsyncPublishResult::Success;
+  } else {
+    // Keep correlated command ACKs for retry; never report a failed Status as sent.
+    if (!reply) { g_publishQueue.dropStatus(); g_asyncResult = AsyncPublishResult::Failure; }
+    SerialMon.println("[MQTT] Send failed; reconnect required, command replies retained");
   }
+}
 
-  switch (g_asyncStage) {
+void beginMqttCommandPriorityPass()
+{
+  g_commandHandledThisPass = false;
+  mqttLoop();
+}
 
-  case PublishStage::IDLE:
-    return;
+void serviceMqttPriorityCommands()
+{
+  if (g_modemOperationActive || mqtt.state() != 0 || g_publishQueue.replyFull()) return;
+  // TinyGSM processes +CIPRXGET/+IPD here without reconnecting. In sensor wait
+  // gaps, only enter the MQTT parser if bytes exist. Full keepalive maintenance
+  // is performed at the beginning of every foreground application pass.
+  if (gsmClient.available() > 0) mqttLoop();
+}
 
-  case PublishStage::ISSUE_CIPSEND: {
-    if (kAsyncDeepDebug) {
-      SerialMon.print("[async] TX> AT+CIPSEND=");
-      SerialMon.print(static_cast<unsigned>(kAsyncMux));
-      SerialMon.print(",");
-      SerialMon.println(static_cast<unsigned>(g_asyncFrameLen));
-    }
-    SerialAT.print("AT+CIPSEND=");
-    SerialAT.print(static_cast<unsigned>(kAsyncMux));
-    SerialAT.print(",");
-    SerialAT.print(static_cast<unsigned>(g_asyncFrameLen));
-    SerialAT.print("\r\n");
-    g_asyncLineLen   = 0;
-    g_asyncPromptLen = 0;
-    setStage(PublishStage::WAIT_PROMPT);
-    return;
-  }
-
-  case PublishStage::WAIT_PROMPT: {
-    bool sawByte = false;
-    while (SerialAT.available()) {
-      const int c = SerialAT.read();
-      sawByte = true;
-      // Capture for forensics
-      if (g_asyncPromptLen + 1 < sizeof(g_asyncPromptBuf)) {
-        g_asyncPromptBuf[g_asyncPromptLen++] = static_cast<char>(c);
-      }
-      if (kAsyncDeepDebug) {
-        SerialMon.print("[async] RX< ");
-        logRxByte(c);
-        SerialMon.println();
-      }
-      if (c == '>') {
-        if (kAsyncDeepDebug) {
-          g_asyncPromptBuf[g_asyncPromptLen] = '\0';
-          SerialMon.print("[async] '>' prompt detected after ");
-          SerialMon.print(millis() - g_asyncStageStartMs);
-          SerialMon.print(" ms; preamble bytes=");
-          SerialMon.println(g_asyncPromptLen);
-        }
-        g_asyncFrameSent = 0;
-        setStage(PublishStage::SEND_PAYLOAD);
-        return;
-      }
-    }
-    if (!sawByte) {
-      heartbeat("waiting for '>' prompt");
-    }
-    if (millis() - g_asyncStageStartMs > kAsyncPromptTimeoutMs) {
-      g_asyncPromptBuf[g_asyncPromptLen] = '\0';
-      SerialMon.println("[async] CIPSEND prompt TIMEOUT");
-      SerialMon.print("[async] preamble received before timeout (");
-      SerialMon.print(g_asyncPromptLen);
-      SerialMon.println(" B):");
-      SerialMon.println(g_asyncPromptBuf);
-      g_asyncResult = AsyncPublishResult::Failure;
-      setStage(PublishStage::IDLE);
-    }
-    return;
-  }
-
-  case PublishStage::SEND_PAYLOAD: {
-    const size_t remain = g_asyncFrameLen - g_asyncFrameSent;
-    const size_t take   = (remain < kAsyncPayloadChunk) ? remain : kAsyncPayloadChunk;
-    const size_t wrote  = SerialAT.write(g_asyncFrame + g_asyncFrameSent, take);
-    g_asyncFrameSent += wrote;
-    if (kAsyncDeepDebug) {
-      SerialMon.print("[async] TX payload chunk: wrote ");
-      SerialMon.print(wrote);
-      SerialMon.print("/");
-      SerialMon.print(take);
-      SerialMon.print(" B  total ");
-      SerialMon.print(g_asyncFrameSent);
-      SerialMon.print("/");
-      SerialMon.print(g_asyncFrameLen);
-      SerialMon.println(" B");
-    }
-    if (wrote == 0) {
-      // Should never happen on STM32 HardwareSerial — TX FIFO blocks if needed.
-      SerialMon.println("[async] WARN: SerialAT.write returned 0 — UART backed up?");
-    }
-    if (g_asyncFrameSent >= g_asyncFrameLen) {
-      g_asyncLineLen = 0;
-      setStage(PublishStage::WAIT_SEND_OK);
-    }
-    return;
-  }
-
-  case PublishStage::WAIT_SEND_OK: {
-    bool sawByte = false;
-    while (SerialAT.available()) {
-      const int c = SerialAT.read();
-      sawByte = true;
-      if (kAsyncDeepDebug) {
-        SerialMon.print("[async] RX< ");
-        logRxByte(c);
-        SerialMon.println();
-      }
-      if (c == '\r') continue;
-
-      if (c == '\n') {
-        g_asyncLineBuf[g_asyncLineLen] = '\0';
-        if (g_asyncLineLen > 0) {
-          if (kAsyncDeepDebug) {
-            SerialMon.print("[async] line: \"");
-            SerialMon.print(g_asyncLineBuf);
-            SerialMon.println("\"");
-          }
-          if (strstr(g_asyncLineBuf, "SEND OK")) {
-            const uint32_t totalMs = millis() - g_asyncTriggerStartMs;
-            SerialMon.print("Publish call time: ");
-            SerialMon.print(totalMs);
-            SerialMon.println(" ms");
-            SerialMon.println("\nTelemetry Published Successfully");
-            SerialMon.println("====================================================\n");
-            g_lastMqttActivityMs = millis();
-            g_asyncResult = AsyncPublishResult::Success;
-            setStage(PublishStage::IDLE);
-            return;
-          }
-          if (strstr(g_asyncLineBuf, "SEND FAIL") ||
-              strstr(g_asyncLineBuf, "ERROR")    ||
-              strstr(g_asyncLineBuf, "link is not valid")) {
-            SerialMon.print("[async] publish FAILED line: \"");
-            SerialMon.print(g_asyncLineBuf);
-            SerialMon.println("\"");
-            g_asyncResult = AsyncPublishResult::Failure;
-            setStage(PublishStage::IDLE);
-            return;
-          }
-          // Other lines (echoes, "Recv N bytes", "busy p...", "+IPD,...")
-          // are ignored. +IPD interleaved with SEND OK is rare; if it
-          // happens, those bytes are lost — accept this for QoS 0.
-        }
-        g_asyncLineLen = 0;
-      } 
-      else if (g_asyncLineLen + 1 < sizeof(g_asyncLineBuf)) 
-      {
-        g_asyncLineBuf[g_asyncLineLen++] = static_cast<char>(c);
-      }
-      // If line buffer fills up without a newline, we silently reset it on
-      // next \n; this is fine because we only match short literals.
-    }
-    if (!sawByte) {
-      heartbeat("waiting for SEND OK");
-    }
-    if (millis() - g_asyncStageStartMs > kAsyncSendOkTimeoutMs) {
-      SerialMon.println("[async] SEND OK TIMEOUT");
-      g_asyncLineBuf[g_asyncLineLen] = '\0';
-      SerialMon.print("[async] last partial line: \"");
-      SerialMon.print(g_asyncLineBuf);
-      SerialMon.println("\"");
-      g_asyncResult = AsyncPublishResult::Failure;
-      setStage(PublishStage::IDLE);
-    }
-    return;
-  }
-  }
+bool mqttCommandWorkPending()
+{
+  return g_commandHandledThisPass || g_publishQueue.hasReplies();
 }
