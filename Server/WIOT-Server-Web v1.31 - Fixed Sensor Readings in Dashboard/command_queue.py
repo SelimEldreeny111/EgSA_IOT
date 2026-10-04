@@ -3,8 +3,9 @@
 Commands are dispatched only after a validated node Status arrives. MQTT
 publication is not an acknowledgement: a matching application Telemetry ACK
 must be received before a row is marked complete. Expired commands are never
-sent. Value-setting commands may retry after a lost ACK. WAKE is dispatched
-at most once: repeating it after a Standby reset would start a fresh lease.
+sent. Rate/time value-setting commands may retry after a lost ACK. WAKE and
+VALVE are dispatched at most once: a lost reply must not start a fresh lease
+or repeat an old physical valve command after a newer command has changed it.
 """
 
 import sqlite3
@@ -76,7 +77,7 @@ class CommandQueue:
             row = db.execute("""SELECT * FROM pending_commands
                 WHERE company=? AND node_id=? AND state IN ('pending','dispatched')
                   AND next_attempt_at<=? AND expires_at>?
-                  AND NOT (cmd_type='WAKE' AND state='dispatched')
+                  AND NOT (cmd_type IN ('WAKE','VALVE') AND state='dispatched')
                 ORDER BY created_at, request_id LIMIT 1""",
                 (company, node_id, now, now)).fetchone()
             if row is None:

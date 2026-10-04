@@ -753,10 +753,13 @@ async function sendCommand(broadcast, suppressToast = false) {
                 setWakeStatus(`No acknowledgement yet for WAKE ${result.request_id}. The node may be offline, in RTC deep sleep, or using an unsupported profile. Publication alone does not confirm wake.`);
             }
         }, 20000);
+    } else if (result.success && data.cmd_type === 'VALVE') {
+        setWakeStatus(`VALVE request ${result.request_id} published to ${broadcast ? 'broadcast nodes' : `Node ${nodeValue}`}. Waiting for pulse completion acknowledgement; this is not position feedback.`);
     }
     if (!suppressToast) {
         if (result.success && result.queued) showToast(`Command ${data.cmd_type} queued until Node ${nodeValue} wakes.`, 'info');
         else if (result.success && data.cmd_type === 'WAKE') showToast('WAKE published; waiting for node acknowledgement.', 'info');
+        else if (result.success && data.cmd_type === 'VALVE') showToast('VALVE published; waiting for pulse completion acknowledgement.', 'info');
         else if (result.success) showToast(`Command ${data.cmd_type} sent to Node ${nodeValue}.`, 'success');
         else showToast('Command failed: ' + result.error, 'danger');
     }
@@ -842,7 +845,7 @@ socket.on('iot_message', function(msg) {
         tr.innerHTML = `
             <td class="text-nowrap">${msg.Time}</td>
             <td><span class="badge badge-type-${msg.Type.toLowerCase()}">${msg.Type}</span></td>
-            <td>${msg['Node ID']}</td><td>${msg['Sensor ID']}</td><td>${msg['Node Status']}</td>
+            <td>${msg['Node ID']}</td><td>${msg['Sensor ID']}</td><td>${msg.Type === 'Command' ? '-' : nodeStatusLabel(msg['Node Status'])}</td>
             <td>${formatNumberOrDash(msg['Battery Voltage'], 2)}</td>
             <td>${formatNumberOrDash(msg.Flow)}</td>
             <td>${formatNumberOrDash(msg.Velocity)}</td>
@@ -1035,10 +1038,12 @@ function updateTrend(trendId, current, previous) {
 }
 
 // node_status is a uint32 valve-state code reported by the device.
-// 0 = Closed, 1 = Open. Extend VALVE_LABELS if firmware defines more states.
+// These are completed commands, never measured position/flow feedback.
 const VALVE_LABELS = {
-    0: 'Closed',
-    1: 'Open',
+    0: 'Closed / OFF (commanded)',
+    1: 'Open / ON (commanded)',
+    2: 'Unknown — not confirmed',
+    3: 'Fault — position unknown',
 };
 
 function nodeStatusLabel(status) {

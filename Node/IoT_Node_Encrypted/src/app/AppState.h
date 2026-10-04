@@ -78,7 +78,7 @@ struct AppRuntimeState
     uint32_t lastSendMs;
     uint32_t lastTimestamp;
     float batteryVoltage;
-    uint8_t nodeStatus;
+    uint8_t nodeStatus; ///< Valve: 0=commanded closed, 1=commanded open, 2=unknown, 3=fault.
     uint16_t sensorMask;
     uint8_t activeSensorCount;
     FlowMeterMetrics tufFlow;

@@ -48,6 +48,7 @@
 #include "src/config/AppConfig.h"
 #include "src/devices/HndaSensor.h"
 #include "src/devices/SondasSensor.h"
+#include "src/devices/ValveController.h"
 #include "src/platform/Watchdog.h"
 #include "src/power/PowerManager.h"
 #include "src/radio/LoraLink.h"
@@ -140,7 +141,7 @@ void pollLoraCommands()
     }
 
     const bool applied = handleCommand(cmd, isBroadcastCommand);
-    if (cmd.request_id != 0U)
+    if (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE)
     {
       uint8_t ackPayload[AppConfig::kCodecBufferSize];
       size_t ackLength = 0U;
@@ -174,6 +175,7 @@ void serviceNodeCommandsDuringSensorWait()
  */
 void setup()
 {
+  initializeValveSafetyPins(); // STBY LOW even on reset-to-Standby early boots.
   // Periodic power mode uses a checksummed reset-to-sleep handoff. This early
   // hook must run before the independent watchdog is armed so the IWDG still
   // protects every active operation without running through long Standby time.

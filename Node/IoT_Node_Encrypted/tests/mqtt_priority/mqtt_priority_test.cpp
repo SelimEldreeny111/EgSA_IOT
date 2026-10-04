@@ -95,6 +95,12 @@ int main(int argc,char** argv) {
             asyncPublishStep(); serviceMqttPriorityCommands(); assert(applied==5);
             while(isAsyncPublishBusy()) asyncPublishStep();
             assert(mqtt.attemptedTopics.size()==5);
+        } else if(scenario=="legacy_valve_reply") {
+            mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_OPEN_CLOSE_NODE,0}});
+            beginMqttCommandPriorityPass(); assert(applied==1 && isAsyncPublishBusy());
+            asyncPublishStep(); assert(!isAsyncPublishBusy());
+            assert(mqtt.attemptedTopics.back()==kMqttPublishTopicTlm);
+            assert(gsmClient.sent.back()==std::vector<uint8_t>({0x30,CMD_OPEN_CLOSE_NODE,0}));
         } else if(scenario=="idle_empty") {
             const int calls=mqtt.loopCalls;
             serviceMqttPriorityCommands(); assert(mqtt.loopCalls==calls);

@@ -11,6 +11,15 @@ settings, not a Git checkout. Do not upload that entire folder.
 See `RELEASE_AUDIT_20261003.md` for audit findings, verified checks and remaining
 physical acceptance tests.
 
+The 4 October latching-valve addition uses TB6612FNG channel A: PB9/PB15
+direction and original PC13 as STBY. Read
+[Valve commissioning and tests](Node/IoT_Node_Encrypted/LATCHING_VALVE_USER_GUIDE.md)
+before connecting or enabling the coil. Zero pulse-time defaults and unconfirmed
+polarity inhibit actuation. Valve telemetry reports commanded, not measured,
+position; missing/interrupted records report Unknown. Earlier static-PC13 and
+RAM-only valve descriptions are superseded. All sensor/RTC/WDT/power policies
+and the separate ESP32/CubeIDE projects remain unchanged.
+
 | Component | Entry point / documentation |
 | --- | --- |
 | STM32 Arduino node and LoRa gateway | `Node/IoT_Node_Encrypted/IoT_Node_Encrypted.ino`, project `README.md` |

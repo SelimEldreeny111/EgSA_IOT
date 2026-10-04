@@ -4,7 +4,7 @@ param(
     [string]$BuildRoot = '',
     [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora',
         'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora',
-        'gateway-wifi','gateway-wor')
+        'gateway-wifi','gateway-wor','valve-test-sim','valve-test-wifi')
 )
 $ErrorActionPreference = 'Stop'
 $wakeBuildNode = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
@@ -19,6 +19,9 @@ if ($BuildRoot) {
 $wakeBuildFqbn = 'STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F401CC'
 $wakeBuildFlags = @{
     'normal-sim' = '-DUSE_SIM800 -DAPP_CONTROLLER_POWER_MODE=0';
+    # Compile-only fixture durations, NOT manufacturer specifications. No upload.
+    'valve-test-sim' = '-DUSE_SIM800 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_ENABLE_LATCHING_VALVE=true -DAPP_VALVE_OPEN_PULSE_MS=60 -DAPP_VALVE_CLOSE_PULSE_MS=80 -DAPP_VALVE_POLARITY_CONFIRMED=true';
+    'valve-test-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_ENABLE_LATCHING_VALVE=true -DAPP_VALVE_OPEN_PULSE_MS=60 -DAPP_VALVE_CLOSE_PULSE_MS=80 -DAPP_VALVE_POLARITY_CONFIRMED=true';
     'remote-sim' = '-DUSE_SIM800 -DAPP_CONTROLLER_POWER_MODE=2';
     'remote-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=2';
     'remote-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=2';

@@ -8,6 +8,7 @@
 #include "../devices/HndaSensor.h"
 #include "../devices/Rs485Bus.h"
 #include "../devices/SondasSensor.h"
+#include "../devices/ValveController.h"
 #include "../platform/Watchdog.h"
 #include "../radio/LoraLink.h"
 
@@ -452,18 +453,7 @@ void setup_Init()
     SerialMon.println("==============================================================");
     SerialMon.println("\n=========== EgSA IOT Water Monitoring project  ============="); //STM32 + GSM/WiFi + MQTT + Protobuf
 
-    state.nodeStatus = 0;
-    if (AppConfig::kEnableOpenCloseNodeOutput)
-    {
-        pinMode(AppConfig::kOpenCloseNodeGpio, OUTPUT);
-        digitalWrite(
-            AppConfig::kOpenCloseNodeGpio,
-            AppConfig::kOpenCloseNodeActiveLow ? HIGH : LOW);
-    }
-    else
-    {
-        SerialMon.println("OPEN_CLOSE output disabled: configured GPIO conflicts with AS32 AUX.");
-    }
+    initializeValveController();
     refreshEnabledSensorSummary();
     initializeBatteryMonitor();
     refreshBatteryVoltage();

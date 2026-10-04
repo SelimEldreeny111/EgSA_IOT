@@ -44,6 +44,12 @@ in files excluded from this reference.
 
 - Four independent sensor switches determine which Modbus requests are sent.
   Enabled sensors must have different slave addresses on the shared RS485 bus.
+- The latching valve uses PB9/PB15 direction and the original PC13 as TB6612FNG
+  STBY. Pulse duration and polarity must be commissioned before actuation.
+  TIM10 disables the bridge at the pulse deadline; the IWDG is not fed during
+  the command. Telemetry reports last completed commands, not position feedback.
+  Missing/interrupted storage recovers Unknown, never a guessed Closed state.
+  See [Valve wiring, configuration and acceptance](LATCHING_VALVE_USER_GUIDE.md).
 - With both flow meters enabled, primary flow fields carry TUF and
   `secondary_flow_meter` carries Supmea. HNDA and Sondas keep separate soil fields.
 - Missing/failed groups publish zero plus invalid flags, not stale readings.

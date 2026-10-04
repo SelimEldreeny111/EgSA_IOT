@@ -554,6 +554,49 @@ constexpr float kSondasTemperatureScale = 10.0f;
 constexpr float kSondasMoistureScale = 10.0f;
 constexpr float kSondasElectricalConductivityScale = 1.0f;
 
+// TB6612FNG channel A commissioning. NEVER guess a latching-coil pulse time.
+// Keep zero/false until the coil supplier specifies both pulse durations and
+// the opening polarity has been verified. PWMA is wired HIGH, not a GPIO.
+#ifndef APP_ENABLE_LATCHING_VALVE
+#define APP_ENABLE_LATCHING_VALVE true
+#endif
+#ifndef APP_VALVE_OPEN_PULSE_MS
+#define APP_VALVE_OPEN_PULSE_MS 0UL
+#endif
+#ifndef APP_VALVE_CLOSE_PULSE_MS
+#define APP_VALVE_CLOSE_PULSE_MS 0UL
+#endif
+#ifndef APP_VALVE_POLARITY_CONFIRMED
+#define APP_VALVE_POLARITY_CONFIRMED false
+#endif
+#ifndef APP_VALVE_OPEN_AIN1_HIGH
+#define APP_VALVE_OPEN_AIN1_HIGH true
+#endif
+#ifndef APP_VALVE_MIN_INTERVAL_MS
+#define APP_VALVE_MIN_INTERVAL_MS 1000UL
+#endif
+#if APP_VALVE_OPEN_PULSE_MS < 0 || APP_VALVE_OPEN_PULSE_MS > 1000 || \
+    APP_VALVE_CLOSE_PULSE_MS < 0 || APP_VALVE_CLOSE_PULSE_MS > 1000
+#error "Valve pulse must be 0 (inhibited) or 1..1000 ms; 1000 is a software ceiling, not a coil rating"
+#endif
+#if APP_VALVE_MIN_INTERVAL_MS < 1000 || APP_VALVE_MIN_INTERVAL_MS > 60000
+#error "APP_VALVE_MIN_INTERVAL_MS must be 1000..60000 ms"
+#endif
+static_assert(APP_ENABLE_LATCHING_VALVE == true || APP_ENABLE_LATCHING_VALVE == false,
+    "APP_ENABLE_LATCHING_VALVE must be true or false");
+static_assert(APP_VALVE_POLARITY_CONFIRMED == true || APP_VALVE_POLARITY_CONFIRMED == false,
+    "APP_VALVE_POLARITY_CONFIRMED must be true or false");
+static_assert(APP_VALVE_OPEN_AIN1_HIGH == true || APP_VALVE_OPEN_AIN1_HIGH == false,
+    "APP_VALVE_OPEN_AIN1_HIGH must be true or false");
+constexpr uint32_t kValveAin1Pin = PB9;
+constexpr uint32_t kValveAin2Pin = PB15;
+constexpr uint32_t kValveOpenPulseMs = APP_VALVE_OPEN_PULSE_MS;
+constexpr uint32_t kValveClosePulseMs = APP_VALVE_CLOSE_PULSE_MS;
+constexpr uint32_t kValveMinIntervalMs = APP_VALVE_MIN_INTERVAL_MS;
+constexpr bool kValvePolarityConfirmed = APP_VALVE_POLARITY_CONFIRMED;
+constexpr bool kValveOpenAin1High = APP_VALVE_OPEN_AIN1_HIGH;
+// Wi-Fi 0..111; Supmea 128..183; WDT 192..211; valve 212..231.
+constexpr uint32_t kValveEepromAddress = 212U;
 #if defined(PC13)
 constexpr uint32_t kOpenCloseNodeGpio = PC13;
 #elif defined(LED_BUILTIN)
@@ -561,10 +604,15 @@ constexpr uint32_t kOpenCloseNodeGpio = LED_BUILTIN;
 #else
 constexpr uint32_t kOpenCloseNodeGpio = 13;
 #endif
-constexpr bool kOpenCloseNodeActiveLow = true;
+// Existing valve pin is retained, now STBY: HIGH only DURING a pulse.
+constexpr bool kOpenCloseNodeActiveLow = false;
 constexpr bool kOpenCloseNodeGpioConflictsWithLora =
     APP_HAS_LORA && (kOpenCloseNodeGpio == kLoraAuxPin);
-constexpr bool kEnableOpenCloseNodeOutput = !kOpenCloseNodeGpioConflictsWithLora;
+constexpr bool kEnableOpenCloseNodeOutput = APP_HAS_SENSORS &&
+    APP_ENABLE_LATCHING_VALVE && !kOpenCloseNodeGpioConflictsWithLora;
+static_assert(kValveAin1Pin != kValveAin2Pin &&
+    kValveAin1Pin != kOpenCloseNodeGpio && kValveAin2Pin != kOpenCloseNodeGpio,
+    "TB6612FNG pins must be distinct");
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;

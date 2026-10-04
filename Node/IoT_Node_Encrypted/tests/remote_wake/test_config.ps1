@@ -10,6 +10,13 @@ $wakeConfigDefaults = @{
 }
 $wakeConfigCases = @(
     @{Name='normal-sim'; Modem='USE_SIM800'; Defines=@{}; Error=$null},
+    @{Name='valve-test-min-pulse'; Modem='USE_SIM800'; Defines=@{APP_VALVE_OPEN_PULSE_MS='1';APP_VALVE_CLOSE_PULSE_MS='1'}; Error=$null},
+    @{Name='valve-test-max-ceiling'; Modem='USE_SIM800'; Defines=@{APP_VALVE_OPEN_PULSE_MS='1000';APP_VALVE_CLOSE_PULSE_MS='1000'}; Error=$null},
+    @{Name='reject-valve-negative-pulse'; Modem='USE_SIM800'; Defines=@{APP_VALVE_OPEN_PULSE_MS='-1'}; Error='Valve pulse must'},
+    @{Name='reject-valve-large-open'; Modem='USE_SIM800'; Defines=@{APP_VALVE_OPEN_PULSE_MS='1001'}; Error='Valve pulse must'},
+    @{Name='reject-valve-large-close'; Modem='USE_SIM800'; Defines=@{APP_VALVE_CLOSE_PULSE_MS='1001'}; Error='Valve pulse must'},
+    @{Name='reject-valve-short-interval'; Modem='USE_SIM800'; Defines=@{APP_VALVE_MIN_INTERVAL_MS='999'}; Error='APP_VALVE_MIN_INTERVAL_MS must'},
+    @{Name='reject-valve-large-interval'; Modem='USE_SIM800'; Defines=@{APP_VALVE_MIN_INTERVAL_MS='60001'}; Error='APP_VALVE_MIN_INTERVAL_MS must'},
     @{Name='remote-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2'}; Error=$null},
     @{Name='remote-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2'}; Error=$null},
     @{Name='remote-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_UPLINK='2'}; Error=$null},

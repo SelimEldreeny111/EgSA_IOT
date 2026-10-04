@@ -173,6 +173,45 @@ class RemoteWakeServerTests(unittest.TestCase):
             self.assertEqual(row[1:], (result['request_id'], 0))
         finally: conn.close()
 
+    def test_valve_command_has_completion_correlation_not_an_open_claim(self):
+        for state in (0, 1):
+            with self.subTest(state=state):
+                result = self.post(cmd_type='VALVE', cmd_data=state).get_json()
+                self.assertTrue(result['success'])
+                self.assertTrue(result['awaiting_node_ack'])
+                self.assertGreater(result['request_id'], 0)
+                msg = messages_pb2.CMD_Message.FromString(self.sent[-1][1])
+                self.assertEqual((msg.node_id, msg.cmd_id, msg.cmd_data, msg.request_id),
+                                 (7, 5, state, result['request_id']))
+                self.assertNotIn('node_status', result)
+
+    def test_valve_invalid_target_and_state_are_rejected(self):
+        for updates in ({'node_id': 0}, {'node_id': 65536}, {'node_id': True},
+                        {'node_id': 7.5}, {'cmd_data': 2}, {'cmd_data': -1},
+                        {'cmd_data': True}, {'cmd_data': 0.5}):
+            with self.subTest(updates=updates):
+                request = {'cmd_type': 'VALVE', 'cmd_data': 1}
+                request.update(updates)
+                response = self.post(**request)
+                self.assertFalse(response.get_json()['success'])
+        self.assertEqual(self.sent, [])
+
+    def test_valve_states_survive_server_storage_and_live_telemetry(self):
+        for state in range(4):
+            with self.subTest(state=state), patch.object(self.server, 'emit_iot_message') as emit:
+                msg = messages_pb2.Telemetry(node_id=7, node_status=state,
+                    command_ack_request_id=99, command_ack_cmd_id=5,
+                    command_ack_success=state < 2)
+                self.server.on_mqtt_plaintext(f'EgSA/{self.company}/7/Telemetry', msg.SerializeToString())
+                self.assertEqual(emit.call_args.args[0]['Node Status'], state)
+                self.assertEqual(emit.call_args.args[0]['Command ACK Success'], state < 2)
+                conn = sqlite3.connect(self.server.get_company_db_path(self.company))
+                try:
+                    stored = conn.execute('SELECT node_status FROM messages WHERE type="Telemetry" ORDER BY id DESC LIMIT 1').fetchone()
+                    self.assertEqual(stored[0], state)
+                finally:
+                    conn.close()
+
     def test_default_and_broadcast(self):
         result = self.post(cmd_data='0', broadcast=True).get_json()
         self.assertTrue(result['success'])

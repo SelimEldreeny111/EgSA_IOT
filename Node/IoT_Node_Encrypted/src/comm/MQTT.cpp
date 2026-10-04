@@ -451,7 +451,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   else
   {
     const bool applied = handleCommand(cmd, isBroadcastTopic);
-    if (cmd.request_id != 0U)
+    if (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE)
     {
       uint8_t ackPayload[AppConfig::kCodecBufferSize];
       size_t ackLength = 0U;

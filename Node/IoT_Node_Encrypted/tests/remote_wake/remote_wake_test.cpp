@@ -24,6 +24,7 @@ uint32_t HAL_RTCEx_BKUPRead(RTC_HandleTypeDef*, uint32_t index) { return backup[
 void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef*, uint32_t index, uint32_t value) { backup[index]=value; }
 void serviceHardwareWatchdog(WatchdogStage) { ++watchdogFeeds; }
 void digitalWrite(uint32_t, uint8_t) {}
+bool commandValve(bool open) { state.nodeStatus = open ? 1U : 0U; return true; }
 uint32_t getEpochTime() { return 1800000000U; }
 uint32_t rtcSyncCalls=0U;
 bool syncRTCFromEpoch(uint32_t) { ++rtcSyncCalls; return true; }

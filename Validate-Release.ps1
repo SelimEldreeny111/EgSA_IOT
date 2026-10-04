@@ -38,7 +38,7 @@ function Invoke-ReleasePythonTests([string]$Directory) {
 }
 Start-Transcript -Path (Join-Path $releaseOutput 'verification.log') | Out-Null
 try {
-    foreach ($releaseSuite in @('mqtt_priority','network_recovery','watchdog_counter','sensor_availability','rtc_supmea','remote_wake')) {
+    foreach ($releaseSuite in @('valve','mqtt_priority','network_recovery','watchdog_counter','sensor_availability','rtc_supmea','remote_wake')) {
         Write-Host "Node host suite: $releaseSuite"
         & (Join-Path $releaseNode "tests/$releaseSuite/run_tests.ps1") -CompilerPath $Compiler
         # Scripts throw on failed compiles/tests; do not rely on stale LASTEXITCODE.
@@ -49,6 +49,7 @@ try {
     Invoke-ReleasePythonTests $releaseServer
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_sensor_display.js'))
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_wake_control.js'))
+    Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_valve_display.js'))
     Push-Location -LiteralPath $releaseRoot
     try { Invoke-ReleaseNative $Python @('-m','unittest','discover','-s','tests/release_audit','-v') }
     finally { Pop-Location }

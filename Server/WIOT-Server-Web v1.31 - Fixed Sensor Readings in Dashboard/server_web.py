@@ -1464,7 +1464,7 @@ def api_command():
                 return jsonify({"success": False, "error": "Node ID must be 1..65535"}), 400
         elif mqtt_client is None or not mqtt_client.is_connected():
             return jsonify({"success": False, "error": "Broker is not connected"}), 503
-        if cmd_type == "WAKE":
+        if cmd_type in ("WAKE", "VALVE"):
             if isinstance(raw_node_id, (bool, float)) or not 1 <= node_id <= 65535:
                 return jsonify({"success": False, "error": "Node ID must be 1..65535"}), 400
             if not isinstance(broadcast, bool):
@@ -1495,7 +1495,7 @@ def api_command():
         msg.node_id = node_id
         msg.cmd_id = cmd_id
         msg.cmd_data = cmd_data
-        request_id = (secrets.randbelow(0xFFFFFFFF) + 1) if cmd_type == "WAKE" or delivery == "next_wake" else 0
+        request_id = (secrets.randbelow(0xFFFFFFFF) + 1) if cmd_type in ("WAKE", "VALVE") or delivery == "next_wake" else 0
         msg.request_id = request_id
         if delivery == "next_wake":
             try:
@@ -1517,7 +1517,7 @@ def api_command():
         topic = f"EgSA/{company}/BroadCast/CMD" if broadcast else f"EgSA/{company}/{node_id}/CMD"
             
         data_info = f" with Data={cmd_data}" if cmd_type != "GOSTM" else ""
-        if cmd_type == "WAKE":
+        if cmd_type in ("WAKE", "VALVE"):
             data_info += f" request={request_id}"
         log_event(f"[CMD] Publishing '{cmd_type}' (id={cmd_id}) to '{topic}'{data_info}...")
         logging.info(f"[CMD] node={node_id} type={cmd_type} data={cmd_data} topic={topic}")
@@ -1531,6 +1531,10 @@ def api_command():
             return jsonify({"success": True, "request_id": request_id,
                             "awaiting_node_ack": True, "node_awake": False,
                             "message": "WAKE published; waiting for the node acknowledgement"})
+        if cmd_type == "VALVE":
+            return jsonify({"success": True, "request_id": request_id,
+                            "awaiting_node_ack": True,
+                            "message": "VALVE published; waiting for pulse completion acknowledgement (no position feedback)"})
         return jsonify({"success": True})
     except Exception as e:
         err = f"Command failed: {type(e).__name__}: {e}"

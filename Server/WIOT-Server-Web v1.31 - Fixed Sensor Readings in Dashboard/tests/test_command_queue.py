@@ -60,6 +60,16 @@ class CommandQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.get(46, 'Company_1', 7, now=1059)['state'], 'pending')
         self.assertEqual(self.queue.get(46, 'Company_1', 7, now=1060)['state'], 'expired')
 
+    def test_old_valve_command_is_not_repeated_after_a_newer_opposite_command(self):
+        self.queue.enqueue('Company_1', 7, 5, 'VALVE', 1, 49, 60, now=1000)
+        self.assertEqual(self.queue.claim_on_status('Company_1', 7, now=1001)['request_id'], 49)
+        self.queue.enqueue('Company_1', 7, 5, 'VALVE', 0, 50, 60, now=1002)
+        self.assertEqual(self.queue.claim_on_status('Company_1', 7, now=1016)['request_id'], 50)
+        self.assertTrue(self.queue.acknowledge('Company_1', 7, 50, 5, now=1017))
+        self.assertIsNone(self.queue.claim_on_status('Company_1', 7, now=1032))
+        self.assertEqual(self.queue.get(49, 'Company_1', 7, now=1032)['attempts'], 1)
+        self.assertEqual(self.queue.get(49, 'Company_1', 7, now=1060)['state'], 'expired')
+
     def test_wake_is_not_automatically_repeated_after_lost_ack(self):
         self.queue.enqueue('Company_1', 7, 6, 'WAKE', 30, 47, 60, now=1000)
         self.assertIsNotNone(self.queue.claim_on_status('Company_1', 7, now=1001))

@@ -12,7 +12,7 @@ AppRuntimeState g_appState = {
     0,
     0,
     0.0f,
-    0,
+    2, // Latching position is unknown until restored or commanded.
     0,
     0,
     {},

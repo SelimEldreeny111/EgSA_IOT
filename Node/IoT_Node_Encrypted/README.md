@@ -1,6 +1,14 @@
 # IoT Node Encrypted
 
 An IoT monitoring system with application-layer encrypted communication for industrial flow measurement and telemetry.
+For the new PB9/PB15/PC13 TB6612FNG latching-valve control, safe commissioning,
+ON/OFF telemetry, reset retention and tests, see the
+[Latching Valve User Guide](LATCHING_VALVE_USER_GUIDE.md). Actuation defaults to
+inhibited until supplier pulse durations and opening polarity are confirmed.
+See the [Valve Verification Report](LATCHING_VALVE_VERIFICATION.md) for software
+test results and the remaining physical acceptance checks.
+This guide supersedes the earlier static-PC13 valve and RAM-state descriptions
+in historical power-mode documentation; modem/controller power policies are unchanged.
 The generated firmware API and architecture reference is described in
 [Doxygen documentation](DOXYGEN_MAINPAGE.md).
 For current radio configuration, role-specific UART wiring, unsupported RSSI

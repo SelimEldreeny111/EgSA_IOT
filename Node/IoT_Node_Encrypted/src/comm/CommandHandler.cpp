@@ -6,6 +6,7 @@
 #include "../app/AppState.h"
 #include "PacketCodec.h"
 #include "../devices/RTC.h"
+#include "../devices/ValveController.h"
 #include "../power/PowerManager.h"
 
 #include <Arduino.h>
@@ -135,25 +136,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
         break;
       }
 
-      if (!AppConfig::kEnableOpenCloseNodeOutput)
-      {
-        SerialMon.println(" OPEN_CLOSE rejected: output GPIO conflicts with AS32 AUX");
-        break;
-      }
-
-      state.nodeStatus = static_cast<uint8_t>(cmd.cmd_data);
-      const uint8_t outputLevel = AppConfig::kOpenCloseNodeActiveLow
-          ? (state.nodeStatus ? LOW : HIGH)
-          : (state.nodeStatus ? HIGH : LOW);
-      digitalWrite(AppConfig::kOpenCloseNodeGpio, outputLevel);
-      applied = true;
-
-      SerialMon.print("Node Status: ");
-      SerialMon.println(state.nodeStatus ? "OPEN/ON" : "CLOSE/OFF");
-      SerialMon.print("GPIO: ");
-      SerialMon.print(AppConfig::kOpenCloseNodeGpio);
-      SerialMon.print(" level=");
-      SerialMon.println(outputLevel == HIGH ? "HIGH" : "LOW");
+      applied = commandValve(cmd.cmd_data == 1U);
       break;
     }
 

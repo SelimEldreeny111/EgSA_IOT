@@ -22,6 +22,7 @@ void reportHardwareWatchdogStatus() {} void refreshEnabledSensorSummary() {}
 void refreshBatteryVoltage() {} void initializeBatteryMonitor() {}
 void initializeConfiguredFlowMeter() {} void initializeHndaSensor() {} void initializeSondasSensor() {}
 void initializeRs485Bus() {} void initializeRtc() {}
+void initializeValveController() {} // Startup dependency; tested by valve suite.
 bool isRtcTimeSet() { return true; } void setRtcEpoch(uint32_t) {} void printRtcDateTime() {}
 AppRuntimeState& appState() { static AppRuntimeState state; return state; }
 

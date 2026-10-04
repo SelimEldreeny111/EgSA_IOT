@@ -38,7 +38,7 @@ message Status_Message {
   float flow_rate_per_day = 6;
   float flow_rate_per_month = 7;
   float flow_rate_per_year = 8;
-  uint32 node_status = 9;
+  uint32 node_status = 9; // Valve: 0=commanded closed/OFF, 1=open/ON, 2=unknown, 3=fault (no feedback).
   float soil_temperature = 10;
   float soil_moisture = 11;
   uint32 soil_moisture_temp_valid = 12;
@@ -96,7 +96,7 @@ message Telemetry {
   float flow_rate_per_day = 12;
   float flow_rate_per_month = 13;
   float flow_rate_per_year = 14;
-  uint32 node_status = 15;
+  uint32 node_status = 15; // Same valve codes as Status; never measured position.
   float soil_temperature = 16;
   float soil_moisture = 17;
   uint32 soil_moisture_temp_valid = 18;

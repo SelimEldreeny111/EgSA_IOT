@@ -17,7 +17,7 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'MQTT host build failed' }
     foreach($scenario in @('success','zero_write','partial_write','command_priority',
         'receive_during_pending_send','ack_retry','queue_backpressure','foreign_node','subscribe_failure','idle_empty',
-        'modem_recovery','controller_recovery','gprs_recovery','broker_only')) {
+        'modem_recovery','controller_recovery','gprs_recovery','broker_only','legacy_valve_reply')) {
         & $mqttTestExe $scenario
         if($LASTEXITCODE -ne 0) { throw "MQTT test failed: $scenario" }
     }
