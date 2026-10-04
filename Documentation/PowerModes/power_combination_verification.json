@@ -1,0 +1,2459 @@
+{
+  "firmware_revision": "48e5e4b",
+  "scope": "Actual AppConfig preprocessor guards only",
+  "total": 155,
+  "accepted": 15,
+  "rejected": 140,
+  "all_passed": true,
+  "cases": [
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:193:2: error: #error \"LORA_WOR requires a LoRa sensor node; direct SIM/WiFi cannot wake this PCB\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:193:2: error: #error \"LORA_WOR requires a LoRa sensor node; direct SIM/WiFi cannot wake this PCB\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:193:2: error: #error \"LORA_WOR requires a LoRa sensor node; direct SIM/WiFi cannot wake this PCB\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:193:2: error: #error \"LORA_WOR requires a LoRa sensor node; direct SIM/WiFi cannot wake this PCB\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "node",
+      "transport": "LORA",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "SIM",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 1,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:210:2: error: #error \"SIM800L periodic POWER_DOWN is unsafe on this PCB: route MCU-controlled PWRKEY (and preferably DTR/RI) before enabling it; GSM_RST alone cannot power the modem back on\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": true,
+      "accepted": true,
+      "passed": true
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 0,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 1,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 2,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:204:2: error: #error \"REMOTE_WAKE requires the selected radio to remain NORMAL/connected; a deep-sleep radio cannot receive WAKE\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:170:2: error: #error \"LORA_WOR requires APP_LORA_POWER_MODE=APP_COMPONENT_MODE_WAKE_ON_RADIO\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 3,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 0,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 1,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 0,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:189:2: error: #error \"ESP8266 NORMAL/Standby profiles require the matching ESP power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 0,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    },
+    {
+      "role": "gateway",
+      "transport": "WIFI",
+      "controller": 4,
+      "lora": 2,
+      "wifi": 1,
+      "sim": 0,
+      "wor_tx": 1,
+      "expected": false,
+      "accepted": false,
+      "passed": true,
+      "guard_messages": [
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:165:2: error: #error \"A gateway must remain NORMAL; low-power application cycles are supported only on a sensor node\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:175:2: error: #error \"WAKE_ON_RADIO is supported only by the LORA_WOR controller profile\"",
+        "C:\\Users\\Selim\\.codex\\worktrees\\stm32-doxygen-docs\\WIOT\\Node\\IoT_Node_Encrypted\\src\\config\\AppConfig.h:182:2: error: #error \"LoRa NORMAL/Standby profiles require the matching LoRa power policy\""
+      ]
+    }
+  ]
+}

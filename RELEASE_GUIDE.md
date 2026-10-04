@@ -19,7 +19,7 @@ physical acceptance tests.
 | TUF focused simulator | `SENSORS/TUF2000B Flow meter/simulator/tuf2000b_simulator.py`, `README.md` |
 | Supmea focused simulator | `SENSORS/Supmea Flow meter/simulator/supmea_fmc240_simulator.py`, `README.md` |
 | Arduino API documentation | `Node/IoT_Node_Encrypted/Doxyfile`, `generate_doxygen.ps1`, `DOXYGEN_MAINPAGE.md` |
-| Behavioral/configuration guides | Node `*_GUIDE.md`, server guides |
+| Behavioral/configuration guides | Node `*_GUIDE.md`, server guides; consolidated `Documentation/PowerModes/WIOT_Power_Modes_Reference.md` and printable PDF |
 | Supplied manuals and specifications | `SENSORS`, `Node SW Specs`, `outputs` |
 | Repeatable verification | `Validate-Release.ps1`, `tests/release_audit`, node/server/simulator tests |
 

@@ -12,6 +12,13 @@ Consumption Guide](FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md).
 
 ## Power mode selection
 
+For the consolidated mode descriptions, all supported/rejected combinations,
+configuration recipes, wake behavior and acceptance tests, see the
+[Power Modes Reference](../../Documentation/PowerModes/WIOT_Power_Modes_Reference.md)
+and its [printable PDF](../../Documentation/PowerModes/output/pdf/WIOT_Power_Modes_Reference.pdf).
+This reference reflects the current 30-second watchdog and 10 + 10 network
+recovery release without changing firmware settings.
+
 Failed sensor replies now send zero readings with false validity flags rather
 than previous readings. See [Unavailable Sensor Behavior and Tests](SENSOR_UNAVAILABLE_ZERO_GUIDE.md).
 
