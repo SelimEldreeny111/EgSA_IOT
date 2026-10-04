@@ -3,6 +3,7 @@
 #include "../config/AppConfig.h"
 #include "IoT_Node.h"
 #include "FlowMeterManager.h"
+#include "NetworkRetryPolicy.h"
 #include "../devices/BatteryMonitor.h"
 #include "../devices/HndaSensor.h"
 #include "../devices/Rs485Bus.h"
@@ -25,34 +26,39 @@ extern HardwareSerial SerialAT;    // SIM800 or WIFI
 
 namespace
 {
-uint8_t g_consecutiveNetworkFailures = 0U;
+NetworkRetryPolicy g_networkRetryPolicy(AppConfig::kNetworkRetriesPerStage);
 
 /** @brief Clear the consecutive network-failure counter after a successful connection. */
 bool recordNetworkConnectionSuccess()
 {
-    g_consecutiveNetworkFailures = 0U;
+    if (g_networkRetryPolicy.failures() != 0U || g_networkRetryPolicy.stage() != 1U)
+    {
+        SerialMon.println("[NETWORK] Connected; retry recovery cleared (stage 1, 0 failures)");
+    }
+    g_networkRetryPolicy.connected();
     serviceHardwareWatchdog();
     return true;
 }
 
-/** @brief Count a complete failed network attempt and request watchdog reset at the configured limit. */
+/** @brief Count one failed physical attempt and execute the two-stage recovery policy. */
 bool recordNetworkConnectionFailure()
 {
-    if (g_consecutiveNetworkFailures < UINT8_MAX)
-    {
-        ++g_consecutiveNetworkFailures;
-    }
-
-    SerialMon.print("Complete network connection failures: ");
-    SerialMon.print(g_consecutiveNetworkFailures);
+    // Print before advancing so a threshold is shown as stage 1 attempt 10/10,
+    // not the freshly initialized stage 2 attempt 0/10.
+    SerialMon.print("[NETWORK] Failed attempt, stage ");
+    SerialMon.print(g_networkRetryPolicy.stage());
+    SerialMon.print(": ");
+    SerialMon.print(g_networkRetryPolicy.failures() + 1U);
     SerialMon.print('/');
-    SerialMon.println(AppConfig::kNetworkFailuresBeforeReset);
-
-    if (AppConfig::kNetworkFailuresBeforeReset > 0U &&
-        g_consecutiveNetworkFailures >= AppConfig::kNetworkFailuresBeforeReset)
+    SerialMon.println(AppConfig::kNetworkRetriesPerStage);
+    const NetworkRetryPolicy::Action action = g_networkRetryPolicy.failedAttempt();
+    if (action == NetworkRetryPolicy::Action::ResetModem)
     {
-        forceHardwareWatchdogReset(
-            "GSM/WiFi recovery failed repeatedly");
+        resetMqttTransportForNetworkRecovery();
+    }
+    else if (action == NetworkRetryPolicy::Action::ResetControllerAndModem)
+    {
+        resetModemAndControllerForNetworkFailure();
     }
 
     serviceHardwareWatchdog();
@@ -217,10 +223,8 @@ bool connectWifiWithCredentials(const char* source, const char* ssid, const char
             return true;
         }
 
-        SerialMon.println("WiFi failed, retrying...");
-        serviceHardwareWatchdog(WatchdogStage::WifiModemRestart);
-        modem.restart();
-        serviceHardwareWatchdog();
+        SerialMon.println("WiFi join failed");
+        recordNetworkConnectionFailure();
         watchdogDelay(WIFI_RETRY_INTERVAL);
     }
 
@@ -335,6 +339,7 @@ bool connectNetwork()
         if (!networkReady)
         {
             SerialMon.println("Network FAILED, retrying......");
+            recordNetworkConnectionFailure();
             retryCount++;
             watchdogDelay(GPRS_RETRY_INTERVAL);
             continue;
@@ -348,6 +353,7 @@ bool connectNetwork()
         if (!gprsReady)
         {
             SerialMon.println("GPRS FAILED, retrying...");
+            recordNetworkConnectionFailure();
             retryCount++;
             watchdogDelay(GPRS_RETRY_INTERVAL);
             continue;
@@ -358,7 +364,7 @@ bool connectNetwork()
     }
 
     SerialMon.println("GPRS connection failed after retries!");
-    return recordNetworkConnectionFailure();
+    return false; // Each failed inner attempt was already counted.
 
 #elif defined(USE_ESP8266)
     // Connection priority is intentional:
@@ -407,14 +413,14 @@ bool connectNetwork()
     if (g_wifiProvisioningPromptUsed)
     {
         SerialMon.println("WiFi provisioning prompt already used this boot; automatic retry will continue later.");
-        return recordNetworkConnectionFailure();
+        return false; // No new physical network attempt in this branch.
     }
 
     g_wifiProvisioningPromptUsed = true;
     if (!promptForWifiCredentials(userSsid, sizeof(userSsid), userPassword, sizeof(userPassword)))
     {
         SerialMon.println("WiFi credential entry cancelled or timed out.");
-        return recordNetworkConnectionFailure();
+        return false; // Operator timeout/cancellation is not a failed modem join.
     }
 
     if (connectWifiWithCredentials("operator fallback", userSsid, userPassword))
@@ -424,7 +430,7 @@ bool connectNetwork()
     }
 
     SerialMon.println("WiFi connection failed after configured, saved fallback, and operator credentials.");
-    return recordNetworkConnectionFailure();
+    return false; // Credential attempts already counted their individual failures.
 
 #else
     #error "No network module defined!"

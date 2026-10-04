@@ -5,6 +5,7 @@
 #include "../../src/app/SensorPollCycle.h"
 #include <cassert>
 #include <iostream>
+#include <stdexcept>
 
 uint32_t testNow=5000;
 bool tickOnMillis=false;
@@ -16,10 +17,12 @@ const char kMqttServer[]="test",kMqttClientId[]="test-client";
 const char kMqttCommandTopic[]="EgSA/Test/1/CMD",kMqttBroadcastTopic[]="EgSA/Test/BroadCast/CMD";
 const char kMqttPublishTopicStatus[]="EgSA/Test/1/Status",kMqttPublishTopicTlm[]="EgSA/Test/1/Telemetry";
 static int applied=0;
+static int networkConnectCalls=0;
 void serviceHardwareWatchdog() {}
 void serviceHardwareWatchdog(WatchdogStage) {}
 void watchdogDelay(uint32_t ms) { delay(ms); }
-bool connectNetwork() { return true; }
+[[noreturn]] void forceHardwareWatchdogReset(const char*) { throw std::runtime_error("controller reset"); }
+bool connectNetwork() { ++networkConnectCalls; return true; }
 bool decodeEncryptedCommandPayload(const uint8_t* bytes,size_t length,CMD_Message& cmd) {
     if(length!=3) return false;
     cmd.node_id=bytes[0]; cmd.cmd_id=bytes[1]; cmd.request_id=bytes[2]; return true;
@@ -41,7 +44,17 @@ int main(int argc,char** argv) {
         mqtt.failSubscribe=true; assert(!ensureMqttConnection()); assert(mqtt.state()!=0);
     } else {
         assert(ensureMqttConnection());
-        if(scenario=="success") {
+        if(scenario=="gprs_recovery" || scenario=="broker_only") {
+            const int previousNetworkCalls=networkConnectCalls;
+            mqtt.disconnect(); testNow+=4000;
+            modem.gprsConnected=scenario!="gprs_recovery";
+            assert(ensureMqttConnection());
+#if defined(USE_SIM800)
+            assert(networkConnectCalls-previousNetworkCalls==(scenario=="gprs_recovery"?1:0));
+#else
+            assert(networkConnectCalls==previousNetworkCalls);
+#endif
+        } else if(scenario=="success") {
             assert(triggerAsyncPublish()); asyncPublishStep();
             assert(takeAsyncPublishResult()==AsyncPublishResult::Success);
             assert(mqtt.attemptedTopics.back()==kMqttPublishTopicStatus);
@@ -89,6 +102,41 @@ int main(int argc,char** argv) {
         } else if(scenario=="foreign_node") {
             mqtt.incoming.push_back({kMqttCommandTopic,{2,CMD_OPEN_CLOSE_NODE,42}});
             beginMqttCommandPriorityPass(); assert(applied==0 && !isAsyncPublishBusy());
+        } else if(scenario=="modem_recovery" || scenario=="controller_recovery") {
+            assert(triggerAsyncPublish());
+            mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_OPEN_CLOSE_NODE,48}});
+            beginMqttCommandPriorityPass();
+            testPinEvents().clear();
+            tickOnMillis=true; // ESP firmware-version query uses a bounded millis loop.
+            if(scenario=="modem_recovery") {
+                resetMqttTransportForNetworkRecovery();
+                tickOnMillis=false;
+                assert(isAsyncPublishBusy()); // Correlated reply survives modem-only reset.
+                assert(ensureMqttConnection());
+                beginMqttCommandPriorityPass(); asyncPublishStep();
+                assert(mqtt.attemptedTopics.back()==kMqttPublishTopicTlm);
+                assert(!isAsyncPublishBusy());
+            } else {
+                bool reset=false;
+                try { resetModemAndControllerForNetworkFailure(); }
+                catch(const std::runtime_error&) { reset=true; }
+                tickOnMillis=false; assert(reset);
+            }
+#if defined(USE_SIM800)
+            const uint32_t pin=AppConfig::kSimResetPin, pulse=AppConfig::kSimResetPulseMs;
+            bool openDrain=false;
+            for(const auto& e:testPinEvents()) if(e.mode && e.pin==pin && e.value==OUTPUT_OPEN_DRAIN) openDrain=true;
+            assert(openDrain);
+#else
+            const uint32_t pin=AppConfig::kEspResetPin, pulse=AppConfig::kEspResetPulseMs;
+#endif
+            bool lowSeen=false, released=false; uint32_t lowAt=0;
+            for(const auto& e:testPinEvents()) {
+                if(e.mode || e.pin!=pin) continue;
+                if(e.value==LOW) { lowSeen=true; lowAt=e.at; }
+                else if(lowSeen) { assert(e.at-lowAt>=pulse); released=true; }
+            }
+            assert(lowSeen && released);
         } else assert(false);
     }
     assert(SerialAT.rawWrites==0); // UART parsing/sending belongs to TinyGSM, never a raw publisher

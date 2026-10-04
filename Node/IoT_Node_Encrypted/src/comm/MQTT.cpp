@@ -224,6 +224,16 @@ void resetAndWakeEsp8266()
   driveEspReset(false);
   watchdogDelay(AppConfig::kEspBootDelayMs);
 }
+#elif defined(USE_SIM800)
+/** @brief Pulse SIM800L RESET without driving its internal pull-up above its voltage. */
+void resetSim800Hardware()
+{
+  digitalWrite(AppConfig::kSimResetPin, HIGH); // Open drain HIGH means released.
+  pinMode(AppConfig::kSimResetPin, OUTPUT_OPEN_DRAIN);
+  digitalWrite(AppConfig::kSimResetPin, LOW);
+  watchdogDelay(AppConfig::kSimResetPulseMs);
+  digitalWrite(AppConfig::kSimResetPin, HIGH);
+}
 #endif
 }
 
@@ -233,8 +243,11 @@ void initializeMqttTransport()
 #if defined(USE_ESP8266)
   resetAndWakeEsp8266();
 #else
+  // Reset the independently powered SIM800 on every MCU boot as well. A stuck
+  // modem must not survive a watchdog/controller reset and poison the next boot.
+  resetSim800Hardware();
   SerialAT.begin(MODEM_BAUD);
-  watchdogDelay(3000);
+  watchdogDelay(AppConfig::kSimBootDelayMs);
 #endif
   printEspFirmwareVersion();
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
@@ -242,6 +255,42 @@ void initializeMqttTransport()
   // the independent watchdog must be allowed to reset the STM32.
   modem.init();
   serviceHardwareWatchdog();
+}
+
+void resetMqttTransportForNetworkRecovery()
+{
+  SerialMon.println("[NETWORK] First retry budget exhausted: resetting active modem RST");
+  g_modemOperationActive = true;
+  serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
+  // Use the normal transport close. If its driver hangs, the global IWDG still
+  // resets the MCU; startup above then also pulses the modem's hardware RST.
+  mqtt.disconnect();
+  serviceHardwareWatchdog();
+  if (g_publishQueue.hasStatus()) {
+    g_publishQueue.dropStatus();
+    g_asyncResult = AsyncPublishResult::Failure;
+  }
+  // Correlated command replies remain in RAM for retry after reconnection.
+  initializeMqttTransport();
+  initializeMqttClient();
+  g_lastReconnectAttemptMs = 0U;
+  g_mqttConnectFailureCount = 0U;
+  g_modemOperationActive = false;
+  SerialMon.println("[NETWORK] Modem reset finished; starting second retry budget");
+}
+
+[[noreturn]] void resetModemAndControllerForNetworkFailure()
+{
+  SerialMon.println("[NETWORK] Second retry budget exhausted: resetting modem RST + STM32");
+  serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
+  // No close/AT transaction here: guarantee the physical reset pulse before
+  // requesting MCU reset even if the UART/driver is unhealthy.
+#if defined(USE_ESP8266)
+  resetAndWakeEsp8266();
+#else
+  resetSim800Hardware();
+#endif
+  forceHardwareWatchdogReset("Second GSM/WiFi retry budget exhausted; modem RST pulsed");
 }
 
 bool prepareMqttTransportForPowerDown(uint32_t timeoutMs)
@@ -438,7 +487,9 @@ bool ensureMqttConnection()
 #if defined(USE_SIM800)
   const bool networkConnected = modem.isNetworkConnected();
   serviceHardwareWatchdog();
-  if (!networkConnected)
+  const bool dataConnected = networkConnected && modem.isGprsConnected();
+  serviceHardwareWatchdog();
+  if (!dataConnected)
   {
     if (AppConfig::kEnableVerboseMqttLogs) {
       SerialMon.println("\n Network link is down - reconnecting transport first");

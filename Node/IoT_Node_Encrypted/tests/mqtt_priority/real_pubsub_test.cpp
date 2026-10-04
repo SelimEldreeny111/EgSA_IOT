@@ -2,6 +2,7 @@
 #include "../../src/comm/MQTT.h"
 #include "../../src/comm/CommandHandler.h"
 #include <cassert>
+#include <stdexcept>
 #include <iostream>
 uint32_t testNow=5000;
 bool tickOnMillis=false;
@@ -16,6 +17,7 @@ static int applied=0;
 void serviceHardwareWatchdog() {}
 void serviceHardwareWatchdog(WatchdogStage) {}
 void watchdogDelay(uint32_t ms) { delay(ms); }
+[[noreturn]] void forceHardwareWatchdogReset(const char*) { throw std::runtime_error("controller reset"); }
 bool connectNetwork() { return true; }
 bool decodeEncryptedCommandPayload(const uint8_t* b,size_t n,CMD_Message& cmd) {
     if(n!=3) return false;

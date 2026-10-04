@@ -84,7 +84,7 @@ the first test; leave modem and sensor settings appropriate for your hardware.
    report N, not N+1, provided the EEPROM sector has not been erased.
 3. **One controlled WDT timeout:** select
    `APP_WATCHDOG_SELF_TEST_AFTER_SETUP` (1), compile and flash. The existing
-   self-test blocks until the configured watchdog timeout, nominally 25 s.
+   self-test blocks until the configured watchdog timeout, nominally 30 s.
    The next boot should log the IWDG cause, self-test pass, and count N+1.
    The recovered Status and GOSTM/Telemetry must both report N+1.
    If uploading erases EEPROM, establish a new baseline after that erase.

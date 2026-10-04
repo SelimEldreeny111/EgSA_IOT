@@ -247,16 +247,17 @@ Use the debug serial interface (SerialMon) to monitor system status:
 
 The Arduino firmware uses the STM32F401 independent hardware watchdog (IWDG),
 not a software timer. It is armed before application, LoRa, and modem setup
-with a nominal 25-second global deadline. The watchdog is refreshed only at
+with a nominal 30-second global deadline. The watchdog is refreshed only at
 verified progress boundaries. Therefore a stuck sensor, LoRa, MQTT, GSM,
 Wi-Fi, or library call automatically resets the microcontroller even if the
 main loop is no longer running.
 
 Expected long operations report progress only between attempts. For example,
 the 12-second LoRa ACK window is allowed to finish, but a single call that does
-not return within 25 seconds cannot hide the fault by feeding the watchdog.
-Two complete failed GSM/Wi-Fi recovery cycles request a fast IWDG reset so the
-MCU and modem initialization sequence starts cleanly.
+not return within 30 seconds cannot hide the fault by feeding the watchdog.
+Ten failed GSM/Wi-Fi connection attempts pulse the active modem's RST pin.
+Ten more failures pulse that modem's RST and request a fast IWDG controller
+reset. Network success clears both stages. Broker-only failures do not count.
 
 The serial boot log reports whether the previous boot was caused by the IWDG
 and the last active subsystem stage. The behavior and controlled self-test can
@@ -264,8 +265,8 @@ be adjusted in `src/config/AppConfig.h`:
 
 ```cpp
 #define APP_ENABLE_HARDWARE_WATCHDOG 1
-#define APP_WATCHDOG_TIMEOUT_US 25000000UL
-#define APP_NETWORK_FAILURES_BEFORE_RESET 2U
+#define APP_WATCHDOG_TIMEOUT_US 30000000UL
+#define APP_NETWORK_RETRIES_PER_STAGE 10U
 #define APP_WATCHDOG_SELF_TEST_MODE APP_WATCHDOG_SELF_TEST_DISABLED
 ```
 
@@ -274,7 +275,8 @@ timeout within the supported IWDG range for the selected STM32 board. When
 debugging with breakpoints, remember that the production watchdog continues
 running and resets the board if execution remains paused past its deadline.
 The complete timing rationale and test procedure are in
-`WATCHDOG_RECOVERY_AND_TEST_GUIDE.md`.
+`WATCHDOG_RECOVERY_AND_TEST_GUIDE.md`. For reset-pin wiring, retry counting and
+independent bench tests, see [Network Recovery Guide](NETWORK_RECOVERY_USER_GUIDE.md).
 
 ## Supmea SUP-FMC240 production integration
 

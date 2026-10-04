@@ -16,9 +16,20 @@ try {
         (Join-Path $PSScriptRoot 'mqtt_priority_test.cpp') '-o' $mqttTestExe
     if($LASTEXITCODE -ne 0) { throw 'MQTT host build failed' }
     foreach($scenario in @('success','zero_write','partial_write','command_priority',
-        'receive_during_pending_send','ack_retry','queue_backpressure','foreign_node','subscribe_failure','idle_empty')) {
+        'receive_during_pending_send','ack_retry','queue_backpressure','foreign_node','subscribe_failure','idle_empty',
+        'modem_recovery','controller_recovery','gprs_recovery','broker_only')) {
         & $mqttTestExe $scenario
         if($LASTEXITCODE -ne 0) { throw "MQTT test failed: $scenario" }
+    }
+    $mqttWifiExe=Join-Path $mqttTestBuild 'mqtt_priority_wifi_test.exe'
+    & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' '-DTEST_ESP8266' `
+        '-I' $mqttTestFakes '-include' (Join-Path $mqttTestFakes 'TestAppConfig.h') `
+        (Join-Path $mqttTestNode 'src/comm/MQTT.cpp') `
+        (Join-Path $PSScriptRoot 'mqtt_priority_test.cpp') '-o' $mqttWifiExe
+    if($LASTEXITCODE -ne 0) { throw 'ESP8266 MQTT host build failed' }
+    foreach($scenario in @('command_priority','ack_retry','modem_recovery','controller_recovery')) {
+        & $mqttWifiExe $scenario
+        if($LASTEXITCODE -ne 0) { throw "ESP8266 MQTT test failed: $scenario" }
     }
     $modbusExe=Join-Path $mqttTestBuild 'modbus_wait_test.exe'
     & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-I' $mqttTestFakes `

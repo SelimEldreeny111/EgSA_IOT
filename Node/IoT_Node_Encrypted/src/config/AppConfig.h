@@ -314,6 +314,10 @@ constexpr bool kEspResetActiveLow = true;
 constexpr uint32_t kEspResetPulseMs = 100UL;
 constexpr uint32_t kEspBootDelayMs = 3000UL;
 constexpr uint32_t kSimResetPin = PB0;
+// SIM800L RESET has an internal low-voltage pull-up: pull low, then release.
+// Do not drive it high at 3.3 V. This is emergency reset, not power switching.
+constexpr uint32_t kSimResetPulseMs = 250UL;
+constexpr uint32_t kSimBootDelayMs = 3000UL;
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
 // Gateway needs two UARTs at the same time: one for IP modem and one for AS32.
@@ -594,17 +598,20 @@ constexpr bool kEnablePublishTimingLogs = true;//false  or  true
 // deadline, not only a GSM/WiFi retry timer. The timeout is in microseconds as
 // required by STM32duino IWatchdog. Application-owned bounded phases reach an
 // explicit progress checkpoint within 12 seconds; an opaque modem call that
-// does not return before the nominal 25-second deadline is intentionally
+// does not return before the nominal 30-second deadline is intentionally
 // treated as stuck. Network retry exhaustion remains an additional recovery
 // policy for calls that do return.
 #ifndef APP_ENABLE_HARDWARE_WATCHDOG
 #define APP_ENABLE_HARDWARE_WATCHDOG 1
 #endif
 #ifndef APP_WATCHDOG_TIMEOUT_US
-#define APP_WATCHDOG_TIMEOUT_US 25000000UL
+#define APP_WATCHDOG_TIMEOUT_US 30000000UL
 #endif
-#ifndef APP_NETWORK_FAILURES_BEFORE_RESET
-#define APP_NETWORK_FAILURES_BEFORE_RESET 2U
+#ifndef APP_NETWORK_RETRIES_PER_STAGE
+#define APP_NETWORK_RETRIES_PER_STAGE 10U
+#endif
+#if APP_NETWORK_RETRIES_PER_STAGE < 1U || APP_NETWORK_RETRIES_PER_STAGE > 100U
+#error "APP_NETWORK_RETRIES_PER_STAGE must be within 1..100"
 #endif
 
 // Controlled fault injection. Leave DISABLED in every production image.
@@ -627,8 +634,9 @@ constexpr uint32_t kWatchdogTimeoutUs = APP_WATCHDOG_TIMEOUT_US;
 #error "LORA_WOR RTC heartbeat must be at least 2 seconds shorter than IWDG timeout"
 #endif
 constexpr uint32_t kWatchdogForcedResetTimeoutUs = 250000UL;
-constexpr uint8_t kNetworkFailuresBeforeReset =
-    APP_NETWORK_FAILURES_BEFORE_RESET;
+// First budget resets the active modem; second budget resets modem + MCU.
+// Network success clears both budgets. MQTT broker failures do not count here.
+constexpr uint8_t kNetworkRetriesPerStage = APP_NETWORK_RETRIES_PER_STAGE;
 constexpr uint8_t kWatchdogSelfTestMode = APP_WATCHDOG_SELF_TEST_MODE;
 
 // STM32duino 2.12.0 calculates this limit from a typical 32 kHz LSI clock.

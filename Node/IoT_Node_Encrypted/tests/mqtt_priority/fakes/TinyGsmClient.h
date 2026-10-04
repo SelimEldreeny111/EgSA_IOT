@@ -7,6 +7,16 @@ public:
     explicit TinyGsm(HardwareSerial&) {}
     bool init() { return true; }
     bool isNetworkConnected() { return true; }
+    bool isGprsConnected() { return gprsConnected; }
+    bool poweroff() { return true; }
+    bool gprsConnected=true, registrationSuccess=false, gprsSuccess=false, joinSuccess=false;
+    int registrationCalls=0, gprsCalls=0, joinCalls=0;
+    std::vector<std::string> joinedSsids;
+    bool waitForNetwork(uint32_t) { ++registrationCalls; return registrationSuccess; }
+    bool gprsConnect(const char*,const char*,const char*) { ++gprsCalls; return gprsSuccess; }
+    bool networkConnect(const char* ssid,const char*) {
+        ++joinCalls; joinedSsids.emplace_back(ssid); return joinSuccess;
+    }
     int getSignalQuality() { return 20; }
 };
 class TinyGsmClient:public Client {

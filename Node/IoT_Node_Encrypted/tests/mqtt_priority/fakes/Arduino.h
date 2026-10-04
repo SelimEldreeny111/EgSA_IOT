@@ -14,6 +14,7 @@ using byte=uint8_t;
 #define HIGH 1
 #define LOW 0
 #define OUTPUT 1
+#define OUTPUT_OPEN_DRAIN 2
 #define SERIAL_8N1 0
 #define lowByte(x) ((uint8_t)((x)&0xFF))
 #define highByte(x) ((uint8_t)(((x)>>8)&0xFF))
@@ -25,8 +26,10 @@ inline uint32_t millis() { if(tickOnMillis) ++testNow; return testNow; }
 inline uint32_t micros() { return millis()*1000U; }
 inline void delay(uint32_t ms) { testNow+=ms; }
 inline void delayMicroseconds(uint32_t) {}
-inline void pinMode(uint32_t,uint8_t) {}
-inline void digitalWrite(uint32_t,uint8_t) {}
+struct TestPinEvent { bool mode; uint32_t pin; uint8_t value; uint32_t at; };
+inline std::vector<TestPinEvent>& testPinEvents() { static std::vector<TestPinEvent> events; return events; }
+inline void pinMode(uint32_t pin,uint8_t mode) { testPinEvents().push_back({true,pin,mode,testNow}); }
+inline void digitalWrite(uint32_t pin,uint8_t value) { testPinEvents().push_back({false,pin,value,testNow}); }
 inline uint16_t word(uint16_t value) { return value; }
 inline uint16_t word(uint8_t high,uint8_t low) { return (uint16_t(high)<<8)|low; }
 inline void yield() { ++testNow; }

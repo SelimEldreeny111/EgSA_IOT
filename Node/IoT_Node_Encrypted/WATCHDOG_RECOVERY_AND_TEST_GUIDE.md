@@ -13,9 +13,12 @@ continues to service network keepalive and watchdog checkpoints. Neither WFI
 nor a timer/UART ISR feeds IWDG. A blocked function still resets the controller.
 This differs from RTC_PERIODIC Standby's reset-before-sleep handoff.
 
-Network retry exhaustion remains a second policy. It deliberately requests a
-fast watchdog reset after the configured number of complete failures even
-when every modem function returns normally.
+Network retry exhaustion is a separate two-stage policy. Ten failed network
+attempts reset only the selected modem via RST. Ten further failures pulse the
+modem RST and request a fast watchdog controller reset. Network success clears
+both stages. This policy applies when modem functions return; the global
+30-second watchdog takes priority if a call stalls. See
+[Network Recovery Guide](NETWORK_RECOVERY_USER_GUIDE.md) for wiring and tests.
 
 ## 2. Timing audit
 
@@ -31,13 +34,13 @@ field measurements.
 | LoRa fragment ACK window | 12.0 s | Longest accepted healthy unserviced phase |
 | LoRa physical transmit before stage splitting | up to about 23.7 s | Split into verified AUX, UART, and TX-complete stages |
 | ESP8266 firmware query | 2.0 s | Normal |
-| ESP8266 `networkConnect()` | up to 60 s | More than 25 s with no result is treated as a stuck modem call |
-| ESP8266 `restart()` | roughly 40-45 s | More than 25 s is treated as stuck |
-| MQTT connect through ESP-AT | roughly 110-115 s | More than 25 s is treated as stuck |
+| ESP8266 `networkConnect()` | up to 60 s | More than 30 s with no result is treated as a stuck modem call |
+| Legacy ESP8266 `restart()` | roughly 40-45 s | No longer used after each failed join; recovery uses hardware RST |
+| MQTT connect through ESP-AT | roughly 110-115 s | More than 30 s is treated as stuck |
 | SIM800 network registration attempt | 10 s | Normal |
-| SIM800 `gprsConnect()` | up to roughly 492 s (8.2 min) | More than 25 s is treated as stuck |
+| SIM800 `gprsConnect()` | up to roughly 492 s (8.2 min) | More than 30 s is treated as stuck |
 | Operator Wi-Fi credential entry | 180 s per field | Intentional bounded wait; watchdog-aware delay keeps it alive |
-| MQTT publish through TinyGSM | Driver-specific AT send timeout | Bounded but blocking; more than 25 s without progress is treated as stuck |
+| MQTT publish through TinyGSM | Driver-specific AT send timeout | Bounded but blocking; more than 30 s without progress is treated as stuck |
 
 MQTT now uses a priority packet queue, not the old raw-AT publish FSM. Commands
 are checked before routine work, between sensors, and in Modbus idle gaps.
@@ -54,23 +57,23 @@ recovering an unresponsive product would defeat the watchdog's purpose.
 
 ## 3. Selected deadline
 
-The production setting remains:
+The current production setting is:
 
 ```cpp
 #define APP_ENABLE_HARDWARE_WATCHDOG 1
-#define APP_WATCHDOG_TIMEOUT_US 25000000UL
+#define APP_WATCHDOG_TIMEOUT_US 30000000UL
 ```
 
-This is a **nominal 25-second deadline**. After splitting the LoRa transmit
+This is a **nominal 30-second deadline**. After splitting the LoRa transmit
 sequence at verified progress boundaries, the longest application-owned
 unserviced phase is the 12-second ACK window. The watchdog deadline is
-therefore slightly more than twice that duration. Opaque third-party modem
-calls receive the same 25-second limit and are considered unresponsive if they
+therefore two and a half times that duration. Opaque third-party modem
+calls receive the same 30-second limit and are considered unresponsive if they
 do not return within it.
 
 IWDG timing uses the STM32 internal low-speed oscillator. It is intentionally
 independent from the CPU clock, but it is not a precision clock; measured
-reset time can differ from exactly 25.000 seconds. Never design a healthy path
+reset time can differ from exactly 30.000 seconds. Never design a healthy path
 close to the deadline.
 
 ## 4. Runtime behavior
@@ -82,7 +85,7 @@ close to the deadline.
 3. The IWDG is refreshed only after a verified checkpoint, between bounded
    retries, or during an explicitly approved finite delay.
 4. If the active call never returns, no later checkpoint executes and hardware
-   resets the STM32 after approximately 25 seconds.
+   resets the STM32 after approximately 30 seconds.
 5. On the next boot, the serial log reports both the IWDG reset cause and the
    last recorded stage, for example:
 
@@ -103,7 +106,7 @@ after a cold power-on.
   checkpoint.
 - A function that returns an error is not a software hang. Normal retry/error
   policy handles it; the network failure counter can still request a reset.
-- A healthy but very slow TinyGSM call that exceeds 25 seconds is intentionally
+- A healthy but very slow TinyGSM call that exceeds 30 seconds is intentionally
   classified as an unresponsive modem transaction and reset.
 - A semantic failure that keeps completing the entire main loop is not a CPU
   hang. It must be detected by its own data-validity or communication policy.
@@ -116,8 +119,8 @@ All production and test controls are in `src/config/AppConfig.h`:
 
 ```cpp
 #define APP_ENABLE_HARDWARE_WATCHDOG 1
-#define APP_WATCHDOG_TIMEOUT_US 25000000UL
-#define APP_NETWORK_FAILURES_BEFORE_RESET 2U
+#define APP_WATCHDOG_TIMEOUT_US 30000000UL
+#define APP_NETWORK_RETRIES_PER_STAGE 10U
 #define APP_WATCHDOG_SELF_TEST_MODE APP_WATCHDOG_SELF_TEST_DISABLED
 ```
 
@@ -130,7 +133,7 @@ APP_WATCHDOG_SELF_TEST_MAIN_LOOP
 ```
 
 The timeout compile-time check permits 1,000,000 through 32,760,000
-microseconds. Keep 25,000,000 for the approved production configuration.
+microseconds. Keep 30,000,000 for the approved production configuration.
 
 ## 7. Step-by-step acceptance test
 
@@ -139,7 +142,7 @@ microseconds. Keep 25,000,000 for the approved production configuration.
 1. Select the required sensor, transport, role, and normal/power-down profile.
 2. Keep `APP_WATCHDOG_SELF_TEST_MODE` disabled.
 3. Flash the node and monitor at 115200 baud.
-4. Confirm `Hardware watchdog: armed, timeout=25000 ms`.
+4. Confirm `Hardware watchdog: armed, timeout=30000 ms`.
 5. Run sensor acquisition and telemetry for at least one hour.
 6. Pass when there is no unexplained reset and normal telemetry continues.
 
@@ -148,7 +151,7 @@ microseconds. Keep 25,000,000 for the approved production configuration.
 1. Set the self-test mode to `APP_WATCHDOG_SELF_TEST_AFTER_SETUP`.
 2. Compile and flash.
 3. After setup completes, observe the deliberate block message.
-4. Measure from that message to reset. Expect approximately 25 seconds, with
+4. Measure from that message to reset. Expect approximately 30 seconds, with
    normal LSI tolerance.
 5. On the next boot, confirm:
 

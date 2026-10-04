@@ -52,7 +52,7 @@ After a successful report, the node listens for
 `APP_LORA_WOR_COMMAND_WINDOW_MS` (default 5 s), then enters STM32 Stop.
 Either AUX or RTC exits Stop. The RTC also wakes the MCU every
 `APP_LORA_WOR_WATCHDOG_WAKE_SECONDS` (default 8 s) to feed the existing IWDG;
-the normal watchdog timeout remains about 25 s. This heartbeat is not used
+the normal watchdog timeout is now about 30 s. This heartbeat is not used
 to hide a hung active application. On the report deadline the node samples
 and publishes again. On AUX it listens for and handles the command. WAKE can
 hold the node active for the requested lease.

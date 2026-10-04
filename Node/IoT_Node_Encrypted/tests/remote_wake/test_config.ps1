@@ -36,11 +36,22 @@ $wakeConfigCases = @(
     @{Name='reject-zero-default'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_DEFAULT_SECONDS='0UL'}; Error='APP_REMOTE_WAKE_DEFAULT_SECONDS must'},
     @{Name='reject-large-default'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_DEFAULT_SECONDS='86401UL'}; Error='APP_REMOTE_WAKE_DEFAULT_SECONDS must'},
     @{Name='reject-fast-poll'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_POLL_INTERVAL_MS='9UL'}; Error='APP_REMOTE_WAKE_POLL_INTERVAL_MS must'},
-    @{Name='reject-slow-poll'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_POLL_INTERVAL_MS='1001UL'}; Error='APP_REMOTE_WAKE_POLL_INTERVAL_MS must'}
+    @{Name='reject-slow-poll'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_POLL_INTERVAL_MS='1001UL'}; Error='APP_REMOTE_WAKE_POLL_INTERVAL_MS must'},
+    @{Name='network-single-attempt'; Modem='USE_SIM800'; Defines=@{APP_NETWORK_RETRIES_PER_STAGE='1U'}; Error=$null},
+    @{Name='network-max-attempts'; Modem='USE_ESP8266'; Defines=@{APP_NETWORK_RETRIES_PER_STAGE='100U'}; Error=$null},
+    @{Name='reject-zero-network-attempts'; Modem='USE_SIM800'; Defines=@{APP_NETWORK_RETRIES_PER_STAGE='0U'}; Error='APP_NETWORK_RETRIES_PER_STAGE must'},
+    @{Name='reject-large-network-attempts'; Modem='USE_ESP8266'; Defines=@{APP_NETWORK_RETRIES_PER_STAGE='101U'}; Error='APP_NETWORK_RETRIES_PER_STAGE must'}
 )
 $wakeConfigOriginalPath = $env:PATH
 try {
     $env:PATH = (Split-Path -Parent $wakeConfigCompiler) + ';' + $env:PATH
+    $wakeConfigProductionMacros = (& $wakeConfigCompiler '-dM' '-E' '-x' 'c++' '-I' (Join-Path $PSScriptRoot 'fakes') '-DUSE_SIM800' (Join-Path $wakeConfigRoot 'src/config/AppConfig.h') | Out-String)
+    if ($LASTEXITCODE -ne 0 -or
+        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_WATCHDOG_TIMEOUT_US 30000000UL\s*$' -or
+        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_NETWORK_RETRIES_PER_STAGE 10U\s*$') {
+        throw 'Expected production defaults: 30-second watchdog and 10 retries per stage'
+    }
+    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10'
     foreach ($wakeConfigCase in $wakeConfigCases) {
         $wakeConfigDefines = $wakeConfigDefaults.Clone()
         foreach ($wakeConfigName in $wakeConfigCase.Defines.Keys) {

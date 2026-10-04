@@ -1,7 +1,7 @@
 # Supmea RTC consumption: reset fix and acceptance test
 
 Scope: Arduino STM32F401 four-sensor node only. ESP32, STM32CubeIDE, the
-simulator and the server protocol are unchanged. Keep the normal 25-second
+simulator and the server protocol are unchanged. Keep the normal 30-second
 watchdog enabled; the fix does not extend its deadline.
 
 ## What changed

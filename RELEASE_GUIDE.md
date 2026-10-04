@@ -1,4 +1,4 @@
-# Complete WIOT STM32 release — 3 October 2026
+# Complete WIOT STM32 release — updated 4 October 2026
 
 This branch contains the full project sources, not just changed files. Continue
 bench work in `WIOT_Final_PowerModes_20261001`. Its `FINAL_COPY_INFO.md` records
@@ -38,7 +38,8 @@ the current feature guides and code below take precedence over older claims.
 | SIM800 / ESP8266 | Compiled Wi-Fi credentials first, saved credentials fallback. TinyGSM owns modem AT traffic. Commands/replies precede routine work. `SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md` |
 | LoRa node/gateway | Existing addressing, fragmentation, ACKs and wake probing remain. Unsupported-radio profiles do not invent RSSI; see `RADIO_AND_VOLTAGE_GUIDE.md` |
 | Battery voltage | ADC/divider measurement is included in Status and Telemetry, stored/displayed by server |
-| Global IWDG | Nominal 25 s, setup and runtime checkpoints, no ISR or Modbus-idle feeding. Persistent reset count uses Status tag 35 / Telemetry tag 44. `WATCHDOG_RECOVERY_AND_TEST_GUIDE.md`, `WDT_RESET_COUNTER_GUIDE.md` |
+| Global IWDG | Nominal 30 s, setup and runtime checkpoints, no ISR or Modbus-idle feeding. Persistent reset count uses Status tag 35 / Telemetry tag 44. `WATCHDOG_RECOVERY_AND_TEST_GUIDE.md`, `WDT_RESET_COUNTER_GUIDE.md` |
+| Network recovery | 10 failed network attempts reset the active modem RST; another 10 reset modem and STM32. Success clears both stages; global hang detection takes priority. `NETWORK_RECOVERY_USER_GUIDE.md` |
 | Power policies | NORMAL, RTC_PERIODIC, REMOTE_WAKE, RTC_QUEUED, LORA_WOR_STOP; per-component policies and unsafe-pairing checks. `NEW_POWER_MODES_USER_GUIDE.md`, `REMOTE_WAKE_USER_GUIDE.md` |
 | Server commands | Correlated application ACKs, WAKE lease, queued commands/expiry and topic/payload node validation |
 | Wire compatibility | Shared protobuf tags/types, optional second flow record and existing AES envelope retained; cross-component tests verify all schema fields |
@@ -58,8 +59,9 @@ the current feature guides and code below take precedence over older claims.
    server process; creating `.env` alone does not imply automatic loading.
    Initial user creation requires the documented account passwords.
 4. Node/server company, node ID, broker, AES key and MQTT topics must agree.
-   Each concurrently connected MQTT client needs a unique client ID. The current
-   final direct-node settings are Company_2/node 1; verify gateway company-prefix
+   Each concurrently connected MQTT client needs a unique client ID. Local node
+   identity is preserved during feature updates; verify its configured ID agrees
+   with the private MQTT topic values. Verify the gateway company-prefix
    separately before a gateway test.
 5. Use the Arduino STM32 board configuration documented in the node project.
    This machine was verified with core 2.12.0, STM32RTC 1.9.0, TinyGSM 0.12.0,

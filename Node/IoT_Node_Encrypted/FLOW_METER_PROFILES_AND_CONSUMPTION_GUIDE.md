@@ -143,7 +143,7 @@ design.
 For the STIME/Supmea watchdog-reset correction and its step-by-step acceptance
 tests, see [SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md](SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md).
 The snapshot is committed once through buffered EEPROM emulation; this does
-not change the 25-second watchdog deadline or the protobuf fields.
+not change the protobuf fields. The current global watchdog deadline is 30 seconds.
 
 ## 6. Protobuf compatibility and sensor data
 

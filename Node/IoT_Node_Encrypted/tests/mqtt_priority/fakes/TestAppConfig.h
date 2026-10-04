@@ -1,7 +1,11 @@
 #pragma once
 #include "Arduino.h"
 #define APP_CONFIG_H
+#if defined(TEST_ESP8266)
+#define USE_ESP8266
+#else
 #define USE_SIM800
+#endif
 #define MODEM_BAUD 9600
 #define APP_ROLE_SENSOR_NODE 1
 #define APP_ROLE_LORA_GATEWAY 2
@@ -12,6 +16,7 @@ enum class WatchdogStage { ModemInitialization, MqttStatus, MqttConnect, MqttSer
 void serviceHardwareWatchdog();
 void serviceHardwareWatchdog(WatchdogStage);
 void watchdogDelay(uint32_t);
+[[noreturn]] void forceHardwareWatchdogReset(const char*);
 #define RTC_HELPERS_H
 uint32_t getEpochTime();
 #define APP_STATE_H
@@ -26,6 +31,9 @@ constexpr uint16_t kMqttPort=1883, kMqttKeepAliveSeconds=45, kMqttSocketTimeoutS
 constexpr uint32_t kMqttReconnectIntervalMs=3000;
 constexpr bool kEnablePublishTimingLogs=false, kEnableVerboseMqttLogs=false;
 constexpr uint16_t kNodeId=1;
+constexpr uint32_t kSimResetPin=16, kSimResetPulseMs=250, kSimBootDelayMs=3000;
+constexpr uint32_t kEspEnablePin=7, kEspResetPin=8, kEspResetPulseMs=100, kEspBootDelayMs=3000;
+constexpr bool kEspEnableActiveHigh=true, kEspResetActiveLow=true;
 }
 extern const char kMqttServer[],kMqttClientId[],kMqttCommandTopic[],kMqttBroadcastTopic[];
 extern const char kMqttPublishTopicStatus[],kMqttPublishTopicTlm[];

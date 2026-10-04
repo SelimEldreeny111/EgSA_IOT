@@ -24,6 +24,10 @@
 
 /** @brief Configure the selected modem interface, pins, and serial port. */
 void initializeMqttTransport();
+/** @brief Close/reset/reinitialize the active modem after the first failed-network budget; preserve queued command replies. */
+void resetMqttTransportForNetworkRecovery();
+/** @brief Pulse active modem RST and request fast IWDG recovery after the second budget. Never returns. */
+[[noreturn]] void resetModemAndControllerForNetworkFailure();
 /** @brief Quiesce the active modem before controller standby. @param timeoutMs Maximum time allowed for shutdown. @return True when transport is safe to sleep. */
 bool prepareMqttTransportForPowerDown(uint32_t timeoutMs);
 /** @brief Restore modem operation when a planned standby entry is cancelled. */

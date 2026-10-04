@@ -61,6 +61,9 @@ in files excluded from this reference.
 - The watchdog must be serviced only while the main control path is making
   progress; long network and peripheral waits must remain bounded. Modbus
   command-service idle hooks do not feed it. `wdt_reset_count` is flash-backed.
+- The global watchdog deadline is nominally 30 seconds. Ten returned network
+  failures reset the selected IP modem; ten further failures reset modem and
+  controller. Network success clears both stages; broker-only failures do not count.
 - Supmea calendar totals depend on RTC trust and persisted accumulator state;
   TUF period totals are read from the meter directly.
 - NORMAL, RTC_PERIODIC, REMOTE_WAKE, RTC_QUEUED and LORA_WOR_STOP are distinct
@@ -95,6 +98,7 @@ zero-reading, counter and wake behavior, also consult:
 
 - [SIM MQTT command-priority guide](SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md)
 - [Global watchdog guide](WATCHDOG_RECOVERY_AND_TEST_GUIDE.md)
+- [Two-stage network recovery guide](NETWORK_RECOVERY_USER_GUIDE.md)
 - [Watchdog counter guide](WDT_RESET_COUNTER_GUIDE.md)
 - [Unavailable sensor guide](SENSOR_UNAVAILABLE_ZERO_GUIDE.md)
 - [Remote wake guide](REMOTE_WAKE_USER_GUIDE.md)

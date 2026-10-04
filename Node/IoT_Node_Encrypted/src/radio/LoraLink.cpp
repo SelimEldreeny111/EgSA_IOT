@@ -1471,7 +1471,7 @@ bool sendLoraFrame(
     bool fragmentDelivered = false;
     for (uint8_t attempt = 1U; attempt <= attempts; ++attempt)
     {
-      // Each ACK wait is bounded to 12 seconds, below the 25-second IWDG
+      // Each ACK wait is bounded to 12 seconds, below the 30-second IWDG
       // deadline. Refresh only between attempts, never inside the wait loop.
       serviceHardwareWatchdog();
       SerialMon.print("LoRa TX fragment: message=");
