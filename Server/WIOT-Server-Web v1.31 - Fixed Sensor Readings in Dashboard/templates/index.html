@@ -15,7 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
 </head>
-<body data-role="{{ role }}" data-supervisor="{{ '1' if allow_company_edit else '' }}">
+<body data-role="{{ role }}" data-supervisor="{{ '1' if allow_company_edit else '' }}" data-broker-owner="{{ '1' if username == 'EgSA_Supervisor' else '' }}">
 <div class="app-shell">
 
     <!-- =========== SIDEBAR =========== -->
@@ -78,13 +78,10 @@
                     <option value="Company_1" {% if company == 'Company_1' %}selected{% endif %}>Company_1</option>
                     <option value="Company_2" {% if company == 'Company_2' %}selected{% endif %}>Company_2</option>
                 </select>
+                {% if username == 'EgSA_Supervisor' %}
                 <button class="btn btn-sm btn-primary topbar-btn" id="btn-connect" onclick="connect()"><i class="bi bi-plug me-1"></i>Connect</button>
                 <button class="btn btn-sm btn-danger topbar-btn" id="btn-disconnect" onclick="disconnect()" disabled><i class="bi bi-power me-1"></i>Disconnect</button>
-                <!-- Hidden config fields - restored from localStorage at runtime -->
-                <input type="hidden" id="cfg-broker" value="">
-                <input type="hidden" id="cfg-port" value="1883">
-                <input type="hidden" id="cfg-aes" value="">
-                <input type="hidden" id="cfg-client" value="iot_server">
+                {% endif %}
             {% else %}
                 <input type="hidden" id="cfg-company" value="{{ company }}">
             {% endif %}
@@ -610,7 +607,9 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-journal-text me-2"></i>System Logs</span>
                         <div class="d-flex gap-2">
+                            {% if username == 'EgSA_Supervisor' %}
                             <a href="/export_log" class="btn btn-sm btn-outline-light" target="_blank"><i class="bi bi-download"></i> Export</a>
+                            {% endif %}
                             <button class="btn btn-sm btn-danger" onclick="document.getElementById('sys-logs').innerHTML=''"><i class="bi bi-trash"></i> Clear</button>
                         </div>
                     </div>
@@ -713,6 +712,7 @@
             <div class="tab-pane fade" id="Configuration" role="tabpanel">
 
                 <!-- Broker Configuration -->
+                {% if username == 'EgSA_Supervisor' %}
                 <div class="card mb-4">
                     <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-broadcast"></i> Broker Configuration</div>
                     <div class="card-body">
@@ -738,6 +738,7 @@
                 </div>
 
                 <!-- Sensor Thresholds -->
+                {% endif %}
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <span><i class="bi bi-sliders me-2"></i>Sensor Thresholds <span class="badge bg-warning text-dark d-none" id="threshold-dirty-badge">Unsaved changes</span></span>
@@ -878,6 +879,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/wake_control.js?v=20260929-1"></script>
-<script src="/static/js/app.js?v=20260929-1"></script>
+<script src="/static/js/safe_html.js?v=20261004-1"></script>
+<script src="/static/js/app.js?v=20261004-1"></script>
 </body>
 </html>

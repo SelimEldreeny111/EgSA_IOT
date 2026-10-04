@@ -50,6 +50,7 @@ try {
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_sensor_display.js'))
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_wake_control.js'))
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_valve_display.js'))
+    Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_safe_html.js'))
     Push-Location -LiteralPath $releaseRoot
     try { Invoke-ReleaseNative $Python @('-m','unittest','discover','-s','tests/release_audit','-v') }
     finally { Pop-Location }

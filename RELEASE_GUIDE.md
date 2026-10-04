@@ -1,5 +1,10 @@
 # Complete WIOT STM32 release — updated 4 October 2026
 
+The compatible server-validation Phase 1 update is documented in
+[Server Phase 1 guide](Documentation/Validation/SERVER_PHASE1_USER_GUIDE.md).
+Shared MQTT controls/log export are now EgSA_Supervisor-only, and readiness
+requires successful SUBACK. Firmware, schema and private bench settings are unchanged.
+
 This branch contains the full project sources, not just changed files. Continue
 bench work in `WIOT_Final_PowerModes_20261001`. Its `FINAL_COPY_INFO.md` records
 the matching commit and local backups. The separate development Git checkout

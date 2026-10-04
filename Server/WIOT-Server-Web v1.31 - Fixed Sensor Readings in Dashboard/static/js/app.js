@@ -18,7 +18,7 @@ function updateThemeButton(theme) {
     const btn = document.getElementById('theme-toggle');
     if (!btn) return;
     const isLight = theme === 'light';
-    btn.innerHTML = `<i class="bi ${isLight ? 'bi-moon-stars' : 'bi-sun'}"></i>`;
+    btn.innerHTML = safeHtml`<i class="bi ${isLight ? 'bi-moon-stars' : 'bi-sun'}"></i>`;
     btn.setAttribute('aria-label', isLight ? 'Switch to dark mode' : 'Switch to light mode');
     btn.setAttribute('title', isLight ? 'Switch to dark mode' : 'Switch to light mode');
 }
@@ -72,6 +72,7 @@ let nodePositions = {};
 let alertCooldowns = {};
 let alertCount = 0;
 let isBrokerConnected = false;
+const CAN_MANAGE_BROKER = document.body.dataset.brokerOwner === '1';
 const IS_SUPERVISOR = document.body.dataset.supervisor === '1' || document.body.dataset.role === 'monitor';
 let latestMessageTime = null;
 let latestMessageEpoch = null;
@@ -109,7 +110,8 @@ function getSelectedCompany() {
 
 function getAllowedNodeIds() {
     const company = getSelectedCompany();
-    return COMPANY_NODE_MAP[company] || ['1','2','3','4','5'];
+    return Object.prototype.hasOwnProperty.call(COMPANY_NODE_MAP, company)
+        ? COMPANY_NODE_MAP[company] : ['1','2','3','4','5'];
 }
 function getAllowedNodeText() { return getAllowedNodeIds().join(', '); }
 
@@ -141,7 +143,8 @@ function updateCommandAvailability() {
 
 function saveBrokerConfig(settings) {
     try {
-        localStorage.setItem(BROKER_STORAGE_KEY, JSON.stringify(settings));
+        const {aes_key, ...publicSettings} = settings;
+        localStorage.setItem(BROKER_STORAGE_KEY, JSON.stringify(publicSettings));
     } catch (err) {
         console.warn('Unable to persist broker config', err);
     }
@@ -149,22 +152,28 @@ function saveBrokerConfig(settings) {
 
 function loadBrokerConfig() {
     try {
-        return JSON.parse(localStorage.getItem(BROKER_STORAGE_KEY)) || null;
+        const saved = JSON.parse(localStorage.getItem(BROKER_STORAGE_KEY)) ||
+            JSON.parse(localStorage.getItem('broker_config')) || null;
+        if (saved) saveBrokerConfig(saved);
+        localStorage.removeItem('broker_config');
+        return saved ? {broker: saved.broker, port: saved.port, client_id: saved.client_id} : null;
     } catch {
         return null;
     }
 }
 
 function restoreBrokerConfig() {
+    if (!CAN_MANAGE_BROKER) return;
     const saved = loadBrokerConfig();
     if (!saved) return;
     const brokerInput = document.getElementById('cfg-broker');
     const portInput = document.getElementById('cfg-port');
-    const aesInput = document.getElementById('cfg-aes');
     const clientInput = document.getElementById('cfg-client');
     if (brokerInput) brokerInput.value = saved.broker || brokerInput.value;
     if (portInput) portInput.value = saved.port || portInput.value;
-    if (aesInput) aesInput.value = saved.aes_key || aesInput.value;
+    // Do not persist keys in browser storage. Remove previous-release copies.
+    saveBrokerConfig(saved);
+    localStorage.removeItem('broker_config');
     if (clientInput) clientInput.value = saved.client_id || clientInput.value;
 }
 
@@ -282,7 +291,7 @@ function showToast(message, type = 'info') {
     const colors = { success: '#22c55e', danger: '#ef4444', warning: '#f59e0b', info: '#4cc9f0' };
     const icons  = { success: 'bi-check-circle-fill', danger: 'bi-x-circle-fill', warning: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
     const id = 'toast-' + Date.now();
-    const html = `
+    const html = safeHtml`
     <div id="${id}" class="toast align-items-center border-0 mb-2 show" role="alert" style="background:var(--wiot-surface-2); color:var(--wiot-text); border-left: 4px solid ${colors[type]} !important;">
       <div class="d-flex">
         <div class="toast-body d-flex align-items-center gap-2">
@@ -384,13 +393,11 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreBrokerConfig();
     setLiveEmptyState('Connect to an MQTT broker to start receiving live data. Use the Connect button above.', true);
     startFreshnessTimer();
-    const savedBroker = loadBrokerConfig();
-    if (savedBroker && document.getElementById('btn-connect')) {
-        setConnIndicator('connecting');
-        connect().catch(() => {
-            setConnIndicator(false);
-        });
-    }
+    loadBrokerConfig(); // also purges keys left in storage by earlier releases
+    // Loading a page must not replace the shared ingestion client. Poll its
+    // readiness; only an explicit supervisor Connect starts/replaces MQTT.
+    refreshBrokerReadiness();
+    setInterval(refreshBrokerReadiness, 5000);
     updateFleetSummary();
     updateCommandAvailability();
 });
@@ -490,6 +497,7 @@ async function handleCompanyChange() {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ company })
             });
+            socket.emit('select_company', { company });
         } catch (err) {
             console.warn('Company session update failed', err);
         }
@@ -612,21 +620,25 @@ async function preloadCompanyData(company) {
 }
 
 // ─── MQTT connect / disconnect ────────────────────────────────────────────────
-async function connect() {
-    // For non-admin users, restore broker config from localStorage
-    const brokerField = document.getElementById('cfg-broker');
-    if (brokerField && !brokerField.value) {
-        const stored = localStorage.getItem('broker_config');
-        if (stored) {
-            const config = JSON.parse(stored);
-            brokerField.value = config.broker || 'broker.hivemq.com';
-            document.getElementById('cfg-port').value = config.port || '1883';
-            document.getElementById('cfg-aes').value = config.aes_key || '';
-            document.getElementById('cfg-client').value = config.client_id || 'iot_server';
-        } else {
-            brokerField.value = 'broker.hivemq.com';
-        }
+async function refreshBrokerReadiness() {
+    try {
+        const response = await fetch('/api/broker_status');
+        if (!response.ok) return;
+        const state = await response.json();
+        setConnIndicator(state.connected === true ? 'connected' : false);
+        const connectBtn = document.getElementById('btn-connect');
+        const disconnectBtn = document.getElementById('btn-disconnect');
+        if (connectBtn) connectBtn.disabled = state.connected === true;
+        if (disconnectBtn) disconnectBtn.disabled = !(state.connected || state.broker_connected);
+    } catch (err) {
+        setConnIndicator(false);
     }
+}
+
+async function connect() {
+    if (!CAN_MANAGE_BROKER) return { success: false, error: 'Supervisor controls MQTT' };
+    const brokerField = document.getElementById('cfg-broker');
+    if (brokerField && !brokerField.value) brokerField.value = 'broker.hivemq.com';
 
     const data = {
         broker: document.getElementById('cfg-broker').value,
@@ -651,10 +663,10 @@ async function connect() {
         if (result && result.success) {
             document.getElementById('btn-connect').disabled = true;
             document.getElementById('btn-disconnect').disabled = false;
-            setConnIndicator('connected');
+            refreshBrokerReadiness();
             saveBrokerConfig(data);
             setLiveEmptyState('Waiting for live data from the broker...', true);
-            showToast('Connected to broker successfully.', 'success');
+            showToast('Connection requested; waiting for broker SUBACK.', 'info');
         } else {
             setConnIndicator(false);
             showToast('Connect failed: ' + (result && result.error ? result.error : 'Unknown error'), 'danger');
@@ -668,6 +680,7 @@ async function connect() {
 }
 
 async function disconnect() {
+    if (!CAN_MANAGE_BROKER) return;
     await fetch('/api/disconnect', { method:'POST' });
     document.getElementById('btn-connect').disabled = false;
     document.getElementById('btn-disconnect').disabled = true;
@@ -810,7 +823,7 @@ function stopPeriodicStime() {
 // ─── Socket events ────────────────────────────────────────────────────────────
 socket.on('system_log', function(data) {
     const term = document.getElementById('sys-logs');
-    if (term) { term.innerHTML += data.message + '<br>'; term.scrollTop = term.scrollHeight; }
+    if (term) appendLogText(term, data.message);
 });
 
 socket.on('broker_status', function(data) {
@@ -842,7 +855,7 @@ socket.on('iot_message', function(msg) {
     const tbody = document.querySelector('#message-table tbody');
     if (tbody) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
+        tr.innerHTML = safeHtml`
             <td class="text-nowrap">${msg.Time}</td>
             <td><span class="badge badge-type-${msg.Type.toLowerCase()}">${msg.Type}</span></td>
             <td>${msg['Node ID']}</td><td>${msg['Sensor ID']}</td><td>${msg.Type === 'Command' ? '-' : nodeStatusLabel(msg['Node Status'])}</td>
@@ -868,7 +881,7 @@ socket.on('iot_message', function(msg) {
     if (msg.Type === 'Telemetry') {
         const gostmBody = document.querySelector('#gostm-table tbody');
         if (gostmBody) {
-            gostmBody.innerHTML = `<tr>
+            gostmBody.innerHTML = safeHtml`<tr>
                 <td>${msg.Time}</td><td>${msg['Node ID']}</td><td>${msg['Sensor ID']}</td>
                 <td>${formatNumberOrDash(msg['Battery Voltage'], 2)}</td>
                 <td>${formatNumberOrDash(msg.Flow)}</td>
@@ -1031,9 +1044,9 @@ function updateTrend(trendId, current, previous) {
     if (Math.abs(diff) < 0.005) {
         el.innerHTML = '<span class="trend-same">— stable</span>';
     } else if (diff > 0) {
-        el.innerHTML = `<span class="trend-up">&#8593; +${diff.toFixed(2)}</span>`;
+        el.innerHTML = safeHtml`<span class="trend-up">&#8593; +${diff.toFixed(2)}</span>`;
     } else {
-        el.innerHTML = `<span class="trend-down">&#8595; ${diff.toFixed(2)}</span>`;
+        el.innerHTML = safeHtml`<span class="trend-down">&#8595; ${diff.toFixed(2)}</span>`;
     }
 }
 
@@ -1296,7 +1309,7 @@ async function searchTabular(page = 1) {
     tbody.innerHTML = '';
     rows.forEach(msg => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
+        tr.innerHTML = safeHtml`
             <td class="text-nowrap">${msg.timestamp}</td>
             <td><span class="badge badge-type-${(msg.type||'').toLowerCase()}">${msg.type}</span></td>
             <td>${msg.node_id}</td><td>${msg.sensor_id}</td><td>${msg.node_status === undefined || msg.node_status === null ? '-' : nodeStatusLabel(msg.node_status)}</td>
@@ -1349,7 +1362,7 @@ async function loadCommandHistory(page = 1) {
     tbody.innerHTML = '';
     rows.forEach(msg => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
+        tr.innerHTML = safeHtml`
             <td class="text-nowrap">${msg.timestamp}</td>
             <td>${msg.node_id}</td>
             <td>${msg.type}</td>
@@ -1389,11 +1402,15 @@ async function loadUsers() {
             tbody.innerHTML = '';
             result.users.forEach(u => {
                 const PROTECTED = ['EgSA_Supervisor','Company1_Admin','Company2_Admin','Company1_User','Company2_User'];
-                const deleteBtn = PROTECTED.includes(u.username) ? '' : `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})"><i class="bi bi-trash"></i></button>`;
-                const roleBadge = `<span class="badge ${u.role==='admin'?'bg-danger':'bg-info'}">${u.role.toUpperCase()}</span>`;
+                const deleteBtn = PROTECTED.includes(u.username) ? '' : fragment`<button class="btn btn-sm btn-danger" data-delete-user><i class="bi bi-trash"></i></button>`;
+                const roleBadge = fragment`<span class="badge ${u.role==='admin'?'bg-danger':'bg-info'}">${u.role.toUpperCase()}</span>`;
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${u.id}</td><td>${u.username}</td><td>${roleBadge}</td><td>${u.company}</td><td>${deleteBtn}</td>`;
+                tr.innerHTML = safeHtml`<td>${u.id}</td><td>${u.username}</td><td>${roleBadge}</td><td>${u.company}</td><td>${deleteBtn}</td>`;
                 tbody.appendChild(tr);
+                const deleteControl = tr.querySelector('[data-delete-user]');
+                if (deleteControl && Number.isSafeInteger(Number(u.id))) {
+                    deleteControl.addEventListener('click', () => deleteUser(Number(u.id)));
+                }
             });
         }
     } catch(err) { console.error('loadUsers failed', err); }
@@ -1440,7 +1457,7 @@ async function loadCompanies() {
             tbody.innerHTML = '';
             result.companies.forEach(c => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${c.name}</td><td>${c.created_at}</td>`;
+                tr.innerHTML = safeHtml`<td>${c.name}</td><td>${c.created_at}</td>`;
                 tbody.appendChild(tr);
             });
             updateCompanySelectors(result.companies);
@@ -1546,11 +1563,11 @@ function renderThresholdTable() {
         const t = getNodeThreshold(company, nid);
         const active = isNodeActive(nid);
         const statusDot = active
-            ? '<span style="color:var(--wiot-success)"><i class="bi bi-circle-fill" style="font-size:.6rem"></i> Active</span>'
-            : '<span style="color:var(--wiot-muted)"><i class="bi bi-circle" style="font-size:.6rem"></i> Inactive</span>';
+            ? fragment`<span style="color:var(--wiot-success)"><i class="bi bi-circle-fill" style="font-size:.6rem"></i> Active</span>`
+            : fragment`<span style="color:var(--wiot-muted)"><i class="bi bi-circle" style="font-size:.6rem"></i> Inactive</span>`;
         const tr = document.createElement('tr');
         tr.dataset.node = nid;
-        tr.innerHTML = `
+        tr.innerHTML = safeHtml`
             <td class="fw-semibold">Node ${nid}</td>
             <td><input class="form-control form-control-sm" type="number" step="any" placeholder="—" data-field="flow_min" value="${t.flow_min}" style="max-width:90px"></td>
             <td><input class="form-control form-control-sm" type="number" step="any" placeholder="—" data-field="flow_max" value="${t.flow_max}" style="max-width:90px"></td>
@@ -1593,7 +1610,7 @@ function triggerAlert(nid, field, value, limit, type, unit) {
 
     const dir = type === 'HIGH' ? 'exceeded max' : 'below min';
     showToast(
-        `<b>Node ${nid}</b> — ${field} ${dir}: <b>${value.toFixed(2)} ${unit}</b> (limit: ${limit} ${unit})`,
+        `Node ${nid} — ${field} ${dir}: ${value.toFixed(2)} ${unit} (limit: ${limit} ${unit})`,
         'danger'
     );
     logAlert(nid, field, value, limit, type, unit);
@@ -1613,11 +1630,11 @@ function logAlert(nid, field, value, limit, type, unit) {
     if (placeholder) placeholder.closest('tr').remove();
 
     const typeBadge = type === 'HIGH'
-        ? '<span class="badge" style="background:rgba(239,68,68,0.2);color:#f87171">HIGH</span>'
-        : '<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24">LOW</span>';
+        ? fragment`<span class="badge" style="background:rgba(239,68,68,0.2);color:#f87171">HIGH</span>`
+        : fragment`<span class="badge" style="background:rgba(245,158,11,0.2);color:#fbbf24">LOW</span>`;
     const now = new Date().toLocaleTimeString();
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="text-nowrap">${now}</td><td>Node ${nid}</td><td>${field}</td>
+    tr.innerHTML = safeHtml`<td class="text-nowrap">${now}</td><td>Node ${nid}</td><td>${field}</td>
         <td><b>${value.toFixed(2)} ${unit}</b></td><td>${limit} ${unit}</td><td>${typeBadge}</td>`;
     tbody.prepend(tr);
 }
@@ -1648,7 +1665,7 @@ function saveNodePositions() {
 
 function makePinIcon(nodeId, active) {
     return L.divIcon({
-        html: `<div class="wiot-pin${active ? ' active' : ''}">N${nodeId}</div>`,
+        html: safeHtml`<div class="wiot-pin${active ? ' active' : ''}">N${nodeId}</div>`,
         className: '',
         iconSize:   [42, 42],
         iconAnchor: [21, 21],
@@ -1662,16 +1679,16 @@ function buildPopupHtml(nid) {
     const liveValid = active && Number(d['Flow Live Valid']) === 1;
     const periodsValid = active && Number(d['Period Totals Valid']) === 1;
     const statusDot = active
-        ? '<span style="color:#4ade80">&#9679; Active</span>'
-        : '<span style="color:#98a2c3">&#9679; Inactive</span>';
-    const rows = active ? `
+        ? fragment`<span style="color:#4ade80">&#9679; Active</span>`
+        : fragment`<span style="color:#98a2c3">&#9679; Inactive</span>`;
+    const rows = active ? fragment`
         <tr><td style="color:#98a2c3;padding-right:12px">Flow</td><td><b>${liveValid ? formatNumberOrDash(d.Flow) + ' m³/h' : '-'}</b></td></tr>
         <tr><td style="color:#98a2c3">Velocity</td><td><b>${liveValid ? formatNumberOrDash(d.Velocity) + ' m/s' : '-'}</b></td></tr>
         <tr><td style="color:#98a2c3">Battery</td><td><b>${formatNumberOrDash(d['Battery Voltage'], 2)} V</b></td></tr>
         <tr><td style="color:#98a2c3">WDT Resets</td><td><b>${Number(d['WDT Resets'] ?? 0)}</b></td></tr>
         <tr><td style="color:#98a2c3">Today</td><td>${periodsValid ? formatNumberOrDash(d['Flow Day']) + ' m³' : '-'}</td></tr>
         <tr><td style="color:#98a2c3">Last seen</td><td style="font-size:0.78rem">${d.Time}</td></tr>` : '';
-    return `<div style="min-width:170px">
+    return safeHtml`<div style="min-width:170px">
         <div style="font-weight:700;font-size:1rem;margin-bottom:6px">Node ${nid}</div>
         <div style="margin-bottom:8px;font-size:0.82rem">${statusDot}</div>
         <table style="width:100%;font-size:0.83rem">${rows}</table>
@@ -1744,15 +1761,18 @@ function renderMapNodeList() {
         const d = nodeLatestData[nid];
         const liveValid = active && Number(d['Flow Live Valid']) === 1;
         const sub = liveValid ? `${formatNumberOrDash(d.Flow)} m³/h / ${formatNumberOrDash(d.Velocity)} m/s` : (active ? 'Flow reading invalid' : 'No data received');
-        return `<div class="map-node-item" onclick="focusMapNode('${nid}')">
+        return safeHtml`<div class="map-node-item" data-node="${nid}">
             <div class="map-node-dot${active ? ' active' : ''}"></div>
             <div style="flex:1;min-width:0">
                 <div style="font-weight:600;font-size:0.85rem">Node ${nid}</div>
                 <div class="status-note" style="font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>
             </div>
-            ${active ? '<i class="bi bi-broadcast" style="color:var(--wiot-success);font-size:0.9rem"></i>' : ''}
+            ${active ? fragment`<i class="bi bi-broadcast" style="color:var(--wiot-success);font-size:0.9rem"></i>` : ''}
         </div>`;
     }).join('');
+    panel.querySelectorAll('[data-node]').forEach(item => {
+        item.addEventListener('click', () => focusMapNode(item.dataset.node));
+    });
 }
 
 function focusMapNode(nid) {
@@ -1818,28 +1838,30 @@ function renderLocationTable() {
         const pos    = nodePositions[posKey] || null;
         const active = isNodeActive(nid);
         const statusDot = active
-            ? '<span style="color:var(--wiot-success)"><i class="bi bi-circle-fill" style="font-size:.6rem"></i> Active</span>'
-            : '<span style="color:var(--wiot-muted)"><i class="bi bi-circle" style="font-size:.6rem"></i> Inactive</span>';
+            ? fragment`<span style="color:var(--wiot-success)"><i class="bi bi-circle-fill" style="font-size:.6rem"></i> Active</span>`
+            : fragment`<span style="color:var(--wiot-muted)"><i class="bi bi-circle" style="font-size:.6rem"></i> Inactive</span>`;
         const latCell = pos
-            ? `<span class="loc-coord">${pos[0].toFixed(5)}</span>`
-            : `<span class="loc-coord not-set">—</span>`;
+            ? fragment`<span class="loc-coord">${pos[0].toFixed(5)}</span>`
+            : fragment`<span class="loc-coord not-set">—</span>`;
         const lngCell = pos
-            ? `<span class="loc-coord">${pos[1].toFixed(5)}</span>`
-            : `<span class="loc-coord not-set">—</span>`;
+            ? fragment`<span class="loc-coord">${pos[1].toFixed(5)}</span>`
+            : fragment`<span class="loc-coord not-set">—</span>`;
         const tr = document.createElement('tr');
         tr.dataset.node = nid;
-        tr.innerHTML = `
+        tr.innerHTML = safeHtml`
             <td class="fw-semibold">Node ${nid}</td>
             <td>${latCell}</td>
             <td>${lngCell}</td>
             <td>${statusDot}</td>
             <td>
-                <button class="btn btn-sm btn-outline-info" onclick="openLocationPicker('${nid}')">
+                <button class="btn btn-sm btn-outline-info" data-location-set>
                     <i class="bi bi-pin-map me-1"></i>Set Location
                 </button>
-                ${pos ? `<button class="btn btn-sm btn-outline-danger ms-1" onclick="clearNodeLocation('${nid}')" title="Clear location"><i class="bi bi-x-lg"></i></button>` : ''}
+                ${pos ? fragment`<button class="btn btn-sm btn-outline-danger ms-1" data-location-clear title="Clear location"><i class="bi bi-x-lg"></i></button>` : ''}
             </td>`;
         tbody.appendChild(tr);
+        tr.querySelector('[data-location-set]').addEventListener('click', () => openLocationPicker(nid));
+        tr.querySelector('[data-location-clear]')?.addEventListener('click', () => clearNodeLocation(nid));
     });
 }
 

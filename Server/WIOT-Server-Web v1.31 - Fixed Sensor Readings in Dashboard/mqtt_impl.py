@@ -82,7 +82,7 @@ class MqttNodeClient:
         subscribe_topics: List[str],
         on_plaintext: Optional[Callable[[str, bytes], None]] = None,
         on_status: Optional[Callable[[str], None]] = None,
-        debug: bool = True,
+        debug: bool = False,
     ):
         # Broker / framing settings injected from the GUI.
         self.broker_host = broker_host
@@ -97,12 +97,18 @@ class MqttNodeClient:
         self._lock = threading.Lock()
         self.counters = Counters()
         self.connected = False
+        self.ready = False
+        self.subscription_error = None
+        self._pending_subscriptions = {}
+        self._confirmed_subscriptions = set()
+        self._subscription_timer = None
 
         # Underlying paho-mqtt client and its callback wiring.
         self.client = mqtt.Client(client_id=client_id)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         self.client.on_disconnect = self._on_disconnect
+        self.client.on_subscribe = self._on_subscribe
 
     @staticmethod
     def _pad_pkcs7(data: bytes) -> tuple[bytes, int]:
@@ -150,7 +156,7 @@ class MqttNodeClient:
                 plain = padded.rstrip(b"\x00")
                 pad_len = len(padded) - len(plain)
             else:
-                raise ValueError(f"Padding error. Decrypted hex: {padded.hex(' ')}") from e
+                raise ValueError('Invalid frame padding') from e
         return plain, len(padded), pad_len
 
     @classmethod
@@ -223,7 +229,8 @@ class MqttNodeClient:
         frame = self.encrypt_frame(plaintext)
         if self.on_status:
             self.on_status(f"[TX#{frame['tx_counter']}] RAW MQTT TX topic={topic} len={frame['frame_len']}")
-            self.on_status(f"MQTT outgoing frame bytes: {frame['payload'].hex(' ')}")
+            if getattr(self, 'debug', False):
+                self.on_status(f"MQTT outgoing frame bytes: {frame['payload'].hex(' ')}")
             self.on_status("")
         result = self.client.publish(topic, frame["payload"], qos=qos, retain=False)
         if result.rc != mqtt.MQTT_ERR_SUCCESS:
@@ -242,7 +249,8 @@ class MqttNodeClient:
 
         if self.on_status:
             self.on_status(f"[TX#{tx}] RAW MQTT TX topic={topic} len={len(payload)} (note={note})")
-            self.on_status(f"MQTT outgoing frame bytes: {payload.hex(' ')}")
+            if self.debug:
+                self.on_status(f"MQTT outgoing frame bytes: {payload.hex(' ')}")
             self.on_status("")
 
         self.client.publish(topic, payload, qos=qos)
@@ -317,13 +325,55 @@ class MqttNodeClient:
             self.client.disconnect()
         self.client.loop_stop()
         self.connected = False
+        self.ready = False
+        self._cancel_subscription_timer()
 
     def is_connected(self):
-        return self.connected and self.client.is_connected()
+        """Application readiness, not just TCP/CONNACK success."""
+        return self.connected and self.ready and self.client.is_connected()
+
+    def _cancel_subscription_timer(self):
+        if self._subscription_timer is not None:
+            self._subscription_timer.cancel()
+            self._subscription_timer = None
+
+    def _subscription_failed(self, reason):
+        """Fail closed. Operator retries; do not spin against a denied broker ACL."""
+        self.ready = False
+        self.subscription_error = reason
+        self._cancel_subscription_timer()
+        logger.error('[MQTT] Subscription failed: %s', reason)
+        if self.on_status:
+            self.on_status(f'[MQTT] Subscription failed: {reason}')
+        self.client.disconnect()
+
+    def _subscription_timeout(self):
+        if self.connected and not self.ready and not self.subscription_error:
+            self._subscription_failed('SUBACK timeout (15 seconds); check ACL/network and reconnect')
+
+    def _on_subscribe(self, client, userdata, mid, granted_qos, properties=None):
+        """Accept only a matching successful broker acknowledgment (Paho API v1)."""
+        topic = self._pending_subscriptions.pop(mid, None)
+        if topic is None or not self.connected or self.subscription_error:
+            return
+        if len(granted_qos) != 1 or granted_qos[0] not in (0, 1, 2):
+            self._subscription_failed('Broker rejected subscription')
+            return
+        self._confirmed_subscriptions.add(topic)
+        if not self._pending_subscriptions and self._confirmed_subscriptions == set(self.subscribe_topics):
+            self.ready = True
+            self._cancel_subscription_timer()
+            if self.on_status:
+                self.on_status(f'[MQTT] Ready - subscribed to {len(self._confirmed_subscriptions)} topics (SUBACK confirmed)')
 
     def _on_connect(self, client, userdata, flags, rc):
         """paho-mqtt callback fired after broker connection completes."""
         self.connected = (rc == 0)
+        self.ready = False
+        self.subscription_error = None
+        self._pending_subscriptions.clear()
+        self._confirmed_subscriptions.clear()
+        self._cancel_subscription_timer()
         
         # Map MQTT return codes to human-readable messages
         rc_messages = {
@@ -346,29 +396,34 @@ class MqttNodeClient:
                 self.on_status(f"[MQTT] Connection FAILED rc={rc}: {rc_msg}")
             return
 
-        # Subscribe to topics
-        sub_count = 0
+        # Paho runs SUBACK on this same network thread after on_connect returns.
+        # Record each MID before returning. Do not wait/block the receive callback.
+        if not self.subscribe_topics or any(not t for t in self.subscribe_topics):
+            self._subscription_failed('No valid subscription topics')
+            return
         for t in self.subscribe_topics:
-            if not t:
-                continue
             try:
                 result, mid = client.subscribe(t, qos=1)
-                logger.info(f"[MQTT] Subscribed to: {t} (result={result}, mid={mid})")
+                if result != mqtt.MQTT_ERR_SUCCESS:
+                    self._subscription_failed(f'Local subscribe rejected (rc={result})')
+                    return
+                self._pending_subscriptions[mid] = t
                 if self.on_status:
-                    self.on_status(f"[MQTT] Subscribed to: {t}")
-                sub_count += 1
+                    self.on_status(f'[MQTT] Subscription requested: {t}; awaiting SUBACK')
             except Exception as e:
-                logger.error(f"[MQTT] Failed to subscribe to {t}: {e}")
-                if self.on_status:
-                    self.on_status(f"[MQTT] ERROR subscribing to {t}: {e}")
-        
-        logger.info(f"[MQTT] Subscription complete - {sub_count}/{len(self.subscribe_topics)} topics")
-        if self.on_status:
-            self.on_status(f"[MQTT] Ready - subscribed to {sub_count} topics")
+                self._subscription_failed(f'Subscribe exception: {type(e).__name__}')
+                return
+        self._subscription_timer = threading.Timer(15, self._subscription_timeout)
+        self._subscription_timer.daemon = True
+        self._subscription_timer.start()
 
     def _on_disconnect(self, client, userdata, rc):
         """paho-mqtt callback fired when broker connection is closed."""
         self.connected = False
+        self.ready = False
+        self._pending_subscriptions.clear()
+        self._confirmed_subscriptions.clear()
+        self._cancel_subscription_timer()
         
         if rc == 0:
             logger.info(f"[MQTT] Disconnected cleanly from broker")
@@ -389,15 +444,20 @@ class MqttNodeClient:
         - decrypt errors are also logged to RX
         """
         raw = msg.payload
+        if not 33 <= len(raw) <= 4129:
+            if self.on_status:
+                self.on_status('[MQTT] Dropped empty/oversized encrypted frame')
+            return
 
         with self._lock:
             rx = self.counters.inc_rx()
 
         if self.on_status:
             self.on_status(f"[RX#{rx}] RAW MQTT RX topic={msg.topic} len={len(raw)}")
-            self.on_status(f"MQTT frame bytes: {raw.hex(' ')}")
+            if self.debug:
+                self.on_status(f"MQTT frame bytes: {raw.hex(' ')}")
 
-        if not self.connected:
+        if not self.is_connected():
             if self.on_status:
                 self.on_status(f"[RX#{rx}] Ignored MQTT payload because client is disconnected")
                 self.on_status("")
@@ -424,7 +484,8 @@ class MqttNodeClient:
                 self.on_status(
                     f"[RX#{rx}] code_ver={code_ver_hex} iv={iv_hex} cipher_len={cipher_len} dec_len={dec_len} pad_len={pad_len} proto_len={len(plain)}{cmd_info}{warn}"
                 )
-                self.on_status(f"Frame header: code_ver={code_ver_hex} iv={iv_hex}")
+                if self.debug:
+                    self.on_status(f"Frame header: code_ver={code_ver_hex} iv={iv_hex}")
 
             if self.on_plaintext:
                 self.on_plaintext(msg.topic, plain)

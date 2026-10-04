@@ -10,8 +10,9 @@ import re
 from io import StringIO
 from datetime import datetime
 from functools import wraps
+from contextlib import closing
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, send_file
-from flask_socketio import SocketIO, join_room
+from flask_socketio import SocketIO, join_room, leave_room
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import messages_pb2
@@ -33,6 +34,8 @@ from flow_schema import (
 )
 from mqtt_impl import MqttNodeClient
 from command_queue import CommandQueue
+from input_validation import company_id, integer, parse_topic, validate_message, MAX_PROTO_BYTES
+from tenant_storage import database_path, storage_id, preflight as tenant_preflight
 
 MAIN_DB_FILE = 'iot_data.db'
 MESSAGE_DB_DIR = 'messages_dbs'
@@ -40,7 +43,69 @@ _initialized_company_dbs = set()  # track which company DBs are already set up
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('WIOT_FLASK_SECRET_KEY') or secrets.token_hex(32)
-socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
+app.config.update(MAX_CONTENT_LENGTH=64 * 1024, SESSION_COOKIE_HTTPONLY=True,
+                  SESSION_COOKIE_SAMESITE='Lax')
+# Default same-origin checking; do not allow arbitrary sites to open sockets.
+socketio = SocketIO(app, async_mode='threading')
+
+
+@app.before_request
+def validate_api_request():
+    """Consistent, bounded API input. Same-origin protection supplements Lax cookies.
+
+    This is not a replacement for future per-form CSRF tokens/session revocation.
+    Empty-body disconnect and DELETE remain supported; all body-bearing API
+    mutations require a JSON object, never form/text JSON coercion.
+    """
+    from urllib.parse import urlsplit
+    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        origin = request.headers.get('Origin')
+        if origin and (urlsplit(origin).netloc != request.host or urlsplit(origin).scheme != request.scheme):
+            return jsonify(success=False, error='Cross-origin mutation rejected'), 403
+    if not (request.path.startswith('/api/') or request.path == '/export_csv'):
+        return
+    if request.method in ('POST', 'PUT', 'PATCH') and (request.content_length or request.path != '/api/disconnect'):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify(success=False, error='JSON object required'), 400
+        for field, maximum in (('username', 80), ('password', 512), ('role', 16),
+                ('broker', 253), ('client_id', 80), ('aes_key', 64),
+                ('company', 80), ('company_name', 80), ('cmd_type', 16), ('delivery', 16)):
+            if field in data and (not isinstance(data[field], str) or len(data[field]) > maximum):
+                return jsonify(success=False, error=f'Invalid {field}'), 400
+    try:
+        if request.args.get('company'):
+            company_id(request.args['company'])
+        if request.args.get('history_node'):
+            integer(request.args['history_node'], 1, 65535, 'History node ID')
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+
+
+@app.errorhandler(ValueError)
+def invalid_api_value(error):
+    """Bad tenant identifiers/legacy collisions are controlled failures, not 500s."""
+    logging.warning('Rejected API input or ambiguous tenant storage')
+    return jsonify(success=False, error=str(error)), 400
+
+
+@app.after_request
+def browser_security_headers(response):
+    """Compatible CSP for existing CDN/inline-handler UI, not a full XSS defense.
+
+    Inline scripts/styles remain needed by this UI. Removal requires a separate
+    event-handler/template refactor; untrusted DOM data is escaped independently.
+    """
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'same-origin'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+        "font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: https://*.basemaps.cartocdn.com; "
+        "connect-src 'self'")
+    return response
 
 # Configure Logging
 logging.basicConfig(filename='system.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -92,23 +157,34 @@ GLOBAL_ROOM = '__all__'
 CMD_NAMES = {"SRATE": 1, "STRAN": 2, "STIME": 3, "GOSTM": 4, "VALVE": 5, "WAKE": WAKE_COMMAND_ID}
 CMD_NAMES_REV = {v: k for k, v in CMD_NAMES.items()}
 
-def log_event(msg: str):
+def log_event(msg: str, company=None):
+    """Infrastructure logs are supervisor-only; explicitly scoped logs stay local."""
     timestamp = datetime.now().strftime("%H:%M:%S")
+    msg = str(msg).replace('\r', ' ').replace('\n', ' ')[:2048]
+    msg = re.sub(r'(?i)((?:password|aes_key|token|secret)\s*[=:]\s*)\S+', r'\1[REDACTED]', msg)
     formatted = f"[{timestamp}] {msg}"
     print(formatted)
     logging.info(msg)
-    socketio.emit('system_log', {'message': formatted})
+    socketio.emit('system_log', {'message': formatted}, room=GLOBAL_ROOM)
+    if company is not None:
+        socketio.emit('system_log', {'message': formatted}, room=company_id(company))
 
 
 @socketio.on('client_log')
 def handle_client_log(data):
-    """Handle logging messages from the client side"""
-    msg = data.get('message', 'Unknown client event')
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    formatted = f"[CLIENT] [{timestamp}] {msg}"
-    print(formatted)
-    logging.info(f"CLIENT: {msg}")
-    socketio.emit('system_log', {'message': formatted})
+    """Bounded authenticated text only; never accept a client-supplied log room."""
+    if 'role' not in session or not isinstance(data, dict):
+        return
+    msg = data.get('message')
+    if not isinstance(msg, str) or not 1 <= len(msg) <= 2048:
+        return
+    company = None if session.get('username') == 'EgSA_Supervisor' else session.get('company')
+    try:
+        if company is not None:
+            company_id(company)
+        log_event(f"[CLIENT] {msg}", company=company)
+    except ValueError:
+        return
 
 
 @socketio.on('connect')
@@ -122,7 +198,24 @@ def handle_connect():
     if session.get('username') == 'EgSA_Supervisor':
         join_room(GLOBAL_ROOM)
     else:
-        join_room(session.get('company') or 'Unknown')
+        try:
+            join_room(company_id(session.get('company')))
+        except ValueError:
+            return False
+
+
+@socketio.on('select_company')
+def handle_socket_company(data):
+    """Monitoring sockets explicitly change their authorized room with the UI."""
+    if session.get('username') != 'Super_User' or not isinstance(data, dict):
+        return {'success': False}
+    target = data.get('company')
+    if target not in known_companies():
+        return {'success': False}
+    leave_room(session.get('company'))
+    join_room(target)
+    session['company'] = target
+    return {'success': True}
 
 
 def emit_iot_message(payload, company):
@@ -135,14 +228,20 @@ def emit_iot_message(payload, company):
 
 
 def safe_company_name(company: str) -> str:
-    if not company:
-        company = 'Unknown'
-    safe = re.sub(r'[^A-Za-z0-9_-]+', '_', company)
-    return safe or 'Unknown'
+    """Compatibility helper: new identity is lossless, not a display-name slug."""
+    return storage_id(company)
 
 
 def get_company_db_path(company: str) -> str:
-    return os.path.join(MESSAGE_DB_DIR, f"{safe_company_name(company)}.db")
+    return database_path(company, MESSAGE_DB_DIR, known_companies())
+
+
+def known_companies():
+    """Read the tenant registry without creating an accidental fresh DB."""
+    if not os.path.isfile(MAIN_DB_FILE):
+        return []
+    with closing(sqlite3.connect(MAIN_DB_FILE)) as conn:
+        return [row[0] for row in conn.execute('SELECT name FROM companies')]
 
 
 def normalize_db_timestamp(value):
@@ -627,6 +726,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+    issues = tenant_preflight(known_companies(), MESSAGE_DB_DIR)
+    if issues:
+        raise RuntimeError('Tenant database collision: run tenant_storage.py preflight; '
+                           'back up and approve a migration before starting')
     migrate_legacy_messages_to_company_dbs()
 
     conn = sqlite3.connect(MAIN_DB_FILE)
@@ -793,8 +896,12 @@ def on_mqtt_status(msg: str):
         logging.info(f"[MQTT_STATUS] {msg}")
         
         # Parse connection status and emit to clients
-        if 'Connected rc=0' in msg:
-            socketio.emit('broker_status', {'connected': True, 'status': 'Connected'})
+        if '[MQTT] Ready -' in msg:
+            socketio.emit('broker_status', {'connected': True, 'status': 'Subscriptions ready'})
+        elif 'Connected rc=0' in msg:
+            socketio.emit('broker_status', {'connected': False, 'status': 'Waiting for SUBACK'})
+        elif 'Subscription failed' in msg:
+            socketio.emit('broker_status', {'connected': False, 'status': 'Subscription failed'})
         elif 'Connected rc=' in msg and 'rc=0' not in msg:
             # Extract error code
             socketio.emit('broker_status', {'connected': False, 'status': 'Connection failed'})
@@ -803,6 +910,13 @@ def on_mqtt_status(msg: str):
 
 def on_mqtt_plaintext(topic: str, plaintext: bytes):
     """Handle successfully decrypted MQTT messages."""
+    try:
+        company, topic_node_id, topic_kind = parse_topic(topic)
+        if not isinstance(plaintext, bytes) or not 0 < len(plaintext) <= MAX_PROTO_BYTES:
+            raise ValueError('Empty or oversized protobuf')
+    except ValueError as exc:
+        log_event(f"[VALIDATION ERROR] Dropped packet: {exc}")
+        return
     log_event(f"[PLAINTEXT] Received {len(plaintext)} bytes on topic: {topic}")
     logging.info(f"[PLAINTEXT] topic={topic} len={len(plaintext)} type={type(plaintext)}")
     
@@ -821,10 +935,11 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
     logging.info(f"[PLAINTEXT] Parsing - parts={topic_parts} company={company}")
 
     try:
-        if "status" in topic.lower():
+        if topic_kind == 'status':
             log_event(f"[PLAINTEXT] Parsing as Status_Message...")
             msg = messages_pb2.Status_Message()
             msg.ParseFromString(plaintext)
+            validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed Status_Message: node_id={msg.node_id} sensor_id={msg.sensor_id}")
             
             # Validate node ID matches topic
@@ -883,10 +998,11 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             emit_iot_message(payload, company)
             dispatch_queued_command(company, msg.node_id)
 
-        elif "telemetry" in topic.lower():
+        elif topic_kind == 'telemetry':
             log_event(f"[PLAINTEXT] Parsing as Telemetry...")
             msg = messages_pb2.Telemetry()
             msg.ParseFromString(plaintext)
+            validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed Telemetry: node_id={msg.node_id} sensor_id={msg.sensor_id}")
             
             # Validate node ID matches topic
@@ -980,15 +1096,16 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             )
             emit_iot_message(payload, company)
 
-        elif "cmd" in topic.lower():
+        elif topic_kind == 'cmd':
             log_event(f"[PLAINTEXT] Parsing as CMD_Message...")
             msg = messages_pb2.CMD_Message()
             msg.ParseFromString(plaintext)
+            validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed CMD_Message: node_id={msg.node_id} cmd_id={msg.cmd_id} cmd_data={msg.cmd_data}")
             
             # Validate node ID matches topic
             topic_parts = topic.split('/')
-            if len(topic_parts) >= 3:
+            if topic_node_id != 0:
                 try:
                     topic_node_id = int(topic_parts[2])
                     if msg.node_id != topic_node_id:
@@ -1059,7 +1176,7 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        conn = sqlite3.connect('iot_data.db')
+        conn = sqlite3.connect(MAIN_DB_FILE)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
         c.execute("SELECT * FROM users WHERE username=?", (username,))
@@ -1100,7 +1217,7 @@ def change_password():
             return render_template('change_password.html', message=message)
 
         try:
-            conn = sqlite3.connect('iot_data.db')
+            conn = sqlite3.connect(MAIN_DB_FILE)
             c = conn.cursor()
             c.execute('SELECT password FROM users WHERE username=?', (session.get('username'),))
             row = c.fetchone()
@@ -1131,7 +1248,7 @@ def change_password():
 def dashboard():
     users = []
     if session['role'] == 'admin':
-        conn = sqlite3.connect('iot_data.db')
+        conn = sqlite3.connect(MAIN_DB_FILE)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
         if session.get('username') == 'EgSA_Supervisor':
@@ -1157,7 +1274,7 @@ def dashboard():
 @app.route('/api/users', methods=['GET'])
 @admin_required
 def get_users():
-    conn = sqlite3.connect('iot_data.db')
+    conn = sqlite3.connect(MAIN_DB_FILE)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     if session.get('username') == 'EgSA_Supervisor':
@@ -1184,7 +1301,7 @@ def create_user():
         return jsonify({"success": False, "error": "Invalid input"})
         
     try:
-        conn = sqlite3.connect('iot_data.db')
+        conn = sqlite3.connect(MAIN_DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO users (username, password, role, company) VALUES (?, ?, ?, ?)", 
                   (username, generate_password_hash(password), role, company))
@@ -1200,7 +1317,7 @@ def create_user():
 @admin_required
 def delete_user(user_id):
     try:
-        conn = sqlite3.connect('iot_data.db')
+        conn = sqlite3.connect(MAIN_DB_FILE)
         c = conn.cursor()
         user_to_delete = c.execute("SELECT username, company FROM users WHERE id=?", (user_id,)).fetchone()
         if not user_to_delete:
@@ -1228,10 +1345,13 @@ def get_companies():
     if session.get('role') != 'admin' and session.get('username') not in ('EgSA_Supervisor', 'Super_User'):
         return jsonify({"success": False, "error": "Admin or supervisor required"}), 403
     try:
-        conn = sqlite3.connect('iot_data.db')
+        conn = sqlite3.connect(MAIN_DB_FILE)
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
-        c.execute("SELECT id, name, created_at FROM companies ORDER BY created_at ASC")
+        if session.get('username') in ('EgSA_Supervisor', 'Super_User'):
+            c.execute("SELECT id, name, created_at FROM companies ORDER BY created_at ASC")
+        else:
+            c.execute("SELECT id, name, created_at FROM companies WHERE name = ?", (session.get('company'),))
         companies = [dict(ix) for ix in c.fetchall()]
         conn.close()
         return jsonify({"success": True, "companies": companies})
@@ -1244,14 +1364,21 @@ def add_company():
     if session.get('username') != 'EgSA_Supervisor':
         return jsonify({"success": False, "error": "Only EgSA_Supervisor can add companies"}), 403
     
-    data = request.json
-    company_name = data.get('company_name', '').strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(success=False, error='JSON object required'), 400
+    try:
+        company_name = company_id(data.get('company_name'))
+        # New tenants cannot claim an ambiguous existing legacy file.
+        database_path(company_name, MESSAGE_DB_DIR, known_companies() + [company_name])
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
     
     if not company_name:
         return jsonify({"success": False, "error": "Company name is required"})
     
     try:
-        conn = sqlite3.connect('iot_data.db')
+        conn = sqlite3.connect(MAIN_DB_FILE)
         c = conn.cursor()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         c.execute("INSERT INTO companies (name, created_at) VALUES (?, ?)", (company_name, now))
@@ -1270,8 +1397,10 @@ def set_company():
     """Allow the special supervisor or monitoring user to set the active
     company in the session for monitoring purposes.
     """
-    data = request.json or {}
-    target = data.get('company', '').strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(success=False, error='JSON object required'), 400
+    target = data.get('company')
     if not target:
         return jsonify({"success": False, "error": "Company is required"}), 400
 
@@ -1279,6 +1408,8 @@ def set_company():
     if session.get('username') not in ('EgSA_Supervisor', 'Super_User'):
         return jsonify({"success": False, "error": "Only supervisor or Super_User may change active company"}), 403
 
+    if target not in known_companies():
+        return jsonify(success=False, error='Unknown company'), 400
     # Persist the selected company in the session
     session['company'] = target
     logging.info(f"Session company set to: {target} by {session.get('username')}")
@@ -1289,16 +1420,23 @@ def set_company():
 @login_required
 def api_connect():
     global mqtt_client
-    data = request.json
+    if session.get('username') != 'EgSA_Supervisor' or session.get('role') != 'admin':
+        return jsonify(success=False, error='Only EgSA_Supervisor controls shared MQTT ingestion'), 403
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(success=False, error='JSON object required'), 400
     
     # Parse and validate connection parameters
     try:
         broker = (data.get("broker") or "broker.hivemq.com").strip()
-        port = int(data.get("port", 1883))
+        port = integer(data.get("port", 1883), 1, 65535, 'Port')
         company = (data.get("company") or "Company_ID").strip()
         base_id = (data.get("client_id") or "iot_server").strip() or "iot_server"
         client_id = f"{base_id}_{int(time.time())}"
         key_hex = (data.get("aes_key") or "").strip()
+        if (not re.fullmatch(r'[A-Za-z0-9.:-]{1,253}', broker) or
+                not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', base_id)):
+            raise ValueError('Invalid broker hostname or client ID')
         
         if not key_hex:
             err = "AES key (hex) is required"
@@ -1329,21 +1467,10 @@ def api_connect():
         log_event(f"[CONNECT] ERROR: {err}")
         return jsonify({"success": False, "error": err}), 400
     
-    # Check authorization
-    if session.get('role') != 'admin' and session.get('username') not in ('EgSA_Supervisor', 'Super_User'):
-        err = "Admin privileges required"
-        logging.warning(f"[CONNECT] Authorization denied for user {session.get('username')}: {err}")
-        log_event(f"[CONNECT] DENIED: {err}")
-        return jsonify({"success": False, "error": err}), 403
-
-    # Build topic subscriptions. We subscribe broadly so case variations and
-    # alternate topic spellings still reach the parser.
-    if session.get('username') == 'EgSA_Supervisor':
-        topics = ["EgSA/+/+/#"]
-        log_event(f"[CONNECT] Supervisor mode - subscribing to all companies")
-    else:
-        topics = [f"EgSA/{company}/+/#"]
-        log_event(f"[CONNECT] Company mode - subscribing to {company} only")
+    # One infrastructure-owned subscription; changing the monitoring company
+    # never changes ingestion for other tenants. Parser validates exact suffixes.
+    topics = ["EgSA/+/+/#"]
+    log_event('[CONNECT] Shared ingestion - all companies; tenant-scoped views')
 
     # Disconnect any existing client
     if mqtt_client:
@@ -1384,8 +1511,8 @@ def api_connect():
 @app.route('/api/disconnect', methods=['POST'])
 @login_required
 def api_disconnect():
-    if session.get('role') != 'admin' and session.get('username') not in ('EgSA_Supervisor', 'Super_User'):
-        return jsonify({"success": False, "error": "Admin privileges required"}), 403
+    if session.get('username') != 'EgSA_Supervisor' or session.get('role') != 'admin':
+        return jsonify(success=False, error='Only EgSA_Supervisor controls shared MQTT ingestion'), 403
     global mqtt_client
     if mqtt_client:
         mqtt_client.disconnect()
@@ -1406,6 +1533,8 @@ def api_broker_status():
     
     try:
         is_connected = mqtt_client.is_connected()
+        if session.get('username') != 'EgSA_Supervisor':
+            return jsonify(connected=is_connected, status='Subscriptions ready' if is_connected else 'Not ready')
         tx_count = mqtt_client.counters.tx_counter
         rx_count = mqtt_client.counters.rx_counter
         
@@ -1413,7 +1542,8 @@ def api_broker_status():
             "connected": is_connected,
             "status": "Connected" if is_connected else "Disconnected",
             "broker": f"{mqtt_client.broker_host}:{mqtt_client.broker_port}",
-            "topics_subscribed": len(mqtt_client.subscribe_topics),
+            "topics_subscribed": len(getattr(mqtt_client, '_confirmed_subscriptions', set())),
+            "broker_connected": getattr(mqtt_client, 'connected', False),
             "tx_messages": tx_count,
             "rx_messages": rx_count,
             "client_id": mqtt_client.client._client_id.decode() if hasattr(mqtt_client.client, '_client_id') else "Unknown"
@@ -1437,17 +1567,23 @@ def api_command():
     try:
         raw_node_id = data.get("node_id", 1)
         try:
-            node_id = int(raw_node_id)
+            node_id = integer(raw_node_id, 1, 65535, 'Node ID')
         except (TypeError, ValueError, OverflowError):
             return jsonify({"success": False, "error": "Invalid node ID"}), 400
         cmd_type = data.get("cmd_type", "SRATE")
         delivery = data.get("delivery", "now")
         cmd_data_val = data.get("cmd_data", 0 if cmd_type == "WAKE" else 5)
         broadcast = data.get("broadcast", False)
+        if not isinstance(broadcast, bool):
+            return jsonify(success=False, error='broadcast must be true or false'), 400
         company = data.get("company", "Company_ID")
         if not isinstance(company, str) or not isinstance(cmd_type, str):
             return jsonify({"success": False, "error": "Company and command type must be strings"}), 400
         company = company.strip()
+        try:
+            company_id(company)
+        except ValueError as exc:
+            return jsonify(success=False, error=str(exc)), 400
 
         if cmd_type not in CMD_NAMES:
             return jsonify({"success": False, "error": "Unknown command type"}), 400
@@ -1748,6 +1884,8 @@ def export_csv():
 @app.route('/export_log', methods=['GET'])
 @admin_required
 def export_log():
+    if session.get('username') != 'EgSA_Supervisor':
+        return jsonify(success=False, error='Shared infrastructure logs are supervisor-only'), 403
     try: return send_file('system.log', as_attachment=True, download_name='system.log')
     except Exception as e: return f"Log file not found: {e}", 404
 
