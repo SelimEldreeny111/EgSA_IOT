@@ -5,6 +5,8 @@ CPU idle between work and commands. The old fixed-interval policy remains
 available through APP_REMOTE_WAKE_USE_APP_SCHEDULE=false. Explicit WAKE remains
 an active lease. See [configuration and tests](Node/IoT_Node_Encrypted/REMOTE_WAKE_APP_SCHEDULE_GUIDE.md).
 No server/schema/pin or separate ESP32/CubeIDE changes are required.
+See [remote scheduling verification](Documentation/Validation/REMOTE_WAKE_APP_SCHEDULE_VERIFICATION_20261005.md)
+for both-copy regressions, all 16 ARM builds and remaining physical acceptance.
 
 Automatic command ACK replies are now independently configurable through
 `APP_ENABLE_COMMAND_ACK_REPLIES` in the Arduino STM32 AppConfig.h (default true).
