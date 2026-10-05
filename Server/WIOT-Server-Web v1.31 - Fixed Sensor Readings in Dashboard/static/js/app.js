@@ -694,6 +694,46 @@ async function disconnect() {
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
 const wakeTracker = new WakeTracker();
+let commandTimelineBusy = false;
+const commandStateLabels = {
+    pending: 'Queued — waiting for Status', dispatched: 'Submitted — waiting for node reply',
+    waiting_retry: 'Waiting for bounded rate retry', acknowledged: 'Node accepted',
+    rejected: 'Node rejected', expired: 'Expired before submission',
+    superseded: 'Replaced by newer intent', outcome_unknown: 'Outcome unknown',
+    broadcast_partial: 'Individual broadcast replies received'
+};
+async function refreshCommandTimeline() {
+    const body = document.querySelector('#command-timeline tbody');
+    const status = document.getElementById('command-timeline-status');
+    if (!body || commandTimelineBusy) return;
+    const company = getSelectedCompany();
+    if (!company) return;
+    commandTimelineBusy = true;
+    try {
+        const response = await fetch('/api/commands?' + new URLSearchParams({company, limit: '50'}));
+        const result = await response.json();
+        // Company can change while a request is in flight.
+        if (company !== getSelectedCompany()) return;
+        if (!response.ok || !result.success) throw new Error(result.error || 'Timeline unavailable');
+        body.innerHTML = result.commands.map(item => safeHtml`<tr>
+            <td>${item.request_id}<br>${new Date(item.created_at * 1000).toLocaleString()}</td>
+            <td>${item.broadcast ? 'Broadcast (individual receipts)' : item.node_id}</td>
+            <td>${item.cmd_type} = ${item.cmd_data}<br>${item.actor}</td>
+            <td>${commandStateLabels[item.state] || item.state}${item.outcome_uncertain ? ' — execution uncertain' : ''}</td>
+            <td>${item.broker_confirmed_at ? new Date(item.broker_confirmed_at * 1000).toLocaleString() : 'Not confirmed'}</td>
+            <td>${item.attempts}<br>${item.reason}</td></tr>`).join('');
+        status.textContent = 'Execution is confirmed only by a matching node reply; unknown is not failure or success.';
+    } catch (error) {
+        if (company === getSelectedCompany()) {
+            body.textContent = '';
+            status.textContent = error.message;
+        }
+    } finally { commandTimelineBusy = false; }
+}
+// One bounded poller, rather than one timer per outstanding command.
+setInterval(() => {
+    if (!document.hidden && document.getElementById('Commands')?.classList.contains('active')) refreshCommandTimeline();
+}, 5000);
 
 function setWakeStatus(text) {
     const status = document.getElementById('wake-status');
@@ -773,9 +813,10 @@ async function sendCommand(broadcast, suppressToast = false) {
         if (result.success && result.queued) showToast(`Command ${data.cmd_type} queued until Node ${nodeValue} wakes.`, 'info');
         else if (result.success && data.cmd_type === 'WAKE') showToast('WAKE published; waiting for node acknowledgement.', 'info');
         else if (result.success && data.cmd_type === 'VALVE') showToast('VALVE published; waiting for pulse completion acknowledgement.', 'info');
-        else if (result.success) showToast(`Command ${data.cmd_type} sent to Node ${nodeValue}.`, 'success');
+        else if (result.success) showToast(`Request ${result.request_id} submitted; waiting for node reply.`, 'info');
         else showToast('Command failed: ' + result.error, 'danger');
     }
+    refreshCommandTimeline();
     return result;
 }
 
@@ -835,16 +876,20 @@ socket.on('broker_status', function(data) {
     if (disconnectBtn) disconnectBtn.disabled = !isConnected;
 });
 
+socket.on('command_event', function(event) {
+    if (event.company === getSelectedCompany()) refreshCommandTimeline();
+});
+
 socket.on('iot_message', function(msg) {
     // The supervisor receives every company's stream; show only the one
     // currently selected. Other users are room-scoped server-side already.
     if (IS_SUPERVISOR && msg.Company && msg.Company !== getSelectedCompany()) return;
     if (msg['Command ACK Success'] && msg['Command ACK Request ID']) {
         setWakeStatus(`Node ${msg['Node ID']} acknowledged command request ${msg['Command ACK Request ID']}.`);
-        showToast(`Node ${msg['Node ID']} acknowledged command execution.`, 'success');
+        refreshCommandTimeline();
     } else if (msg['Command ACK Request ID']) {
         setWakeStatus(`Node ${msg['Node ID']} rejected command request ${msg['Command ACK Request ID']}. Check node logs.`);
-        showToast(`Node ${msg['Node ID']} rejected the command.`, 'danger');
+        refreshCommandTimeline();
     }
     if (wakeTracker.receive(msg)) {
         setWakeStatus(`Node ${msg['Node ID']} confirmed ACTIVE: WAKE ${msg['Wake Request ID']}, ${msg['Wake Remaining Seconds']} seconds remaining at acknowledgement.`);

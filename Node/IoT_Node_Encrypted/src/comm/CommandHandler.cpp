@@ -1,6 +1,7 @@
 /** @file CommandHandler.cpp @brief Remote-command validation and node-side dispatch. */
 #include "CommandHandler.h"
 #include "SensorPayloadMapper.h"
+#include "CommandReplayCache.h"
 
 #include "../config/AppConfig.h"
 #include "../app/AppState.h"
@@ -17,6 +18,7 @@ extern HardwareSerial SerialMon;
 namespace {
 // Match the server's accepted maximum; validate before narrowing to millis.
 constexpr uint64_t kMaximumRateSeconds = 86400ULL;
+CommandReplayCache ordinaryCommands;
 }
 
 bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic)
@@ -45,6 +47,16 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   {
     SerialMon.println(" Not for this node (node topic)");
     return false;
+  }
+
+  const auto match = ordinaryCommands.lookup(cmd.request_id, cmd.node_id, cmd.cmd_id,
+                                            cmd.cmd_data, isBroadcastTopic, applied);
+  if (match != CommandReplayCache::Missing)
+  {
+    SerialMon.println(match == CommandReplayCache::Duplicate
+        ? "Duplicate command: reply with original result; no repeated effect"
+        : "Command rejected: request ID reused for different intent");
+    return match == CommandReplayCache::Duplicate && applied;
   }
 
   if (isBroadcastTopic) 
@@ -148,6 +160,8 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   }
 
   SerialMon.println("=====================================\n");
+  ordinaryCommands.remember(cmd.request_id, cmd.node_id, cmd.cmd_id, cmd.cmd_data,
+                            isBroadcastTopic, applied);
   return applied;
 }
 

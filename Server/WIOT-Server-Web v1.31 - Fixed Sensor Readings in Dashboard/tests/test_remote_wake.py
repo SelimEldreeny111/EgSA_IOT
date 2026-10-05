@@ -101,9 +101,12 @@ class RemoteWakeServerTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session.update(role='admin', username='wake_tester', company=self.company)
         self.fake_mqtt = SimpleNamespace(is_connected=lambda: True,
-            publish_plaintext=lambda topic, plain: self.sent.append((topic, plain)))
+            publish_plaintext=lambda topic, plain, on_complete=None: self.sent.append((topic, plain)))
         self.mqtt_patch = patch.object(self.server, 'mqtt_client', self.fake_mqtt)
         self.mqtt_patch.start(); self.addCleanup(self.mqtt_patch.stop)
+        self.journal = CommandQueue(Path(self.temp.name) / f'journal_{uuid.uuid4().hex}.db')
+        self.journal_patch = patch.object(self.server, '_command_queue', self.journal)
+        self.journal_patch.start(); self.addCleanup(self.journal_patch.stop)
 
     def post(self, **updates):
         data = dict(node_id='7', cmd_type='WAKE', cmd_data='60', broadcast=False, company=self.company)
@@ -259,10 +262,50 @@ class RemoteWakeServerTests(unittest.TestCase):
         self.assertEqual(self.post().status_code, 503)
         self.assertEqual(self.sent, [])
 
-    def test_existing_gostm_command_unchanged(self):
+    def test_gostm_data_unchanged_with_new_correlated_request(self):
         self.assertTrue(self.post(cmd_type='GOSTM').get_json()['success'])
         msg = messages_pb2.CMD_Message.FromString(self.sent[0][1])
-        self.assertEqual((msg.cmd_id, msg.cmd_data, msg.request_id), (4, 0, 0))
+        self.assertEqual((msg.cmd_id, msg.cmd_data), (4, 0))
+        self.assertNotEqual(msg.request_id, 0)
+
+    def test_all_commands_have_unique_actor_journal_and_scoped_timeline(self):
+        requests = []
+        for command, data in [('SRATE', 60), ('STRAN', 120), ('STIME', 0),
+                               ('GOSTM', 0), ('VALVE', 0), ('WAKE', 30)]:
+            response = self.post(cmd_type=command, cmd_data=data).get_json()
+            self.assertTrue(response['success'])
+            self.assertTrue(response['awaiting_node_ack'])
+            requests.append(response['request_id'])
+        self.assertEqual(len(set(requests)), 6)
+        result = self.client.get('/api/commands', query_string={'company':self.company}).get_json()
+        self.assertEqual(len(result['commands']), 6)
+        self.assertTrue(all(row['actor']=='wake_tester' and row['attempts']==1 for row in result['commands']))
+        self.assertEqual(self.client.get('/api/commands', query_string={'company':'Other'}).status_code, 403)
+        self.assertEqual(self.client.get('/api/commands', query_string={'company':self.company,'limit':201}).status_code, 400)
+
+    def test_audit_failure_refuses_dispatch_and_history_failure_does_not_hide_submission(self):
+        with patch.object(self.server, 'command_mailbox', side_effect=RuntimeError('disk unavailable')):
+            self.assertEqual(self.post().status_code, 503)
+        self.assertEqual(self.sent, [])
+        with patch.object(self.server, 'save_message', side_effect=RuntimeError('history unavailable')):
+            result = self.post().get_json()
+        self.assertTrue(result['success'])
+        self.assertEqual(self.journal.get(result['request_id'], self.company, 7)['state'], 'dispatched')
+
+    def test_ack_can_precede_puback_and_duplicates_do_not_repeat_audit(self):
+        completions = []
+        self.fake_mqtt.publish_plaintext = lambda topic, plain, on_complete=None: completions.append(on_complete)
+        result = self.post(cmd_type='SRATE',cmd_data=60).get_json()
+        ack = messages_pb2.Telemetry(node_id=7, command_ack_request_id=result['request_id'],
+                                    command_ack_cmd_id=1, command_ack_success=True)
+        with patch.object(self.server, 'save_message'), patch.object(self.server, 'emit_iot_message'):
+            for _ in range(2):
+                self.server.on_mqtt_plaintext(f'EgSA/{self.company}/7/Telemetry', ack.SerializeToString())
+        completions[0](); completions[0]()
+        item = self.journal.get(result['request_id'], self.company, 7)
+        self.assertEqual(item['state'], 'acknowledged')
+        self.assertEqual(len(item['receipts']), 1)
+        self.assertEqual(sum(e['event']=='broker_confirmed' for e in item['events']),1)
 
     def test_ack_is_persisted_without_manufacturing_flow_samples(self):
         msg = messages_pb2.Telemetry(node_id=7, sensor_id=1, timestamp=1800000000,

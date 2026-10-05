@@ -574,8 +574,19 @@
                 </div>
 
                 <div class="card mt-4">
+                    <div class="card-header">Command execution timeline</div>
+                    <div class="card-body">
+                        <p class="status-note">Last 50 intents. Broker receipt is not node execution. Valve ACK confirms the software pulse, not physical position. Broadcast replies cover individual nodes only.</p>
+                        <div id="command-timeline-status" class="status-note" role="status"></div>
+                        <div class="table-scroll-sm"><table class="table table-wiot mb-0" id="command-timeline">
+                            <thead><tr><th>Request / time</th><th>Target</th><th>Command / actor</th><th>State</th><th>Broker receipt</th><th>Attempts / reason</th></tr></thead>
+                            <tbody></tbody>
+                        </table></div>
+                    </div>
+                </div>
+                <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <span><i class="bi bi-clock-history me-2"></i>Command History</span>
+                        <span><i class="bi bi-clock-history me-2"></i>Command History (wire copies, not execution proof)</span>
                         <div class="d-flex align-items-center gap-2">
                             <button class="btn btn-sm btn-outline-light" onclick="loadCommandHistory(1)"><i class="bi bi-arrow-repeat me-1"></i>Refresh</button>
                             <span class="status-note small" id="command-history-count">0 commands</span>
@@ -880,6 +891,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/wake_control.js?v=20260929-1"></script>
 <script src="/static/js/safe_html.js?v=20261004-1"></script>
-<script src="/static/js/app.js?v=20261004-1"></script>
+<script src="/static/js/app.js?v=20261005-2"></script>
 </body>
 </html>

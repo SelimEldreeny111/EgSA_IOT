@@ -2,6 +2,7 @@
 #include "../../src/power/PowerManager.h"
 #include "../../src/power/RemoteWakeCycle.h"
 #include "../../src/comm/CommandHandler.h"
+#include "../../src/comm/CommandReplayCache.h"
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -24,7 +25,8 @@ uint32_t HAL_RTCEx_BKUPRead(RTC_HandleTypeDef*, uint32_t index) { return backup[
 void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef*, uint32_t index, uint32_t value) { backup[index]=value; }
 void serviceHardwareWatchdog(WatchdogStage) { ++watchdogFeeds; }
 void digitalWrite(uint32_t, uint8_t) {}
-bool commandValve(bool open) { state.nodeStatus = open ? 1U : 0U; return true; }
+uint32_t valveCalls=0U;
+bool commandValve(bool open) { ++valveCalls; state.nodeStatus = open ? 1U : 0U; return true; }
 uint32_t getEpochTime() { return 1800000000U; }
 uint32_t rtcSyncCalls=0U;
 bool syncRTCFromEpoch(uint32_t) { ++rtcSyncCalls; return true; }
@@ -39,6 +41,16 @@ bool encodeEncryptedMessage(const void*, const void* data, uint8_t*, size_t, siz
 
 int main()
 {
+  CommandReplayCache boundedCache;
+  bool cachedResult=true;
+  assert(boundedCache.lookup(0U,7U,5U,1U,false,cachedResult)==CommandReplayCache::Missing);
+  boundedCache.remember(1U,7U,5U,1U,false,false);
+  assert(boundedCache.lookup(1U,7U,5U,1U,false,cachedResult)==CommandReplayCache::Duplicate && !cachedResult);
+  assert(boundedCache.lookup(1U,7U,5U,1U,true,cachedResult)==CommandReplayCache::Conflict);
+  assert(boundedCache.lookup(1U,8U,5U,1U,false,cachedResult)==CommandReplayCache::Conflict);
+  assert(boundedCache.lookup(1U,7U,3U,1U,false,cachedResult)==CommandReplayCache::Conflict);
+  for (uint32_t request=2U;request<=9U;++request) boundedCache.remember(request,7U,5U,1U,false,true);
+  assert(boundedCache.lookup(1U,7U,5U,1U,false,cachedResult)==CommandReplayCache::Missing); // documented FIFO eviction
   RemoteWakeCycle cycle;
   cycle.begin(0U, 30000U, 5000U);
   assert(cycle.active());
@@ -116,30 +128,41 @@ int main()
   assert(!encodedTelemetry.wake_command_ack && encodedTelemetry.wake_request_id==0U);
   cmd={7U,CMD_OPEN_CLOSE_NODE,1U,44U};
   assert(handleCommand(cmd,false));
+  assert(handleCommand(cmd,false) && valveCalls==1U); // QoS duplicate: no second pulse
   assert(handleGetTelemetryCommand(&cmd,output,length,true));
   assert(encodedTelemetry.command_ack_request_id==44U &&
          encodedTelemetry.command_ack_cmd_id==CMD_OPEN_CLOSE_NODE &&
          encodedTelemetry.command_ack_success);
-  cmd.cmd_data=2U;
+  cmd.cmd_data=0U; assert(!handleCommand(cmd,false) && valveCalls==1U); // ID conflict
+  cmd.cmd_data=2U; cmd.request_id=500U;
   assert(!handleCommand(cmd,false));
   assert(handleGetTelemetryCommand(&cmd,output,length,false));
   assert(!encodedTelemetry.command_ack_success &&
          !encodedTelemetry.wake_command_ack);
+  uint32_t freshRequest=100U;
   for (const uint32_t id : {uint32_t(CMD_SET_SAMPLING_PERIOD), uint32_t(CMD_SET_TRANSMISSION_PERIOD)}) {
-    cmd={7U,id,10U,45U};
+    cmd={7U,id,10U,freshRequest++};
     assert(handleCommand(cmd,false));
-    cmd.cmd_data=86400U; assert(handleCommand(cmd,false));
+    const auto oldRate=cmd;
+    cmd.cmd_data=86400U; cmd.request_id=freshRequest++; assert(handleCommand(cmd,false));
+    assert(handleCommand(oldRate,false)); // reply original result; do not restore old rate
     assert((id==CMD_SET_SAMPLING_PERIOD?state.samplingPeriodMs:state.transmissionPeriodMs)==86400000U);
     for (const uint64_t invalid : {uint64_t(0),uint64_t(9),uint64_t(86401),uint64_t(4294968),UINT64_MAX}) {
-      cmd.cmd_data=invalid; assert(!handleCommand(cmd,false));
+      cmd.cmd_data=invalid; cmd.request_id=freshRequest++; assert(!handleCommand(cmd,false));
       assert((id==CMD_SET_SAMPLING_PERIOD?state.samplingPeriodMs:state.transmissionPeriodMs)==86400000U);
     }
   }
   cmd={7U,CMD_SYNC_RTC,1800000000ULL,46U};
   assert(handleCommand(cmd,false) && rtcSyncCalls==1U);
+  assert(handleCommand(cmd,false) && rtcSyncCalls==1U); // no stale clock rewind
   cmd.cmd_data=uint64_t(UINT32_MAX)+1ULL+1800000000ULL;
+  cmd.request_id=freshRequest++;
   assert(!handleCommand(cmd,false) && rtcSyncCalls==1U);
   cmd.cmd_data=UINT64_MAX;
+  cmd.request_id=freshRequest++;
   assert(!handleCommand(cmd,false) && rtcSyncCalls==1U);
+  cmd={7U,CMD_OPEN_CLOSE_NODE,0U,0U}; // old firmware/server ID zero keeps legacy behavior
+  assert(handleCommand(cmd,false)); assert(handleCommand(cmd,false));
+  assert(valveCalls==3U);
   std::cout << "PASS: remote policy, actual power manager, WAKE filtering/ACK, rollover, retry, duplicate, WDT, UART and command-width/rate bounds\n";
 }

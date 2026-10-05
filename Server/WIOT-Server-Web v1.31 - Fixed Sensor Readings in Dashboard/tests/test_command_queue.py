@@ -36,8 +36,9 @@ class CommandQueueTests(unittest.TestCase):
         self.assertIsNotNone(self.queue.claim_on_status('Company_1', 7, now=1016))
         self.assertEqual(self.queue.get(43, 'Company_1', 7, now=1016)['attempts'], 2)
         self.assertIsNone(self.queue.claim_on_status('Company_1', 7, now=1060))
-        self.assertEqual(self.queue.get(43, 'Company_1', 7)['state'], 'expired')
-        self.assertFalse(self.queue.acknowledge('Company_1', 7, 43, 1, now=1061))
+        self.assertEqual(self.queue.get(43, 'Company_1', 7)['state'], 'outcome_unknown')
+        self.assertTrue(self.queue.acknowledge('Company_1', 7, 43, 1, now=1061))
+        self.assertTrue(self.queue.get(43, 'Company_1', 7, now=1061)['receipts'][0]['late'])
 
     def test_invalid_ttl_and_tenant_scoping(self):
         for ttl in (True, 0, 59, 604801, '3600'):
@@ -68,7 +69,8 @@ class CommandQueueTests(unittest.TestCase):
         self.assertTrue(self.queue.acknowledge('Company_1', 7, 50, 5, now=1017))
         self.assertIsNone(self.queue.claim_on_status('Company_1', 7, now=1032))
         self.assertEqual(self.queue.get(49, 'Company_1', 7, now=1032)['attempts'], 1)
-        self.assertEqual(self.queue.get(49, 'Company_1', 7, now=1060)['state'], 'expired')
+        self.assertEqual(self.queue.get(49, 'Company_1', 7, now=1060)['state'], 'superseded')
+        self.assertTrue(self.queue.get(49, 'Company_1', 7, now=1060)['outcome_uncertain'])
 
     def test_wake_is_not_automatically_repeated_after_lost_ack(self):
         self.queue.enqueue('Company_1', 7, 6, 'WAKE', 30, 47, 60, now=1000)

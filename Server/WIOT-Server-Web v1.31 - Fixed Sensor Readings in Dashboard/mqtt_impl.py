@@ -24,6 +24,7 @@ import os
 import threading
 import logging
 import time
+import queue
 from dataclasses import dataclass
 from typing import Callable, List, Optional
 
@@ -102,6 +103,12 @@ class MqttNodeClient:
         self._pending_subscriptions = {}
         self._confirmed_subscriptions = set()
         self._subscription_timer = None
+        self._publish_lock = threading.RLock()
+        self._pending_publish = {}
+        self._early_pubacks = set()
+        self._publishing = False
+        self._completions = queue.Queue(maxsize=256)
+        self._completion_worker = None
 
         # Underlying paho-mqtt client and its callback wiring.
         self.client = mqtt.Client(client_id=client_id)
@@ -109,6 +116,7 @@ class MqttNodeClient:
         self.client.on_message = self._on_message
         self.client.on_disconnect = self._on_disconnect
         self.client.on_subscribe = self._on_subscribe
+        self.client.on_publish = self._on_publish
 
     @staticmethod
     def _pad_pkcs7(data: bytes) -> tuple[bytes, int]:
@@ -219,7 +227,7 @@ class MqttNodeClient:
         frame["tx_counter"] = tx
         return frame
 
-    def publish_plaintext(self, topic: str, plaintext: bytes, qos: int = 1):
+    def publish_plaintext(self, topic: str, plaintext: bytes, qos: int = 1, on_complete=None):
         """
         Encrypt plaintext bytes, publish them through MQTT, and return frame metadata.
 
@@ -232,10 +240,67 @@ class MqttNodeClient:
             if getattr(self, 'debug', False):
                 self.on_status(f"MQTT outgoing frame bytes: {frame['payload'].hex(' ')}")
             self.on_status("")
-        result = self.client.publish(topic, frame["payload"], qos=qos, retain=False)
+        if on_complete is None:
+            result = self.client.publish(topic, frame["payload"], qos=qos, retain=False)
+        else:
+            if qos != 1:
+                raise ValueError('Command completion requires QoS 1 PUBACK')
+            with self._publish_lock:
+                if len(self._pending_publish) >= 256:
+                    raise RuntimeError('Publication confirmation window full')
+                self._publishing = True
+                try:
+                    result = self.client.publish(topic, frame['payload'], qos=1, retain=False)
+                    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                        if result.mid in self._early_pubacks or result.is_published():
+                            self._schedule_completion(on_complete)
+                        else:
+                            self._pending_publish[result.mid] = on_complete
+                finally:
+                    self._publishing = False
+                    self._early_pubacks.clear()
         if result.rc != mqtt.MQTT_ERR_SUCCESS:
             raise RuntimeError(f"MQTT publish rejected (rc={result.rc})")
+        frame['mqtt_mid'] = getattr(result, 'mid', None)
         return frame
+
+    def _on_publish(self, client, userdata, mid, *args):
+        """Network callback: enqueue proof, never wait for disk/application work."""
+        with self._publish_lock:
+            callback = self._pending_publish.pop(mid, None)
+            if callback is not None:
+                self._schedule_completion(callback)
+            elif self._publishing:
+                self._early_pubacks.add(mid)
+
+    def _schedule_completion(self, callback):
+        try:
+            self._completions.put_nowait(callback)
+        except queue.Full:
+            logger.error('PUBACK audit queue full; command confirmation remains unknown')
+            return
+        if self._completion_worker is None or not self._completion_worker.is_alive():
+            self._completion_worker = threading.Thread(target=self._run_completions, daemon=True,
+                                                       name='wiot-puback-audit')
+            self._completion_worker.start()
+
+    def _run_completions(self):
+        """Bounded worker exits when idle. Failure cannot become false success."""
+        while True:
+            try:
+                callback = self._completions.get(timeout=1)
+            except queue.Empty:
+                with self._publish_lock:
+                    if self._completions.empty():
+                        self._completion_worker = None
+                        return
+                continue
+            try:
+                callback()
+            except Exception:
+                logger.exception('Could not persist PUBACK audit proof')
+            finally:
+                self._completions.task_done()
 
     def publish_raw(self, topic: str, payload: bytes, qos: int = 1, note: str = "raw"):
         """
@@ -324,6 +389,10 @@ class MqttNodeClient:
         if self.client.is_connected():
             self.client.disconnect()
         self.client.loop_stop()
+        with self._publish_lock:
+            # Explicit teardown drops unresolved callbacks, not execution history.
+            # Network reconnects retain pending QoS 1 proof until explicit teardown.
+            self._pending_publish.clear()
         self.connected = False
         self.ready = False
         self._cancel_subscription_timer()

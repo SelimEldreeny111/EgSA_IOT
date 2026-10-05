@@ -7,6 +7,7 @@ import os
 import secrets
 import glob
 import re
+import threading
 from io import StringIO
 from datetime import datetime
 from functools import wraps
@@ -111,38 +112,57 @@ def browser_security_headers(response):
 logging.basicConfig(filename='system.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 mqtt_client = None
 _command_queue = None
+_command_dispatch_lock = threading.RLock()
 
 
 def command_mailbox():
-    """Open the durable mailbox only when this feature is used."""
+    """New journal; one-time read-only import leaves the old mailbox intact."""
     global _command_queue
-    if _command_queue is None:
-        _command_queue = CommandQueue(os.path.join(os.path.dirname(__file__), 'pending_commands.db'))
-    return _command_queue
+    with _command_dispatch_lock:
+        if _command_queue is None:
+            _command_queue = CommandQueue(
+                os.path.join(os.path.dirname(__file__), 'command_lifecycle.db'),
+                legacy_path=os.path.join(os.path.dirname(__file__), 'pending_commands.db'))
+        return _command_queue
+
+
+def publish_command_intent(item, journal):
+    """Submit without waiting for PUBACK or execution. Caller serializes dispatch."""
+    msg = messages_pb2.CMD_Message(node_id=item['node_id'], cmd_id=item['cmd_id'],
+        cmd_data=item['cmd_data'], request_id=item['request_id'])
+    company, request_id, attempt = item['company'], item['request_id'], item['attempts']
+    target = 'BroadCast' if item['broadcast'] else str(item['node_id'])
+    topic = f'EgSA/{company}/{target}/CMD'
+
+    def broker_confirmed():
+        # This runs on a bounded audit worker, never on the MQTT RX thread.
+        if journal.confirm_publish(request_id, attempt):
+            socketio.emit('command_event', {'company': company, 'request_id': request_id}, room=company)
+            socketio.emit('command_event', {'company': company, 'request_id': request_id}, room=GLOBAL_ROOM)
+
+    try:
+        frame = mqtt_client.publish_plaintext(topic, msg.SerializeToString(), on_complete=broker_confirmed)
+        if frame and frame.get('mqtt_mid') is not None:
+            journal.record_transport_mid(request_id, attempt, frame['mqtt_mid'])
+        log_event(f"[CMD] Submitted {item['cmd_type']} request={request_id} attempt={attempt}; awaiting node ACK",
+                  company=company)
+    except Exception as exc:
+        journal.publish_failed(request_id, attempt, type(exc).__name__)
+        raise
 
 
 def dispatch_queued_command(company, node_id):
     """A valid Status proves the sleeping node has opened its RX window."""
     if mqtt_client is None or not mqtt_client.is_connected():
         return
-    item = command_mailbox().claim_on_status(company, node_id)
-    if item is None:
-        return
-    msg = messages_pb2.CMD_Message()
-    msg.node_id = node_id
-    msg.cmd_id = item['cmd_id']
-    msg.cmd_data = int(time.time()) if item['cmd_type'] == 'STIME' else item['cmd_data']
-    msg.request_id = item['request_id']
-    topic = f"EgSA/{company}/{node_id}/CMD"
     try:
-        mqtt_client.publish_plaintext(topic, msg.SerializeToString())
-        log_event(f"[QUEUE] Dispatched {item['cmd_type']} request={item['request_id']} "
-                  f"to {company}/{node_id}; awaiting node ACK")
+        with _command_dispatch_lock:
+            journal = command_mailbox()
+            item = journal.claim_on_status(company, node_id)
+            if item is not None:
+                publish_command_intent(item, journal)
     except Exception as exc:
-        # Value-setting commands remain retryable at the next awake Status.
-        # WAKE is single-dispatch even on failure: publication might have
-        # reached the broker before the error. PUBACK is not execution proof.
-        log_event(f"[QUEUE] Publish failed for request={item['request_id']}: {exc}")
+        log_event(f"[QUEUE] Dispatch failed ({type(exc).__name__}); inspect command journal", company=company)
 
 
 def _required_secret(name: str) -> str:
@@ -1622,56 +1642,45 @@ def api_command():
             except (ValueError, TypeError, OverflowError):
                 err = f"Invalid command data: {cmd_data_val}"
                 log_event(f"[CMD] ERROR: {err}")
-                return jsonify({"success": False, "error": err})
+                return jsonify({"success": False, "error": err}), 400
             if (cmd_type in ("SRATE", "STRAN") and not 5 <= cmd_data <= 86400) or \
                (cmd_type == "VALVE" and cmd_data not in (0, 1)):
                 return jsonify({"success": False, "error": "Command data outside supported range"}), 400
                 
-        msg = messages_pb2.CMD_Message()
-        msg.node_id = node_id
-        msg.cmd_id = cmd_id
-        msg.cmd_data = cmd_data
-        request_id = (secrets.randbelow(0xFFFFFFFF) + 1) if cmd_type in ("WAKE", "VALVE") or delivery == "next_wake" else 0
-        msg.request_id = request_id
-        if delivery == "next_wake":
-            try:
-                ttl = data.get("ttl_seconds", 86400)
-                if isinstance(ttl, (bool, float)):
-                    raise ValueError("Command TTL must be a whole number of seconds")
-                ttl = int(ttl)
-                result = command_mailbox().enqueue(
-                    company, node_id, cmd_id, cmd_type, cmd_data, request_id, ttl)
-            except (ValueError, TypeError, OverflowError) as exc:
-                return jsonify({"success": False, "error": str(exc)}), 400
-            log_event(f"[QUEUE] Saved {cmd_type} for {company}/{node_id} "
-                      f"request={request_id}; expires={result['expires_at']}")
-            return jsonify({"success": True, "queued": True,
-                            "request_id": request_id,
-                            "expires_at": result["expires_at"],
-                            "message": "Command queued until the node's next Status"})
-        plain = msg.SerializeToString()
-        topic = f"EgSA/{company}/BroadCast/CMD" if broadcast else f"EgSA/{company}/{node_id}/CMD"
-            
-        data_info = f" with Data={cmd_data}" if cmd_type != "GOSTM" else ""
-        if cmd_type in ("WAKE", "VALVE"):
-            data_info += f" request={request_id}"
-        log_event(f"[CMD] Publishing '{cmd_type}' (id={cmd_id}) to '{topic}'{data_info}...")
-        logging.info(f"[CMD] node={node_id} type={cmd_type} data={cmd_data} topic={topic}")
-        
-        mqtt_client.publish_plaintext(topic, plain)
-        save_message(int(time.time()), "Command", node_id, "-", 0, 0, 0, 0, 0, f"{cmd_type}{data_info}", company, 0,
-                     power_info={"wake_request_id": request_id})
-        log_event("[CMD] Command encrypted, submitted to broker, and saved (not a node acknowledgement).")
-        logging.info(f"[CMD] Success - command {cmd_type} published to {topic}")
-        if cmd_type == "WAKE":
-            return jsonify({"success": True, "request_id": request_id,
-                            "awaiting_node_ack": True, "node_awake": False,
-                            "message": "WAKE published; waiting for the node acknowledgement"})
-        if cmd_type == "VALVE":
-            return jsonify({"success": True, "request_id": request_id,
-                            "awaiting_node_ack": True,
-                            "message": "VALVE published; waiting for pulse completion acknowledgement (no position feedback)"})
-        return jsonify({"success": True})
+        try:
+            ttl = integer(data.get('ttl_seconds', 86400), 60, 604800, 'Command TTL')
+            with _command_dispatch_lock:
+                journal = command_mailbox()
+                result = journal.enqueue(company, node_id, cmd_id, cmd_type, cmd_data,
+                    ttl_seconds=ttl, actor=session.get('username', ''), delivery=delivery, broadcast=broadcast)
+                request_id = result['request_id']
+                if delivery == 'now':
+                    item = journal.claim_immediate(request_id)
+                    if item is None:
+                        raise RuntimeError('Accepted command could not be claimed')
+                    try:
+                        publish_command_intent(item, journal)
+                    except Exception:
+                        return jsonify(success=False, request_id=request_id,
+                            outcome_unknown=True, error='Publication failed; execution unknown. Inspect command journal.'), 503
+        except ValueError as exc:
+            return jsonify(success=False, error=str(exc)), 400
+        except Exception:
+            logging.exception('Command journal unavailable; refusing unaudited dispatch')
+            return jsonify(success=False, error='Command journal unavailable; no unaudited dispatch allowed'), 503
+        if delivery == 'next_wake':
+            log_event(f'[QUEUE] Accepted {cmd_type} request={request_id}; waiting for Status', company=company)
+            return jsonify(success=True, queued=True, **result,
+                           message="Command queued until the node's next Status")
+        # The durable journal is authoritative. History failure is not execution failure.
+        try:
+            save_message(int(time.time()), 'Command', node_id, '-', 0, 0, 0, 0, 0,
+                f'{cmd_type} data={cmd_data} request={request_id}', company, 0,
+                power_info={'wake_request_id': request_id})
+        except Exception:
+            logging.exception('Command submitted but history copy unavailable; journal retained')
+        return jsonify(success=True, request_id=request_id, node_id=result['node_id'],
+            awaiting_node_ack=True, node_awake=False, message='Submitted; waiting for node execution reply')
     except Exception as e:
         err = f"Command failed: {type(e).__name__}: {e}"
         logging.exception(f"[CMD] {err}")
@@ -1679,8 +1688,10 @@ def api_command():
         return jsonify({"success": False, "error": err})
 
 @app.route('/api/queued_command/<int:request_id>', methods=['GET'])
+@app.route('/api/command/<int:request_id>', methods=['GET'])
 @admin_required
 def api_queued_command(request_id):
+    integer(request_id, 1, 0xFFFFFFFF, 'Request ID')
     company = request.args.get('company', '').strip()
     if not company or not can_manage_company(company):
         return jsonify({"success": False, "error": "Cannot inspect another company"}), 403
@@ -1688,12 +1699,26 @@ def api_queued_command(request_id):
         node_id = int(request.args.get('node_id', '0'))
     except ValueError:
         return jsonify({"success": False, "error": "Invalid node ID"}), 400
-    if not 1 <= node_id <= 65535:
+    if not 0 <= node_id <= 65535:
         return jsonify({"success": False, "error": "Invalid node ID"}), 400
     item = command_mailbox().get(request_id, company, node_id)
     if item is None:
         return jsonify({"success": False, "error": "Command not found"}), 404
     return jsonify({"success": True, **item})
+
+
+@app.route('/api/commands', methods=['GET'])
+@admin_required
+def api_commands():
+    """Bounded tenant command timeline, separate from sensor sample history."""
+    company = request.args.get('company', '').strip()
+    company_id(company)
+    if not can_manage_company(company):
+        return jsonify(success=False, error='Cannot inspect another company'), 403
+    node = request.args.get('node_id')
+    node = integer(node, 0, 65535, 'Node ID') if node is not None else None
+    limit = integer(request.args.get('limit', '50'), 1, 200, 'Timeline limit')
+    return jsonify(success=True, commands=command_mailbox().list(company, node, limit))
 
 
 @app.route('/api/messages', methods=['GET'])

@@ -1,4 +1,11 @@
-# Complete WIOT STM32 release — updated 4 October 2026
+# Complete WIOT STM32 release — updated 5 October 2026
+
+Phase 2 adds a durable command execution timeline, IDs for every command,
+bounded queued-rate retries, supersession and asynchronous broker receipt audit.
+The Arduino STM32 command handler suppresses eight recent ordinary duplicate
+requests in RAM. See [Command lifecycle guide](Documentation/Validation/COMMAND_PHASE2_USER_GUIDE.md)
+for deployment, limits and step-by-step tests. No protobuf numbers or pins changed;
+private settings, sensor/RTC/WDT/power behavior and separate ports are preserved.
 
 The compatible server-validation Phase 1 update is documented in
 [Server Phase 1 guide](Documentation/Validation/SERVER_PHASE1_USER_GUIDE.md).
