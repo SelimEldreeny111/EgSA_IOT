@@ -17,6 +17,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Remote-wake host build failed' }
     & $wakeTestExecutable
     if ($LASTEXITCODE -ne 0) { throw 'Remote-wake host regression failed' }
+    $wakeScheduleExecutable = Join-Path $wakeTestBuild 'remote_application_schedule_test.exe'
+    & $wakeTestCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' `
+        '-DTEST_REMOTE_APP_SCHEDULE=true' '-I' $wakeTestFakes `
+        '-include' (Join-Path $wakeTestFakes 'TestAppConfig.h') `
+        (Join-Path $wakeTestRoot 'src/power/PowerManager.cpp') `
+        (Join-Path $wakeTestRoot 'src/comm/CommandHandler.cpp') `
+        (Join-Path $PSScriptRoot 'remote_wake_test.cpp') '-o' $wakeScheduleExecutable
+    if ($LASTEXITCODE -ne 0) { throw 'Schedule-driven remote host build failed' }
+    & $wakeScheduleExecutable
+    if ($LASTEXITCODE -ne 0) { throw 'Schedule-driven remote regression failed' }
     & (Join-Path $PSScriptRoot 'test_config.ps1') -CompilerPath $wakeTestCompiler
     Write-Host "Temporary test binary: $wakeTestExecutable"
 } finally {

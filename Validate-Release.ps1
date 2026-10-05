@@ -5,6 +5,10 @@ Run the STM32 node, Python server, simulator and cross-component release checks.
 Runs from any directory. Never flashes hardware, starts a live server, contacts
 an MQTT broker, or reads secret files. Optional firmware builds use local build
 configuration; optional simulator packaging uses already-installed dependencies.
+.PARAMETER UseFactoryConfigurationFixture
+For a locally commissioned bench copy, isolate only the valve configuration
+guard fixtures with explicit factory pulse/polarity/controller values. Never
+edits live AppConfig.h. Omit on the development release to test shipped defaults.
 #>
 [CmdletBinding()]
 param(
@@ -12,6 +16,7 @@ param(
     [string]$Compiler = 'g++',
     [string]$NodeJs = 'node',
     [string]$ArduinoCli = 'arduino-cli',
+    [switch]$UseFactoryConfigurationFixture,
     [switch]$BuildFirmware,
     [switch]$BuildDocumentation,
     [switch]$BuildSimulators
@@ -40,7 +45,11 @@ Start-Transcript -Path (Join-Path $releaseOutput 'verification.log') | Out-Null
 try {
     foreach ($releaseSuite in @('valve','mqtt_priority','network_recovery','watchdog_counter','sensor_availability','rtc_supmea','remote_wake')) {
         Write-Host "Node host suite: $releaseSuite"
-        & (Join-Path $releaseNode "tests/$releaseSuite/run_tests.ps1") -CompilerPath $Compiler
+        if ($releaseSuite -eq 'valve' -and $UseFactoryConfigurationFixture) {
+            & (Join-Path $releaseNode "tests/$releaseSuite/run_tests.ps1") -CompilerPath $Compiler -UseFactoryConfigurationFixture
+        } else {
+            & (Join-Path $releaseNode "tests/$releaseSuite/run_tests.ps1") -CompilerPath $Compiler
+        }
         # Scripts throw on failed compiles/tests; do not rely on stale LASTEXITCODE.
     }
     foreach ($releaseSimulator in @('Multi Sensor RS485 Simulator','TUF2000B Flow meter/simulator','Supmea Flow meter/simulator')) {

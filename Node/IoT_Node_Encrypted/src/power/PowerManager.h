@@ -17,6 +17,12 @@ void initializePowerManagerAfterSetup();
 /** @brief Check whether a new acquisition cycle may start. @return False while the post-delivery command window or standby transition is active. */
 bool powerManagerAllowsSensorWork();
 
+/** @brief Keep schedule-driven remote mode active until a full snapshot finishes.
+ * @param active True while the cooperative multi-sensor polling cycle is active.
+ * @note No effect on legacy remote scheduling or other controller modes.
+ */
+void notifyPowerManagerSensorCycle(bool active);
+
 /** @brief Report a scheduled local transport outcome to the sleep FSM.
  * @param delivered True after LoRa link acceptance or a full MQTT driver write.
  * @warning MQTT QoS-0 acceptance is not confirmation of server receipt.

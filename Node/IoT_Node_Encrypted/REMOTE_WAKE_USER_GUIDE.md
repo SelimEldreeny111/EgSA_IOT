@@ -1,5 +1,11 @@
 # STM32 Arduino Remote Wake: Configuration and Acceptance Tests
 
+> 5 October update: REMOTE_WAKE now defaults to independent SRATE/STRAN work.
+> Read [schedule-driven configuration and tests](REMOTE_WAKE_APP_SCHEDULE_GUIDE.md).
+> The fixed-interval cycle, timing table and periodic-cycle tests below describe
+> the preserved legacy policy, selected with APP_REMOTE_WAKE_USE_APP_SCHEDULE=false.
+> Wiring, reachability limits and explicit WAKE lease rules still apply to both.
+
 ## 1. Scope and important limits
 
 Implemented in the Arduino STM32 node and Python web server only. ESP32 and
@@ -26,6 +32,8 @@ Edit the first block in `src/config/AppConfig.h`:
 #define APP_LORA_POWER_MODE       APP_COMPONENT_MODE_NORMAL
 #define APP_WIFI_POWER_MODE       APP_COMPONENT_MODE_NORMAL
 #define APP_SIM_POWER_MODE        APP_COMPONENT_MODE_NORMAL
+
+#define APP_REMOTE_WAKE_USE_APP_SCHEDULE false // legacy cycle documented below
 
 #define APP_POWER_SLEEP_SECONDS          300UL
 #define APP_POWER_COMMAND_WINDOW_MS      5000UL

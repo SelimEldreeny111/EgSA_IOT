@@ -26,6 +26,7 @@ namespace
 void scheduleFreshSensorCycle();
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
 RemoteWakeCycle g_remoteWakeCycle;
+bool g_remoteSensorCycleActive = false;
 uint32_t g_lastRemotePollMs = 0U;
 uint32_t g_lastWakeRequestId = 0U;
 uint64_t g_lastWakeRequestSeconds = 0U;
@@ -684,13 +685,19 @@ void initializePowerManagerAfterSetup()
   g_commandWindowActive = false;
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   SerialMon.println("Power mode: REMOTE_WAKE (CPU Sleep; selected radio remains NORMAL)");
-  SerialMon.print("Power: reachable idle interval=");
-  SerialMon.print(AppConfig::kPowerSleepSeconds);
-  SerialMon.print(" s; default WAKE lease=");
+  if (AppConfig::kRemoteWakeUsesAppSchedule)
+    SerialMon.print("Power: SRATE/STRAN scheduled idle; no fixed sleep interval; default WAKE lease=");
+  else
+  {
+    SerialMon.print("Power: legacy reachable idle interval=");
+    SerialMon.print(AppConfig::kPowerSleepSeconds);
+    SerialMon.print(" s; default WAKE lease=");
+  }
   SerialMon.print(AppConfig::kRemoteWakeDefaultSeconds);
   SerialMon.println(" s; watchdog remains armed");
   g_remoteWakeCycle.begin(millis(), AppConfig::kPowerSleepSeconds * 1000UL,
-                         AppConfig::kPowerCommandWindowMs);
+                         AppConfig::kPowerCommandWindowMs, AppConfig::kRemoteWakeUsesAppSchedule);
+  g_remoteSensorCycleActive = false;
   g_lastRemotePollMs = millis();
   scheduleFreshSensorCycle();
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
@@ -708,6 +715,15 @@ void initializePowerManagerAfterSetup()
   {
     SerialMon.println("Power: stale periodic sleep request cleared during normal-mode boot");
   }
+#endif
+}
+
+void notifyPowerManagerSensorCycle(bool active)
+{
+#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+  g_remoteSensorCycleActive = active;
+#else
+  (void)active;
 #endif
 }
 
@@ -780,15 +796,27 @@ void servicePowerManager()
 #elif APP_HAS_LORA
   transportIdle = isLoraIdleForPowerDown();
 #endif
-  const auto transition = g_remoteWakeCycle.advance(millis(), transportIdle);
+  const uint32_t nowMs = millis();
+  const AppRuntimeState& state = appState();
+  const bool applicationDue = nowMs - state.lastReadMs >= state.samplingPeriodMs ||
+      nowMs - state.lastSendMs >= state.transmissionPeriodMs;
+  const auto transition = g_remoteWakeCycle.advance(nowMs, transportIdle,
+      applicationDue, g_remoteSensorCycleActive);
   if (transition == RemoteWakeCycle::Transition::EnteredIdle)
   {
-    SerialMon.println("Power: REACHABLE_IDLE; sensor work paused, radio and watchdog remain active");
+    SerialMon.println(AppConfig::kRemoteWakeUsesAppSchedule ?
+        "Power: REACHABLE_IDLE; waiting for SRATE/STRAN or commands; radio/WDT serviced" :
+        "Power: REACHABLE_IDLE; sensor work paused, radio and watchdog remain active");
   }
   else if (transition == RemoteWakeCycle::Transition::PeriodicWake)
   {
     SerialMon.println("Power: periodic wake from reachable idle; sampling/reporting");
     scheduleFreshSensorCycle();
+  }
+  else if (transition == RemoteWakeCycle::Transition::ScheduledWake)
+  {
+    // Do not reset timestamps: only the independent work that is due may run.
+    SerialMon.println("Power: scheduled work/reply pending; resume without forcing other deadlines");
   }
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
   if (!g_worCommandWindow || queuedWakeActive() ||

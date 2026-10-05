@@ -1,4 +1,4 @@
-param([string]$CompilerPath = 'g++')
+param([string]$CompilerPath = 'g++', [switch]$UseFactoryConfigurationFixture)
 $ErrorActionPreference = 'Stop'
 $valveBuild = Join-Path ([IO.Path]::GetTempPath()) ('wiot-valve-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $valveBuild | Out-Null
@@ -29,6 +29,13 @@ try {
     )
     foreach ($valveConfig in $valveConfigs) {
         $valveArgs = @('-std=c++14','-fsyntax-only','-I',(Join-Path $PSScriptRoot 'fakes'))
+        if ($UseFactoryConfigurationFixture) {
+            # A commissioned bench copy intentionally differs from shipped
+            # defaults. Override this compiler fixture only, never AppConfig.h.
+            $valveArgs += @('-DAPP_CONTROLLER_POWER_MODE=0',
+                '-DAPP_VALVE_OPEN_PULSE_MS=0','-DAPP_VALVE_CLOSE_PULSE_MS=0',
+                '-DAPP_VALVE_POLARITY_CONFIRMED=false')
+        }
         $valveArgs += $valveConfig.Flags
         $valveArgs += Join-Path $PSScriptRoot 'config_test.cpp'
         $ErrorActionPreference = 'Continue'

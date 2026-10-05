@@ -1,5 +1,11 @@
 # Complete WIOT STM32 release — updated 5 October 2026
 
+REMOTE_WAKE now defaults to independent SRATE/STRAN deadlines with reachable
+CPU idle between work and commands. The old fixed-interval policy remains
+available through APP_REMOTE_WAKE_USE_APP_SCHEDULE=false. Explicit WAKE remains
+an active lease. See [configuration and tests](Node/IoT_Node_Encrypted/REMOTE_WAKE_APP_SCHEDULE_GUIDE.md).
+No server/schema/pin or separate ESP32/CubeIDE changes are required.
+
 Automatic command ACK replies are now independently configurable through
 `APP_ENABLE_COMMAND_ACK_REPLIES` in the Arduino STM32 AppConfig.h (default true).
 See [ACK configuration and tests](Node/IoT_Node_Encrypted/COMMAND_ACK_CONFIG_USER_GUIDE.md).

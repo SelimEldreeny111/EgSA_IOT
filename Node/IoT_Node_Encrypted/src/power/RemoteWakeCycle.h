@@ -6,24 +6,30 @@
 
 /** @brief Hardware-independent, rollover-safe reachable-idle policy.
  * CPU/UART sleep and watchdog servicing belong to PowerManager, not this class.
- * Periodic work stays active until transmission succeeds. A WAKE lease expires
+ * Legacy periodic work stays active until transmission succeeds. Schedule-driven
+ * work stays active only while due/busy; sampling and sending are independent.
+ * A WAKE lease expires
  * independently of telemetry success, but never interrupts an in-flight send.
  */
 class RemoteWakeCycle
 {
 public:
-  enum class Transition : uint8_t { None, EnteredIdle, PeriodicWake };
+  enum class Transition : uint8_t { None, EnteredIdle, PeriodicWake, ScheduledWake };
 
-  /** @brief Start an active periodic cycle; no timeout is armed until delivery.
+  /** @brief Initialize the legacy cycle or idle schedule-driven policy.
    * @param nowMs Monotonic millis snapshot; unsigned subtraction handles rollover.
    * @param idleMs Reachable-idle interval between automatic measurement cycles.
    * @param commandWindowMs Active command window after a successful periodic send.
+   * @param useAppSchedule True selects due/busy application events, not idleMs.
    */
-  void begin(uint32_t nowMs, uint32_t idleMs, uint32_t commandWindowMs)
+  void begin(uint32_t nowMs, uint32_t idleMs, uint32_t commandWindowMs,
+             bool useAppSchedule = false)
   {
     idleDurationMs_ = idleMs;
     commandWindowMs_ = commandWindowMs;
+    useAppSchedule_ = useAppSchedule;
     startPeriodic(nowMs);
+    if (useAppSchedule_) active_ = false; // Caller supplies initial due work.
   }
 
   /** @brief Replace the current phase with a bounded, server-requested active lease.
@@ -49,17 +55,43 @@ public:
   void telemetryDelivered(uint32_t nowMs)
   {
     // Repeated reports must not extend a command lease or the command window.
-    if (!active_ || commandLease_ || deadlineArmed_) return;
+    if (useAppSchedule_ || !active_ || commandLease_ || deadlineArmed_) return;
     deadlineArmed_ = true;
     phaseStartedMs_ = nowMs;
     activeDurationMs_ = commandWindowMs_;
   }
 
   /** @brief Advance timers without cancelling an outstanding radio transaction.
-   * @return EnteredIdle, PeriodicWake, or None when no state transition occurred.
+   * @param nowMs Current rollover-safe monotonic time.
+   * @param transportIdle False while transmission/response work is outstanding.
+   * @param applicationDue A sample or Status deadline is due; schedule mode only.
+   * @param applicationBusy An unfinished sensor cycle; schedule mode only.
+   * @return EnteredIdle, PeriodicWake, ScheduledWake, or None without a transition.
+   * ScheduledWake never requests forced sampling or transmission.
    */
-  Transition advance(uint32_t nowMs, bool transportIdle)
+  Transition advance(uint32_t nowMs, bool transportIdle,
+                     bool applicationDue = false, bool applicationBusy = false)
   {
+    if (useAppSchedule_)
+    {
+      if (commandLease_ && nowMs - phaseStartedMs_ >= activeDurationMs_)
+      {
+        commandLease_ = false;
+        deadlineArmed_ = false;
+      }
+      const bool shouldRun = commandLease_ || applicationDue || applicationBusy || !transportIdle;
+      if (shouldRun && !active_)
+      {
+        active_ = true;
+        return Transition::ScheduledWake;
+      }
+      if (!shouldRun && active_)
+      {
+        active_ = false;
+        return Transition::EnteredIdle;
+      }
+      return Transition::None;
+    }
     if (active_)
     {
       if (deadlineArmed_ && nowMs - phaseStartedMs_ >= activeDurationMs_ && transportIdle)
@@ -99,6 +131,7 @@ private:
     activeDurationMs_ = 0U;
   }
   bool active_ = true;
+  bool useAppSchedule_ = false;
   bool commandLease_ = false;
   bool deadlineArmed_ = false;
   uint32_t phaseStartedMs_ = 0U;

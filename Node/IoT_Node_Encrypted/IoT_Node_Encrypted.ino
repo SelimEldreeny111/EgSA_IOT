@@ -309,6 +309,9 @@ void loop()
         AppConfig::kEnableHndaSensor, AppConfig::kEnableSondasSensor);
     serviceHardwareWatchdog();
   }
+  // A partial multi-sensor snapshot must finish even when its start deadline
+  // was already consumed. Commands still take priority between sensor reads.
+  notifyPowerManagerSensorCycle(sensorCycle.active());
 
   commandPriority = g_loraCommandHandledThisPass;
 #if APP_HAS_IP_UPLINK

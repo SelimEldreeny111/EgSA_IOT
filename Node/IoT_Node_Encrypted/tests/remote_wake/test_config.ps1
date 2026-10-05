@@ -9,6 +9,9 @@ $wakeConfigDefaults = @{
     APP_REMOTE_WAKE_DEFAULT_SECONDS = '60UL'; APP_REMOTE_WAKE_POLL_INTERVAL_MS = '100UL'
 }
 $wakeConfigCases = @(
+    @{Name='remote-app-schedule'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_REMOTE_WAKE_USE_APP_SCHEDULE='true'}; Error=$null},
+    @{Name='remote-legacy-cycle'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_REMOTE_WAKE_USE_APP_SCHEDULE='false'}; Error=$null},
+    @{Name='reject-invalid-remote-schedule'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_USE_APP_SCHEDULE='2'}; Error='APP_REMOTE_WAKE_USE_APP_SCHEDULE must'},
     @{Name='command-acks-enabled'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_COMMAND_ACK_REPLIES='true'}; Error=$null},
     @{Name='command-acks-disabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_COMMAND_ACK_REPLIES='false'}; Error=$null},
     @{Name='reject-invalid-command-ack-switch'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_COMMAND_ACK_REPLIES='2'}; Error='APP_ENABLE_COMMAND_ACK_REPLIES must'},

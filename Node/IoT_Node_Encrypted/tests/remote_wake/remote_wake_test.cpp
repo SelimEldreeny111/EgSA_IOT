@@ -39,12 +39,101 @@ bool encodeEncryptedMessage(const void*, const void* data, uint8_t*, size_t, siz
   encodedTelemetry=*static_cast<const Telemetry*>(data); length=1U; return true;
 }
 
+#if TEST_REMOTE_APP_SCHEDULE
+// Actual PowerManager/CommandHandler with hardware-only fakes. Independent
+// timestamps represent the same cooperative sensor/publish decisions as loop().
+void runApplicationScheduleTests()
+{
+  state.samplingPeriodMs=10000U; state.transmissionPeriodMs=30000U;
+  initializePowerManagerAfterSetup(); servicePowerManager();
+  assert(powerManagerAllowsSensorWork()); // Initial fresh snapshot/report due.
+  state.lastReadMs=state.lastSendMs=nowMs;
+  notifyPowerManagerSensorCycle(true); servicePowerManager();
+  assert(powerManagerAllowsSensorWork()); // Finish all four sensor groups.
+  notifyPowerManagerTelemetryResult(false); // Failure cannot keep an idle CPU spinning.
+  notifyPowerManagerSensorCycle(false); servicePowerManager();
+  assert(!powerManagerAllowsSensorWork() && powerManagerState()==2U);
+  powerManagerIdleCpu(); assert(wfiCount==1U && watchdogFeeds==0U);
+  SerialAT.queued=1; assert(powerManagerShouldRunApplication()); SerialAT.queued=0;
+
+  nowMs=9999U; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  nowMs=10000U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  assert(nowMs-state.lastReadMs==10000U && state.lastSendMs==0U);
+  state.lastReadMs=nowMs; notifyPowerManagerSensorCycle(true);
+  nowMs=12500U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  notifyPowerManagerSensorCycle(false); servicePowerManager();
+  assert(!powerManagerAllowsSensorWork() && state.lastSendMs==0U); // Sampling-only, no forced Status.
+  nowMs=20000U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  state.lastReadMs=nowMs; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  nowMs=30000U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  state.lastReadMs=state.lastSendMs=nowMs; publishing=true; servicePowerManager();
+  assert(powerManagerAllowsSensorWork()); // Never idle with a pending response/Status.
+  publishing=false; notifyPowerManagerTelemetryResult(true); servicePowerManager();
+  assert(!powerManagerAllowsSensorWork()); // No legacy five-second command window.
+
+  state.samplingPeriodMs=60000U; state.transmissionPeriodMs=10000U;
+  nowMs=40000U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  assert(state.lastReadMs==30000U); // Transmission-only must not force a sensor read.
+  state.lastSendMs=nowMs; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  nowMs=40500U;
+  CMD_Message cmd={7U,CMD_SET_SAMPLING_PERIOD,10U,800U};
+  assert(handleCommand(cmd,false)); servicePowerManager();
+  assert(powerManagerAllowsSensorWork() && state.lastReadMs==30000U);
+  state.lastReadMs=nowMs; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  nowMs=50000U; cmd={7U,CMD_SET_TRANSMISSION_PERIOD,10U,801U};
+  assert(handleCommand(cmd,false)); servicePowerManager();
+  assert(powerManagerAllowsSensorWork() && state.lastReadMs==40500U);
+  state.lastSendMs=nowMs; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+
+  // Ordinary commands do not create an active lease or force fresh sample/report.
+  const uint32_t readBefore=state.lastReadMs, sendBefore=state.lastSendMs;
+  cmd={7U,CMD_OPEN_CLOSE_NODE,1U,802U}; assert(handleCommand(cmd,false));
+  cmd={7U,CMD_GET_TELEMETRY,0U,803U}; uint8_t payload[10]={}; size_t length=0U;
+  assert(handleGetTelemetryCommand(&cmd,payload,length));
+  assert(state.lastReadMs==readBefore && state.lastSendMs==sendBefore);
+  publishing=true; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  publishing=false; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+
+  // Explicit WAKE retains its documented lease and duplicate protection.
+  cmd={7U,CMD_REMOTE_WAKE,2U,804U}; assert(handleRemoteWakeCommand(cmd,false));
+  state.lastReadMs=state.lastSendMs=nowMs;
+  notifyPowerManagerTelemetryResult(true); servicePowerManager();
+  assert(powerManagerAllowsSensorWork() && powerManagerWakeRemainingSeconds()==2U);
+  nowMs=51999U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  assert(handleRemoteWakeCommand(cmd,false) && powerManagerWakeRemainingSeconds()==1U);
+  nowMs=52000U; publishing=true; servicePowerManager();
+  assert(powerManagerAllowsSensorWork() && powerManagerWakeRemainingSeconds()==0U);
+  assert(!handleRemoteWakeCommand(cmd,false));
+  publishing=false; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+
+  state.samplingPeriodMs=state.transmissionPeriodMs=86400000U;
+  nowMs=90000U; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  // More than the legacy 30-second sleep interval elapsed: no forced cycle.
+
+  // Actual manager deadline arithmetic survives millis rollover.
+  nowMs=0xFFFFFF00U; state.samplingPeriodMs=10000U; state.transmissionPeriodMs=20000U;
+  initializePowerManagerAfterSetup(); servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  state.lastReadMs=state.lastSendMs=nowMs; servicePowerManager();
+  assert(!powerManagerAllowsSensorWork());
+  nowMs=9743U; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  nowMs=9744U; servicePowerManager(); assert(powerManagerAllowsSensorWork());
+  assert(nowMs-state.lastReadMs==10000U && nowMs-state.lastSendMs<state.transmissionPeriodMs);
+  state.lastReadMs=nowMs; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
+  assert(watchdogFeeds==0U);
+}
+#endif
+
 int main()
 {
   for (uint32_t command=1U;command<=6U;++command) {
     assert(shouldSendCommandTelemetryReply(command,true));
     assert(shouldSendCommandTelemetryReply(command,false)==(command==CMD_GET_TELEMETRY));
   }
+#if TEST_REMOTE_APP_SCHEDULE
+  runApplicationScheduleTests();
+  std::cout << "PASS: actual schedule-driven remote power manager: independent SRATE/STRAN, UART, snapshot/reply guards, command rates, WAKE leases, failure idle, no fixed cycle, rollover\n";
+  return 0;
+#endif
   CommandReplayCache boundedCache;
   bool cachedResult=true;
   assert(boundedCache.lookup(0U,7U,5U,1U,false,cachedResult)==CommandReplayCache::Missing);

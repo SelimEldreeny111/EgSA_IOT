@@ -2,6 +2,12 @@
 
 Version 1.0 | 04 October 2026 | Arduino STM32F401 node and LoRa gateway
 
+> 5 October scheduling update: REMOTE_WAKE now defaults to independent SRATE
+> and STRAN deadlines. See [current remote scheduling guide](../../Node/IoT_Node_Encrypted/REMOTE_WAKE_APP_SCHEDULE_GUIDE.md).
+> Fixed-interval descriptions below apply with APP_REMOTE_WAKE_USE_APP_SCHEDULE=false.
+> Mode combinations and other controller policies are unchanged. The dated PDF
+> remains a historical reference; use the linked guide for current remote timing.
+
 ## 01 | What is available now?
 
 This reference describes the implemented firmware, not a proposed design. It is based on firmware revision `48e5e4b`. The STM32CubeIDE and ESP32 ports are outside its scope. No runtime code, private configuration or deployed setting is modified by this documentation update.

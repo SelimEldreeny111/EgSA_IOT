@@ -90,7 +90,13 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #define APP_LORA_GATEWAY_WOR_TX 0
 #endif
 
-// REMOTE_WAKE: automatic measurement/report cycle while otherwise reachable.
+// REMOTE_WAKE: true uses independent SRATE/STRAN deadlines while otherwise idle.
+// false preserves the older APP_POWER_SLEEP_SECONDS measurement/report cycle.
+// NORMAL, RTC_PERIODIC, RTC_QUEUED and LORA_WOR are not changed by this switch.
+#ifndef APP_REMOTE_WAKE_USE_APP_SCHEDULE
+#define APP_REMOTE_WAKE_USE_APP_SCHEDULE true
+#endif
+// WAKE remains an explicit timed ACTIVE lease in either remote scheduling policy.
 // WAKE data is active seconds; 0 selects the configured default below.
 #ifndef APP_REMOTE_WAKE_DEFAULT_SECONDS
 #define APP_REMOTE_WAKE_DEFAULT_SECONDS 60UL
@@ -247,6 +253,11 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #error "APP_POWER_SLEEP_ENTRY_TIMEOUT_MS must be between 100 and 5000 milliseconds"
 #endif
 
+#if APP_REMOTE_WAKE_USE_APP_SCHEDULE != 0 && APP_REMOTE_WAKE_USE_APP_SCHEDULE != 1
+#error "APP_REMOTE_WAKE_USE_APP_SCHEDULE must be true or false"
+#endif
+static_assert(APP_REMOTE_WAKE_USE_APP_SCHEDULE == true || APP_REMOTE_WAKE_USE_APP_SCHEDULE == false,
+    "APP_REMOTE_WAKE_USE_APP_SCHEDULE must be true or false");
 #if APP_REMOTE_WAKE_DEFAULT_SECONDS < 1UL || APP_REMOTE_WAKE_DEFAULT_SECONDS > 86400UL
 #error "APP_REMOTE_WAKE_DEFAULT_SECONDS must be between 1 and 86400 seconds"
 #endif
@@ -303,6 +314,7 @@ constexpr uint32_t kPowerMaximumSleepSeconds = 604800UL;
 constexpr uint32_t kRemoteWakeDefaultSeconds = APP_REMOTE_WAKE_DEFAULT_SECONDS;
 constexpr uint32_t kRemoteWakeMaximumSeconds = 86400UL;
 constexpr uint32_t kRemoteWakePollIntervalMs = APP_REMOTE_WAKE_POLL_INTERVAL_MS;
+constexpr bool kRemoteWakeUsesAppSchedule = APP_REMOTE_WAKE_USE_APP_SCHEDULE;
 
 #ifndef APP_NODE_ID
 #define APP_NODE_ID 1

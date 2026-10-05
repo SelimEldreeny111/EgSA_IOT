@@ -30,6 +30,10 @@ struct AppRuntimeState {
 AppRuntimeState& appState();
 void refreshBatteryVoltage();
 namespace AppConfig {
+#ifndef TEST_REMOTE_APP_SCHEDULE
+#define TEST_REMOTE_APP_SCHEDULE false
+#endif
+constexpr bool kRemoteWakeUsesAppSchedule=TEST_REMOTE_APP_SCHEDULE;
 constexpr bool kControllerPowerDown=false, kRemoteWakeEnabled=true;
 constexpr bool kLoraPowerDown=false, kWifiPowerDown=false, kSimPowerDown=false;
 constexpr uint32_t kPowerSleepSeconds=30U, kPowerCommandWindowMs=5000U;

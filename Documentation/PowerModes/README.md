@@ -1,7 +1,13 @@
 # WIOT power-mode reference
 
+5 October update: REMOTE_WAKE defaults to independent SRATE/STRAN scheduling.
+See [new remote policy and tests](../../Node/IoT_Node_Encrypted/REMOTE_WAKE_APP_SCHEDULE_GUIDE.md).
+The dated 4 October reference/PDF below describe the legacy fixed-interval
+remote policy (APP_REMOTE_WAKE_USE_APP_SCHEDULE=false); all mode combinations
+remain unchanged. The PDF has not been regenerated for this scheduling update.
+
 The [editable reference](WIOT_Power_Modes_Reference.md) and
-[printable PDF](output/pdf/WIOT_Power_Modes_Reference.pdf) describe the current
+[printable PDF](output/pdf/WIOT_Power_Modes_Reference.pdf) describe the 4 October
 Arduino STM32 firmware's five power profiles, all 15 practical combinations,
 rejected pairings, pins, timings, command behavior and bench acceptance tests.
 The baseline is firmware commit `48e5e4b`. No firmware settings are changed.

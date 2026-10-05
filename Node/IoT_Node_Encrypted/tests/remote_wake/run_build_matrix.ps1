@@ -3,6 +3,7 @@ param(
     [string]$ConfigFile = (Join-Path $env:USERPROFILE '.arduinoIDE/arduino-cli.yaml'),
     [string]$BuildRoot = '',
     [ValidateSet('','true','false')][string]$CommandAckReplies = '',
+    [ValidateSet('','true','false')][string]$RemoteWakeApplicationSchedule = '',
     [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora',
         'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora',
         'gateway-wifi','gateway-wor','valve-test-sim','valve-test-wifi')
@@ -45,6 +46,7 @@ foreach ($wakeBuildProfile in $Profiles) {
     if (-not $wakeBuildFlags.ContainsKey($wakeBuildProfile)) { throw "Unknown profile: $wakeBuildProfile" }
     $wakeBuildDirectory = Join-Path $wakeBuildRoot $wakeBuildProfile
     if ($CommandAckReplies -eq 'false') { $wakeBuildDirectory += '-acks-off' }
+    if ($RemoteWakeApplicationSchedule -eq 'false') { $wakeBuildDirectory += '-legacy-remote' }
     Write-Host "Building $wakeBuildProfile (all four sensor drivers)..."
     # Explicitly override all power policies; preserve any live bench settings
     # in the user's AppConfig.h without letting them invalidate other profiles.
@@ -55,6 +57,7 @@ foreach ($wakeBuildProfile in $Profiles) {
     if ($wakeBuildProfile -eq 'queued-lora' -or $wakeBuildProfile -eq 'wor-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     $wakeBuildAckFlag = ''
     if ($CommandAckReplies) { $wakeBuildAckFlag = ' -DAPP_ENABLE_COMMAND_ACK_REPLIES=' + $CommandAckReplies }
+    if ($RemoteWakeApplicationSchedule) { $wakeBuildAckFlag += ' -DAPP_REMOTE_WAKE_USE_APP_SCHEDULE=' + $RemoteWakeApplicationSchedule }
     $wakeBuildArguments = @('compile', '--fqbn', $wakeBuildFqbn,
         '--build-path', $wakeBuildDirectory,
         '--build-property', ('compiler.cpp.extra_flags=' + $wakeBuildFlags[$wakeBuildProfile] + $wakeBuildPolicyFlags + $wakeBuildSensors + $wakeBuildAckFlag))

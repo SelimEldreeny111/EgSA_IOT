@@ -112,4 +112,5 @@ zero-reading, counter and wake behavior, also consult:
 - [Watchdog counter guide](WDT_RESET_COUNTER_GUIDE.md)
 - [Unavailable sensor guide](SENSOR_UNAVAILABLE_ZERO_GUIDE.md)
 - [Remote wake guide](REMOTE_WAKE_USER_GUIDE.md)
+- [Schedule-driven remote wake and bench tests](REMOTE_WAKE_APP_SCHEDULE_GUIDE.md)
 - [New power modes guide](NEW_POWER_MODES_USER_GUIDE.md)

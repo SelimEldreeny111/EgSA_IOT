@@ -35,6 +35,10 @@ and keep the selected radio `APP_COMPONENT_MODE_NORMAL`. This uses lighter CPU
 Sleep, not Standby, and preserves MQTT/LoRa reception and watchdog coverage.
 The server Commands tab provides **WAKE** (active seconds, 0=node default).
 See [Remote Wake Configuration and Bench Tests](REMOTE_WAKE_USER_GUIDE.md).
+REMOTE_WAKE now defaults to independent sampling/transmission deadlines, not
+APP_POWER_SLEEP_SECONDS. See [schedule-driven remote idle](REMOTE_WAKE_APP_SCHEDULE_GUIDE.md)
+for the true/false switch and separate SRATE/STRAN tests. Explicit WAKE still
+requests an active lease; brief MQTT/tick/watchdog maintenance continues.
 
 The Arduino firmware has a separate, safe policy for each main device at the
 beginning of `src/config/AppConfig.h`:
