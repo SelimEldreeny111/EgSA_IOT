@@ -2,6 +2,7 @@ param(
     [string]$ArduinoCli = 'arduino-cli',
     [string]$ConfigFile = (Join-Path $env:USERPROFILE '.arduinoIDE/arduino-cli.yaml'),
     [string]$BuildRoot = '',
+    [ValidateSet('','true','false')][string]$CommandAckReplies = '',
     [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora',
         'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora',
         'gateway-wifi','gateway-wor','valve-test-sim','valve-test-wifi')
@@ -43,6 +44,7 @@ try {
 foreach ($wakeBuildProfile in $Profiles) {
     if (-not $wakeBuildFlags.ContainsKey($wakeBuildProfile)) { throw "Unknown profile: $wakeBuildProfile" }
     $wakeBuildDirectory = Join-Path $wakeBuildRoot $wakeBuildProfile
+    if ($CommandAckReplies -eq 'false') { $wakeBuildDirectory += '-acks-off' }
     Write-Host "Building $wakeBuildProfile (all four sensor drivers)..."
     # Explicitly override all power policies; preserve any live bench settings
     # in the user's AppConfig.h without letting them invalidate other profiles.
@@ -51,9 +53,11 @@ foreach ($wakeBuildProfile in $Profiles) {
     if ($wakeBuildProfile -eq 'rtc-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     if ($wakeBuildProfile -eq 'queued-wifi') { $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     if ($wakeBuildProfile -eq 'queued-lora' -or $wakeBuildProfile -eq 'wor-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
+    $wakeBuildAckFlag = ''
+    if ($CommandAckReplies) { $wakeBuildAckFlag = ' -DAPP_ENABLE_COMMAND_ACK_REPLIES=' + $CommandAckReplies }
     $wakeBuildArguments = @('compile', '--fqbn', $wakeBuildFqbn,
         '--build-path', $wakeBuildDirectory,
-        '--build-property', ('compiler.cpp.extra_flags=' + $wakeBuildFlags[$wakeBuildProfile] + $wakeBuildPolicyFlags + $wakeBuildSensors))
+        '--build-property', ('compiler.cpp.extra_flags=' + $wakeBuildFlags[$wakeBuildProfile] + $wakeBuildPolicyFlags + $wakeBuildSensors + $wakeBuildAckFlag))
     if (Test-Path -LiteralPath $ConfigFile) { $wakeBuildArguments += @('--config-file', $ConfigFile) }
     & $ArduinoCli @wakeBuildArguments $wakeBuildNode
     if ($LASTEXITCODE -ne 0) { throw "Arduino compile failed: $wakeBuildProfile" }

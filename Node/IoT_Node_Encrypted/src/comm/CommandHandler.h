@@ -19,6 +19,16 @@ enum CMD_ID : uint8_t {
   CMD_REMOTE_WAKE = 6  // data: active seconds, 0=configured default, max=86400
 };
 
+/** @brief Shared SIM/WiFi/LoRa automatic-reply policy; GOSTM always responds.
+ * @param commandId Decoded command identifier.
+ * @param ackRepliesEnabled Compile-time application ACK setting.
+ * @return True for explicit telemetry requests or enabled action ACKs.
+ */
+constexpr bool shouldSendCommandTelemetryReply(uint32_t commandId, bool ackRepliesEnabled)
+{
+  return commandId == CMD_GET_TELEMETRY || ackRepliesEnabled;
+}
+
 /** @brief Apply an addressed command. @param cmd Decoded command. @param isBroadcastTopic True for company broadcast. @return True only when successfully applied. */
 bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic);
 /** @brief Apply a WAKE lease before constructing its reply. @param cmd Decoded WAKE. @param isBroadcastTopic True for company broadcast. @return True when accepted. */

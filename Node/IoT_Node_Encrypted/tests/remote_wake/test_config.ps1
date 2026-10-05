@@ -9,6 +9,9 @@ $wakeConfigDefaults = @{
     APP_REMOTE_WAKE_DEFAULT_SECONDS = '60UL'; APP_REMOTE_WAKE_POLL_INTERVAL_MS = '100UL'
 }
 $wakeConfigCases = @(
+    @{Name='command-acks-enabled'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_COMMAND_ACK_REPLIES='true'}; Error=$null},
+    @{Name='command-acks-disabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_COMMAND_ACK_REPLIES='false'}; Error=$null},
+    @{Name='reject-invalid-command-ack-switch'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_COMMAND_ACK_REPLIES='2'}; Error='APP_ENABLE_COMMAND_ACK_REPLIES must'},
     @{Name='normal-sim'; Modem='USE_SIM800'; Defines=@{}; Error=$null},
     @{Name='valve-test-min-pulse'; Modem='USE_SIM800'; Defines=@{APP_VALVE_OPEN_PULSE_MS='1';APP_VALVE_CLOSE_PULSE_MS='1'}; Error=$null},
     @{Name='valve-test-max-ceiling'; Modem='USE_SIM800'; Defines=@{APP_VALVE_OPEN_PULSE_MS='1000';APP_VALVE_CLOSE_PULSE_MS='1000'}; Error=$null},

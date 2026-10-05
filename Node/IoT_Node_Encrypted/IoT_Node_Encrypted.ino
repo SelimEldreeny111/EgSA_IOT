@@ -117,6 +117,11 @@ void pollLoraCommands()
 
       const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
           handleRemoteWakeCommand(cmd, isBroadcastCommand);
+      if (!shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies))
+      {
+        SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
+        continue;
+      }
       if (!applied && cmd.request_id == 0U) continue;
 
       uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
@@ -141,7 +146,8 @@ void pollLoraCommands()
     }
 
     const bool applied = handleCommand(cmd, isBroadcastCommand);
-    if (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE)
+    if (shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies) &&
+        (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE))
     {
       uint8_t ackPayload[AppConfig::kCodecBufferSize];
       size_t ackLength = 0U;
@@ -154,6 +160,8 @@ void pollLoraCommands()
             ackLength);
       }
     }
+    else if (!AppConfig::kEnableCommandAckReplies)
+      SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
   }
 }
 #endif

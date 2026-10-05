@@ -17,6 +17,7 @@ const char kMqttServer[]="test",kMqttClientId[]="test-client";
 const char kMqttCommandTopic[]="EgSA/Test/1/CMD",kMqttBroadcastTopic[]="EgSA/Test/BroadCast/CMD";
 const char kMqttPublishTopicStatus[]="EgSA/Test/1/Status",kMqttPublishTopicTlm[]="EgSA/Test/1/Telemetry";
 static int applied=0;
+static bool applyResult=true;
 static int networkConnectCalls=0;
 void serviceHardwareWatchdog() {}
 void serviceHardwareWatchdog(WatchdogStage) {}
@@ -27,8 +28,8 @@ bool decodeEncryptedCommandPayload(const uint8_t* bytes,size_t length,CMD_Messag
     if(length!=3) return false;
     cmd.node_id=bytes[0]; cmd.cmd_id=bytes[1]; cmd.request_id=bytes[2]; return true;
 }
-bool handleCommand(const CMD_Message&,bool) { ++applied; return true; }
-bool handleRemoteWakeCommand(const CMD_Message&,bool) { ++applied; return true; }
+bool handleCommand(const CMD_Message&,bool) { ++applied; return applyResult; }
+bool handleRemoteWakeCommand(const CMD_Message&,bool) { ++applied; return applyResult; }
 bool handleGetTelemetryCommand(const CMD_Message* cmd,uint8_t* out,size_t& length,bool) {
     out[0]=uint8_t(cmd->cmd_id); out[1]=uint8_t(cmd->request_id); length=2; return true;
 }
@@ -54,6 +55,33 @@ int main(int argc,char** argv) {
 #else
             assert(networkConnectCalls==previousNetworkCalls);
 #endif
+        } else if(scenario=="acks_disabled") {
+            assert(!AppConfig::kEnableCommandAckReplies);
+            for(uint8_t command : {uint8_t(1),uint8_t(2),uint8_t(3),uint8_t(5),uint8_t(6)}) {
+                mqtt.incoming.push_back({kMqttCommandTopic,{1,command,42}});
+                beginMqttCommandPriorityPass(); assert(!isAsyncPublishBusy());
+                asyncPublishStep();
+            }
+            // Legacy valve ACK is also optional, not an escape around the macro.
+            mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_OPEN_CLOSE_NODE,0}});
+            beginMqttCommandPriorityPass(); asyncPublishStep();
+            assert(applied==6 && mqtt.attemptedTopics.empty());
+            mqtt.incoming.push_back({kMqttBroadcastTopic,{1,CMD_REMOTE_WAKE,43}});
+            beginMqttCommandPriorityPass(); asyncPublishStep();
+            assert(applied==7 && mqtt.attemptedTopics.empty());
+            applyResult=false; // Rejections are silent too; never fake successful ACKs.
+            for(uint8_t command : {uint8_t(CMD_OPEN_CLOSE_NODE),uint8_t(CMD_REMOTE_WAKE)}) {
+                mqtt.incoming.push_back({kMqttCommandTopic,{1,command,45}});
+                beginMqttCommandPriorityPass(); asyncPublishStep();
+                assert(!isAsyncPublishBusy() && mqtt.attemptedTopics.empty());
+            }
+            assert(applied==9);
+            // Explicit telemetry and subsequent periodic Status still work.
+            mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_GET_TELEMETRY,44}});
+            beginMqttCommandPriorityPass(); asyncPublishStep();
+            assert(mqtt.attemptedTopics.size()==1 && mqtt.attemptedTopics.back()==kMqttPublishTopicTlm);
+            beginMqttCommandPriorityPass(); assert(triggerAsyncPublish()); asyncPublishStep();
+            assert(mqtt.attemptedTopics.size()==2 && mqtt.attemptedTopics.back()==kMqttPublishTopicStatus);
         } else if(scenario=="success") {
             assert(triggerAsyncPublish()); asyncPublishStep();
             assert(takeAsyncPublishResult()==AsyncPublishResult::Success);

@@ -14,6 +14,21 @@
 #include <stdint.h>
 #include <Arduino.h>
 
+/**************** COMMAND REPLY CONFIGURATION ****************/
+// true: action commands return success/rejection Telemetry ACKs.
+// false: apply/validate commands silently; periodic Status is unchanged.
+// GOSTM always replies: telemetry is its requested action, not an optional ACK.
+// Without ACKs, the server cannot confirm execution (timeline may show unknown).
+#ifndef APP_ENABLE_COMMAND_ACK_REPLIES
+#define APP_ENABLE_COMMAND_ACK_REPLIES true
+#endif
+#if APP_ENABLE_COMMAND_ACK_REPLIES != 0 && APP_ENABLE_COMMAND_ACK_REPLIES != 1
+#error "APP_ENABLE_COMMAND_ACK_REPLIES must be true or false"
+#endif
+static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_REPLIES == false,
+    "APP_ENABLE_COMMAND_ACK_REPLIES must be true or false");
+/*************************************************************/
+
 /**************** POWER CONFIGURATION - START HERE ****************/
 // Each device has an explicit policy. NORMAL is the safe factory default.
 // POWER_DOWN means that the device participates in the scheduled low-power
@@ -631,6 +646,7 @@ constexpr uint32_t kDefaultRtcEpoch = 1704067200UL;
 constexpr uint16_t kMqttPort = 1883;
 constexpr uint16_t kMqttKeepAliveSeconds = 45;
 constexpr uint16_t kMqttSocketTimeoutSeconds = 8;
+constexpr bool kEnableCommandAckReplies = APP_ENABLE_COMMAND_ACK_REPLIES;
 constexpr uint32_t kMqttReconnectIntervalMs = 3000UL;
 
 constexpr uint32_t kMinimumRateSeconds = 10UL;

@@ -1,5 +1,11 @@
 # WIOT command lifecycle — Phase 2
 
+Later compatible update: [Optional automatic command ACKs](../../Node/IoT_Node_Encrypted/COMMAND_ACK_CONFIG_USER_GUIDE.md)
+adds `APP_ENABLE_COMMAND_ACK_REPLIES` (default true). With false, action commands
+do not reply; the server cannot mark them confirmed. GOSTM remains an explicit
+telemetry request and still responds. The lifecycle behavior below assumes ACKs
+are enabled unless stated otherwise.
+
 5 October 2026. Branch: `feature/2026-10-05-command-lifecycle-phase2`.
 Baseline: `353b70e783519af637b722b0ee4807221c0d55d4` (server Phase 1).
 

@@ -437,6 +437,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
     }
     const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
         handleRemoteWakeCommand(cmd, isBroadcastTopic);
+    if (!shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies))
+    {
+      SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
+      return;
+    }
     if (!applied && cmd.request_id == 0U) return;
     uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
     size_t telemetryPayloadLength = 0;
@@ -451,7 +456,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   else
   {
     const bool applied = handleCommand(cmd, isBroadcastTopic);
-    if (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE)
+    if (shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies) &&
+        (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE))
     {
       uint8_t ackPayload[AppConfig::kCodecBufferSize];
       size_t ackLength = 0U;
@@ -461,6 +467,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
           SerialMon.println("ERROR: command-reply queue full; ACK was NOT sent");
       }
     }
+    else if (!AppConfig::kEnableCommandAckReplies)
+      SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
   }
 #endif
 }

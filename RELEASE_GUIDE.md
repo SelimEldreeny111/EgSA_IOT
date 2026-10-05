@@ -1,5 +1,11 @@
 # Complete WIOT STM32 release — updated 5 October 2026
 
+Automatic command ACK replies are now independently configurable through
+`APP_ENABLE_COMMAND_ACK_REPLIES` in the Arduino STM32 AppConfig.h (default true).
+See [ACK configuration and tests](Node/IoT_Node_Encrypted/COMMAND_ACK_CONFIG_USER_GUIDE.md).
+GOSTM and periodic Status remain available when automatic ACKs are disabled;
+the server cannot then confirm silent action execution. No schema/port changes.
+
 Phase 2 adds a durable command execution timeline, IDs for every command,
 bounded queued-rate retries, supersession and asynchronous broker receipt audit.
 The Arduino STM32 command handler suppresses eight recent ordinary duplicate

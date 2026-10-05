@@ -41,6 +41,10 @@ bool encodeEncryptedMessage(const void*, const void* data, uint8_t*, size_t, siz
 
 int main()
 {
+  for (uint32_t command=1U;command<=6U;++command) {
+    assert(shouldSendCommandTelemetryReply(command,true));
+    assert(shouldSendCommandTelemetryReply(command,false)==(command==CMD_GET_TELEMETRY));
+  }
   CommandReplayCache boundedCache;
   bool cachedResult=true;
   assert(boundedCache.lookup(0U,7U,5U,1U,false,cachedResult)==CommandReplayCache::Missing);

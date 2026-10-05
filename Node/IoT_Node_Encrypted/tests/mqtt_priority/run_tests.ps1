@@ -32,6 +32,18 @@ try {
         if($LASTEXITCODE -ne 0) { throw "ESP8266 MQTT test failed: $scenario" }
     }
     $modbusExe=Join-Path $mqttTestBuild 'modbus_wait_test.exe'
+    foreach ($ackOffModem in @('SIM','WIFI')) {
+        $ackOffExe=Join-Path $mqttTestBuild ("ack_off_$ackOffModem.exe")
+        $ackOffDefines=@('-DAPP_ENABLE_COMMAND_ACK_REPLIES=false')
+        if ($ackOffModem -eq 'WIFI') { $ackOffDefines += '-DTEST_ESP8266' }
+        & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' @ackOffDefines `
+            '-I' $mqttTestFakes '-include' (Join-Path $mqttTestFakes 'TestAppConfig.h') `
+            (Join-Path $mqttTestNode 'src/comm/MQTT.cpp') `
+            (Join-Path $PSScriptRoot 'mqtt_priority_test.cpp') '-o' $ackOffExe
+        if($LASTEXITCODE -ne 0) { throw "ACK-disabled $ackOffModem host build failed" }
+        & $ackOffExe 'acks_disabled'
+        if($LASTEXITCODE -ne 0) { throw "ACK-disabled $ackOffModem policy failed" }
+    }
     & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-I' $mqttTestFakes `
         (Join-Path $mqttTestNode 'src/third_party/ModbusMaster/ModbusMaster.cpp') `
         (Join-Path $PSScriptRoot 'modbus_command_wait_test.cpp') '-o' $modbusExe

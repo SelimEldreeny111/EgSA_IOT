@@ -2,7 +2,7 @@
 # Run from this directory: doxygen Doxyfile
 PROJECT_NAME           = "WIOT STM32F401 Arduino Node"
 PROJECT_BRIEF          = "Firmware architecture and API reference"
-PROJECT_NUMBER         = "2026-10-04 TB6612FNG latching valve"
+PROJECT_NUMBER         = "2026-10-05 configurable command ACKs"
 OUTPUT_DIRECTORY       = Documentation/Doxygen
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
@@ -17,6 +17,7 @@ INPUT                  = DOXYGEN_MAINPAGE.md \
                          REMOTE_WAKE_USER_GUIDE.md \
                          SENSOR_UNAVAILABLE_ZERO_GUIDE.md \
                          SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md \
+                         COMMAND_ACK_CONFIG_USER_GUIDE.md \
                          SUPMEA_RTC_RESET_FIX_AND_TEST_GUIDE.md \
                          WATCHDOG_RECOVERY_AND_TEST_GUIDE.md \
                          NETWORK_RECOVERY_USER_GUIDE.md \

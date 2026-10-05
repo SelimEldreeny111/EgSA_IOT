@@ -26,6 +26,10 @@ struct AppRuntimeState {};
 #include "../../../src/generated/sensor.pb.h"
 bool decodeEncryptedCommandPayload(const uint8_t*,size_t,CMD_Message&);
 namespace AppConfig {
+#ifndef APP_ENABLE_COMMAND_ACK_REPLIES
+#define APP_ENABLE_COMMAND_ACK_REPLIES true
+#endif
+constexpr bool kEnableCommandAckReplies=APP_ENABLE_COMMAND_ACK_REPLIES;
 constexpr size_t kMqttPacketBufferSize=640, kCodecBufferSize=416;
 constexpr uint16_t kMqttPort=1883, kMqttKeepAliveSeconds=45, kMqttSocketTimeoutSeconds=8;
 constexpr uint32_t kMqttReconnectIntervalMs=3000;

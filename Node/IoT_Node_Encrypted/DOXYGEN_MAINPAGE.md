@@ -55,6 +55,9 @@ in files excluded from this reference.
 - Missing/failed groups publish zero plus invalid flags, not stale readings.
 - MQTT commands/replies precede routine sampling/uploads. TinyGSM owns AT
   transactions; the legacy async API now queues checked sends, not raw UART work.
+- `APP_ENABLE_COMMAND_ACK_REPLIES` selects automatic action-command replies.
+  Disabling it keeps command execution, GOSTM responses and periodic Status;
+  the server cannot confirm silent action outcomes.
 - MQTT QoS-0 modem acceptance is not proof of server receipt. Priority is
   cooperative; it cannot interrupt an in-progress modem operation.
 - An enabled sensor is not necessarily valid. Publish validity flags convey
@@ -103,6 +106,7 @@ and [power-down guide](POWER_DOWN_MODE_USER_GUIDE.md). For the latest transport,
 zero-reading, counter and wake behavior, also consult:
 
 - [SIM MQTT command-priority guide](SIM_MQTT_COMMAND_PRIORITY_FIX_GUIDE.md)
+- [Optional command ACK configuration](COMMAND_ACK_CONFIG_USER_GUIDE.md)
 - [Global watchdog guide](WATCHDOG_RECOVERY_AND_TEST_GUIDE.md)
 - [Two-stage network recovery guide](NETWORK_RECOVERY_USER_GUIDE.md)
 - [Watchdog counter guide](WDT_RESET_COUNTER_GUIDE.md)
