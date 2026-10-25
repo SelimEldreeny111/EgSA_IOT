@@ -188,6 +188,25 @@ class RemoteWakeServerTests(unittest.TestCase):
                                  (7, 5, state, result['request_id']))
                 self.assertNotIn('node_status', result)
 
+    def test_reset_counter_commands_have_correlated_ack_and_no_broadcast(self):
+        for command, identifier in (('CLEAR_POWER_RESETS', 7), ('CLEAR_WDT_RESETS', 8)):
+            result = self.post(cmd_type=command, cmd_data=0).get_json()
+            self.assertTrue(result['success'], result)
+            self.assertTrue(result['awaiting_node_ack'])
+            msg = messages_pb2.CMD_Message.FromString(self.sent[-1][1])
+            self.assertEqual((msg.cmd_id, msg.cmd_data), (identifier, 0))
+            self.assertGreater(msg.request_id, 0)
+            self.assertEqual(self.post(cmd_type=command, cmd_data=0, broadcast=True).status_code, 400)
+            for invalid in (1, -1, True, 0.5, 'bad'):
+                self.assertEqual(self.post(cmd_type=command, cmd_data=invalid).status_code, 400)
+
+    def test_reset_counter_queued_delivery_is_once_only(self):
+        result = self.post(cmd_type='CLEAR_WDT_RESETS', cmd_data=0, delivery='next_wake').get_json()
+        self.assertTrue(result['queued'])
+        item = self.journal.claim_on_status(self.company, 7)
+        self.assertEqual((item['cmd_id'], item['cmd_data']), (8, 0))
+        self.assertIsNone(self.journal.claim_on_status(self.company, 7, now=item['ack_deadline'] + 1))
+
     def test_valve_invalid_target_and_state_are_rejected(self):
         for updates in ({'node_id': 0}, {'node_id': 65536}, {'node_id': True},
                         {'node_id': 7.5}, {'cmd_data': 2}, {'cmd_data': -1},

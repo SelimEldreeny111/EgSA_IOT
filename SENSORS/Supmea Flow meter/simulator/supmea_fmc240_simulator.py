@@ -168,6 +168,10 @@ class Fmc240SerialSlave:
                 self._emit("info", decision.description)
 
 
+from supmea_reference import SupmeaReference
+from supmea_fmc240_protocol import flow_rate_to_m3_per_hour
+
+
 class SimulatorGui:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -189,6 +193,9 @@ class SimulatorGui:
         defaults = Fmc240Values()
         self.current_values = defaults
         self._last_totalizer_time = time.monotonic()
+        self.reference = SupmeaReference()
+        self.reference_zone = tk.StringVar(value="Africa/Cairo")
+        self.reference_summary = tk.StringVar(value="Reference starts with first active totalizer tick.")
         self.value_vars = {
             "forward_total_m3": tk.StringVar(value=str(defaults.forward_total_m3)),
             "reverse_total_m3": tk.StringVar(value=str(defaults.reverse_total_m3)),
@@ -328,6 +335,12 @@ class SimulatorGui:
             command=self._reset_totalizers,
         ).grid(row=4, column=4, columnspan=2, sticky=tk.E, pady=(10, 0))
 
+        ref = ttk.LabelFrame(outer, text="Independent RTC comparison — NOT sent on RS485", padding=8)
+        ref.pack(fill=tk.X, pady=(8, 0))
+        ttk.Combobox(ref, textvariable=self.reference_zone,
+                     values=("Africa/Cairo", "UTC", "+02:00", "+03:00"), width=18).pack(side=tk.LEFT)
+        ttk.Button(ref, text="Reset comparison only", command=self._reset_reference).pack(side=tk.LEFT, padx=8)
+        ttk.Label(ref, textvariable=self.reference_summary, wraplength=600).pack(side=tk.LEFT)
         log_frame = ttk.LabelFrame(outer, text="Raw Modbus traffic", padding=8)
         log_frame.pack(fill=tk.BOTH, expand=True, pady=(12, 0))
         self.log = scrolledtext.ScrolledText(
@@ -415,6 +428,7 @@ class SimulatorGui:
         self.current_values = values
         self._set_totalizer_fields(values)
         self._restart_totalizer_clock()
+        self._reset_reference()
         self.worker.set_mute_responses(self.mute_var.get())
         self.worker.start()
         self.start_button.configure(state=tk.DISABLED)
@@ -455,8 +469,13 @@ class SimulatorGui:
         now = time.monotonic()
         elapsed = now - self._last_totalizer_time
         self._last_totalizer_time = now
+        reference_flow = None
+        elapsed_sim = elapsed
         if self.worker is not None and self.auto_totalizer_var.get():
             try:
+                elapsed_sim = elapsed * float(self.time_multiplier_var.get())
+                reference_flow = flow_rate_to_m3_per_hour(
+                    self.current_values.flow_rate, self.current_values.flow_rate_unit)
                 self.current_values = advance_totalizers(
                     self.current_values,
                     elapsed,
@@ -465,9 +484,30 @@ class SimulatorGui:
                 self._set_totalizer_fields(self.current_values)
                 self.worker.update_values(self.current_values)
             except ValueError as exc:
+                reference_flow = None
+                elapsed_sim = elapsed
                 self.auto_totalizer_var.set(False)
                 self._append_log("error", f"Automatic totalizer stopped: {exc}")
+        try:
+            self.reference.advance(elapsed_sim, reference_flow)
+        except ValueError as exc:
+            self.auto_totalizer_var.set(False)
+            self._append_log("error", f"Reference clock stopped: {exc}")
+        snapshot = self.reference.snapshot()
+        self.reference_summary.set(
+            f"Today {snapshot['today_m3']:.6f} | Month {snapshot['month_m3']:.6f} | "
+            f"Year {snapshot['year_m3']:.6f} m³\n"
+            f"{snapshot['clock_local']} — since session start; "
+            f"{'integrating' if reference_flow is not None else 'paused'}")
         self.root.after(1000, self._advance_totalizers)
+
+    def _reset_reference(self):
+        try:
+            self.reference = SupmeaReference(self.reference_zone.get().strip())
+            self._restart_totalizer_clock()
+            self.reference_summary.set("Comparison totals zeroed; meter registers are unchanged.")
+        except ValueError as exc:
+            messagebox.showerror("Reference timezone", str(exc), parent=self.root)
 
     def _reset_totalizers(self) -> None:
         self.current_values = reset_totalizers(self.current_values)

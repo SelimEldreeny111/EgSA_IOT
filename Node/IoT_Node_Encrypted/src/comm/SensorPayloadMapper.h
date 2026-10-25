@@ -54,6 +54,7 @@ inline void populateSensorPayloadFields(
     message.sensor_id = AppConfig::kSensorId;
     message.battery_voltage = state.batteryVoltage;
     message.wdt_reset_count = hardwareWatchdogResetCount();
+    message.power_reset_count = powerResetCount();
     // Keep the V1 flow fields for old consumers. TUF has priority only when
     // both meters are enabled; Supmea remains the primary in Supmea-only builds.
     if (AppConfig::kEnableTufSensor)

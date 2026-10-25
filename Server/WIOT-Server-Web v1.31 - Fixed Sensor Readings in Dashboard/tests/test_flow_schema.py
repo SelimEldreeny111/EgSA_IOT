@@ -243,12 +243,13 @@ class ServerDatabaseTests(unittest.TestCase):
             ("Telemetry", messages_pb2.Telemetry, 4294967295),
         ):
             msg = message_class(node_id=35, sensor_id=1, timestamp=1_800_000_000,
-                                wdt_reset_count=count)
+                                wdt_reset_count=count, power_reset_count=123)
             with patch.object(self.server_web, "emit_iot_message") as emit, \
                  patch.object(self.server_web, "dispatch_queued_command"):
                 self.server_web.on_mqtt_plaintext(
                     f"EgSA/{company}/35/{kind}", msg.SerializeToString())
             self.assertEqual(emit.call_args.args[0]["WDT Resets"], count)
+            self.assertEqual(emit.call_args.args[0]["Power Resets"], 123)
         with closing(sqlite3.connect(self.server_web.get_company_db_path(company))) as db:
             self.assertEqual(db.execute("SELECT wdt_reset_count FROM messages ORDER BY id").fetchall(),
                              [(27,), (4294967295,)])
@@ -260,9 +261,11 @@ class ServerDatabaseTests(unittest.TestCase):
             self.assertEqual(history.status_code, 200, history.get_data(as_text=True)[:300])
         self.assertEqual(latest.status_code, 200)
         self.assertEqual(latest.get_json()["latest"][0]["wdt_reset_count"], 4294967295)
+        self.assertEqual(latest.get_json()["latest"][0]["power_reset_count"], 123)
         rows = list(csv.DictReader(io.StringIO(history.get_data(as_text=True))))
         self.assertIn("WDT Resets", rows[0], history.get_data(as_text=True)[:300])
         self.assertEqual([row["WDT Resets"] for row in rows], ["4294967295", "27"])
+        self.assertEqual([row["Power Resets"] for row in rows], ["123", "123"])
 
     def test_timestamp_migration_preserves_existing_watchdog_count(self):
         company = "WDT Text Timestamp"
@@ -271,14 +274,14 @@ class ServerDatabaseTests(unittest.TestCase):
         with closing(sqlite3.connect(db_path)) as db:
             db.execute("CREATE TABLE messages (id INTEGER PRIMARY KEY, timestamp TEXT, "
                        "type TEXT, node_id INTEGER, sensor_id TEXT, details TEXT, "
-                       "company TEXT, wdt_reset_count INTEGER)")
+                       "company TEXT, wdt_reset_count INTEGER, power_reset_count INTEGER)")
             db.execute("INSERT INTO messages VALUES (1,'2026-10-01 10:00:00',"
-                       "'Status',35,'1','keep',?,12)", (company,))
+                       "'Status',35,'1','keep',?,12,9)", (company,))
             db.commit()
         self.server_web.ensure_message_db(company)
         with closing(sqlite3.connect(db_path)) as db:
-            self.assertEqual(db.execute("SELECT details,wdt_reset_count FROM messages").fetchone(),
-                             ("keep", 12))
+            self.assertEqual(db.execute("SELECT details,wdt_reset_count,power_reset_count FROM messages").fetchone(),
+                             ("keep", 12, 9))
 
     def test_dual_flow_samples_and_periods_are_stored_separately(self):
         company = "Dual Flow"

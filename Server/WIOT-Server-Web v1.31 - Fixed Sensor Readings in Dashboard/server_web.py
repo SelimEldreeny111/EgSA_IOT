@@ -71,7 +71,7 @@ def validate_api_request():
             return jsonify(success=False, error='JSON object required'), 400
         for field, maximum in (('username', 80), ('password', 512), ('role', 16),
                 ('broker', 253), ('client_id', 80), ('aes_key', 64),
-                ('company', 80), ('company_name', 80), ('cmd_type', 16), ('delivery', 16)):
+                ('company', 80), ('company_name', 80), ('cmd_type', 32), ('delivery', 16)):
             if field in data and (not isinstance(data[field], str) or len(data[field]) > maximum):
                 return jsonify(success=False, error=f'Invalid {field}'), 400
     try:
@@ -174,7 +174,8 @@ def _required_secret(name: str) -> str:
     return value
 # Admins/supervisor join this room and receive every company's live messages.
 GLOBAL_ROOM = '__all__'
-CMD_NAMES = {"SRATE": 1, "STRAN": 2, "STIME": 3, "GOSTM": 4, "VALVE": 5, "WAKE": WAKE_COMMAND_ID}
+CMD_NAMES = {"SRATE": 1, "STRAN": 2, "STIME": 3, "GOSTM": 4, "VALVE": 5, "WAKE": WAKE_COMMAND_ID,
+             "CLEAR_POWER_RESETS": 7, "CLEAR_WDT_RESETS": 8}
 CMD_NAMES_REV = {v: k for k, v in CMD_NAMES.items()}
 
 def log_event(msg: str, company=None):
@@ -346,7 +347,8 @@ def _migrate_messages_table_to_integer_timestamp(conn):
                    wake_remaining_seconds INTEGER DEFAULT 0,
                    wake_command_ack INTEGER DEFAULT 0,
                    wake_request_id INTEGER DEFAULT 0,
-                   wdt_reset_count INTEGER DEFAULT 0)''')
+                   wdt_reset_count INTEGER DEFAULT 0,
+                   power_reset_count INTEGER DEFAULT 0)''')
 
     target_columns = [
         "timestamp", "type", "node_id", "sensor_id", "flow", "velocity",
@@ -361,7 +363,7 @@ def _migrate_messages_table_to_integer_timestamp(conn):
         "reverse_total_liters", "net_total_liters", "flow_period_quality",
         "flow_meter_alarm_flags", "legacy_flow_schema", "secondary_flow_json",
         "power_mode", "power_state", "wake_remaining_seconds",
-        "wake_command_ack", "wake_request_id", "wdt_reset_count",
+        "wake_command_ack", "wake_request_id", "wdt_reset_count", "power_reset_count",
     ]
     copy_columns = [column for column in target_columns if column in old_columns]
     select_expressions = []
@@ -438,7 +440,8 @@ def ensure_message_db(company: str) -> str:
                    wake_remaining_seconds INTEGER DEFAULT 0,
                    wake_command_ack INTEGER DEFAULT 0,
                    wake_request_id INTEGER DEFAULT 0,
-                   wdt_reset_count INTEGER DEFAULT 0)''')
+                   wdt_reset_count INTEGER DEFAULT 0,
+                   power_reset_count INTEGER DEFAULT 0)''')
     conn.commit()
     c.execute("PRAGMA table_info(messages)")
     cols = {row[1].lower(): row[2].upper() for row in c.fetchall()}
@@ -478,6 +481,7 @@ def ensure_message_db(company: str) -> str:
         ("power_state", "INTEGER DEFAULT 0"),
         ("wake_remaining_seconds", "INTEGER DEFAULT 0"),
         ("wdt_reset_count", "INTEGER DEFAULT 0"),
+        ("power_reset_count", "INTEGER DEFAULT 0"),
         ("wake_command_ack", "INTEGER DEFAULT 0"),
         ("wake_request_id", "INTEGER DEFAULT 0"),
     ]
@@ -810,8 +814,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        flow_cumulative_totals_valid, rtc_valid, forward_total_liters, reverse_total_liters,
                        net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema,
                        secondary_flow_json, power_mode, power_state,
-                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count, power_reset_count)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                   (epoch_ts, m_type, n_id, str(s_id), flow, vel, fday, fmonth, fyear, det, company, node_status,
                    soil_temp, soil_moist, soil_valid, ec_temp, ec_moist, ec_cond, ec_valid, active_sensors, sensor_mask,
                    battery_voltage, measured_epoch, time_source,
@@ -833,7 +837,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                    power_info.get("wake_remaining_seconds", 0),
                    power_info.get("wake_command_ack", 0),
                    power_info.get("wake_request_id", 0),
-                   power_info.get("wdt_reset_count", 0)))
+                   power_info.get("wdt_reset_count", 0),
+                   power_info.get("power_reset_count", 0)))
 
         samples = [{
             "metadata": flow_metadata,
@@ -1629,6 +1634,13 @@ def api_command():
         cmd_id = CMD_NAMES.get(cmd_type, 0)
         if cmd_type == "STIME": cmd_data = int(time.time())
         elif cmd_type == "GOSTM": cmd_data = 0
+        elif cmd_type in ("CLEAR_POWER_RESETS", "CLEAR_WDT_RESETS"):
+            if broadcast:
+                return jsonify(success=False, error="Counter clear must target one node"), 400
+            try:
+                cmd_data = integer(data.get("cmd_data", 0), 0, 0, "Counter clear data")
+            except ValueError as exc:
+                return jsonify(success=False, error=str(exc)), 400
         elif cmd_type == "WAKE":
             try:
                 cmd_data = validate_wake_seconds(cmd_data_val)
@@ -1880,7 +1892,7 @@ def export_csv():
     def generate():
         data = StringIO()
         writer = csv.writer(data)
-        writer.writerow(('Received At', 'Measured At', 'Time Source', 'Type', 'Node ID', 'Sensor ID', 'Node Status', 'Battery Voltage', 'WDT Resets',
+        writer.writerow(('Received At', 'Measured At', 'Time Source', 'Type', 'Node ID', 'Sensor ID', 'Node Status', 'Battery Voltage', 'WDT Resets', 'Power Resets',
                          'Flow (m3/h)', 'Velocity (m/s)', 'Consumption Today (m3)', 'Consumption Month (m3)', 'Consumption Year (m3)',
                          'Flow Meter Type', 'Period Source', 'Flow Valid', 'Period Valid', 'Cumulative Valid', 'RTC Valid',
                          'Forward Total (L)', 'Reverse Total (L)', 'Net Total (L)', 'Period Quality', 'Alarm Flags',
@@ -1893,6 +1905,7 @@ def export_csv():
                 row['timestamp'], row.get('measured_at', ''), row.get('time_source', ''),
                 row['type'], row['node_id'], row['sensor_id'], row.get('node_status', ''), row.get('battery_voltage', ''),
                 row.get('wdt_reset_count', 0),
+                row.get('power_reset_count', 0),
                 row['flow'], row['velocity'], row['flow_day'], row['flow_month'], row['flow_year'],
                 row.get('flow_meter_type', ''), row.get('flow_period_source', ''), row.get('flow_live_valid', ''),
                 row.get('flow_period_totals_valid', ''), row.get('flow_cumulative_totals_valid', ''), row.get('rtc_valid', ''),

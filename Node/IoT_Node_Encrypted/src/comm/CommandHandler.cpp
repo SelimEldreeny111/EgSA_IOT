@@ -9,6 +9,9 @@
 #include "../devices/RTC.h"
 #include "../devices/ValveController.h"
 #include "../power/PowerManager.h"
+#include "../platform/WatchdogResetCounter.h"
+#include "../platform/PowerResetCounter.h"
+#include "../platform/Watchdog.h"
 
 #include <Arduino.h>
 #include <string.h>
@@ -149,6 +152,21 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
       }
 
       applied = commandValve(cmd.cmd_data == 1U);
+      break;
+    }
+
+    case CMD_CLEAR_POWER_RESETS:
+    case CMD_CLEAR_WDT_RESETS:
+    {
+      if (isBroadcastTopic || cmd.cmd_data != 0U || cmd.request_id == 0U) {
+        SerialMon.println("Counter clear rejected: direct node, data=0 and request_id required");
+        break;
+      }
+      markHardwareWatchdogStage(WatchdogStage::ResetCounterStorage);
+      applied = cmd.cmd_id == CMD_CLEAR_POWER_RESETS
+          ? PowerResetCounter::clear() : WatchdogResetCounter::clear();
+      SerialMon.println(applied ? "Reset counter cleared and verified"
+                                : "Counter clear FAILED; previous RAM count retained");
       break;
     }
 

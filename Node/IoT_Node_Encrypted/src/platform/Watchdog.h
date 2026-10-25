@@ -40,7 +40,8 @@ enum class WatchdogStage : uint8_t
     SupmeaPeriodCalculation,
     SupmeaBackupStorage,
     SupmeaFlashStorage,
-    RtcSynchronization
+    RtcSynchronization,
+    ResetCounterStorage
 };
 
 enum class WatchdogSelfTestPoint : uint8_t
@@ -51,6 +52,10 @@ enum class WatchdogSelfTestPoint : uint8_t
 
 /** @brief Capture reset cause, persist IWDG count and arm IWDG before modem setup. */
 void initializeHardwareWatchdog();
+/** @brief Snapshot RCC/PWR flags before PowerManager clears Standby flags.
+ * Safe to repeat. Does not clear flags, arm IWDG or write flash.
+ */
+void captureHardwareResetCause();
 
 /** @brief Print the captured reset cause after SerialMon is initialized. */
 void reportHardwareWatchdogStatus();
@@ -88,6 +93,8 @@ bool previousResetWasHardwareWatchdog();
 
 /** @brief Cumulative IWDG reset count, retained in flash; normal boots do not increment. */
 uint32_t hardwareWatchdogResetCount();
+/** @brief Durable power-on/brownout count, excluding software and Standby resets. */
+uint32_t powerResetCount();
 
 /** @brief Prevent nested idle callbacks from feeding/hiding a stuck operation.
  * Service is restored on scope exit, but the watchdog is not reloaded there.

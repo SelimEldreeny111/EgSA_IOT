@@ -1,5 +1,18 @@
 # WIOT Multi-Sensor RS485 Simulator Acceptance Test Plan
 
+## SUPMEA independent calendar reference (25 October)
+
+- Select SUPMEA with fixed 36 m3/h, unit 3, automatic totalizers and x1 time.
+- In SUPMEA RTC test choose the node calendar and reset the reference.
+- Verify 0.6 m3 per minute, reverse flow does not add forward consumption, and
+  auto-totalizer off pauses the integral.
+- Export JSON; confirm no D/M/Y registers appear on the bus.
+- Compare node/reference growth from a common baseline, allowing known sample
+  age and meter quantization. Do not confuse a new session with old node history.
+- Automated tests cover UTC/Cairo year boundary, month boundary, leap day, spring
+  DST, multiple SUPMEA addresses and unchanged Modbus maps. Cross-component tests
+  compare the actual node C++ accumulator with this independent flow integral.
+
 ## 1. Purpose
 
 This plan verifies that the PC simulator behaves as a deterministic multi-slave

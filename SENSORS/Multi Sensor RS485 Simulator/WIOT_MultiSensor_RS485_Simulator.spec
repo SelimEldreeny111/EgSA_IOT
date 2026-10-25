@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
 
 
 a = Analysis(
     ["multi_sensor_simulator.py"],
     pathex=[],
     binaries=[],
-    datas=[("default_config.json", ".")],
+    datas=[("default_config.json", ".")] + collect_data_files("tzdata"),
     hiddenimports=[
         "serial",
         "serial.tools.list_ports",

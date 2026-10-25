@@ -187,6 +187,7 @@ void setup()
   // Periodic power mode uses a checksummed reset-to-sleep handoff. This early
   // hook must run before the independent watchdog is armed so the IWDG still
   // protects every active operation without running through long Standby time.
+  captureHardwareResetCause(); // Snapshot Standby flag before PowerManager clears it.
   powerManagerEarlyBoot();
 
   // Arm the independent hardware watchdog before radio or network setup so a

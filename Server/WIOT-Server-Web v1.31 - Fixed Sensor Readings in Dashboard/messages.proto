@@ -68,6 +68,7 @@ message Status_Message {
   uint32 power_state = 33;                 // 1=ACTIVE, 2=REACHABLE_IDLE
   uint32 wake_remaining_seconds = 34;      // active lease/window, not idle time
   uint32 wdt_reset_count = 35;             // cumulative hardware IWDG resets
+  uint32 power_reset_count = 36;           // power-on/brownout; excludes Standby/software
 }
 
 message CMD_Message {
@@ -126,4 +127,5 @@ message Telemetry {
   uint32 command_ack_cmd_id = 42;          // command accepted by this node
   bool command_ack_success = 43;           // application-level confirmation
   uint32 wdt_reset_count = 44;             // cumulative hardware IWDG resets
+  uint32 power_reset_count = 45;           // independently clearable power-on/brownout
 }

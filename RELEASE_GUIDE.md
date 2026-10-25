@@ -1,4 +1,11 @@
-# Complete WIOT STM32 release — updated 5 October 2026
+# Complete WIOT STM32 release — updated 25 October 2026
+
+New: separate retained power/WDT counters; direct-node clear commands 7/8;
+server reporting/migration/CSV; independent SUPMEA D/M/Y reference in both
+sensor simulators, with no new Modbus registers. See
+Node/IoT_Node_Encrypted/RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md.
+The updated multi-sensor EXE is in SENSORS/Multi Sensor RS485 Simulator/dist/20261025.
+The old running instance was left untouched. ESP32/CubeIDE remain unchanged.
 
 REMOTE_WAKE now defaults to independent SRATE/STRAN deadlines with reachable
 CPU idle between work and commands. The old fixed-interval policy remains

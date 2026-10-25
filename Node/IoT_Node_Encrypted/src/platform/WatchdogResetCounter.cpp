@@ -87,5 +87,17 @@ void WatchdogResetCounter::initialize(bool watchdogReset) {
     }
 }
 uint32_t WatchdogResetCounter::value() { return count; }
+bool WatchdogResetCounter::clear() {
+    if (!initialized) return false;
+    const Record stored = readRecord();
+    if (!(valid(stored) && stored.count == 0U) && !save(0U)) {
+        healthy = false;
+        return false;
+    }
+    count = 0U;
+    healthy = true;
+    invalidRecord = false;
+    return true;
+}
 bool WatchdogResetCounter::storageHealthy() { return healthy; }
 bool WatchdogResetCounter::recoveredInvalidRecord() { return invalidRecord; }

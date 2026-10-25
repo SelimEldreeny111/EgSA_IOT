@@ -1,5 +1,11 @@
 # Supmea SUP-FMC240 RS485 test simulator
 
+25 October: the GUI includes independent Today/Month/Year consumption for RTC
+comparison. These values are display-only and are not returned on Modbus.
+Starting the bus creates a reference session; **Reset comparison only** zeros
+that session without changing meter totals. Match the node's calendar and x1
+time. See RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md in the Arduino node folder.
+
 This tool behaves as a SUP-FMC240 Modbus RTU slave for commissioning the
 production Arduino/STM32 Supmea + Sondas profile. It can hold fixed values or
 advance its cumulative forward/reverse/net totals from the configured flow

@@ -40,7 +40,7 @@ typedef struct _Status_Message {
     float flow_rate_per_day;
     float flow_rate_per_month;
     float flow_rate_per_year;
-    uint32_t node_status;
+    uint32_t node_status; /* Valve: 0=commanded closed/OFF, 1=open/ON, 2=unknown, 3=fault (no feedback). */
     float soil_temperature;
     float soil_moisture;
     uint32_t soil_moisture_temp_valid;
@@ -73,6 +73,7 @@ typedef struct _Status_Message {
     uint32_t power_state; /* 1=ACTIVE, 2=REACHABLE_IDLE */
     uint32_t wake_remaining_seconds; /* active lease/window, not idle time */
     uint32_t wdt_reset_count; /* cumulative hardware IWDG resets */
+    uint32_t power_reset_count; /* power-on/brownout; excludes Standby/software */
 } Status_Message;
 
 typedef struct _CMD_Message {
@@ -99,7 +100,7 @@ typedef struct _Telemetry {
     float flow_rate_per_day;
     float flow_rate_per_month;
     float flow_rate_per_year;
-    uint32_t node_status;
+    uint32_t node_status; /* Same valve codes as Status; never measured position. */
     float soil_temperature;
     float soil_moisture;
     uint32_t soil_moisture_temp_valid;
@@ -130,6 +131,7 @@ typedef struct _Telemetry {
     uint32_t command_ack_cmd_id; /* command accepted by this node */
     bool command_ack_success; /* application-level confirmation */
     uint32_t wdt_reset_count; /* cumulative hardware IWDG resets */
+    uint32_t power_reset_count; /* independently clearable power-on/brownout */
 } Telemetry;
 
 
@@ -139,13 +141,13 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0}
+#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0}
 #define CMD_Message_init_default                 {0, 0, 0, 0}
-#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0}
+#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0}
 #define CMD_Message_init_zero                    {0, 0, 0, 0}
-#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define FlowReading_flow_rate_tag                1
@@ -199,6 +201,7 @@ extern "C" {
 #define Status_Message_power_state_tag           33
 #define Status_Message_wake_remaining_seconds_tag 34
 #define Status_Message_wdt_reset_count_tag       35
+#define Status_Message_power_reset_count_tag     36
 #define CMD_Message_node_id_tag                  1
 #define CMD_Message_cmd_id_tag                   2
 #define CMD_Message_cmd_data_tag                 3
@@ -247,6 +250,7 @@ extern "C" {
 #define Telemetry_command_ack_cmd_id_tag         42
 #define Telemetry_command_ack_success_tag        43
 #define Telemetry_wdt_reset_count_tag            44
+#define Telemetry_power_reset_count_tag          45
 
 /* Struct field encoding specification for nanopb */
 #define FlowReading_FIELDLIST(X, a) \
@@ -304,7 +308,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  secondary_flow_meter,  31) \
 X(a, STATIC,   SINGULAR, UINT32,   power_mode,       32) \
 X(a, STATIC,   SINGULAR, UINT32,   power_state,      33) \
 X(a, STATIC,   SINGULAR, UINT32,   wake_remaining_seconds,  34) \
-X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  35)
+X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  35) \
+X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  36)
 #define Status_Message_CALLBACK NULL
 #define Status_Message_DEFAULT NULL
 #define Status_Message_secondary_flow_meter_MSGTYPE FlowReading
@@ -361,7 +366,8 @@ X(a, STATIC,   SINGULAR, UINT32,   wake_request_id,  40) \
 X(a, STATIC,   SINGULAR, UINT32,   command_ack_request_id,  41) \
 X(a, STATIC,   SINGULAR, UINT32,   command_ack_cmd_id,  42) \
 X(a, STATIC,   SINGULAR, BOOL,     command_ack_success,  43) \
-X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  44)
+X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  44) \
+X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  45)
 #define Telemetry_CALLBACK NULL
 #define Telemetry_DEFAULT NULL
 #define Telemetry_secondary_flow_meter_MSGTYPE FlowReading
@@ -381,8 +387,8 @@ extern const pb_msgdesc_t Telemetry_msg;
 #define CMD_Message_size                         29
 #define FlowReading_size                         91
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size
-#define Status_Message_size                      310
-#define Telemetry_size                           365
+#define Status_Message_size                      317
+#define Telemetry_size                           372
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -21,7 +21,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(source.slice(start,end),context);
-const good = {'WDT Resets':27, 'Sensor Mask':15, 'Flow Live Valid':1, 'Period Totals Valid':1,
+const good = {'WDT Resets':27, 'Power Resets':11, 'Sensor Mask':15, 'Flow Live Valid':1, 'Period Totals Valid':1,
     'Cumulative Totals Valid':1, Flow:12, Velocity:2, 'Flow Day':3,
     'Flow Month':4, 'Flow Year':5, 'Forward Total Liters':10000,
     'Reverse Total Liters':1000, 'Net Total Liters':9000,
@@ -35,6 +35,7 @@ context.renderLiveNode();
 assert.equal(element('m-flow').textContent,'12.000');
 assert.equal(element('m-soil-temp').textContent,'22.0');
 assert.equal(element('m-wdt-resets').textContent,'27');
+assert.equal(element('m-power-resets').textContent,'11');
 const failed = {...good, 'Flow Live Valid':0, 'Period Totals Valid':0,
     'Cumulative Totals Valid':0, 'Soil Valid':0, 'EC Valid':0,
     'Secondary Flow Meter':{...good['Secondary Flow Meter'], flow_live_valid:0, flow_period_totals_valid:0}};

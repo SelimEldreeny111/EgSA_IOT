@@ -24,6 +24,11 @@ void HAL_PWR_DisableBkUpAccess() { PWR->CR &= ~PWR_CR_DBP; }
 uint32_t HAL_RTCEx_BKUPRead(RTC_HandleTypeDef*, uint32_t index) { return backup[index]; }
 void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef*, uint32_t index, uint32_t value) { backup[index]=value; }
 void serviceHardwareWatchdog(WatchdogStage) { ++watchdogFeeds; }
+void markHardwareWatchdogStage(WatchdogStage) {}
+static uint32_t wdtClearCalls=0, powerClearCalls=0;
+static bool counterClearSuccess=true;
+namespace WatchdogResetCounter { bool clear() { ++wdtClearCalls; return counterClearSuccess; } }
+namespace PowerResetCounter { bool clear() { ++powerClearCalls; return counterClearSuccess; } }
 void digitalWrite(uint32_t, uint8_t) {}
 uint32_t valveCalls=0U;
 bool commandValve(bool open) { ++valveCalls; state.nodeStatus = open ? 1U : 0U; return true; }
@@ -257,5 +262,21 @@ int main()
   cmd={7U,CMD_OPEN_CLOSE_NODE,0U,0U}; // old firmware/server ID zero keeps legacy behavior
   assert(handleCommand(cmd,false)); assert(handleCommand(cmd,false));
   assert(valveCalls==3U);
+  cmd={7U,CMD_CLEAR_POWER_RESETS,0U,9001U};
+  assert(handleCommand(cmd,false) && powerClearCalls==1U && wdtClearCalls==0U);
+  assert(handleCommand(cmd,false) && powerClearCalls==1U); // Duplicate does not clear again.
+  cmd={7U,CMD_CLEAR_WDT_RESETS,0U,9002U};
+  assert(handleCommand(cmd,false) && wdtClearCalls==1U && powerClearCalls==1U);
+  cmd={7U,CMD_CLEAR_WDT_RESETS,1U,9003U}; assert(!handleCommand(cmd,false));
+  cmd={7U,CMD_CLEAR_WDT_RESETS,0U,0U}; assert(!handleCommand(cmd,false));
+  cmd={7U,CMD_CLEAR_POWER_RESETS,0U,9004U}; assert(!handleCommand(cmd,true));
+  cmd={99U,CMD_CLEAR_POWER_RESETS,0U,9005U}; assert(!handleCommand(cmd,false));
+  assert(powerClearCalls==1U && wdtClearCalls==1U);
+  counterClearSuccess=false;
+  cmd={7U,CMD_CLEAR_WDT_RESETS,0U,9006U}; assert(!handleCommand(cmd,false));
+  counterClearSuccess=true;
+  assert(!handleCommand(cmd,false) && wdtClearCalls==2U); // Cache the failed result too.
+  cmd.request_id=9007U; assert(handleCommand(cmd,false) && wdtClearCalls==3U);
+  std::cout << "PASS: reset-counter command isolation, validation, duplicate suppression and failure ACK\n";
   std::cout << "PASS: remote policy, actual power manager, WAKE filtering/ACK, rollover, retry, duplicate, WDT, UART and command-width/rate bounds\n";
 }

@@ -177,10 +177,13 @@ class CommandQueue:
                 ttl_seconds=DEFAULT_TTL_SECONDS, now=None, *, actor='', delivery='next_wake', broadcast=False):
         company_id(company)
         node_id = integer(node_id, 1, 65535, 'Node ID')
-        cmd_id = integer(cmd_id, 1, 6, 'Command ID')
-        if {1:'SRATE', 2:'STRAN', 3:'STIME', 4:'GOSTM', 5:'VALVE', 6:'WAKE'}[cmd_id] != cmd_type:
+        cmd_id = integer(cmd_id, 1, 8, 'Command ID')
+        if {1:'SRATE', 2:'STRAN', 3:'STIME', 4:'GOSTM', 5:'VALVE', 6:'WAKE',
+            7:'CLEAR_POWER_RESETS', 8:'CLEAR_WDT_RESETS'}[cmd_id] != cmd_type:
             raise ValueError('Command ID/type mismatch')
         cmd_data = integer(cmd_data, 0, SQLITE_MAX_INT, 'Command data')
+        if cmd_id in (7, 8) and (broadcast or cmd_data != 0):
+            raise ValueError('Counter clear requires one node and data=0')
         if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, int) or not 60 <= ttl_seconds <= MAX_TTL_SECONDS:
             raise ValueError("Command TTL must be 60..604800 seconds")
         if delivery not in ('now', 'next_wake') or not isinstance(broadcast, bool) or (broadcast and delivery != 'now'):

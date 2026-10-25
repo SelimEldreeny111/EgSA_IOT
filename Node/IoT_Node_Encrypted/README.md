@@ -1,5 +1,9 @@
 # IoT Node Encrypted
 
+25 October update: [separate power/WDT counters, clear commands and independent
+SUPMEA simulator comparison](RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md).
+Counter clears are direct-node commands 7/8 with data=0 and a nonzero request ID.
+
 An IoT monitoring system with application-layer encrypted communication for industrial flow measurement and telemetry.
 For the new PB9/PB15/PC13 TB6612FNG latching-valve control, safe commissioning,
 ON/OFF telemetry, reset retention and tests, see the

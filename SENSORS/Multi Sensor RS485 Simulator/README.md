@@ -1,5 +1,12 @@
 # WIOT Multi-Sensor RS485 Lab
 
+25 October: SUPMEA devices now have an independent day/month/year flow integral
+under the **SUPMEA RTC test** tab. It is display/export only: no Modbus registers
+are added. Match node timezone, baseline and x1 time before comparison.
+See the node's RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md for the test procedure.
+The current updated EXE is in dist/20261025 because the older EXE was running
+and was deliberately not stopped or replaced.
+
 This desktop simulator emulates a complete Modbus RTU sensor fleet on one
 USB-to-RS485 adapter. It supports any mixture of the four WIOT sensor profiles,
 including multiple devices of the same type at different slave addresses.

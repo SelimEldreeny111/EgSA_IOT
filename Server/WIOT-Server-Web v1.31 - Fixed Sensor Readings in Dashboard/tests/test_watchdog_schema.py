@@ -7,6 +7,14 @@ from power_commands import power_metadata, power_dashboard_fields
 
 
 class WatchdogSchemaTests(unittest.TestCase):
+    def test_power_counter_is_additive_and_distinct(self):
+        for cls, tag in ((messages_pb2.Status_Message, 36), (messages_pb2.Telemetry, 45)):
+            self.assertEqual(cls.DESCRIPTOR.fields_by_name['power_reset_count'].number, tag)
+            msg = cls(power_reset_count=4294967295, wdt_reset_count=17)
+            restored = cls.FromString(msg.SerializeToString())
+            self.assertEqual((restored.power_reset_count, restored.wdt_reset_count), (4294967295, 17))
+            self.assertEqual(power_dashboard_fields(power_metadata(msg))['Power Resets'], 4294967295)
+            self.assertEqual(cls.FromString(b'').power_reset_count, 0)
     def test_schema_copies_match(self):
         server = Path(__file__).resolve().parents[1]
         node = server.parents[1] / "Node/IoT_Node_Encrypted/src/generated/sensor.proto"
@@ -30,18 +38,19 @@ class WatchdogSchemaTests(unittest.TestCase):
     def test_old_reader_ignores_new_counter_without_losing_existing_fields(self):
         descriptor = descriptor_pb2.FileDescriptorProto.FromString(messages_pb2.DESCRIPTOR.serialized_pb)
         for message in descriptor.message_type:
-            kept = [field for field in message.field if field.name != 'wdt_reset_count']
+            kept = [field for field in message.field if field.name not in ('wdt_reset_count', 'power_reset_count')]
             del message.field[:]
             message.field.extend(kept)
         pool = descriptor_pool.DescriptorPool()
         pool.Add(descriptor)
         for cls in (messages_pb2.Status_Message, messages_pb2.Telemetry):
             old_cls = message_factory.GetMessageClass(pool.FindMessageTypeByName(cls.DESCRIPTOR.full_name))
-            msg = cls(node_id=35, battery_voltage=3.5, wdt_reset_count=27)
+            msg = cls(node_id=35, battery_voltage=3.5, wdt_reset_count=27, power_reset_count=9)
             old_msg = old_cls.FromString(msg.SerializeToString())
             self.assertEqual(old_msg.node_id, 35)
             self.assertEqual(old_msg.battery_voltage, 3.5)
             self.assertNotIn('wdt_reset_count', old_msg.DESCRIPTOR.fields_by_name)
+            self.assertNotIn('power_reset_count', old_msg.DESCRIPTOR.fields_by_name)
 
 
 if __name__ == '__main__':

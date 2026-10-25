@@ -28,6 +28,7 @@ import struct
 import threading
 import time
 import uuid
+from supmea_reference import SupmeaReference
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -444,6 +445,7 @@ class SensorDevice:
     auto_totalizers: bool = False
     time_multiplier: float = 1.0
     random_seed: int = 1
+    reference_timezone: str = "Africa/Cairo"
     signals: dict[str, SignalProfile] = field(default_factory=dict)
     faults: FaultProfile = field(default_factory=FaultProfile)
     device_id: str = field(default_factory=lambda: uuid.uuid4().hex)
@@ -453,6 +455,7 @@ class SensorDevice:
     _last_update: float = field(default_factory=time.monotonic, init=False, repr=False)
     _sim_elapsed: float = field(default=0.0, init=False, repr=False)
     _rng: random.Random = field(init=False, repr=False)
+    reference: SupmeaReference | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.sensor_type, SensorType):
@@ -500,6 +503,8 @@ class SensorDevice:
         self._directions = {key: 1 for key in self.signals}
         self._last_update = time.monotonic()
         self._sim_elapsed = 0.0
+        self.reference = (SupmeaReference(self.reference_timezone)
+                          if self.sensor_type is SensorType.SUPMEA else None)
 
     def advance(self, now: float | None = None) -> bool:
         current_time = time.monotonic() if now is None else float(now)
@@ -525,6 +530,12 @@ class SensorDevice:
 
         if self.auto_totalizers:
             self._advance_totalizers(elapsed_sim)
+
+        if self.reference is not None:
+            factor = VOLUMETRIC_TO_M3_PER_HOUR.get(int(round(self.runtime_values["flow_rate_unit"])))
+            normalized = (self.runtime_values["flow_rate"] * factor
+                          if self.auto_totalizers and factor is not None else None)
+            self.reference.advance(elapsed_sim, normalized)
 
         self._last_update = current_time
         return True
@@ -623,6 +634,7 @@ class SensorDevice:
             "auto_totalizers": self.auto_totalizers,
             "time_multiplier": self.time_multiplier,
             "random_seed": self.random_seed,
+            "reference_timezone": self.reference_timezone,
             "faults": self.faults.to_dict(),
             "signals": {key: value.to_dict() for key, value in self.signals.items()},
         }
@@ -631,6 +643,8 @@ class SensorDevice:
         result = self.to_config_dict()
         result["values"] = dict(self.runtime_values)
         result["statistics"] = self.statistics.to_dict()
+        if self.reference is not None:
+            result["supmea_reference"] = self.reference.snapshot()
         return result
 
     @classmethod
@@ -661,6 +675,7 @@ class SensorDevice:
             ),
             time_multiplier=float(data.get("time_multiplier", 1.0)),
             random_seed=int(data.get("random_seed", int(data["address"]))),
+            reference_timezone=str(data.get("reference_timezone", "Africa/Cairo")),
             signals=signals,
             faults=FaultProfile.from_dict(data.get("faults")),
             device_id=str(data.get("id") or uuid.uuid4().hex),
@@ -938,6 +953,18 @@ class SensorRegistry:
         with self._lock:
             for device in self._devices.values():
                 device.statistics = DeviceStatistics()
+
+    def reset_supmea_reference(self, device_id, zone="Africa/Cairo", epoch=None):
+        """Only reset the independent oracle, never the meter's wire totals."""
+        reference = SupmeaReference(zone, epoch)
+        with self._lock:
+            device = self._devices[device_id]
+            if device.sensor_type is not SensorType.SUPMEA:
+                raise ValueError("Select a SUPMEA device")
+            device.reference_timezone = zone
+            device.reference = reference
+            # A new session starts at this instant; do not include a prior partial tick.
+            device._last_update = time.monotonic()
 
     def advance_all(self, now: float | None = None) -> int:
         with self._lock:

@@ -11,6 +11,7 @@ uint32_t getEpochTime();
 enum class WatchdogStage { SupmeaPeriodCalculation };
 void serviceHardwareWatchdog(WatchdogStage);
 uint32_t hardwareWatchdogResetCount();
+uint32_t powerResetCount();
 #ifndef TEST_FLOW_CONFIG
 #define TEST_FLOW_CONFIG 0
 #endif

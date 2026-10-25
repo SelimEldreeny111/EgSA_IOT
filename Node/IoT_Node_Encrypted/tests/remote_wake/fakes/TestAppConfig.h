@@ -19,7 +19,8 @@ bool isAsyncPublishBusy();
 uint32_t getEpochTime();
 bool syncRTCFromEpoch(uint32_t);
 #define HARDWARE_WATCHDOG_H
-enum class WatchdogStage { MainLoop, PowerTransition };
+enum class WatchdogStage { MainLoop, PowerTransition, ResetCounterStorage };
+void markHardwareWatchdogStage(WatchdogStage);
 void serviceHardwareWatchdog(WatchdogStage = WatchdogStage::MainLoop);
 #define APP_STATE_H
 struct AppRuntimeState {

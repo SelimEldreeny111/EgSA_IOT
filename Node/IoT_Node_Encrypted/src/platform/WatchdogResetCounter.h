@@ -13,6 +13,10 @@ namespace WatchdogResetCounter {
 void initialize(bool watchdogReset);
 /** @return Number of IWDG resets; saturates at UINT32_MAX. */
 uint32_t value();
+/** @brief Persist and verify zero; failure preserves the current RAM count.
+ * @return True only when zero is durably verified; does not reset the controller.
+ */
+bool clear();
 /** @return False if the last flash commit failed readback verification. */
 bool storageHealthy();
 /** @return True if an existing record failed validation (count restarted at zero). */

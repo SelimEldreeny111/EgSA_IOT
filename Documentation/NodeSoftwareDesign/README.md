@@ -1,5 +1,12 @@
 # STM32 node software design documentation
 
+The Word file remains the 7 October design baseline. The 25 October implementation
+adds independent power/WDT counters, clear commands 7/8 and SUPMEA simulator-only
+calendar comparison. Its current supplement is
+Node/IoT_Node_Encrypted/RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md; regenerated
+Doxygen includes the new APIs and guide. The frozen Word baseline is not a claim
+that its old field/command tables already include those later additions.
+
 `WIOT_STM32_Node_Software_Design_V1.0.docx` is the full node design definition and justification document, dated 7 October 2026.
 
 Scope: the active Arduino STM32F401 node, its selectable LoRa gateway role, and the node/server protocol boundary. ESP32, STM32CubeIDE and server internal implementation are outside this document's scope.

@@ -61,8 +61,10 @@ def validate_message(message, topic_node):
     elif message.node_id != topic_node:
         raise ValueError(f'Node ID mismatch - topic={topic_node}, payload={message.node_id}')
     if message.DESCRIPTOR.name == 'CMD_Message':
-        integer(message.cmd_id, 1, 6, 'Command ID')
+        integer(message.cmd_id, 1, 8, 'Command ID')
         integer(message.cmd_data, 0, SQLITE_MAX_INT, 'Command data')
+        if message.cmd_id in (7, 8) and (broadcast_echo or message.cmd_data != 0 or not message.request_id):
+            raise ValueError('Counter clear requires direct node, data=0 and request ID')
         return
     for descriptor in message.DESCRIPTOR.fields:
         value = getattr(message, descriptor.name)
@@ -87,7 +89,7 @@ def validate_message(message, topic_node):
             # periods in milliseconds. Do not reject valid long report intervals.
             if value and not 5000 <= value <= 86400000:
                 raise ValueError(f'{field} must be 0 (legacy) or 5000..86400000 milliseconds')
-        integer(message.command_ack_cmd_id, 0, 6, 'ACK command ID')
+        integer(message.command_ack_cmd_id, 0, 8, 'ACK command ID')
 
 
 def _validate_reading(reading):

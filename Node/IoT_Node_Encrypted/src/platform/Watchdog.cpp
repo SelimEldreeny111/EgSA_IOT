@@ -1,6 +1,8 @@
 /** @file Watchdog.cpp @brief Independent watchdog setup, servicing, and reset reporting. */
 #include "Watchdog.h"
 #include "WatchdogResetCounter.h"
+#include "PowerResetCounter.h"
+#include "ResetCause.h"
 
 #include "../config/AppConfig.h"
 
@@ -25,6 +27,10 @@ struct PersistentWatchdogStage
 __attribute__((section(".noinit"))) volatile PersistentWatchdogStage g_persistentStage;
 
 bool g_previousResetWasWatchdog = false;
+bool g_resetCauseCaptured = false;
+bool g_previousResetWasPower = false;
+bool g_resumedFromStandby = false;
+uint32_t g_resetFlags = 0U;
 bool g_watchdogStarted = false;
 bool g_watchdogInitialized = false;
 uint32_t g_watchdogServicePauseDepth = 0U;
@@ -32,7 +38,7 @@ WatchdogStage g_previousWatchdogStage = WatchdogStage::Unknown;
 
 bool isKnownStage(uint32_t rawStage)
 {
-    return rawStage <= static_cast<uint32_t>(WatchdogStage::RtcSynchronization);
+    return rawStage <= static_cast<uint32_t>(WatchdogStage::ResetCounterStorage);
 }
 
 bool persistentStageIsValid()
@@ -84,6 +90,7 @@ const char* stageName(WatchdogStage stage)
     case WatchdogStage::SupmeaBackupStorage: return "Supmea RTC backup snapshot";
     case WatchdogStage::SupmeaFlashStorage: return "Supmea flash checkpoint";
     case WatchdogStage::RtcSynchronization: return "RTC STIME synchronization";
+    case WatchdogStage::ResetCounterStorage: return "reset counter clear/storage";
     case WatchdogStage::Unknown:
     default:
         return "unknown/not recorded";
@@ -98,11 +105,33 @@ WatchdogStage selfTestStage(WatchdogSelfTestPoint point)
 }
 }
 
+void captureHardwareResetCause()
+{
+    if (g_resetCauseCaptured) return;
+    g_resetCauseCaptured = true;
+    __HAL_RCC_PWR_CLK_ENABLE();
+    g_resetFlags = RCC->CSR;
+    g_resumedFromStandby = __HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET;
+    static_assert(RCC_CSR_PORRSTF == ResetCause::PowerOn &&
+                  RCC_CSR_BORRSTF == ResetCause::Brownout &&
+                  RCC_CSR_IWDGRSTF == ResetCause::Iwdg &&
+                  RCC_CSR_SFTRSTF == ResetCause::Software &&
+                  RCC_CSR_WWDGRSTF == ResetCause::Wwdg &&
+                  RCC_CSR_LPWRRSTF == ResetCause::LowPower,
+                  "Reset classifier must match STM32F401 RCC flags");
+}
+
 void initializeHardwareWatchdog()
 {
     if (g_watchdogInitialized) return;
     g_watchdogInitialized = true;
-    g_previousResetWasWatchdog = IWatchdog.isReset(true);
+    captureHardwareResetCause();
+    g_previousResetWasWatchdog = IWatchdog.isReset(false);
+    g_previousResetWasPower = !g_previousResetWasWatchdog &&
+        ResetCause::isPowerReset(g_resetFlags, g_resumedFromStandby);
+    // IWatchdog.isReset(true) clears flags only when an IWDG flag is set.
+    // Clear all causes now so a sticky POR cannot count a later NRST as power.
+    __HAL_RCC_CLEAR_RESET_FLAGS();
     if (g_previousResetWasWatchdog && persistentStageIsValid())
     {
         g_previousWatchdogStage =
@@ -118,6 +147,7 @@ void initializeHardwareWatchdog()
     if (!AppConfig::kEnableHardwareWatchdog)
     {
         WatchdogResetCounter::initialize(g_previousResetWasWatchdog);
+        PowerResetCounter::initialize(g_previousResetWasPower);
         return;
     }
 
@@ -127,12 +157,20 @@ void initializeHardwareWatchdog()
     // Never feed inside an erase/program operation that might have stalled.
     WatchdogResetCounter::initialize(g_previousResetWasWatchdog);
     serviceHardwareWatchdog();
+    PowerResetCounter::initialize(g_previousResetWasPower);
+    serviceHardwareWatchdog();
 }
 
 void reportHardwareWatchdogStatus()
 {
     SerialMon.print("Cumulative WDT resets: ");
     SerialMon.println(hardwareWatchdogResetCount());
+    SerialMon.print("Cumulative power-on/brownout resets: ");
+    SerialMon.println(powerResetCount());
+    if (PowerResetCounter::recoveredInvalidRecord())
+        SerialMon.println("WARNING: power counter record invalid; counting restarted at zero");
+    if (!PowerResetCounter::storageHealthy())
+        SerialMon.println("ERROR: power counter flash verification failed; current count is RAM-only");
     if (WatchdogResetCounter::recoveredInvalidRecord())
         SerialMon.println("WARNING: WDT counter record invalid; counting restarted at zero");
     if (!WatchdogResetCounter::storageHealthy())
@@ -160,7 +198,10 @@ void reportHardwareWatchdogStatus()
     }
     else
     {
-        SerialMon.println("Reset cause: power-on/software reset (not IWDG)");
+        SerialMon.println(g_previousResetWasPower
+            ? "RESET CAUSE: power-on/brownout"
+            : (g_resumedFromStandby ? "Reset cause: Standby wake (not counted)"
+                                  : "Reset cause: software/pin/other reset (not counted)"));
     }
 }
 
@@ -274,6 +315,8 @@ HardwareWatchdogServicePause::HardwareWatchdogServicePause()
 {
     ++g_watchdogServicePauseDepth;
 }
+
+uint32_t powerResetCount() { return PowerResetCounter::value(); }
 HardwareWatchdogServicePause::~HardwareWatchdogServicePause()
 {
     --g_watchdogServicePauseDepth;

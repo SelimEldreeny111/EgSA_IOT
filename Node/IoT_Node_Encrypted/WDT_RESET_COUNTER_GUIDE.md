@@ -1,5 +1,11 @@
 # Watchdog reset counter — Arduino STM32 node and server
 
+25 October supplement: the WDT count is now independently clearable, and a
+separate power-on/brownout count is reported. See
+[current counter/command and SUPMEA comparison guide](RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md)
+for storage, fields, command IDs 7/8 and acceptance tests. “Cumulative” below
+means accumulated since the most recent successful clear.
+
 ## What is sent
 
 The new `uint32 wdt_reset_count` is the node's cumulative count of hardware

@@ -2,6 +2,7 @@ import pathlib
 import sys
 import tkinter as tk
 import unittest
+from unittest.mock import patch
 
 
 SIMULATOR_DIR = pathlib.Path(__file__).resolve().parents[1]
@@ -25,6 +26,8 @@ class MultiSensorGuiSmokeTests(unittest.TestCase):
 
     def tearDown(self):
         if hasattr(self, "root") and self.root.winfo_exists():
+            for callback in self.root.tk.call("after", "info"):
+                self.root.after_cancel(callback)
             self.root.destroy()
 
     def test_main_dashboard_builds_with_starter_fleet(self):
@@ -57,6 +60,34 @@ class MultiSensorGuiSmokeTests(unittest.TestCase):
         self.assertEqual(dialog.type_var.get(), SensorType.SUPMEA.value)
         self.assertIn("flow_rate", dialog.signal_vars)
         dialog.destroy()
+
+    def test_supmea_reference_is_visible_without_extra_registers(self):
+        app = MultiSensorSimulatorApp(self.root, SIMULATOR_DIR / "stm32_four_sensor_config.json")
+        selected = next(item for item in app.registry.snapshots() if item["type"] == "SUPMEA")
+        device_id = selected["id"]
+        app.device_tree.selection_set(device_id)
+        app.registry.reset_supmea_reference(device_id, "UTC", 1800000000)
+        # Configure stable 36 m3/h through the actual device for this UI fixture.
+        device = app.registry._devices[device_id]
+        device.signals["flow_rate"].value = device.runtime_values["flow_rate"] = 36
+        device.signals["flow_rate_unit"].value = device.runtime_values["flow_rate_unit"] = 3
+        device.advance(device._last_update + 60)
+        app._refresh_selected_details()
+        self.assertIn("Today: 0.600000", app.reference_summary_var.get())
+        self.assertIn("never transmitted on RS485", app.reference_summary_var.get())
+        self.assertNotIn(124, device.build_register_map())
+
+    def test_edit_preserves_reference_calendar(self):
+        from multi_sensor_core import create_device
+        device = create_device("SUPMEA", 2)
+        device.reference_timezone = "UTC"
+        dialog = DeviceEditorDialog(self.root, device, lambda *_args: True)
+        dialog.withdraw()
+        with patch("multi_sensor_simulator.messagebox.showerror") as error:
+            dialog._save()
+            self.assertFalse(error.called, str(error.call_args))
+        self.assertIsNotNone(dialog.result)
+        self.assertEqual(dialog.result.reference_timezone, "UTC")
 
 
 if __name__ == "__main__":

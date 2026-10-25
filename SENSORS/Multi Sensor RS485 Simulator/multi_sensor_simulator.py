@@ -116,6 +116,7 @@ class DeviceEditorDialog(tk.Toplevel):
         self.auto_totalizers_var = tk.BooleanVar(value=source.auto_totalizers)
         self.time_multiplier_var = tk.StringVar(value=str(source.time_multiplier))
         self.seed_var = tk.StringVar(value=str(source.random_seed))
+        self._reference_timezone = source.reference_timezone
         self.extra_delay_var = tk.StringVar(value=str(source.faults.extra_delay_ms))
         self.drop_var = tk.StringVar(value=str(source.faults.drop_percent))
         self.crc_error_var = tk.StringVar(value=str(source.faults.crc_error_percent))
@@ -344,15 +345,17 @@ class DeviceEditorDialog(tk.Toplevel):
             profile = profiles[definition.key]
             variables: dict[str, tk.Variable] = {
                 "mode": tk.StringVar(value=profile.mode.value),
-                "value": tk.StringVar(value=format_number(profile.value, definition.integer)),
+                # Editable numbers must round-trip through float(); display-only
+                # thousands separators such as 1,250.75 are invalid input.
+                "value": tk.StringVar(value=str(profile.value)),
                 "minimum": tk.StringVar(
-                    value=format_number(profile.minimum, definition.integer)
+                    value=str(profile.minimum)
                 ),
                 "maximum": tk.StringVar(
-                    value=format_number(profile.maximum, definition.integer)
+                    value=str(profile.maximum)
                 ),
-                "step": tk.StringVar(value=format_number(profile.step, definition.integer)),
-                "period_s": tk.StringVar(value=format_number(profile.period_s)),
+                "step": tk.StringVar(value=str(profile.step)),
+                "period_s": tk.StringVar(value=str(profile.period_s)),
             }
             self.signal_vars[definition.key] = variables
             ttk.Label(self.signal_frame, text=definition.label).grid(
@@ -434,6 +437,7 @@ class DeviceEditorDialog(tk.Toplevel):
                 auto_totalizers=self.auto_totalizers_var.get(),
                 time_multiplier=float(self.time_multiplier_var.get()),
                 random_seed=int(self.seed_var.get()),
+                reference_timezone=self._reference_timezone,
                 signals=profiles,
                 faults=faults,
                 device_id=self._original_id or uuid.uuid4().hex,
@@ -1011,6 +1015,52 @@ class MultiSensorSimulatorApp:
         self._build_live_tab(live_tab)
         self._build_traffic_tab(traffic_tab)
         self._build_reference_tab(reference_tab)
+        calendar_tab = ttk.Frame(notebook, padding=10)
+        notebook.add(calendar_tab, text="SUPMEA RTC test")
+        self._build_calendar_tab(calendar_tab)
+
+    def _build_calendar_tab(self, parent):
+        from supmea_reference import parse_utc_start
+        self.reference_timezone_var = tk.StringVar(value="Africa/Cairo")
+        self.reference_start_var = tk.StringVar(value="")
+        self.reference_summary_var = tk.StringVar(value="Select a SUPMEA device.")
+        ttk.Label(parent, text="Independent flow integral — display only",
+                  style="DialogTitle.TLabel", wraplength=500).pack(anchor=tk.W)
+        ttk.Label(parent, text="No day/month/year values are sent over RS485. "
+                  "Match the node calendar and reference start. Use x1 time for real-node comparison.",
+                  wraplength=500).pack(anchor=tk.W, pady=10)
+        ttk.Label(parent, text="Calendar timezone (UTC, Africa/Cairo or +HH:MM)").pack(anchor=tk.W)
+        ttk.Combobox(parent, textvariable=self.reference_timezone_var,
+                     values=("Africa/Cairo", "UTC", "+02:00", "+03:00")).pack(fill=tk.X)
+        ttk.Label(parent, text="Start UTC ISO time; blank = PC UTC now (e.g. 2026-10-25T10:00:00Z)").pack(anchor=tk.W, pady=(10,0))
+        ttk.Entry(parent, textvariable=self.reference_start_var).pack(fill=tk.X)
+        def reset():
+            device_id = self._selected_device_id()
+            if not device_id:
+                return
+            try:
+                epoch = parse_utc_start(self.reference_start_var.get())
+                self.registry.reset_supmea_reference(device_id, self.reference_timezone_var.get().strip(), epoch)
+                self._refresh_selected_details()
+            except (ValueError, KeyError) as exc:
+                messagebox.showerror("SUPMEA reference", str(exc), parent=self.root)
+        ttk.Button(parent, text="Start / reset comparison reference", command=reset).pack(anchor=tk.W, pady=10)
+        ttk.Button(parent, text="Export selected SUPMEA reference JSON",
+                   command=self._export_supmea_reference).pack(anchor=tk.W)
+        ttk.Label(parent, textvariable=self.reference_summary_var, wraplength=520,
+                  justify=tk.LEFT).pack(anchor=tk.W, pady=15)
+
+    def _export_supmea_reference(self):
+        snapshots = {item["id"]: item for item in self.registry.snapshots()}
+        item = snapshots.get(self._selected_device_id())
+        if not item or "supmea_reference" not in item:
+            messagebox.showinfo("SUPMEA reference", "Select a SUPMEA device.", parent=self.root)
+            return
+        path = filedialog.asksaveasfilename(parent=self.root, defaultextension=".json",
+                                           filetypes=[("Reference JSON", "*.json")])
+        if path:
+            import json
+            Path(path).write_text(json.dumps(item, indent=2), encoding="utf-8")
 
     def _build_live_tab(self, parent: ttk.Frame) -> None:
         ttk.Label(
@@ -1460,6 +1510,7 @@ class MultiSensorSimulatorApp:
         for row in self.measurement_tree.get_children():
             self.measurement_tree.delete(row)
         if not device_id:
+            self.reference_summary_var.set("Select a SUPMEA device.")
             self.selected_title_var.set("Select a device")
             self.selected_subtitle_var.set(
                 "Live values, signal modes, and request statistics appear here."
@@ -1471,6 +1522,16 @@ class MultiSensorSimulatorApp:
         if item is None:
             return
         sensor_type = SensorType(item["type"])
+        reference = item.get("supmea_reference")
+        if reference:
+            self.reference_summary_var.set(
+                f"Today: {reference['today_m3']:.6f} m³\n"
+                f"Month: {reference['month_m3']:.6f} m³\nYear: {reference['year_m3']:.6f} m³\n\n"
+                f"UTC: {reference['clock_utc']}\nLocal: {reference['clock_local']}\n"
+                f"Calendar: {reference['timezone']}\nStarted: {reference['started_utc']}\n"
+                f"{reference['status']}\n{reference['scope']}\n{reference['wire']}")
+        else:
+            self.reference_summary_var.set("Select a SUPMEA device. Other sensor types are unchanged.")
         state = "disabled" if not item["enabled"] else ("muted" if item["muted"] else "active")
         self.selected_title_var.set(
             f"{item['name']}  |  address {item['address']}"

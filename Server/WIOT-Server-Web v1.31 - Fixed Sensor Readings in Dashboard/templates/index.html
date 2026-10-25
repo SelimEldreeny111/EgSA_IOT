@@ -170,7 +170,14 @@
                             <i class="bi bi-arrow-clockwise icon"></i>
                             <div class="label">WDT Resets</div>
                             <div class="value" id="m-wdt-resets">-</div>
-                            <div class="status-sublabel">Cumulative hardware watchdog resets (legacy firmware reports 0)</div>
+                            <div class="status-sublabel">Hardware watchdog resets since last clear (legacy firmware reports 0)</div>
+                        </div>
+
+                        <div class="metric-card mb-3">
+                            <i class="bi bi-plug icon"></i>
+                            <div class="label">Power Resets</div>
+                            <div class="value" id="m-power-resets">-</div>
+                            <div class="status-sublabel">Power-on/brownout since last clear; excludes software and Standby wake</div>
                         </div>
 
                         <!-- Gauges -->
@@ -511,6 +518,8 @@
                                     <option value="GOSTM">GOSTM</option>
                                     <option value="VALVE">VALVE</option>
                                     <option value="WAKE">WAKE — remote active period</option>
+                                    <option value="CLEAR_POWER_RESETS">Clear power-reset counter</option>
+                                    <option value="CLEAR_WDT_RESETS">Clear WDT-reset counter</option>
                                 </select>
                             </div>
                             <div class="col-md-3">

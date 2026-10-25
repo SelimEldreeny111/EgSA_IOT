@@ -513,6 +513,8 @@ constexpr bool kResetSupmeaPeriodState =
 constexpr int kFlowAccumulatorEepromAddress = 128;
 // 20-byte versioned IWDG counter; do not overlap WiFi [0,112) or flow [128,184).
 constexpr int kWatchdogCounterEepromAddress = 192;
+/** @brief Separate 20-byte power-on/brownout count; after valve record 212..231. */
+constexpr int kPowerCounterEepromAddress = 232;
 static_assert(
     kCalendarFixedUtcOffsetMinutes >= -720 &&
     kCalendarFixedUtcOffsetMinutes <= 840,

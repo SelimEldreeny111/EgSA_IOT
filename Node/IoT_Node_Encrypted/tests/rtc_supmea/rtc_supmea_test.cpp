@@ -367,6 +367,24 @@ void testAlarmAccess()
         "Alarm cancellation/access restoration failed");
 }
 
+void emitReferenceTrace(bool cairo, bool spring=false, bool fall=false)
+{
+    setupPersistence();
+    AppConfig::kCalendarTimezone = cairo ? APP_CALENDAR_TIMEZONE_AFRICA_CAIRO
+                                       : APP_CALENDAR_TIMEZONE_UTC;
+    const uint32_t start = spring ? dateToEpoch(2026,4,23,21,59,30)
+        : (fall ? dateToEpoch(2026,10,29,20,59,30)
+                : dateToEpoch(2026,12,31,cairo ? 21 : 23,59,30));
+    // Independent Python oracle integrates 36 m3/h. Meter adds 300 L per 30 s.
+    for (uint32_t step = 0; step <= (fall ? 124U : 4U); ++step) {
+        const uint32_t epoch = start + step * 30U;
+        const auto result = updateSupmeaPeriodAccumulator(1000000ULL + step * 300U, epoch, true);
+        require(result.valid, "Reference trace was invalid");
+        std::cout << "TRACE " << epoch << " " << result.volumeTodayLiters << " "
+                  << result.volumeThisMonthLiters << " " << result.volumeThisYearLiters << "\n";
+    }
+}
+
 int main(int argc, char** argv)
 {
     try
@@ -391,6 +409,10 @@ int main(int argc, char** argv)
         else if (scenario == "cairo_midnight") { testCairoMidnight(); }
         else if (scenario == "explicit_reset") { testExplicitReset(); }
         else if (scenario == "alarm_access") { testAlarmAccess(); }
+        else if (scenario == "reference_trace_utc") { emitReferenceTrace(false); }
+        else if (scenario == "reference_trace_cairo") { emitReferenceTrace(true); }
+        else if (scenario == "reference_trace_cairo_spring") { emitReferenceTrace(true,true,false); }
+        else if (scenario == "reference_trace_cairo_fall") { emitReferenceTrace(true,false,true); }
         else { throw std::runtime_error("Unknown scenario"); }
         std::cout << "PASS " << scenario << '\n';
         return 0;

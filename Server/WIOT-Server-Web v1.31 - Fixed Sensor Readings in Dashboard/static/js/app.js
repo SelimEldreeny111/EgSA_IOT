@@ -566,6 +566,7 @@ async function preloadCompanyData(company) {
                 'Node Status':row.node_status,
                 'Battery Voltage': row.battery_voltage,
                 'WDT Resets': row.wdt_reset_count ?? 0,
+                'Power Resets': row.power_reset_count ?? 0,
                 Details:      row.details || '',
                 Company:      company,
                 'Soil Temp':  row.soil_temperature,
@@ -759,10 +760,14 @@ function handleCmdChange() {
         inp.disabled = true; inp.value = 'Epoch Time';
         intervalInput.disabled = false;
         if (startBtn) startBtn.disabled = !isBrokerConnected;
-    } else if (type === 'GOSTM') {
+    } else if (type === 'GOSTM' || type === 'CLEAR_POWER_RESETS' || type === 'CLEAR_WDT_RESETS') {
         inp.disabled = true; inp.value = 'No Data Required';
         intervalInput.disabled = true;
         if (startBtn && !stimePeriodicHandle) startBtn.disabled = true;
+        if (type !== 'GOSTM') {
+            inp.value = '0';
+            if (help) help.textContent = 'Clear only this counter on one node. Requires firmware support and a verified node reply.';
+        }
     } else if (type === 'WAKE') {
         inp.disabled = false; inp.value = '60';
         intervalInput.disabled = true;
@@ -792,6 +797,11 @@ async function sendCommand(broadcast, suppressToast = false) {
         delivery: document.getElementById('cmd-delivery')?.value || 'now',
         ttl_seconds: Number(document.getElementById('cmd-ttl')?.value || 86400)
     };
+    if (['CLEAR_POWER_RESETS', 'CLEAR_WDT_RESETS'].includes(data.cmd_type)) {
+        if (broadcast) { showToast('Counter clear must target one node.', 'danger'); return; }
+        if (!window.confirm(`Clear ${data.cmd_type === 'CLEAR_POWER_RESETS' ? 'power' : 'WDT'} reset counter for Node ${nodeValue}? This cannot be undone.`)) return;
+        data.cmd_data = 0;
+    }
     const res = await fetch('/api/command', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const result = await res.json();
     if (result.success && result.queued) {
@@ -1155,6 +1165,8 @@ function renderLiveNode() {
     document.getElementById('m-sensor').textContent   = d ? d['Sensor ID'] || '-' : '-';
     document.getElementById('m-battery').textContent  = d ? formatNumberOrDash(d['Battery Voltage'], 2) : '-';
     document.getElementById('m-wdt-resets').textContent = d ? String(d['WDT Resets'] ?? 0) : '-';
+    const powerCounterElement = document.getElementById('m-power-resets');
+    if (powerCounterElement) powerCounterElement.textContent = d ? String(d['Power Resets'] ?? 0) : '-';
     document.getElementById('m-status').textContent   = d ? nodeStatusLabel(d['Node Status']) : '-';
     const flowValid = d && Number(d['Flow Live Valid']) === 1;
     const periodsValid = d && Number(d['Period Totals Valid']) === 1;
@@ -1731,6 +1743,7 @@ function buildPopupHtml(nid) {
         <tr><td style="color:#98a2c3">Velocity</td><td><b>${liveValid ? formatNumberOrDash(d.Velocity) + ' m/s' : '-'}</b></td></tr>
         <tr><td style="color:#98a2c3">Battery</td><td><b>${formatNumberOrDash(d['Battery Voltage'], 2)} V</b></td></tr>
         <tr><td style="color:#98a2c3">WDT Resets</td><td><b>${Number(d['WDT Resets'] ?? 0)}</b></td></tr>
+        <tr><td style="color:#98a2c3">Power Resets</td><td><b>${Number(d['Power Resets'] ?? 0)}</b></td></tr>
         <tr><td style="color:#98a2c3">Today</td><td>${periodsValid ? formatNumberOrDash(d['Flow Day']) + ' m³' : '-'}</td></tr>
         <tr><td style="color:#98a2c3">Last seen</td><td style="font-size:0.78rem">${d.Time}</td></tr>` : '';
     return safeHtml`<div style="min-width:170px">

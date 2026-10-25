@@ -16,7 +16,9 @@ enum CMD_ID : uint8_t {
   CMD_SYNC_RTC = 3,
   CMD_GET_TELEMETRY = 4,
   CMD_OPEN_CLOSE_NODE = 5,
-  CMD_REMOTE_WAKE = 6  // data: active seconds, 0=configured default, max=86400
+  CMD_REMOTE_WAKE = 6, // data: active seconds, 0=configured default, max=86400
+  CMD_CLEAR_POWER_RESETS = 7, // direct node only; data=0, nonzero request_id
+  CMD_CLEAR_WDT_RESETS = 8    // direct node only; data=0, nonzero request_id
 };
 
 /** @brief Shared SIM/WiFi/LoRa automatic-reply policy; GOSTM always responds.
