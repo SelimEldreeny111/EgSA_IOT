@@ -13,6 +13,7 @@ const context = {
         'cmd-node':'7', 'cmd-type':selected, 'cmd-data':'corrupted-input',
         'cmd-delivery':'now', 'cmd-ttl':'86400'})[id]}; }},
     window: {confirm() { return confirmed; }},
+    getSelectedRegion() { return 'Region_1'; },
     getSelectedCompany() { return 'Company_1'; },
     showToast() {}, setWakeStatus() {}, refreshCommandTimeline() {},
     async fetch(url, options) {

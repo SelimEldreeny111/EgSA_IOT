@@ -330,3 +330,7 @@ This project is provided as-is for educational and commercial use.
 - **v1.13**: Added fixed TUF + HNDA and Supmea + Sondas profiles, common flow
   schema v2, persistent Supmea calendar consumption, and matching server
   support
+
+## Regional MQTT topics (26 October 2026)
+
+The active STM32/web release uses `wiot/{company}/{region}/{node}/data|status|cmd` and `wiot/{company}/{region}/broadcast`. See [configuration, migration and tests](REGIONAL_MQTT_TOPICS_GUIDE.md).

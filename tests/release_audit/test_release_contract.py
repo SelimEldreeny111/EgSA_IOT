@@ -23,13 +23,24 @@ def schema(path):
 
 class ReleaseContractTests(unittest.TestCase):
     def test_fresh_clone_topic_template_matches_case_sensitive_server_routes(self):
+        import subprocess
+        import tempfile
         text = (NODE / "src/config/AppConfig.cpp.example").read_text(encoding="utf-8")
-        topics = dict(re.findall(r'const char (kMqtt\w+)\[\] = "([^"]*)";', text))
-        self.assertEqual(topics["kMqttPublishTopicStatus"], "EgSA/Company_1/1/Status")
-        self.assertEqual(topics["kMqttPublishTopicTlm"], "EgSA/Company_1/1/Telemetry")
-        self.assertEqual(topics["kMqttCommandTopic"], "EgSA/Company_1/1/CMD")
-        self.assertEqual(topics["kMqttBroadcastTopic"], "EgSA/Company_1/BroadCast/CMD")
-        self.assertEqual(topics["kMqttGatewayCommandWildcardTopic"], "EgSA/Company_1/+/CMD")
+        config = (NODE / "src/config/AppConfig.h").read_text(encoding="utf-8")
+        macros = config[config.index('// Public routing identity.'):config.index('constexpr uint16_t kNodeId')]
+        declarations = '\n'.join(re.findall(r'const char kMqtt\w+\[\] = [^;]+;', text))
+        declarations = '\n'.join(line for line in declarations.splitlines() if 'kMqttServer' not in line)
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)/'topic_contract.cpp'; exe = Path(directory)/'topic_contract.exe'
+            source.write_text('#include <iostream>\n#include "MqttTopicRouting.h"\n#define APP_NODE_ID 3\n#define APP_MQTT_REGION "Region_2"\n' +
+                macros + declarations + '\nint main(){ std::cout << kMqttPublishTopicStatus << "\\n" << '
+                'kMqttPublishTopicTlm << "\\n" << kMqttCommandTopic << "\\n" << kMqttBroadcastTopic << "\\n" << '
+                'kMqttGatewayCommandWildcardTopic << "\\n" << kMqttClientId; }',encoding='utf-8')
+            subprocess.run(['g++','-std=c++14','-I',str(NODE/'src/comm'),str(source),'-o',str(exe)],check=True,capture_output=True)
+            self.assertEqual(subprocess.check_output([str(exe)],text=True).splitlines(),[
+                'wiot/Company_1/Region_2/3/status','wiot/Company_1/Region_2/3/data',
+                'wiot/Company_1/Region_2/3/cmd','wiot/Company_1/Region_2/broadcast',
+                'wiot/Company_1/Region_2/+/cmd','wiot-Company_1-Region_2-3'])
 
     def test_all_three_proto_sources_match(self):
         expected = schema(NODE / "src/generated/sensor.proto")

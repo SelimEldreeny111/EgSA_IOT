@@ -13,13 +13,13 @@ const char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
 #endif
 
 const char kMqttServer[] = "mqtt.example.com";
-const char kMqttClientId[] = "wiot-node-1";
+const char kMqttClientId[] = "wiot-" APP_MQTT_COMPANY "-" APP_MQTT_REGION "-" APP_MQTT_STRINGIFY(APP_NODE_ID);
 
-const char kMqttCompanyTopicPrefix[] = "EgSA/Company_1";
-// Topic suffixes and BroadCast capitalization are part of the server contract.
-// Change Company_1 and node 1 consistently with APP_NODE_ID/server selection.
-const char kMqttPublishTopicStatus[] = "EgSA/Company_1/1/Status";
-const char kMqttPublishTopicTlm[] = "EgSA/Company_1/1/Telemetry";
-const char kMqttCommandTopic[] = "EgSA/Company_1/1/CMD";
-const char kMqttBroadcastTopic[] = "EgSA/Company_1/BroadCast/CMD";
-const char kMqttGatewayCommandWildcardTopic[] = "EgSA/Company_1/+/CMD";
+const char kMqttCompanyTopicPrefix[] = APP_MQTT_PREFIX;
+// Lowercase topics derive from APP_MQTT_COMPANY, APP_MQTT_REGION and APP_NODE_ID.
+// The historical prefix symbol now includes both company and region.
+const char kMqttPublishTopicStatus[] = APP_MQTT_PREFIX "/" APP_MQTT_STRINGIFY(APP_NODE_ID) "/status";
+const char kMqttPublishTopicTlm[] = APP_MQTT_PREFIX "/" APP_MQTT_STRINGIFY(APP_NODE_ID) "/data";
+const char kMqttCommandTopic[] = APP_MQTT_PREFIX "/" APP_MQTT_STRINGIFY(APP_NODE_ID) "/cmd";
+const char kMqttBroadcastTopic[] = APP_MQTT_PREFIX "/broadcast";
+const char kMqttGatewayCommandWildcardTopic[] = APP_MQTT_PREFIX "/+/cmd";

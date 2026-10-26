@@ -1,3 +1,4 @@
+from region_topics import DEFAULT_REGION, region_id, command_topic, SUBSCRIPTIONS, migrate_region_storage
 import time
 import json
 import sqlite3
@@ -71,10 +72,14 @@ def validate_api_request():
             return jsonify(success=False, error='JSON object required'), 400
         for field, maximum in (('username', 80), ('password', 512), ('role', 16),
                 ('broker', 253), ('client_id', 80), ('aes_key', 64),
-                ('company', 80), ('company_name', 80), ('cmd_type', 32), ('delivery', 16)):
+                ('company', 80), ('region', 40), ('company_name', 80), ('cmd_type', 32), ('delivery', 16)):
             if field in data and (not isinstance(data[field], str) or len(data[field]) > maximum):
                 return jsonify(success=False, error=f'Invalid {field}'), 400
     try:
+        if request.args.get('region') is not None:
+            region_id(request.args['region'])
+        if request.is_json and 'region' in (request.get_json(silent=True) or {}):
+            region_id(request.get_json()['region'])
         if request.args.get('company'):
             company_id(request.args['company'])
         if request.args.get('history_node'):
@@ -131,8 +136,7 @@ def publish_command_intent(item, journal):
     msg = messages_pb2.CMD_Message(node_id=item['node_id'], cmd_id=item['cmd_id'],
         cmd_data=item['cmd_data'], request_id=item['request_id'])
     company, request_id, attempt = item['company'], item['request_id'], item['attempts']
-    target = 'BroadCast' if item['broadcast'] else str(item['node_id'])
-    topic = f'EgSA/{company}/{target}/CMD'
+    topic = command_topic(company, item['region'], item['node_id'], item['broadcast'])
 
     def broker_confirmed():
         # This runs on a bounded audit worker, never on the MQTT RX thread.
@@ -151,14 +155,14 @@ def publish_command_intent(item, journal):
         raise
 
 
-def dispatch_queued_command(company, node_id):
+def dispatch_queued_command(company, node_id, region=DEFAULT_REGION):
     """A valid Status proves the sleeping node has opened its RX window."""
     if mqtt_client is None or not mqtt_client.is_connected():
         return
     try:
         with _command_dispatch_lock:
             journal = command_mailbox()
-            item = journal.claim_on_status(company, node_id)
+            item = journal.claim_on_status(company, node_id, region=region)
             if item is not None:
                 publish_command_intent(item, journal)
     except Exception as exc:
@@ -348,7 +352,8 @@ def _migrate_messages_table_to_integer_timestamp(conn):
                    wake_command_ack INTEGER DEFAULT 0,
                    wake_request_id INTEGER DEFAULT 0,
                    wdt_reset_count INTEGER DEFAULT 0,
-                   power_reset_count INTEGER DEFAULT 0)''')
+                   power_reset_count INTEGER DEFAULT 0,
+                   region TEXT NOT NULL DEFAULT 'Region_1')''')
 
     target_columns = [
         "timestamp", "type", "node_id", "sensor_id", "flow", "velocity",
@@ -363,7 +368,7 @@ def _migrate_messages_table_to_integer_timestamp(conn):
         "reverse_total_liters", "net_total_liters", "flow_period_quality",
         "flow_meter_alarm_flags", "legacy_flow_schema", "secondary_flow_json",
         "power_mode", "power_state", "wake_remaining_seconds",
-        "wake_command_ack", "wake_request_id", "wdt_reset_count", "power_reset_count",
+        "wake_command_ack", "wake_request_id", "wdt_reset_count", "power_reset_count", "region",
     ]
     copy_columns = [column for column in target_columns if column in old_columns]
     select_expressions = []
@@ -441,7 +446,8 @@ def ensure_message_db(company: str) -> str:
                    wake_command_ack INTEGER DEFAULT 0,
                    wake_request_id INTEGER DEFAULT 0,
                    wdt_reset_count INTEGER DEFAULT 0,
-                   power_reset_count INTEGER DEFAULT 0)''')
+                   power_reset_count INTEGER DEFAULT 0,
+                   region TEXT NOT NULL DEFAULT 'Region_1')''')
     conn.commit()
     c.execute("PRAGMA table_info(messages)")
     cols = {row[1].lower(): row[2].upper() for row in c.fetchall()}
@@ -585,6 +591,7 @@ def ensure_message_db(company: str) -> str:
         c.execute('ALTER TABLE consumption_periods_v2 RENAME TO consumption_periods')
     c.execute('''CREATE INDEX IF NOT EXISTS idx_consumption_periods_lookup
                  ON consumption_periods(node_id, sensor_id, period_type, period_key)''')
+    migrate_region_storage(conn)
     conn.commit()
     conn.close()
     _initialized_company_dbs.add(company)
@@ -636,7 +643,7 @@ def migrate_legacy_messages_to_company_dbs():
         conn.close()
 
 
-def query_messages_db(db_path: str, start: str, end: str, msg_type: str = None, limit: int = None, offset: int = 0):
+def query_messages_db(db_path: str, start: str, end: str, msg_type: str = None, limit: int = None, offset: int = 0, region=None):
     if not os.path.exists(db_path):
         return []
     start_ts = normalize_db_timestamp(start)
@@ -646,6 +653,9 @@ def query_messages_db(db_path: str, start: str, end: str, msg_type: str = None, 
     c = conn.cursor()
     query = "SELECT * FROM messages WHERE timestamp BETWEEN ? AND ?"
     params = [start_ts, end_ts]
+    if region is not None:
+        query += " AND region = ?"
+        params.append(region_id(region))
     if msg_type:
         query += " AND type = ?"
         params.append(msg_type)
@@ -662,7 +672,7 @@ def query_messages_db(db_path: str, start: str, end: str, msg_type: str = None, 
     return [_format_row_timestamp(r) for r in rows]
 
 
-def count_messages_db(db_path: str, start: str, end: str, msg_type: str = None):
+def count_messages_db(db_path: str, start: str, end: str, msg_type: str = None, region=None):
     if not os.path.exists(db_path):
         return 0
     start_ts = normalize_db_timestamp(start)
@@ -671,6 +681,9 @@ def count_messages_db(db_path: str, start: str, end: str, msg_type: str = None):
     c = conn.cursor()
     query = "SELECT COUNT(*) FROM messages WHERE timestamp BETWEEN ? AND ?"
     params = [start_ts, end_ts]
+    if region is not None:
+        query += " AND region = ?"
+        params.append(region_id(region))
     if msg_type:
         query += " AND type = ?"
         params.append(msg_type)
@@ -680,24 +693,24 @@ def count_messages_db(db_path: str, start: str, end: str, msg_type: str = None):
     return count
 
 
-def query_messages_from_all_company_dbs(start: str, end: str, msg_type: str = None, limit: int = None, offset: int = 0):
+def query_messages_from_all_company_dbs(start: str, end: str, msg_type: str = None, limit: int = None, offset: int = 0, region=None):
     if not os.path.isdir(MESSAGE_DB_DIR):
         return []
     all_rows = []
     for db_path in sorted(glob.glob(os.path.join(MESSAGE_DB_DIR, '*.db'))):
-        all_rows.extend(query_messages_db(db_path, start, end, msg_type))
+        all_rows.extend(query_messages_db(db_path, start, end, msg_type, region=region))
     all_rows.sort(key=lambda r: r.get('timestamp_epoch', 0), reverse=True)
     if limit is not None:
         all_rows = all_rows[offset:offset + limit]
     return all_rows
 
 
-def count_messages_from_all_company_dbs(start: str, end: str, msg_type: str = None):
+def count_messages_from_all_company_dbs(start: str, end: str, msg_type: str = None, region=None):
     if not os.path.isdir(MESSAGE_DB_DIR):
         return 0
     total = 0
     for db_path in sorted(glob.glob(os.path.join(MESSAGE_DB_DIR, '*.db'))):
-        total += count_messages_db(db_path, start, end, msg_type)
+        total += count_messages_db(db_path, start, end, msg_type, region=region)
     return total
 
 
@@ -791,9 +804,10 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                  active_sensors=1, sensor_mask=1, battery_voltage=None,
                  flow_metadata=None, measured_at=None, time_source="server_received",
                  sample_fingerprint=None, period_rows=None, secondary_flow=None,
-                 power_info=None):
+                 power_info=None, region=DEFAULT_REGION):
     conn = None
     try:
+        region_id(region)
         flow_metadata = flow_metadata or {}
         period_rows = period_rows or []
         secondary_flow = secondary_flow or {}
@@ -814,8 +828,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        flow_cumulative_totals_valid, rtc_valid, forward_total_liters, reverse_total_liters,
                        net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema,
                        secondary_flow_json, power_mode, power_state,
-                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count, power_reset_count)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count, power_reset_count, region)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                   (epoch_ts, m_type, n_id, str(s_id), flow, vel, fday, fmonth, fyear, det, company, node_status,
                    soil_temp, soil_moist, soil_valid, ec_temp, ec_moist, ec_cond, ec_valid, active_sensors, sensor_mask,
                    battery_voltage, measured_epoch, time_source,
@@ -838,7 +852,7 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                    power_info.get("wake_command_ack", 0),
                    power_info.get("wake_request_id", 0),
                    power_info.get("wdt_reset_count", 0),
-                   power_info.get("power_reset_count", 0)))
+                   power_info.get("power_reset_count", 0), region))
 
         samples = [{
             "metadata": flow_metadata,
@@ -864,8 +878,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                           forward_total_liters, reverse_total_liters, net_total_liters,
                           flow_live_valid, period_totals_valid, cumulative_totals_valid,
                           rtc_valid, period_source, period_quality, alarm_flags,
-                          sample_fingerprint)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                          sample_fingerprint, region)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                       (epoch_ts, measured_epoch, time_source, m_type,
                        n_id, str(s_id), metadata["flow_meter_type"],
                        sample["flow_rate"], sample["velocity"],
@@ -881,15 +895,15 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        metadata.get("flow_period_source", 0),
                        metadata.get("flow_period_quality", 0),
                        metadata.get("flow_meter_alarm_flags", 0),
-                       fingerprint))
+                       fingerprint, region))
 
             for period in sample["period_rows"]:
                 c.execute('''INSERT INTO consumption_periods
-                             (node_id, sensor_id, flow_meter_type, period_type,
+                             (region, node_id, sensor_id, flow_meter_type, period_type,
                               period_key, volume_liters, source, quality,
                               measured_at, updated_at)
-                             VALUES (?,?,?,?,?,?,?,?,?,?)
-                             ON CONFLICT(node_id, sensor_id, flow_meter_type,
+                             VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                             ON CONFLICT(region, node_id, sensor_id, flow_meter_type,
                                          period_type, period_key)
                              DO UPDATE SET
                                  volume_liters=excluded.volume_liters,
@@ -898,12 +912,12 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                                  measured_at=excluded.measured_at,
                                  updated_at=excluded.updated_at
                              WHERE excluded.measured_at >= consumption_periods.measured_at''',
-                          (n_id, str(s_id), metadata["flow_meter_type"],
+                          (region, n_id, str(s_id), metadata["flow_meter_type"],
                            period["period_type"], period["period_key"],
                            period["volume_liters"], period["source"],
                            period["quality"], measured_epoch, epoch_ts))
         conn.commit()
-        logging.info(f"Saved {m_type} message for Node {n_id} (Company: {company}) to database")
+        logging.info(f"Saved {m_type} message for Node {n_id} (Company: {company}, Region: {region}) to database")
         return True
     except Exception as e:
         if conn is not None:
@@ -936,7 +950,7 @@ def on_mqtt_status(msg: str):
 def on_mqtt_plaintext(topic: str, plaintext: bytes):
     """Handle successfully decrypted MQTT messages."""
     try:
-        company, topic_node_id, topic_kind = parse_topic(topic)
+        company, region, topic_node_id, topic_kind = parse_topic(topic)
         if not isinstance(plaintext, bytes) or not 0 < len(plaintext) <= MAX_PROTO_BYTES:
             raise ValueError('Empty or oversized protobuf')
     except ValueError as exc:
@@ -956,7 +970,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
     topic_parts = topic.split('/')
     company = topic_parts[1] if len(topic_parts) > 1 else "Unknown"
     
-    log_event(f"[PLAINTEXT] Topic parts: {topic_parts}, Company: {company}")
+    log_event(f"[PLAINTEXT] Topic parts: {topic_parts}, Company: {company}, Region: {region}")
     logging.info(f"[PLAINTEXT] Parsing - parts={topic_parts} company={company}")
 
     try:
@@ -967,20 +981,6 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed Status_Message: node_id={msg.node_id} sensor_id={msg.sensor_id}")
             
-            # Validate node ID matches topic
-            if len(topic_parts) >= 3:
-                try:
-                    topic_node_id = int(topic_parts[2])
-                    if msg.node_id != topic_node_id:
-                        log_event(f"[VALIDATION ERROR] Status: Node ID mismatch - topic={topic_node_id}, payload={msg.node_id}")
-                        logging.error(f"[PLAINTEXT] DROPPED - Node ID mismatch: topic={topic_node_id} vs payload={msg.node_id}")
-                        return
-                    log_event(f"[PLAINTEXT] Node ID validated: {msg.node_id}")
-                except ValueError:
-                    log_event(f"[PARSE ERROR] Status: Cannot extract node ID from topic: {topic}")
-                    logging.error(f"[PLAINTEXT] DROPPED - Cannot parse node ID from {topic}")
-                    return
-            
             log_event(f"[PLAINTEXT] Saving Status message - node={msg.node_id}, flow={msg.flow_rate}")
             flow_metadata = extract_flow_metadata(msg)
             power_info = power_metadata(msg)
@@ -988,10 +988,10 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 msg, timestamp_epoch
             )
             sample_fingerprint = build_sample_fingerprint(
-                company, msg, flow_metadata, measured_at
+                f"{company}/{region}", msg, flow_metadata, measured_at
             )
             period_rows = calendar_period_rows(msg, flow_metadata, measured_at)
-            secondary_flow = _secondary_flow_data(msg, company, measured_at)
+            secondary_flow = _secondary_flow_data(msg, f"{company}/{region}", measured_at)
             save_message(timestamp_epoch, "Status", msg.node_id, msg.sensor_id, msg.flow_rate, msg.velocity,
                          msg.flow_rate_per_day, msg.flow_rate_per_month, msg.flow_rate_per_year, "", company, msg.node_status,
                          msg.soil_temperature, msg.soil_moisture, msg.soil_moisture_temp_valid,
@@ -1002,13 +1002,13 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
                          secondary_flow=secondary_flow,
-                         power_info=power_info)
+                         power_info=power_info, region=region)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Status", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
                 "Flow": msg.flow_rate, "Velocity": msg.velocity, "Flow Day": msg.flow_rate_per_day,
                 "Flow Month": msg.flow_rate_per_month, "Flow Year": msg.flow_rate_per_year,
-                "Node Status": msg.node_status, "Details": "", "Company": company,
+                "Node Status": msg.node_status, "Details": "", "Company": company, "Region": region,
                 "Battery Voltage": msg.battery_voltage,
                 "Soil Temp": msg.soil_temperature, "Soil Moist": msg.soil_moisture, "Soil Valid": msg.soil_moisture_temp_valid,
                 "EC Temp": msg.ec_temperature, "EC Moist": msg.ec_moisture, "EC Cond": msg.electrical_conductivity, "EC Valid": msg.soil_moisture_temp_ec_valid,
@@ -1021,7 +1021,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 secondary_flow["snapshot"] if secondary_flow else None
             )
             emit_iot_message(payload, company)
-            dispatch_queued_command(company, msg.node_id)
+            dispatch_queued_command(company, msg.node_id, region)
 
         elif topic_kind == 'telemetry':
             log_event(f"[PLAINTEXT] Parsing as Telemetry...")
@@ -1030,30 +1030,16 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed Telemetry: node_id={msg.node_id} sensor_id={msg.sensor_id}")
             
-            # Validate node ID matches topic
-            if len(topic_parts) >= 3:
-                try:
-                    topic_node_id = int(topic_parts[2])
-                    if msg.node_id != topic_node_id:
-                        log_event(f"[VALIDATION ERROR] Telemetry: Node ID mismatch - topic={topic_node_id}, payload={msg.node_id}")
-                        logging.error(f"[PLAINTEXT] DROPPED - Node ID mismatch: topic={topic_node_id} vs payload={msg.node_id}")
-                        return
-                    log_event(f"[PLAINTEXT] Node ID validated: {msg.node_id}")
-                except ValueError:
-                    log_event(f"[PARSE ERROR] Telemetry: Cannot extract node ID from topic: {topic}")
-                    logging.error(f"[PLAINTEXT] DROPPED - Cannot parse node ID from {topic}")
-                    return
-            
             flow_metadata = extract_flow_metadata(msg)
             power_info = power_metadata(msg)
             measured_at, time_source = select_measurement_timestamp(
                 msg, timestamp_epoch
             )
             sample_fingerprint = build_sample_fingerprint(
-                company, msg, flow_metadata, measured_at
+                f"{company}/{region}", msg, flow_metadata, measured_at
             )
             period_rows = calendar_period_rows(msg, flow_metadata, measured_at)
-            secondary_flow = _secondary_flow_data(msg, company, measured_at)
+            secondary_flow = _secondary_flow_data(msg, f"{company}/{region}", measured_at)
             details = (f"Node-TS:{msg.timestamp} S-Rate:{msg.sampling_rate} "
                        f"T-Rate:{msg.Transmission_rate} sensors:{msg.active_sensor_count} "
                        f"meter:{flow_metadata['flow_meter_name']} "
@@ -1061,9 +1047,9 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             if msg.command_ack_request_id:
                 if command_mailbox().acknowledge(
                         company, msg.node_id, msg.command_ack_request_id,
-                        msg.command_ack_cmd_id, success=msg.command_ack_success):
+                        msg.command_ack_cmd_id, success=msg.command_ack_success, region=region):
                     log_event(f"[QUEUE {'ACK' if msg.command_ack_success else 'REJECTED'}] "
-                              f"{company}/{msg.node_id} "
+                              f"{company}/{region}/{msg.node_id} "
                               f"request={msg.command_ack_request_id} cmd={msg.command_ack_cmd_id}")
                 details += (f" CMD_{'ACK' if msg.command_ack_success else 'REJECTED'} "
                             f"request={msg.command_ack_request_id} "
@@ -1098,13 +1084,13 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
                          secondary_flow=secondary_flow,
-                         power_info=power_info)
+                         power_info=power_info, region=region)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Telemetry", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
                 "Flow": msg.flow_rate, "Velocity": msg.velocity, "Flow Day": msg.flow_rate_per_day,
                 "Flow Month": msg.flow_rate_per_month, "Flow Year": msg.flow_rate_per_year,
-                "Node Status": msg.node_status, "Details": details, "Company": company,
+                "Node Status": msg.node_status, "Details": details, "Company": company, "Region": region,
                 "Battery Voltage": msg.battery_voltage,
                 "Soil Temp": msg.soil_temperature, "Soil Moist": msg.soil_moisture, "Soil Valid": msg.soil_moisture_temp_valid,
                 "EC Temp": msg.ec_temperature, "EC Moist": msg.ec_moisture, "EC Cond": msg.electrical_conductivity, "EC Valid": msg.soil_moisture_temp_ec_valid,
@@ -1128,29 +1114,14 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed CMD_Message: node_id={msg.node_id} cmd_id={msg.cmd_id} cmd_data={msg.cmd_data}")
             
-            # Validate node ID matches topic
-            topic_parts = topic.split('/')
-            if topic_node_id != 0:
-                try:
-                    topic_node_id = int(topic_parts[2])
-                    if msg.node_id != topic_node_id:
-                        log_event(f"[VALIDATION ERROR] CMD: Node ID mismatch - topic={topic_node_id}, payload={msg.node_id}")
-                        logging.error(f"[PLAINTEXT] DROPPED - Node ID mismatch: topic={topic_node_id} vs payload={msg.node_id}")
-                        return
-                    log_event(f"[PLAINTEXT] Node ID validated: {msg.node_id}")
-                except ValueError:
-                    log_event(f"[PARSE ERROR] CMD: Cannot extract node ID from topic: {topic}")
-                    logging.error(f"[PLAINTEXT] DROPPED - Cannot parse node ID from {topic}")
-                    return
-            
             cmd_name = CMD_NAMES_REV.get(msg.cmd_id, str(msg.cmd_id))
             det = f"Cmd={cmd_name}({msg.cmd_id}), Data={msg.cmd_data}"
             log_event(f"[PLAINTEXT] Saving CMD message - node={msg.node_id}, {det}")
-            save_message(timestamp_epoch, "Command", msg.node_id, "-", 0, 0, 0, 0, 0, det, company, 0)
+            save_message(timestamp_epoch, "Command", msg.node_id, "-", 0, 0, 0, 0, 0, det, company, 0, region=region)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Command", "Node ID": msg.node_id, "Sensor ID": "-",
-                "Flow": "-", "Velocity": "-", "Flow Day": "-", "Flow Month": "-", "Flow Year": "-", "Node Status": 0, "Details": det, "Company": company
+                "Flow": "-", "Velocity": "-", "Flow Day": "-", "Flow Month": "-", "Flow Year": "-", "Node Status": 0, "Details": det, "Company": company, "Region": region
             }
             emit_iot_message(payload, company)
         else:
@@ -1494,7 +1465,7 @@ def api_connect():
     
     # One infrastructure-owned subscription; changing the monitoring company
     # never changes ingestion for other tenants. Parser validates exact suffixes.
-    topics = ["EgSA/+/+/#"]
+    topics = list(SUBSCRIPTIONS)
     log_event('[CONNECT] Shared ingestion - all companies; tenant-scoped views')
 
     # Disconnect any existing client
@@ -1602,6 +1573,7 @@ def api_command():
         if not isinstance(broadcast, bool):
             return jsonify(success=False, error='broadcast must be true or false'), 400
         company = data.get("company", "Company_ID")
+        region = region_id(data.get("region", DEFAULT_REGION))
         if not isinstance(company, str) or not isinstance(cmd_type, str):
             return jsonify({"success": False, "error": "Company and command type must be strings"}), 400
         company = company.strip()
@@ -1664,7 +1636,7 @@ def api_command():
             with _command_dispatch_lock:
                 journal = command_mailbox()
                 result = journal.enqueue(company, node_id, cmd_id, cmd_type, cmd_data,
-                    ttl_seconds=ttl, actor=session.get('username', ''), delivery=delivery, broadcast=broadcast)
+                    ttl_seconds=ttl, actor=session.get('username', ''), delivery=delivery, broadcast=broadcast, region=region)
                 request_id = result['request_id']
                 if delivery == 'now':
                     item = journal.claim_immediate(request_id)
@@ -1688,10 +1660,10 @@ def api_command():
         try:
             save_message(int(time.time()), 'Command', node_id, '-', 0, 0, 0, 0, 0,
                 f'{cmd_type} data={cmd_data} request={request_id}', company, 0,
-                power_info={'wake_request_id': request_id})
+                power_info={'wake_request_id': request_id}, region=region)
         except Exception:
             logging.exception('Command submitted but history copy unavailable; journal retained')
-        return jsonify(success=True, request_id=request_id, node_id=result['node_id'],
+        return jsonify(success=True, request_id=request_id, node_id=result['node_id'], region=region,
             awaiting_node_ack=True, node_awake=False, message='Submitted; waiting for node execution reply')
     except Exception as e:
         err = f"Command failed: {type(e).__name__}: {e}"
@@ -1713,7 +1685,7 @@ def api_queued_command(request_id):
         return jsonify({"success": False, "error": "Invalid node ID"}), 400
     if not 0 <= node_id <= 65535:
         return jsonify({"success": False, "error": "Invalid node ID"}), 400
-    item = command_mailbox().get(request_id, company, node_id)
+    item = command_mailbox().get(request_id, company, node_id, region=region_id(request.args.get('region', DEFAULT_REGION)))
     if item is None:
         return jsonify({"success": False, "error": "Command not found"}), 404
     return jsonify({"success": True, **item})
@@ -1730,13 +1702,14 @@ def api_commands():
     node = request.args.get('node_id')
     node = integer(node, 0, 65535, 'Node ID') if node is not None else None
     limit = integer(request.args.get('limit', '50'), 1, 200, 'Timeline limit')
-    return jsonify(success=True, commands=command_mailbox().list(company, node, limit))
+    return jsonify(success=True, commands=command_mailbox().list(company, node, limit, region=region_id(request.args.get('region', DEFAULT_REGION))))
 
 
 @app.route('/api/messages', methods=['GET'])
 @login_required
 def api_messages():
-    start = request.args.get('start', '1970-01-01 00:00:00')
+    region = region_id(request.args.get('region', DEFAULT_REGION))
+    start = request.args.get('start', '0')
     end = request.args.get('end', '2099-12-31 23:59:59')
     company_arg = request.args.get('company', '').strip()
     msg_type = request.args.get('type', '').strip() or None
@@ -1752,15 +1725,15 @@ def api_messages():
 
     if session.get('username') in ('EgSA_Supervisor', 'Super_User'):
         if company_arg:
-            rows = query_messages_db(get_company_db_path(company_arg), start, end, msg_type, limit=page_size, offset=offset)
-            total = count_messages_db(get_company_db_path(company_arg), start, end, msg_type)
+            rows = query_messages_db(get_company_db_path(company_arg), start, end, msg_type, limit=page_size, offset=offset, region=region)
+            total = count_messages_db(get_company_db_path(company_arg), start, end, msg_type, region=region)
         else:
-            rows = query_messages_from_all_company_dbs(start, end, msg_type, limit=page_size, offset=offset)
-            total = count_messages_from_all_company_dbs(start, end, msg_type)
+            rows = query_messages_from_all_company_dbs(start, end, msg_type, limit=page_size, offset=offset, region=region)
+            total = count_messages_from_all_company_dbs(start, end, msg_type, region=region)
     else:
         company = session.get('company') or 'Unknown'
-        rows = query_messages_db(get_company_db_path(company), start, end, msg_type, limit=page_size, offset=offset)
-        total = count_messages_db(get_company_db_path(company), start, end, msg_type)
+        rows = query_messages_db(get_company_db_path(company), start, end, msg_type, limit=page_size, offset=offset, region=region)
+        total = count_messages_db(get_company_db_path(company), start, end, msg_type, region=region)
 
     total_pages = (total + page_size - 1) // page_size if total else 1
     return jsonify({
@@ -1771,6 +1744,18 @@ def api_messages():
         'total_pages': total_pages,
     })
 
+@app.route('/api/regions', methods=['GET'])
+@login_required
+def api_regions():
+    company = request.args.get('company', '').strip() or session.get('company') or 'Unknown'
+    if session.get('username') not in ('EgSA_Supervisor', 'Super_User'):
+        company = session.get('company') or 'Unknown'
+    path = ensure_message_db(company)
+    with closing(sqlite3.connect(path)) as db:
+        regions = sorted({DEFAULT_REGION} | {row[0] for row in db.execute('SELECT DISTINCT region FROM messages')})
+    return jsonify(company=company, regions=regions)
+
+
 @app.route('/api/node_latest', methods=['GET'])
 @login_required
 def api_node_latest():
@@ -1778,6 +1763,7 @@ def api_node_latest():
     company, plus the last N historical records for a specific node.
     Used by the supervisor to pre-seed the dashboard on company switch."""
     company_arg = request.args.get('company', '').strip()
+    region = region_id(request.args.get('region', DEFAULT_REGION))
     history_nid = request.args.get('history_node', '').strip()  # optional: node to fetch chart history for
     history_limit = 50
 
@@ -1801,27 +1787,28 @@ def api_node_latest():
             INNER JOIN (
                 SELECT node_id, MAX(id) AS max_id
                 FROM messages
-                WHERE type IN ('Status','Telemetry')
+                WHERE type IN ('Status','Telemetry') AND region = ?
                 GROUP BY node_id
             ) latest ON m.id = latest.max_id
-        """)
+        """, (region,))
         latest_per_node = [_format_row_timestamp(dict(r)) for r in c.fetchall()]
 
         # Recent history for a specific node (for chart pre-seed)
         if history_nid:
             c.execute("""
                 SELECT * FROM messages
-                WHERE node_id = ?
+                WHERE node_id = ? AND region = ?
                   AND type IN ('Status','Telemetry')
                   AND COALESCE(flow_live_valid, 0) = 1
                 ORDER BY timestamp DESC, id DESC LIMIT ?
-            """, (history_nid, history_limit))
+            """, (history_nid, region, history_limit))
             history_rows = list(reversed([_format_row_timestamp(dict(r)) for r in c.fetchall()]))
 
         conn.close()
 
     return jsonify({
         'company': company,
+        'region': region,
         'latest': latest_per_node,
         'history': history_rows,
     })
@@ -1849,8 +1836,8 @@ def api_consumption():
     db_path = ensure_message_db(company)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    query = 'SELECT * FROM consumption_periods WHERE 1=1'
-    params = []
+    query = 'SELECT * FROM consumption_periods WHERE region=?'
+    params = [region_id(request.args.get('region', DEFAULT_REGION))]
     if node_id:
         query += ' AND node_id = ?'
         params.append(node_id)
@@ -1871,28 +1858,29 @@ def api_consumption():
         row['flow_meter_name'] = flow_meter_name(row['flow_meter_type'])
         row['source_name'] = period_source_name(row['source'])
         row['quality_name'] = period_quality_name(row['quality'])
-    return jsonify({'company': company, 'rows': rows})
+    return jsonify({'company': company, 'region': request.args.get('region', DEFAULT_REGION), 'rows': rows})
 
 
 @app.route('/export_csv', methods=['GET'])
 @login_required
 def export_csv():
-    start = request.args.get('start', '1970-01-01 00:00:00')
+    region = region_id(request.args.get('region', DEFAULT_REGION))
+    start = request.args.get('start', '0')
     end = request.args.get('end', '2099-12-31 23:59:59')
     company_arg = request.args.get('company', '').strip()
     if session.get('username') in ('EgSA_Supervisor', 'Super_User'):
         if company_arg:
-            rows = query_messages_db(get_company_db_path(company_arg), start, end)
+            rows = query_messages_db(get_company_db_path(company_arg), start, end, region=region)
         else:
-            rows = query_messages_from_all_company_dbs(start, end)
+            rows = query_messages_from_all_company_dbs(start, end, region=region)
     else:
         company = session.get('company') or 'Unknown'
-        rows = query_messages_db(get_company_db_path(company), start, end)
+        rows = query_messages_db(get_company_db_path(company), start, end, region=region)
 
     def generate():
         data = StringIO()
         writer = csv.writer(data)
-        writer.writerow(('Received At', 'Measured At', 'Time Source', 'Type', 'Node ID', 'Sensor ID', 'Node Status', 'Battery Voltage', 'WDT Resets', 'Power Resets',
+        writer.writerow(('Received At', 'Measured At', 'Time Source', 'Type', 'Company', 'Region', 'Node ID', 'Sensor ID', 'Node Status', 'Battery Voltage', 'WDT Resets', 'Power Resets',
                          'Flow (m3/h)', 'Velocity (m/s)', 'Consumption Today (m3)', 'Consumption Month (m3)', 'Consumption Year (m3)',
                          'Flow Meter Type', 'Period Source', 'Flow Valid', 'Period Valid', 'Cumulative Valid', 'RTC Valid',
                          'Forward Total (L)', 'Reverse Total (L)', 'Net Total (L)', 'Period Quality', 'Alarm Flags',
@@ -1903,7 +1891,7 @@ def export_csv():
         for row in rows:
             writer.writerow((
                 row['timestamp'], row.get('measured_at', ''), row.get('time_source', ''),
-                row['type'], row['node_id'], row['sensor_id'], row.get('node_status', ''), row.get('battery_voltage', ''),
+                row['type'], row.get('company', ''), row.get('region', DEFAULT_REGION), row['node_id'], row['sensor_id'], row.get('node_status', ''), row.get('battery_voltage', ''),
                 row.get('wdt_reset_count', 0),
                 row.get('power_reset_count', 0),
                 row['flow'], row['velocity'], row['flow_day'], row['flow_month'], row['flow_year'],

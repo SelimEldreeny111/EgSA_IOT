@@ -14,8 +14,8 @@ extern PubSubClient mqtt;
 #include "../../src/comm/CachedTinyGsmClient.h"
 extern CachedTinyGsmClient gsmClient;
 const char kMqttServer[]="test",kMqttClientId[]="test-client";
-const char kMqttCommandTopic[]="EgSA/Test/1/CMD",kMqttBroadcastTopic[]="EgSA/Test/BroadCast/CMD";
-const char kMqttPublishTopicStatus[]="EgSA/Test/1/Status",kMqttPublishTopicTlm[]="EgSA/Test/1/Telemetry";
+const char kMqttCommandTopic[]="wiot/Test/Region_1/1/cmd",kMqttBroadcastTopic[]="wiot/Test/Region_1/broadcast";
+const char kMqttPublishTopicStatus[]="wiot/Test/Region_1/1/status",kMqttPublishTopicTlm[]="wiot/Test/Region_1/1/data";
 static int applied=0;
 static bool applyResult=true;
 static int networkConnectCalls=0;

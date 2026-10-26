@@ -85,6 +85,12 @@
             {% else %}
                 <input type="hidden" id="cfg-company" value="{{ company }}">
             {% endif %}
+            <label class="small" for="cfg-region">Region</label>
+            <input id="cfg-region" class="form-control form-control-sm" style="max-width:160px"
+                   value="Region_1" list="region-options" maxlength="40" pattern="[A-Za-z0-9_-]{1,40}"
+                   onchange="handleRegionChange()" aria-label="Selected region">
+            <datalist id="region-options"><option value="Region_1"></option></datalist>
+
                 <div id="conn-indicator" class="conn-indicator"><span class="dot"></span><span class="text">Disconnected</span></div>
                 <div id="data-freshness" class="freshness-indicator"><span class="dot"></span><span class="text">No live data</span></div>
             </div>

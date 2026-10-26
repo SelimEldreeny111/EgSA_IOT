@@ -25,6 +25,7 @@ CachedTinyGsmClient gsmClient(modem);
 #include "VerifiedBufferedClient.h"
 #include "PriorityPublishQueue.h"
 #include "TelemetryPayload.h"
+#include "MqttTopicRouting.h"
 
 VerifiedBufferedClient<AppConfig::kMqttPacketBufferSize> bufferedClient(gsmClient);
 PubSubClient   mqtt(bufferedClient);
@@ -101,58 +102,8 @@ void logMqttStateDetails(int state)
 /** @brief Validate gateway command-topic structure and extract node/broadcast routing. */
 bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool& isBroadcastTopic)
 {
-  topicNodeId = 0;
-  isBroadcastTopic = false;
-
-  const size_t prefixLength = strlen(kMqttCompanyTopicPrefix);
-  if (strncmp(topic, kMqttCompanyTopicPrefix, prefixLength) != 0 || topic[prefixLength] != '/')
-  {
-    return false;
-  }
-
-  const char* nodePart = topic + prefixLength + 1;
-  const char* slashAfterNode = strchr(nodePart, '/');
-  if (slashAfterNode == nullptr)
-  {
-    return false;
-  }
-
-  const char* suffix = slashAfterNode + 1;
-  if (strcmp(suffix, "CMD") != 0)
-  {
-    return false;
-  }
-
-  const size_t nodePartLength = static_cast<size_t>(slashAfterNode - nodePart);
-  if (nodePartLength == strlen("BroadCast") &&
-      strncmp(nodePart, "BroadCast", nodePartLength) == 0)
-  {
-    isBroadcastTopic = true;
-    return true;
-  }
-
-  if (nodePartLength == 0 || nodePartLength > 5)
-  {
-    return false;
-  }
-
-  uint32_t value = 0;
-  for (size_t i = 0; i < nodePartLength; ++i)
-  {
-    if (nodePart[i] < '0' || nodePart[i] > '9')
-    {
-      return false;
-    }
-    value = (value * 10UL) + static_cast<uint32_t>(nodePart[i] - '0');
-  }
-
-  if (value == 0 || value > 65535UL)
-  {
-    return false;
-  }
-
-  topicNodeId = static_cast<uint16_t>(value);
-  return true;
+  return MqttTopicRouting::parseCommand(topic, kMqttCompanyTopicPrefix,
+                                        topicNodeId, isBroadcastTopic);
 }
 #endif
 }

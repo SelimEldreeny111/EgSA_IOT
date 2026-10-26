@@ -101,15 +101,15 @@ class ServerValidationTests(unittest.TestCase):
         with patch.object(self.server, 'save_message') as save, \
                 patch.object(self.server, 'emit_iot_message'), \
                 patch.object(self.server, 'dispatch_queued_command'):
-            self.server.on_mqtt_plaintext('EgSA/AuditStatusCompany/7/Telemetry', msg.SerializeToString())
+            self.server.on_mqtt_plaintext('wiot/AuditStatusCompany/Region_1/7/data', msg.SerializeToString())
             self.assertEqual(save.call_args.args[1], 'Telemetry')
 
     def test_invalid_topics_never_reach_storage(self):
         msg = messages_pb2.Status_Message(node_id=7)
-        topics = ('Other/Company_1/7/Status', 'EgSA/Company_1/7/Status/extra',
-            'EgSA/Company_1/7/notStatus', 'EgSA/+/7/Status',
-            'EgSA/Company_1/0/Status', 'EgSA/Company_1/65536/Status',
-            'EgSA/Company_1/+7/Status', 'EgSA/__all__/7/Status')
+        topics = ('Other/Company_1/7/Status', 'wiot/Company_1/Region_1/7/status/extra',
+            'EgSA/Company_1/7/notStatus', 'wiot/+/Region_1/7/status',
+            'wiot/Company_1/Region_1/0/status', 'wiot/Company_1/Region_1/65536/status',
+            'wiot/Company_1/Region_1/+7/status', 'wiot/__all__/Region_1/7/status')
         with patch.object(self.server, 'save_message') as save:
             for topic in topics:
                 with self.subTest(topic=topic):
@@ -124,14 +124,14 @@ class ServerValidationTests(unittest.TestCase):
                     patch.object(self.server, 'emit_iot_message') as emit:
                 msg = messages_pb2.Status_Message(node_id=7)
                 setattr(msg, field, value)
-                self.server.on_mqtt_plaintext('EgSA/Company_1/7/Status', msg.SerializeToString())
+                self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/7/status', msg.SerializeToString())
                 save.assert_not_called(); emit.assert_not_called()
 
     def test_secondary_nan_is_also_rejected(self):
         msg = messages_pb2.Status_Message(node_id=7)
         msg.secondary_flow_meter.flow_rate = float('nan')
         with patch.object(self.server, 'save_message') as save:
-            self.server.on_mqtt_plaintext('EgSA/Company_1/7/Status', msg.SerializeToString())
+            self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/7/status', msg.SerializeToString())
             save.assert_not_called()
 
     def test_every_command_rejects_boolean_or_fractional_node_ids(self):
@@ -193,7 +193,7 @@ class ServerValidationTests(unittest.TestCase):
             msg = messages_pb2.CMD_Message(node_id=node, cmd_id=4)
             with patch.object(self.server, 'save_message') as save, \
                     patch.object(self.server, 'emit_iot_message'):
-                self.server.on_mqtt_plaintext('EgSA/Company_1/BroadCast/CMD', msg.SerializeToString())
+                self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/broadcast', msg.SerializeToString())
                 self.assertEqual(save.call_args.args[1], 'Command')
 
     def test_valid_negative_reverse_flow_and_legacy_defaults_are_retained(self):
@@ -201,7 +201,7 @@ class ServerValidationTests(unittest.TestCase):
         with patch.object(self.server, 'save_message') as save, \
                 patch.object(self.server, 'emit_iot_message'), \
                 patch.object(self.server, 'dispatch_queued_command'):
-            self.server.on_mqtt_plaintext('EgSA/Company_1/7/status', msg.SerializeToString())
+            self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/7/status', msg.SerializeToString())
             self.assertEqual(save.call_args.args[4], -12.5)
 
     def test_telemetry_reports_rate_in_milliseconds_not_command_seconds(self):
@@ -209,12 +209,12 @@ class ServerValidationTests(unittest.TestCase):
             msg = messages_pb2.Telemetry(node_id=7, sampling_rate=rate, Transmission_rate=rate)
             with patch.object(self.server, 'save_message') as save, \
                     patch.object(self.server, 'emit_iot_message'):
-                self.server.on_mqtt_plaintext('EgSA/Company_1/7/Telemetry', msg.SerializeToString())
+                self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/7/data', msg.SerializeToString())
                 self.assertTrue(save.called, rate)
         for rate in (1, 4999, 86400001):
             msg = messages_pb2.Telemetry(node_id=7, sampling_rate=rate)
             with patch.object(self.server, 'save_message') as save:
-                self.server.on_mqtt_plaintext('EgSA/Company_1/7/Telemetry', msg.SerializeToString())
+                self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/7/data', msg.SerializeToString())
                 save.assert_not_called()
 
 
@@ -263,7 +263,7 @@ class MqttReadinessTests(unittest.TestCase):
 
     def test_multiple_subscriptions_all_require_success(self):
         client = self.client()
-        client.subscribe_topics = ['EgSA/+/+/Status', 'EgSA/+/+/Telemetry']
+        client.subscribe_topics = ['wiot/+/Region_1/+/status', 'wiot/+/Region_1/+/data']
         client.client.subscribe.side_effect = [(0, 1), (0, 2)]
         client._on_connect(client.client, None, {}, 0)
         client._on_subscribe(client.client, None, 1, [0])

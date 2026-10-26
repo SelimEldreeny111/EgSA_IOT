@@ -247,7 +247,7 @@ class ServerDatabaseTests(unittest.TestCase):
             with patch.object(self.server_web, "emit_iot_message") as emit, \
                  patch.object(self.server_web, "dispatch_queued_command"):
                 self.server_web.on_mqtt_plaintext(
-                    f"EgSA/{company}/35/{kind}", msg.SerializeToString())
+                    f"wiot/{company}/Region_1/35/{'data' if kind == 'Telemetry' else 'status'}", msg.SerializeToString())
             self.assertEqual(emit.call_args.args[0]["WDT Resets"], count)
             self.assertEqual(emit.call_args.args[0]["Power Resets"], 123)
         with closing(sqlite3.connect(self.server_web.get_company_db_path(company))) as db:
@@ -274,14 +274,14 @@ class ServerDatabaseTests(unittest.TestCase):
         with closing(sqlite3.connect(db_path)) as db:
             db.execute("CREATE TABLE messages (id INTEGER PRIMARY KEY, timestamp TEXT, "
                        "type TEXT, node_id INTEGER, sensor_id TEXT, details TEXT, "
-                       "company TEXT, wdt_reset_count INTEGER, power_reset_count INTEGER)")
+                       "company TEXT, wdt_reset_count INTEGER, power_reset_count INTEGER, region TEXT)")
             db.execute("INSERT INTO messages VALUES (1,'2026-10-01 10:00:00',"
-                       "'Status',35,'1','keep',?,12,9)", (company,))
+                       "'Status',35,'1','keep',?,12,9,'Region_2')", (company,))
             db.commit()
         self.server_web.ensure_message_db(company)
         with closing(sqlite3.connect(db_path)) as db:
-            self.assertEqual(db.execute("SELECT details,wdt_reset_count,power_reset_count FROM messages").fetchone(),
-                             ("keep", 12, 9))
+            self.assertEqual(db.execute("SELECT details,wdt_reset_count,power_reset_count,region FROM messages").fetchone(),
+                             ("keep", 12, 9, "Region_2"))
 
     def test_dual_flow_samples_and_periods_are_stored_separately(self):
         company = "Dual Flow"
@@ -375,7 +375,7 @@ class ServerDatabaseTests(unittest.TestCase):
         with patch.object(self.server_web, "emit_iot_message") as emit, \
              patch.object(self.server_web, "log_event"):
             self.server_web.on_mqtt_plaintext(
-                f"EgSA/{company}/33/status", msg.SerializeToString()
+                f"wiot/{company}/Region_1/33/status", msg.SerializeToString()
             )
         payload = emit.call_args.args[0]
         self.assertEqual(payload["Active Sensors"], 4)
@@ -418,7 +418,7 @@ class ServerDatabaseTests(unittest.TestCase):
              patch.object(self.server_web, "dispatch_queued_command"):
             for msg in (good, bad):
                 self.server_web.on_mqtt_plaintext(
-                    f"EgSA/{company}/34/Status", msg.SerializeToString())
+                    f"wiot/{company}/Region_1/34/status", msg.SerializeToString())
         payload = emit.call_args.args[0]
         for field in ("Flow", "Velocity", "Flow Day", "Flow Month", "Flow Year",
                       "Soil Temp", "Soil Moist", "EC Temp", "EC Moist", "EC Cond",

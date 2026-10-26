@@ -13,6 +13,7 @@ from contextlib import contextmanager, closing
 from pathlib import Path
 
 from input_validation import company_id, integer, SQLITE_MAX_INT
+from region_topics import DEFAULT_REGION, region_id
 
 DEFAULT_TTL_SECONDS = 86400
 MAX_TTL_SECONDS = 604800
@@ -70,6 +71,9 @@ class CommandQueue:
                 );
                 CREATE TABLE IF NOT EXISTS command_metadata (name TEXT PRIMARY KEY,value TEXT NOT NULL);
             """)
+            if 'region' not in {r['name'] for r in db.execute('PRAGMA table_info(pending_commands)')}:
+                db.execute("ALTER TABLE pending_commands ADD COLUMN region TEXT NOT NULL DEFAULT 'Region_1'")
+            db.execute('CREATE INDEX IF NOT EXISTS command_region_scope ON pending_commands(company,region,node_id,state)')
             if 'mqtt_mid' not in {r['name'] for r in db.execute('PRAGMA table_info(command_attempts)')}:
                 db.execute('ALTER TABLE command_attempts ADD COLUMN mqtt_mid INTEGER')
         if legacy_path and Path(legacy_path).is_file():
@@ -143,7 +147,7 @@ class CommandQueue:
             for row in active:
                 if row['cmd_type'] not in DESIRED_VALUES:
                     continue
-                key = (row['company'], row['node_id'], row['cmd_id'])
+                key = (row['company'], row['region'], row['node_id'], row['cmd_id'])
                 if key not in newest:
                     newest[key] = row['request_id']
                     continue
@@ -174,8 +178,9 @@ class CommandQueue:
             self._event(db, row['request_id'], state, now, reason)
 
     def enqueue(self, company, node_id, cmd_id, cmd_type, cmd_data, request_id=None,
-                ttl_seconds=DEFAULT_TTL_SECONDS, now=None, *, actor='', delivery='next_wake', broadcast=False):
+                ttl_seconds=DEFAULT_TTL_SECONDS, now=None, *, actor='', delivery='next_wake', broadcast=False, region=DEFAULT_REGION):
         company_id(company)
+        region_id(region)
         node_id = integer(node_id, 1, 65535, 'Node ID')
         cmd_id = integer(cmd_id, 1, 8, 'Command ID')
         if {1:'SRATE', 2:'STRAN', 3:'STIME', 4:'GOSTM', 5:'VALVE', 6:'WAKE',
@@ -206,8 +211,8 @@ class CommandQueue:
                 raise ValueError('Request ID already exists')
             if cmd_type in DESIRED_VALUES:
                 scope = "" if broadcast else " AND node_id=?"
-                params = [company, cmd_id] + ([] if broadcast else [node_id])
-                old = db.execute("""SELECT * FROM pending_commands WHERE company=? AND cmd_id=?
+                params = [company, region, cmd_id] + ([] if broadcast else [node_id])
+                old = db.execute("""SELECT * FROM pending_commands WHERE company=? AND region=? AND cmd_id=?
                     AND state IN ('pending','dispatched','waiting_retry','broadcast_partial')""" + scope, params).fetchall()
                 for row in old:
                     reason = 'Replaced by newer operator intent; prior submission may already have executed' if row['attempts'] else 'Replaced before submission'
@@ -215,18 +220,18 @@ class CommandQueue:
                         outcome_uncertain=?,reason=? WHERE request_id=?""",
                         (request_id, int(row['attempts'] > 0), reason, row['request_id']))
                     self._event(db, row['request_id'], 'superseded', now, request_id)
-            count = db.execute("""SELECT COUNT(*) FROM pending_commands WHERE company=? AND node_id=?
-                AND state IN ('pending','dispatched','waiting_retry','broadcast_partial')""", (company, target)).fetchone()[0]
+            count = db.execute("""SELECT COUNT(*) FROM pending_commands WHERE company=? AND region=? AND node_id=?
+                AND state IN ('pending','dispatched','waiting_retry','broadcast_partial')""", (company, region, target)).fetchone()[0]
             if count >= MAX_PENDING_PER_NODE:
                 raise ValueError('Node command window full; wait for completion/expiry')
             db.execute("""INSERT INTO pending_commands
-                (request_id,company,node_id,cmd_id,cmd_type,cmd_data,actor,delivery,broadcast,
+                (request_id,company,region,node_id,cmd_id,cmd_type,cmd_data,actor,delivery,broadcast,
                  created_at,expires_at,next_attempt_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (request_id, company, target, cmd_id, cmd_type, cmd_data, str(actor)[:80], delivery,
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (request_id, company, region, target, cmd_id, cmd_type, cmd_data, str(actor)[:80], delivery,
                  int(broadcast), now, now + ttl_seconds, now))
             self._event(db, request_id, 'accepted', now, delivery)
-        return {'request_id': request_id, 'expires_at': now + ttl_seconds, 'node_id': target}
+        return {'request_id': request_id, 'expires_at': now + ttl_seconds, 'node_id': target, 'region': region}
 
     def _claim(self, db, row, now):
         attempt = row['attempts'] + 1
@@ -241,20 +246,20 @@ class CommandQueue:
         self._event(db, row['request_id'], 'submitted', now, f'attempt={attempt}')
         return dict(db.execute("SELECT * FROM pending_commands WHERE request_id=?", (row['request_id'],)).fetchone())
 
-    def claim_on_status(self, company, node_id, now=None):
+    def claim_on_status(self, company, node_id, now=None, *, region=DEFAULT_REGION):
         """One command per Status. Operator VALVE > fresh pending > bounded retry."""
         now = int(time.time() if now is None else now)
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._refresh(db, now)
             row = db.execute("""SELECT * FROM pending_commands
-                WHERE company=? AND node_id=? AND delivery='next_wake'
+                WHERE company=? AND region=? AND node_id=? AND delivery='next_wake'
                   AND state IN ('pending','dispatched','waiting_retry')
                   AND next_attempt_at<=? AND expires_at>?
                   AND (attempts=0 OR (cmd_type IN ('SRATE','STRAN') AND attempts<?))
                 ORDER BY CASE WHEN cmd_type='VALVE' THEN 0 ELSE 1 END,
                          CASE WHEN attempts=0 THEN 0 ELSE 1 END,id LIMIT 1""",
-                (company, node_id, now, now, MAX_ATTEMPTS)).fetchone()
+                (company, region_id(region), node_id, now, now, MAX_ATTEMPTS)).fetchone()
             return self._claim(db, row, now) if row else None
 
     def claim_immediate(self, request_id, now=None):
@@ -294,15 +299,15 @@ class CommandQueue:
                 WHERE request_id=? AND attempts=? AND state='dispatched'""",
                 ('Publish error; execution unknown: ' + str(reason)[:300], request_id, attempt))
 
-    def acknowledge(self, company, node_id, request_id, cmd_id, success=True, now=None):
+    def acknowledge(self, company, node_id, request_id, cmd_id, success=True, now=None, *, region=DEFAULT_REGION):
         if not request_id:
             return False
         now = int(time.time() if now is None else now)
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("""SELECT * FROM pending_commands WHERE request_id=? AND company=?
+            row = db.execute("""SELECT * FROM pending_commands WHERE request_id=? AND company=? AND region=?
                 AND cmd_id=? AND (node_id=? OR broadcast=1) AND attempts>0""",
-                (request_id, company, cmd_id, node_id)).fetchone()
+                (request_id, company, region_id(region), cmd_id, node_id)).fetchone()
             if row is None:
                 return False
             if not 1 <= node_id <= 65535:
@@ -324,12 +329,12 @@ class CommandQueue:
                         json.dumps({'node_id': node_id, 'late': bool(late)}))
             return True
 
-    def get(self, request_id, company, node_id, now=None):
+    def get(self, request_id, company, node_id, now=None, *, region=DEFAULT_REGION):
         now = int(time.time() if now is None else now)
         with self._db() as db:
             self._refresh(db, now)
-            row = db.execute("SELECT * FROM pending_commands WHERE request_id=? AND company=? AND node_id=?",
-                             (request_id, company, node_id)).fetchone()
+            row = db.execute("SELECT * FROM pending_commands WHERE request_id=? AND company=? AND region=? AND node_id=?",
+                             (request_id, company, region_id(region), node_id)).fetchone()
             if row is None:
                 return None
             item = dict(row)
@@ -341,12 +346,12 @@ class CommandQueue:
                 'SELECT * FROM command_attempts WHERE request_id=? ORDER BY attempt', (request_id,))]
             return item
 
-    def list(self, company, node_id=None, limit=50, now=None):
+    def list(self, company, node_id=None, limit=50, now=None, *, region=DEFAULT_REGION):
         now = int(time.time() if now is None else now)
         limit = integer(limit, 1, 200, 'Timeline limit')
         with self._db() as db:
             self._refresh(db, now)
             scope = " AND node_id=?" if node_id is not None else ""
-            params = [company] + ([node_id] if node_id is not None else []) + [limit]
+            params = [company, region_id(region)] + ([node_id] if node_id is not None else []) + [limit]
             return [dict(r) for r in db.execute(
-                "SELECT * FROM pending_commands WHERE company=?" + scope + " ORDER BY id DESC LIMIT ?", params)]
+                "SELECT * FROM pending_commands WHERE company=? AND region=?" + scope + " ORDER BY id DESC LIMIT ?", params)]

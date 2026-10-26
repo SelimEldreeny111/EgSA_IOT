@@ -191,3 +191,7 @@ the branch, and local generated deliverables are placed in the final folder.
 
 GitHub publication requires working Git authentication. A local commit is not
 a completed push; check `FINAL_COPY_INFO.md` for the actual publication status.
+
+## 26 October 2026: regional MQTT contract
+
+Active node/web topics now use lowercase `wiot/{company}/{region}/{node}/data|status|cmd`; broadcast is `wiot/{company}/{region}/broadcast`. Bench identity is Company_1 / Region_1 / node 3. Follow [the regional migration guide](Node/IoT_Node_Encrypted/REGIONAL_MQTT_TOPICS_GUIDE.md) before coordinated server/node deployment.

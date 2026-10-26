@@ -108,6 +108,33 @@ function getSelectedCompany() {
     return document.getElementById('cfg-company')?.value || 'Company_1';
 }
 
+function getSelectedRegion() {
+    return document.getElementById('cfg-region')?.value.trim() || 'Region_1';
+}
+
+async function loadRegionOptions() {
+    const company = getSelectedCompany();
+    try {
+        const response = await fetch('/api/regions?' + new URLSearchParams({company}));
+        const result = await response.json();
+        if (company !== getSelectedCompany() || !response.ok) return;
+        const list = document.getElementById('region-options');
+        if (list) list.innerHTML = (result.regions || []).map(region => safeHtml`<option value="${region}"></option>`).join('');
+    } catch (error) { console.warn('Region list unavailable', error); }
+}
+
+async function handleRegionChange() {
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(getSelectedRegion())) {
+        showToast('Region must contain 1..40 letters, digits, _ or -.', 'danger'); return;
+    }
+    stopPeriodicStime();
+    resetLiveTelemetryState();
+    await preloadCompanyData(getSelectedCompany());
+    initNodeSelectors(); refreshNodeSelectors(); renderLiveNode(); renderGraphNode();
+    refreshMap(); renderThresholdTable(); renderLocationTable(); searchTabular();
+    refreshCommandTimeline();
+}
+
 function getAllowedNodeIds() {
     const company = getSelectedCompany();
     return Object.prototype.hasOwnProperty.call(COMPANY_NODE_MAP, company)
@@ -212,10 +239,11 @@ function syncNodeSelection(nodeId) {
  */
 async function loadNodeHistory(nid) {
     if (!nid) return;
+    const region = getSelectedRegion(), company = getSelectedCompany();
     const existing = nodeHistoryData[nid];
     if (existing && existing.flows.length > 0) return; // already have live/seeded points
     try {
-        const params = new URLSearchParams({ history_node: nid });
+        const params = new URLSearchParams({ history_node: nid, region });
         if (document.body.dataset.role === 'admin' || IS_SUPERVISOR) params.append('company', getSelectedCompany());
         const res = await fetch(`/api/node_latest?${params}`);
         if (!res.ok) return;
@@ -227,6 +255,7 @@ async function loadNodeHistory(nid) {
             const ts = row.timestamp_epoch != null ? new Date(row.timestamp_epoch * 1000) : new Date(row.timestamp);
             bucket.lbls.push(ts);
         });
+        if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
         nodeHistoryData[nid] = bucket;
     } catch (err) {
         console.warn('Failed to load node history:', err);
@@ -390,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+    loadRegionOptions();
     restoreBrokerConfig();
     setLiveEmptyState('Connect to an MQTT broker to start receiving live data. Use the Connect button above.', true);
     startFreshnessTimer();
@@ -487,7 +517,10 @@ function setGraphWindow(size) {
 }
 
 async function handleCompanyChange() {
+    stopPeriodicStime();
     const company = getSelectedCompany();
+    document.getElementById('cfg-region').value = 'Region_1';
+    await loadRegionOptions();
 
     // Update server-side session company (admin or supervisor/monitor)
     if (document.body.dataset.role === 'admin' || IS_SUPERVISOR) {
@@ -534,6 +567,7 @@ async function handleCompanyChange() {
  * Only called for the supervisor on company switch.
  */
 async function preloadCompanyData(company) {
+    const region = getSelectedRegion();
     // Clear state for the new company without triggering the empty-state UI
     nodeLatestData  = {};
     nodeHistoryData = {};
@@ -543,11 +577,12 @@ async function preloadCompanyData(company) {
                       || getAllowedNodeIds()[0]
                       || '1';
     try {
-        const params = new URLSearchParams({ company, history_node: selectedNode });
+        const params = new URLSearchParams({ company, region, history_node: selectedNode });
         const res  = await fetch(`/api/node_latest?${params}`);
         if (!res.ok) return;
         const data = await res.json();
 
+        if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
         // Seed nodeLatestData with the latest record per node.
         // Also ensure every node has an empty history bucket so renderGraphNode()
         // never hits undefined even before live data arrives for that node.
@@ -569,6 +604,7 @@ async function preloadCompanyData(company) {
                 'Power Resets': row.power_reset_count ?? 0,
                 Details:      row.details || '',
                 Company:      company,
+                Region:       row.region,
                 'Soil Temp':  row.soil_temperature,
                 'Soil Moist': row.soil_moisture,
                 'Soil Valid': row.soil_moisture_temp_valid,
@@ -645,6 +681,7 @@ async function connect() {
         broker: document.getElementById('cfg-broker').value,
         port: parseInt(document.getElementById('cfg-port').value),
         company: getSelectedCompany(),
+        region: getSelectedRegion(),
         aes_key: document.getElementById('cfg-aes').value,
         client_id: document.getElementById('cfg-client').value
     };
@@ -707,14 +744,14 @@ async function refreshCommandTimeline() {
     const body = document.querySelector('#command-timeline tbody');
     const status = document.getElementById('command-timeline-status');
     if (!body || commandTimelineBusy) return;
-    const company = getSelectedCompany();
+    const company = getSelectedCompany(), region = getSelectedRegion();
     if (!company) return;
     commandTimelineBusy = true;
     try {
-        const response = await fetch('/api/commands?' + new URLSearchParams({company, limit: '50'}));
+        const response = await fetch('/api/commands?' + new URLSearchParams({company, region, limit: '50'}));
         const result = await response.json();
         // Company can change while a request is in flight.
-        if (company !== getSelectedCompany()) return;
+        if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
         if (!response.ok || !result.success) throw new Error(result.error || 'Timeline unavailable');
         body.innerHTML = result.commands.map(item => safeHtml`<tr>
             <td>${item.request_id}<br>${new Date(item.created_at * 1000).toLocaleString()}</td>
@@ -725,7 +762,7 @@ async function refreshCommandTimeline() {
             <td>${item.attempts}<br>${item.reason}</td></tr>`).join('');
         status.textContent = 'Execution is confirmed only by a matching node reply; unknown is not failure or success.';
     } catch (error) {
-        if (company === getSelectedCompany()) {
+        if (company === getSelectedCompany() && region === getSelectedRegion()) {
             body.textContent = '';
             status.textContent = error.message;
         }
@@ -794,6 +831,7 @@ async function sendCommand(broadcast, suppressToast = false) {
         cmd_data: document.getElementById('cmd-data').value,
         broadcast: broadcast,
         company: getSelectedCompany(),
+        region: getSelectedRegion(),
         delivery: document.getElementById('cmd-delivery')?.value || 'now',
         ttl_seconds: Number(document.getElementById('cmd-ttl')?.value || 86400)
     };
@@ -804,15 +842,17 @@ async function sendCommand(broadcast, suppressToast = false) {
     }
     const res = await fetch('/api/command', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     const result = await res.json();
+    if (data.company !== getSelectedCompany() || data.region !== getSelectedRegion()) return result;
     if (result.success && result.queued) {
         setWakeStatus(`Command ${data.cmd_type} queued as request ${result.request_id}. It will be sent after Node ${nodeValue} next reports Status; expiry ${new Date(result.expires_at * 1000).toLocaleString()}.`);
     } else if (result.success && data.cmd_type === 'WAKE') {
-        const alreadyAcknowledged = wakeTracker.published(data.company, nodeValue, result.request_id, broadcast);
+        const alreadyAcknowledged = wakeTracker.published(data.company, nodeValue, result.request_id, broadcast, data.region);
         setWakeStatus(alreadyAcknowledged
             ? `${broadcast ? 'At least one broadcast node' : `Node ${nodeValue}`} acknowledged WAKE request ${result.request_id}.`
             : `WAKE request ${result.request_id} published. Waiting for ${broadcast ? 'individual broadcast node acknowledgements' : `Node ${nodeValue} acknowledgement`}.`);
         if (!alreadyAcknowledged) setTimeout(() => {
-            if (wakeTracker.waiting(data.company, broadcast ? '*' : nodeValue, result.request_id)) {
+            if (data.company !== getSelectedCompany() || data.region !== getSelectedRegion()) return;
+            if (wakeTracker.waiting(data.company, broadcast ? '*' : nodeValue, result.request_id, data.region)) {
                 setWakeStatus(`No acknowledgement yet for WAKE ${result.request_id}. The node may be offline, in RTC deep sleep, or using an unsupported profile. Publication alone does not confirm wake.`);
             }
         }, 20000);
@@ -842,12 +882,14 @@ function updateStimeIndicator(active) {
 }
 
 function startPeriodicStime() {
+    const company = getSelectedCompany(), region = getSelectedRegion();
     const type = document.getElementById('cmd-type').value;
     if (type !== 'STIME') { showToast('Select STIME command first.', 'warning'); return; }
     const intervalSec = parseFloat(document.getElementById('cmd-interval').value);
     if (Number.isNaN(intervalSec) || intervalSec <= 0) { showToast('Enter a valid interval in seconds.', 'warning'); return; }
     if (stimePeriodicHandle) stopPeriodicStime();
     sendCommand(true).then(result => {
+        if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
         if (result.success) {
             stimePeriodicHandle = setInterval(() => sendCommand(true, true), intervalSec * 1000);
             document.getElementById('start-stime-btn').disabled = true;
@@ -893,7 +935,8 @@ socket.on('command_event', function(event) {
 socket.on('iot_message', function(msg) {
     // The supervisor receives every company's stream; show only the one
     // currently selected. Other users are room-scoped server-side already.
-    if (IS_SUPERVISOR && msg.Company && msg.Company !== getSelectedCompany()) return;
+    if (msg.Company && msg.Company !== getSelectedCompany()) return;
+    if ((msg.Region || 'Region_1') !== getSelectedRegion()) return;
     if (msg['Command ACK Success'] && msg['Command ACK Request ID']) {
         setWakeStatus(`Node ${msg['Node ID']} acknowledged command request ${msg['Command ACK Request ID']}.`);
         refreshCommandTimeline();
@@ -987,7 +1030,7 @@ socket.on('iot_message', function(msg) {
 
 // ─── SVG Gauges ───────────────────────────────────────────────────────────────
 function _gaugeThreshold(field) {
-    const company = getSelectedCompany();
+    const company = `${getSelectedCompany()}/${getSelectedRegion()}`;
     const nid     = document.getElementById('live-node-select')?.value || '1';
     const t = getNodeThreshold(company, nid);
     if (field === 'flow') return { min: t.flow_min, max: t.flow_max };
@@ -1348,10 +1391,11 @@ let commandHistorySize = 20;
 let commandHistoryTotalPages = 1;
 
 async function searchTabular(page = 1) {
+    const company = getSelectedCompany(), region = getSelectedRegion();
     historyPage = Math.max(1, page);
     const s = document.getElementById('filter-start').value;
     const e = document.getElementById('filter-end').value;
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({region: getSelectedRegion()});
     if (s) params.append('start', `${s} 00:00:00`);
     if (e) params.append('end',   `${e} 23:59:59`);
     if (document.body.dataset.role === 'admin' || IS_SUPERVISOR) params.append('company', getSelectedCompany());
@@ -1360,6 +1404,7 @@ async function searchTabular(page = 1) {
     const url = '/api/messages' + (params.toString() ? '?' + params : '');
     const res  = await fetch(url);
     const result = await res.json();
+    if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
     const rows = result.rows || [];
     historyTotalPages = result.total_pages || 1;
     const tbody = document.querySelector('#message-table tbody');
@@ -1369,7 +1414,7 @@ async function searchTabular(page = 1) {
         tr.innerHTML = safeHtml`
             <td class="text-nowrap">${msg.timestamp}</td>
             <td><span class="badge badge-type-${(msg.type||'').toLowerCase()}">${msg.type}</span></td>
-            <td>${msg.node_id}</td><td>${msg.sensor_id}</td><td>${msg.node_status === undefined || msg.node_status === null ? '-' : nodeStatusLabel(msg.node_status)}</td>
+            <td>${msg.region || 'Region_1'}/${msg.node_id}</td><td>${msg.sensor_id}</td><td>${msg.node_status === undefined || msg.node_status === null ? '-' : nodeStatusLabel(msg.node_status)}</td>
             <td>${formatNumberOrDash(msg.battery_voltage, 2)}</td>
             <td>${formatNumberOrDash(msg.flow)}</td>
             <td>${formatNumberOrDash(msg.velocity)}</td>
@@ -1404,8 +1449,9 @@ function setHistoryPageSize(size) {
 }
 
 async function loadCommandHistory(page = 1) {
+    const company = getSelectedCompany(), region = getSelectedRegion();
     commandHistoryPage = Math.max(1, page);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({region: getSelectedRegion()});
     params.append('type', 'Command');
     params.append('page', commandHistoryPage);
     params.append('page_size', commandHistorySize);
@@ -1413,6 +1459,7 @@ async function loadCommandHistory(page = 1) {
     const url = '/api/messages?' + params;
     const res = await fetch(url);
     const result = await res.json();
+    if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
     const rows = result.rows || [];
     commandHistoryTotalPages = result.total_pages || 1;
     const tbody = document.querySelector('#command-history-table tbody');
@@ -1421,7 +1468,7 @@ async function loadCommandHistory(page = 1) {
         const tr = document.createElement('tr');
         tr.innerHTML = safeHtml`
             <td class="text-nowrap">${msg.timestamp}</td>
-            <td>${msg.node_id}</td>
+            <td>${msg.region || 'Region_1'}/${msg.node_id}</td>
             <td>${msg.type}</td>
             <td class="text-truncate" style="max-width:240px;" title="${msg.details}">${msg.details}</td>
             <td>${msg.company || '-'}</td>`;
@@ -1441,7 +1488,7 @@ function changeCommandHistoryPage(delta) {
 function exportExcel() {
     const s = document.getElementById('filter-start').value;
     const e = document.getElementById('filter-end').value;
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({region: getSelectedRegion()});
     if (s) params.append('start', `${s} 00:00:00`);
     if (e) params.append('end',   `${e} 23:59:59`);
     if (document.body.dataset.role === 'admin' || IS_SUPERVISOR) params.append('company', getSelectedCompany());
@@ -1561,11 +1608,13 @@ function loadThresholds() {
 
 function getNodeThreshold(company, nid) {
     const all = loadThresholds();
-    return all[company]?.[nid] || { flow_min: '', flow_max: '', vel_min: '', vel_max: '' };
+    const legacyCompany = company.endsWith('/Region_1') ? company.slice(0, -9) : null;
+    return all[company]?.[nid] || (legacyCompany ? all[legacyCompany]?.[nid] : null) ||
+        { flow_min: '', flow_max: '', vel_min: '', vel_max: '' };
 }
 
 function saveThresholds() {
-    const company = getSelectedCompany();
+    const company = `${getSelectedCompany()}/${getSelectedRegion()}`;
     const all = loadThresholds();
     if (!all[company]) all[company] = {};
     let saved = 0;
@@ -1611,7 +1660,7 @@ function markThresholdRowDirty(row) {
 }
 
 function renderThresholdTable() {
-    const company = getSelectedCompany();
+    const company = `${getSelectedCompany()}/${getSelectedRegion()}`;
     const nodeIds = getAllowedNodeIds();
     const tbody = document.getElementById('threshold-tbody');
     if (!tbody) return;
@@ -1642,7 +1691,7 @@ function renderThresholdTable() {
 function checkThresholds(msg) {
     if (msg.Type !== 'Status' && msg.Type !== 'Telemetry') return;
     if (Number(msg['Flow Live Valid']) !== 1) return;
-    const company = getSelectedCompany();
+    const company = `${getSelectedCompany()}/${getSelectedRegion()}`;
     const nid = String(msg['Node ID']);
     const t = getNodeThreshold(company, nid);
 
@@ -1714,7 +1763,19 @@ const MAP_DEFAULT_CENTER = [26.8, 30.8]; // Egypt centre
 const MAP_DEFAULT_ZOOM   = 6;
 
 function loadNodePositions() {
-    try { return JSON.parse(localStorage.getItem(MAP_STORAGE_KEY)) || {}; } catch { return {}; }
+    try {
+        const positions = JSON.parse(localStorage.getItem(MAP_STORAGE_KEY)) || {};
+        const company = getSelectedCompany();
+        Object.keys(positions).forEach(key => {
+            const prefix = `${company}_`;
+            if (!key.startsWith(prefix)) return;
+            const node = key.slice(prefix.length);
+            if (!/^[1-9][0-9]*$/.test(node)) return;
+            const regional = JSON.stringify([company, 'Region_1', node]);
+            if (!Object.prototype.hasOwnProperty.call(positions, regional)) positions[regional] = positions[key];
+        });
+        return positions;
+    } catch { return {}; }
 }
 function saveNodePositions() {
     localStorage.setItem(MAP_STORAGE_KEY, JSON.stringify(nodePositions));
@@ -1769,7 +1830,7 @@ function initMap() {
 
     const nodeIds = getAllowedNodeIds();
     nodeIds.forEach((nid, i) => {
-        const posKey = `${company}_${nid}`;
+        const posKey = JSON.stringify([company, getSelectedRegion(), nid]);
         const pos = nodePositions[posKey] || [
             MAP_DEFAULT_CENTER[0] + (i - Math.floor(nodeIds.length / 2)) * 1.2,
             MAP_DEFAULT_CENTER[1]
@@ -1853,7 +1914,7 @@ function refreshMap() {
     const company = getSelectedCompany();
     const nodeIds = getAllowedNodeIds();
     nodeIds.forEach((nid, i) => {
-        const posKey = `${company}_${nid}`;
+        const posKey = JSON.stringify([company, getSelectedRegion(), nid]);
         const pos = nodePositions[posKey] || [
             MAP_DEFAULT_CENTER[0] + (i - Math.floor(nodeIds.length / 2)) * 1.2,
             MAP_DEFAULT_CENTER[1]
@@ -1892,7 +1953,7 @@ function renderLocationTable() {
     const nodeIds  = getAllowedNodeIds();
     tbody.innerHTML = '';
     nodeIds.forEach(nid => {
-        const posKey = `${company}_${nid}`;
+        const posKey = JSON.stringify([company, getSelectedRegion(), nid]);
         const pos    = nodePositions[posKey] || null;
         const active = isNodeActive(nid);
         const statusDot = active
@@ -1929,7 +1990,7 @@ function openLocationPicker(nid) {
     document.getElementById('loc-modal-title').textContent = `Node ${nid}`;
 
     const company  = getSelectedCompany();
-    const posKey   = `${company}_${nid}`;
+    const posKey   = JSON.stringify([company, getSelectedRegion(), nid]);
     const pos      = nodePositions[posKey] || MAP_DEFAULT_CENTER;
 
     // Update coord inputs
@@ -1992,7 +2053,7 @@ function savePickedLocation() {
     if (!locationPickerMark || !locationPickerNid) return;
     const ll      = locationPickerMark.getLatLng();
     const company = getSelectedCompany();
-    const posKey  = `${company}_${locationPickerNid}`;
+    const posKey  = JSON.stringify([company, getSelectedRegion(), locationPickerNid]);
     nodePositions[posKey] = [ll.lat, ll.lng];
     saveNodePositions();
     if (wiotMap) refreshMap();                 // sync main map
@@ -2004,7 +2065,7 @@ function savePickedLocation() {
 /** Remove a node's saved position. */
 function clearNodeLocation(nid) {
     const company = getSelectedCompany();
-    const posKey  = `${company}_${nid}`;
+    const posKey  = JSON.stringify([company, getSelectedRegion(), nid]);
     delete nodePositions[posKey];
     saveNodePositions();
     if (wiotMap) refreshMap();

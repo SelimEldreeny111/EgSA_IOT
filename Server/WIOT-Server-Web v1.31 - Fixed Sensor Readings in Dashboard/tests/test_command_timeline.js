@@ -9,7 +9,7 @@ const code = source.slice(source.indexOf('let commandTimelineBusy'),source.index
 const body={innerHTML:'',textContent:''}, status={textContent:''};
 let company='Company_1', resolveFetch, calls=0, poller;
 const context={safeHtml, URLSearchParams, Date,
-    getSelectedCompany:()=>company,
+    getSelectedCompany:()=>company, getSelectedRegion:()=> 'Region_1',
     document:{hidden:false,querySelector:()=>body,getElementById:(id)=>id==='Commands'?{classList:{contains:()=>true}}:status},
     setInterval:(fn,ms)=>{assert.equal(ms,5000);poller=fn;},
     fetch:()=>{calls++;return new Promise(resolve=>{resolveFetch=resolve;});}

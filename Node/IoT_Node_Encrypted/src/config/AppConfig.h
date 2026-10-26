@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <Arduino.h>
+#include "../comm/MqttTopicRouting.h"
 
 /**************** COMMAND REPLY CONFIGURATION ****************/
 // true: action commands return success/rejection Telemetry ACKs.
@@ -316,9 +317,27 @@ constexpr uint32_t kRemoteWakeMaximumSeconds = 86400UL;
 constexpr uint32_t kRemoteWakePollIntervalMs = APP_REMOTE_WAKE_POLL_INTERVAL_MS;
 constexpr bool kRemoteWakeUsesAppSchedule = APP_REMOTE_WAKE_USE_APP_SCHEDULE;
 
-#ifndef APP_NODE_ID
-#define APP_NODE_ID 1
+// Public routing identity. Change these once; every MQTT topic derives from them.
+#ifndef APP_MQTT_COMPANY
+#define APP_MQTT_COMPANY "Company_1"
 #endif
+#ifndef APP_MQTT_REGION
+#define APP_MQTT_REGION "Region_1"
+#endif
+#define APP_MQTT_STRINGIFY_INNER(value) #value
+#define APP_MQTT_STRINGIFY(value) APP_MQTT_STRINGIFY_INNER(value)
+#define APP_MQTT_PREFIX "wiot/" APP_MQTT_COMPANY "/" APP_MQTT_REGION
+static_assert(MqttTopicRouting::validSegment(APP_MQTT_COMPANY) &&
+              MqttTopicRouting::validSegment(APP_MQTT_REGION),
+              "MQTT identity must use ASCII letters, digits, _ or -");
+static_assert(sizeof(APP_MQTT_COMPANY) <= 25 && sizeof(APP_MQTT_REGION) <= 25,
+              "MQTT company/region must each fit 24 characters for the 512-byte packet buffer");
+
+#ifndef APP_NODE_ID
+#define APP_NODE_ID 3
+#endif
+static_assert(MqttTopicRouting::validNodeLiteral(APP_MQTT_STRINGIFY(APP_NODE_ID)),
+              "APP_NODE_ID must be decimal 1..65535 without leading zeros or type suffixes");
 
 #ifndef APP_SENSOR_ID
 #define APP_SENSOR_ID 1
@@ -328,7 +347,11 @@ constexpr uint16_t kNodeId = APP_NODE_ID;
 constexpr uint16_t kGatewayNodeId = 0;
 constexpr uint16_t kSensorId = APP_SENSOR_ID;
 
-constexpr uint16_t kLoraNetworkId = 0x4547; // this is for the  "EG"
+#ifndef APP_LORA_NETWORK_ID
+#define APP_LORA_NETWORK_ID 0x4547
+#endif
+static_assert(APP_LORA_NETWORK_ID > 0 && APP_LORA_NETWORK_ID <= 65535, "LoRa network ID must be 1..65535");
+constexpr uint16_t kLoraNetworkId = APP_LORA_NETWORK_ID; // this is for the  "EG"
 constexpr uint32_t kLoraMd0Pin = PB2;
 constexpr uint32_t kLoraMd1Pin = PB1;
 constexpr uint32_t kLoraAuxPin = PC13;
@@ -645,12 +668,15 @@ static_assert(kValveAin1Pin != kValveAin2Pin &&
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;
-// Worst-case Telemetry protobuf is 365 bytes; AES-CBC framing needs 385.
+// Worst-case Telemetry protobuf is 372 bytes; AES-CBC framing needs 401.
 constexpr size_t kCodecBufferSize = 416;
 // PubSubClient's buffer contains the MQTT header and topic as well as the
-// encrypted payload. The dual-flow/power envelope can reach 385 bytes, so the
+// encrypted payload. The dual-flow/power envelope can reach 401 bytes, so the
 // 512-byte whole-packet buffer still has room for the MQTT topic and header.
 constexpr size_t kMqttPacketBufferSize = MQTT_MAX_PACKET_SIZE;
+static_assert(kMqttPacketBufferSize >= 5U + 2U + sizeof(APP_MQTT_PREFIX) - 1U +
+              1U + 5U + 1U + 6U + 401U,
+              "MQTT packet buffer cannot hold maximum telemetry and configured topic");
 constexpr uint8_t kProtocolVersion = 1;
 
 constexpr uint32_t kDefaultSamplingPeriodMs = 10000UL;

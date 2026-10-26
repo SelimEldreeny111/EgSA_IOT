@@ -62,10 +62,10 @@ class PowerWireTests(unittest.TestCase):
         def publish(*args, **kwargs):
             calls.append((args, kwargs)); return SimpleNamespace(rc=0)
         client.client = SimpleNamespace(publish=publish)
-        client.publish_plaintext('EgSA/Test/7/CMD', b'test')
+        client.publish_plaintext('wiot/Test/Region_1/7/cmd', b'test')
         self.assertEqual(calls[0][1], {'qos': 1, 'retain': False})
         client.client.publish = lambda *args, **kwargs: SimpleNamespace(rc=4)
-        with self.assertRaises(RuntimeError): client.publish_plaintext('EgSA/Test/7/CMD', b'test')
+        with self.assertRaises(RuntimeError): client.publish_plaintext('wiot/Test/Region_1/7/cmd', b'test')
 
 
 class RemoteWakeServerTests(unittest.TestCase):
@@ -125,7 +125,7 @@ class RemoteWakeServerTests(unittest.TestCase):
             self.assertEqual(self.sent, [])
             request_id = result['request_id']
             status = messages_pb2.Status_Message(node_id=7)
-            topic = f'EgSA/{self.company}/7/Status'
+            topic = f'wiot/{self.company}/Region_1/7/status'
             with patch.object(self.server, 'save_message'), patch.object(
                     self.server, 'emit_iot_message'):
                 self.server.on_mqtt_plaintext(topic, status.SerializeToString())
@@ -137,7 +137,7 @@ class RemoteWakeServerTests(unittest.TestCase):
                     node_id=7, command_ack_request_id=request_id,
                     command_ack_cmd_id=1, command_ack_success=True)
                 self.server.on_mqtt_plaintext(
-                    f'EgSA/{self.company}/7/Telemetry', ack.SerializeToString())
+                    f'wiot/{self.company}/Region_1/7/data', ack.SerializeToString())
             self.assertEqual(queue.get(request_id, self.company, 7)['state'],
                              'acknowledged')
             status_response = self.client.get(
@@ -165,7 +165,7 @@ class RemoteWakeServerTests(unittest.TestCase):
         self.assertTrue(result['success']); self.assertFalse(result['node_awake'])
         self.assertTrue(result['awaiting_node_ack']); self.assertGreater(result['request_id'], 0)
         topic, plain = self.sent[0]
-        self.assertEqual(topic, f'EgSA/{self.company}/7/CMD')
+        self.assertEqual(topic, f'wiot/{self.company}/Region_1/7/cmd')
         msg = messages_pb2.CMD_Message.FromString(plain)
         self.assertEqual((msg.node_id, msg.cmd_id, msg.cmd_data), (7, 6, 60))
         self.assertEqual(msg.request_id, result['request_id'])
@@ -224,7 +224,7 @@ class RemoteWakeServerTests(unittest.TestCase):
                 msg = messages_pb2.Telemetry(node_id=7, node_status=state,
                     command_ack_request_id=99, command_ack_cmd_id=5,
                     command_ack_success=state < 2)
-                self.server.on_mqtt_plaintext(f'EgSA/{self.company}/7/Telemetry', msg.SerializeToString())
+                self.server.on_mqtt_plaintext(f'wiot/{self.company}/Region_1/7/data', msg.SerializeToString())
                 self.assertEqual(emit.call_args.args[0]['Node Status'], state)
                 self.assertEqual(emit.call_args.args[0]['Command ACK Success'], state < 2)
                 conn = sqlite3.connect(self.server.get_company_db_path(self.company))
@@ -237,7 +237,7 @@ class RemoteWakeServerTests(unittest.TestCase):
     def test_default_and_broadcast(self):
         result = self.post(cmd_data='0', broadcast=True).get_json()
         self.assertTrue(result['success'])
-        self.assertEqual(self.sent[0][0], f'EgSA/{self.company}/BroadCast/CMD')
+        self.assertEqual(self.sent[0][0], f'wiot/{self.company}/Region_1/broadcast')
         self.assertEqual(messages_pb2.CMD_Message.FromString(self.sent[0][1]).cmd_data, 0)
 
     def test_invalid_durations_do_not_publish(self):
@@ -319,7 +319,7 @@ class RemoteWakeServerTests(unittest.TestCase):
                                     command_ack_cmd_id=1, command_ack_success=True)
         with patch.object(self.server, 'save_message'), patch.object(self.server, 'emit_iot_message'):
             for _ in range(2):
-                self.server.on_mqtt_plaintext(f'EgSA/{self.company}/7/Telemetry', ack.SerializeToString())
+                self.server.on_mqtt_plaintext(f'wiot/{self.company}/Region_1/7/data', ack.SerializeToString())
         completions[0](); completions[0]()
         item = self.journal.get(result['request_id'], self.company, 7)
         self.assertEqual(item['state'], 'acknowledged')
@@ -333,7 +333,7 @@ class RemoteWakeServerTests(unittest.TestCase):
             flow_live_valid=True, flow_period_totals_valid=True, flow_rate=5.0,
             flow_rate_per_day=3.0, flow_period_source=2)
         with patch.object(self.server, 'emit_iot_message') as emit:
-            self.server.on_mqtt_plaintext(f'EgSA/{self.company}/7/Telemetry', msg.SerializeToString())
+            self.server.on_mqtt_plaintext(f'wiot/{self.company}/Region_1/7/data', msg.SerializeToString())
         conn = sqlite3.connect(self.server.get_company_db_path(self.company))
         try:
             row = conn.execute('SELECT power_mode,power_state,wake_remaining_seconds,wake_command_ack,wake_request_id,time_source FROM messages').fetchone()
@@ -348,7 +348,7 @@ class RemoteWakeServerTests(unittest.TestCase):
     def test_topic_mismatch_never_confirms_wake(self):
         msg = messages_pb2.Telemetry(node_id=8, power_mode=3, power_state=1, wake_command_ack=True, wake_request_id=42)
         with patch.object(self.server, 'emit_iot_message') as emit:
-            self.server.on_mqtt_plaintext(f'EgSA/{self.company}/7/Telemetry', msg.SerializeToString())
+            self.server.on_mqtt_plaintext(f'wiot/{self.company}/Region_1/7/data', msg.SerializeToString())
         emit.assert_not_called()
 
     def test_legacy_database_migration_preserves_row(self):

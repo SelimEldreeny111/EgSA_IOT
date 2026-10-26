@@ -85,11 +85,11 @@ void gatewayLoop()
     const char* topicSuffix = nullptr;
     if (frame.type == LoraPayloadType::StatusTelemetry)
     {
-      topicSuffix = "Status";
+      topicSuffix = "status";
     }
     else if (frame.type == LoraPayloadType::SystemTelemetry)
     {
-      topicSuffix = "Telemetry";
+      topicSuffix = "data";
     }
     else
     {
@@ -97,7 +97,7 @@ void gatewayLoop()
       continue;
     }
 
-    char publishTopic[80];
+    char publishTopic[128];
     if (!buildNodeMqttTopic(frame.sourceNodeId, topicSuffix, publishTopic, sizeof(publishTopic)))
     {
       SerialMon.println("Gateway MQTT topic build failed");

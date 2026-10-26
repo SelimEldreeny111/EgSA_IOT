@@ -2,9 +2,9 @@
   "mqtt": {
     "broker": "mqtt.example.com",
     "port": 1883,
-    "pub_topic": "EgSA/Company_1/1/telemetry",
-    "sub_topic_1": "EgSA/Company_1/1/status",
-    "sub_topic_2": "EgSA/Company_1/1/telemetry",
+    "pub_topic": "wiot/Company_1/Region_1/3/status",
+    "sub_topic_1": "wiot/Company_1/Region_1/3/cmd",
+    "sub_topic_2": "wiot/Company_1/Region_1/broadcast",
     "client_id": "wiot-test-client",
     "keepalive": 60,
     "use_tls": false,
@@ -12,7 +12,7 @@
     "password": null,
     "reconnect_delay": 5,
     "tx_period_s": 5,
-    "cmd_pub_topic": "EgSA/Company_1/1/command"
+    "cmd_pub_topic": "wiot/Company_1/Region_1/3/cmd"
   },
   "encryption": {
     "algorithm": "AES-128",
@@ -21,7 +21,7 @@
     "iv_mode": "random_per_message"
   },
   "device_defaults": {
-    "node_id": 1,
+    "node_id": 3,
     "sensor_id": 1,
     "battery_voltage": 8.0
   },

@@ -28,24 +28,23 @@ def integer(value, minimum, maximum, label):
 
 
 def parse_topic(topic):
-    """Return (company, node, suffix). Broadcast is allowed only for CMD echo."""
+    """Return (company, region, node, kind), with data decoded as Telemetry."""
+    from region_topics import region_id
     if not isinstance(topic, str) or len(topic) > 256:
         raise ValueError('Invalid MQTT topic')
     parts = topic.split('/')
-    if len(parts) != 4 or parts[0] != 'EgSA':
-        raise ValueError('Expected EgSA/company/node/Status|Telemetry|CMD')
-    company = company_id(parts[1])
-    suffix = parts[3].lower()
-    if suffix not in ('status', 'telemetry', 'cmd'):
-        raise ValueError('Unsupported topic suffix')
-    if parts[2] == 'BroadCast' and suffix == 'cmd':
-        node = 0
-    else:
-        # No sign, whitespace, Unicode digits or alias such as 007.
-        if not re.fullmatch(r'[1-9][0-9]{0,4}', parts[2]):
-            raise ValueError('Invalid topic node ID')
-        node = integer(parts[2], 1, 65535, 'Node ID')
-    return company, node, suffix
+    if len(parts) not in (4, 5) or parts[0] != 'wiot':
+        raise ValueError('Expected wiot/company/region/node/data|status|cmd or region/broadcast')
+    company, region = company_id(parts[1]), region_id(parts[2])
+    if len(parts) == 4:
+        if parts[3] != 'broadcast':
+            raise ValueError('Unsupported regional broadcast topic')
+        return company, region, 0, 'cmd'
+    if parts[4] not in ('data', 'status', 'cmd'):
+        raise ValueError('Unsupported lowercase topic suffix')
+    if not re.fullmatch(r'[1-9][0-9]{0,4}', parts[3]):
+        raise ValueError('Invalid topic node ID')
+    return company, region, integer(parts[3], 1, 65535, 'Node ID'), ('telemetry' if parts[4] == 'data' else parts[4])
 
 
 def validate_message(message, topic_node):
