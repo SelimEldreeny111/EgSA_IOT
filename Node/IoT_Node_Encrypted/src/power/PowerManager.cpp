@@ -52,8 +52,67 @@ bool g_worCommandWindow = false;
 uint32_t g_worWindowStartedMs = 0U;
 uint32_t g_worNextReportEpoch = 0U;
 
-void onWorAuxInterrupt() { g_worAuxInterrupt = true; }
+enum class WorPhase : uint32_t { Idle, RadioArming, AlarmSetup, StopEntry, StopReturn, Heartbeat };
+volatile WorPhase g_worPhase = WorPhase::Idle;
+volatile WorPhase g_worAuxEdgePhase = WorPhase::Idle;
+
+void onWorAuxInterrupt()
+{
+  g_worAuxEdgePhase = g_worPhase;
+  g_worAuxInterrupt = true;
+}
 void onWorRtcInterrupt(void*) { g_worRtcInterrupt = true; }
+
+/** @brief Name the foreground phase in which the AUX callback was delivered. */
+const char* worPhaseName(WorPhase phase)
+{
+  switch (phase)
+  {
+    case WorPhase::RadioArming: return "RADIO_ARMING";
+    case WorPhase::AlarmSetup: return "ALARM_SETUP";
+    case WorPhase::StopEntry: return "STOP_ENTRY";
+    case WorPhase::StopReturn: return "STOP_RETURN";
+    case WorPhase::Heartbeat: return "HEARTBEAT";
+    default: return "NONE";
+  }
+}
+
+/** @brief Reserve PC13 for AUX without disabling the internal RTC alarm.
+ * @details RTC backup-domain configuration can survive MCU resets. RTC alarm
+ * output, calibration output, timestamp and tamper-1 can override PC13 GPIO.
+ * This board uses none of those external functions. Preserve the calendar,
+ * backup registers, oscillator and alarm/interrupt enable bits.
+ */
+bool reserveWorAuxGpio()
+{
+#if defined(PC13) && defined(RTC_CR_OSEL) && defined(RTC_TAFCR_TAMP1E)
+  if (AppConfig::kLoraAuxPin != PC13) return true;
+  RTC_HandleTypeDef* handle = rtc.getHandle();
+  if (handle == nullptr || handle->Instance == nullptr) return false;
+  constexpr uint32_t externalCrMask = RTC_CR_OSEL | RTC_CR_COE | RTC_CR_TSE;
+  const uint32_t oldCr = handle->Instance->CR;
+  const uint32_t oldTafcr = handle->Instance->TAFCR;
+  SerialMon.print("Power: WOR PC13 RTC pin functions before=0x");
+  SerialMon.print(oldCr & externalCrMask, HEX);
+  SerialMon.print(" tamper1=");
+  SerialMon.println((oldTafcr & RTC_TAFCR_TAMP1E) != 0U ? 1U : 0U);
+  {
+    const BackupDomainAccess access;
+    __HAL_RTC_WRITEPROTECTION_DISABLE(handle);
+    handle->Instance->CR &= ~externalCrMask;
+    handle->Instance->TAFCR &= ~RTC_TAFCR_TAMP1E;
+    __HAL_RTC_WRITEPROTECTION_ENABLE(handle);
+  }
+  const bool released = (handle->Instance->CR & externalCrMask) == 0U &&
+      (handle->Instance->TAFCR & RTC_TAFCR_TAMP1E) == 0U;
+  if ((oldCr & externalCrMask) != 0U || (oldTafcr & RTC_TAFCR_TAMP1E) != 0U)
+    SerialMon.println(released ? "Power: WOR released retained RTC pin functions; PC13 reserved for AUX"
+                              : "Power: WOR PC13 RTC pin release failed");
+  return released;
+#else
+  return true;
+#endif
+}
 
 /** @brief Snapshot foreground WOR evidence; an AUX edge is not a decoded command. */
 void printWorSnapshot(const char* event, uint32_t stopCalls, uint32_t elapsedSeconds)
@@ -68,6 +127,8 @@ void printWorSnapshot(const char* event, uint32_t stopCalls, uint32_t elapsedSec
   SerialMon.print(digitalRead(AppConfig::kLoraAuxPin) == HIGH ? "HIGH" : "LOW");
   SerialMon.print(" aux_irq=");
   SerialMon.print(g_worAuxInterrupt ? 1U : 0U);
+  SerialMon.print(" aux_edge_phase=");
+  SerialMon.print(worPhaseName(g_worAuxEdgePhase));
   SerialMon.print(" aux_pending=");
   SerialMon.print(__HAL_GPIO_EXTI_GET_IT(digitalPinToBitMask(AppConfig::kLoraAuxPin)) != RESET ? 1U : 0U);
   SerialMon.print(" rtc_irq=");
@@ -94,12 +155,20 @@ void runLoraWorStopCycle()
     scheduleFreshSensorCycle();
     return;
   }
+  if (!reserveWorAuxGpio())
+  {
+    g_worCommandWindow = false;
+    SerialMon.println("Power: WOR AUX GPIO ownership unavailable; staying awake");
+    return;
+  }
+  g_worPhase = WorPhase::RadioArming;
   // Detached GPIO edges can leave a pending EXTI bit during normal traffic.
   // Clear ONLY this line's stale state while AUX is idle, BEFORE Mode 2 is
   // selected. Never clear the shared NVIC vector or edges after arming WOR.
   const uint32_t savedPrimask = __get_PRIMASK();
   __disable_irq();
   g_worAuxInterrupt = false;
+  g_worAuxEdgePhase = WorPhase::Idle;
   g_worRtcInterrupt = false;
   const uint32_t auxMask = digitalPinToBitMask(AppConfig::kLoraAuxPin);
   const bool staleAuxPending = __HAL_GPIO_EXTI_GET_IT(auxMask) != RESET;
@@ -137,6 +206,7 @@ void runLoraWorStopCycle()
     // Keep an AUX edge that arrived during radio preparation/arming or the
     // previous foreground heartbeat. Clearing it here can lose a real probe.
     g_worRtcInterrupt = false;
+    g_worPhase = WorPhase::AlarmSetup;
     if (!scheduleRtcWakeAlarm(alarmEpoch))
     {
       failed = true;
@@ -149,6 +219,7 @@ void runLoraWorStopCycle()
       exitReason = g_worAuxInterrupt ? "AUX_EDGE_BEFORE_STOP" : "AUX_LOW_BEFORE_STOP";
       break;
     }
+    g_worPhase = WorPhase::StopEntry;
     SerialMon.print("Power: WOR Stop requested; alarm_epoch=");
     SerialMon.println(alarmEpoch);
     // Drain our own diagnostic TX before WFI so a pending debug-UART TX IRQ
@@ -168,6 +239,7 @@ void runLoraWorStopCycle()
       stopCalled = true;
       ++stopCalls;
       HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+      g_worPhase = WorPhase::StopReturn;
     }
     // F401 returns on HSI after Stop. Restore the Arduino board PLL before
     // touching Serial, millis(), or the LoRa UART.
@@ -192,6 +264,7 @@ void runLoraWorStopCycle()
       exitReason = "UNEXPECTED_WAKE";
       break;
     }
+    g_worPhase = WorPhase::Heartbeat;
     printWorSnapshot("RTC heartbeat", stopCalls, getEpochTime() - startedEpoch);
     cancelRtcWakeAlarm();
   }
@@ -202,6 +275,7 @@ void runLoraWorStopCycle()
   cancelRtcWakeAlarm();
   rtc.detachInterrupt(STM32RTC::ALARM_A);
   detachInterrupt(digitalPinToInterrupt(AppConfig::kLoraAuxPin));
+  g_worPhase = WorPhase::Idle;
   serviceHardwareWatchdog(WatchdogStage::PowerTransition);
   if (!resumeLoraFromWakeOnRadio(AppConfig::kLoraTxCompleteTimeoutMs))
   {

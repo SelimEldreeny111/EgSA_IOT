@@ -9,21 +9,30 @@ public:
   unsigned flushes = 0U;
   int available() { return 0; }
   template<class T> void print(const T& value) { output << value; }
+  template<class T> void print(const T& value, int) { output << value; }
   template<class T> void println(const T& value) { output << value << '\n'; }
   void println() { output << '\n'; }
   void flush() { ++flushes; }
 };
-constexpr int HIGH=1, LOW=0, FALLING=2, RESET=0;
+constexpr int HIGH=1, LOW=0, FALLING=2, RESET=0, HEX=16;
+#define PC13 13U
+#define RTC_CR_OSEL (3UL << 21)
+#define RTC_CR_COE (1UL << 23)
+#define RTC_CR_TSE (1UL << 11)
+#define RTC_TAFCR_TAMP1E 1UL
 constexpr uint32_t SCB_ICSR_PENDSTCLR_Msk=1U << 25;
 constexpr uint32_t PWR_CR_DBP=256U, PWR_LOWPOWERREGULATOR_ON=1U, PWR_STOPENTRY_WFI=1U;
 struct PWR_TypeDef { uint32_t CR=0U; };
-struct RTC_TypeDef {};
+struct RTC_TypeDef { uint32_t CR=0U, TAFCR=0U; };
 struct RTC_HandleTypeDef { RTC_TypeDef* Instance=nullptr; };
 struct SCB_TypeDef { uint32_t ICSR=0U; };
 extern PWR_TypeDef* PWR;
 extern RTC_TypeDef* RTC;
 extern SCB_TypeDef* SCB;
 extern uint32_t fakeExtiPending;
+extern bool fakeRtcWritable;
+#define __HAL_RTC_WRITEPROTECTION_DISABLE(handle) (fakeRtcWritable=true)
+#define __HAL_RTC_WRITEPROTECTION_ENABLE(handle) (fakeRtcWritable=false)
 enum : uint32_t { RTC_BKP_DR15=15U, RTC_BKP_DR16=16U, RTC_BKP_DR17=17U, RTC_BKP_DR18=18U, RTC_BKP_DR19=19U };
 uint32_t millis();
 int digitalRead(uint32_t);

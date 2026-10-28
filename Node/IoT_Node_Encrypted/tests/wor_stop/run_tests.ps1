@@ -17,7 +17,8 @@ try {
     $worScenarios = @('rtc_deadline','stale_pending','aux_after_stop',
         'edge_during_prepare','edge_during_alarm','edge_before_wfi','edge_after_heartbeat',
         'aux_low_before_stop','unexpected_wake','alarm_failure','untrusted',
-        'prepare_failure','pending_aux_low','restore_failure','busy','wake_lease','report_failure')
+        'prepare_failure','pending_aux_low','restore_failure','busy','wake_lease','report_failure',
+        'retained_rtc_pin','rtc_handle_failure')
     foreach ($worScenario in $worScenarios) {
         & $worExecutable $worScenario
         if ($LASTEXITCODE -ne 0) { throw "WOR scenario failed: $worScenario" }

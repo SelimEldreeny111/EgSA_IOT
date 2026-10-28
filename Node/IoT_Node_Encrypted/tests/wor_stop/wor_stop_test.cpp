@@ -16,8 +16,14 @@ uint32_t fakeExtiPending=0U, nowMs=0U, epoch=1800000000U, alarmEpoch=0U, primask
 unsigned stopCalls=0U, clockRestores=0U, restores=0U, reinitializations=0U;
 bool auxHigh=true, trusted=true, alarmHealthy=true, prepareHealthy=true;
 bool restoreHealthy=true, idle=true, tickSuspended=false, injected=false;
+bool fakeRtcWritable=false;
 int m0=LOW, m1=LOW;
 void (*auxCallback)()=nullptr;
+RTC_HandleTypeDef* STM32RTC::getHandle() {
+  static RTC_HandleTypeDef handle;
+  handle.Instance=RTC;
+  return scenario=="rtc_handle_failure" ? nullptr : &handle;
+}
 
 void injectEdge() {
   fakeExtiPending |= 1U << 13;
@@ -65,6 +71,7 @@ bool resumeLoraFromWakeOnRadio(uint32_t) {
 }
 void initializeLoraLink() { ++reinitializations; }
 bool scheduleRtcWakeAlarm(uint32_t deadline) {
+  assert(!fakeRtcWritable && (RTC->CR & (RTC_CR_OSEL | RTC_CR_COE | RTC_CR_TSE))==0U);
   alarmEpoch=deadline;
   if (scenario=="aux_low_before_stop") auxHigh=false;
   if (scenario=="edge_during_alarm") injectEdge();
@@ -103,6 +110,13 @@ int main(int argc, char** argv) {
   if (scenario=="restore_failure") restoreHealthy=false;
   if (scenario=="busy") idle=false;
   if (scenario=="stale_pending") fakeExtiPending=(1U << 13) | (1U << 12);
+  constexpr uint32_t preservedCr=(1U << 6) | (1U << 8) | (1U << 12); // FMT, ALRAE, ALRAIE.
+  constexpr uint32_t preservedTafcr=(1U << 3) | (1U << 18); // Other tamper/output-type fields.
+  RTC->CR=preservedCr; RTC->TAFCR=preservedTafcr;
+  if (scenario=="retained_rtc_pin") {
+    RTC->CR |= RTC_CR_OSEL | RTC_CR_COE | RTC_CR_TSE;
+    RTC->TAFCR |= RTC_TAFCR_TAMP1E;
+  }
   if (scenario=="pending_aux_low") {
     auxHigh=false; fakeExtiPending=1U << 13; prepareHealthy=false;
   }
@@ -110,7 +124,7 @@ int main(int argc, char** argv) {
   nowMs=4999U; servicePowerManager(); assert(stopCalls==0U);
   if (scenario=="wake_lease") assert(requestRemoteWake(30U, 123U));
   nowMs=5000U; servicePowerManager();
-  if (scenario=="rtc_deadline" || scenario=="stale_pending" || scenario=="restore_failure") {
+  if (scenario=="rtc_deadline" || scenario=="stale_pending" || scenario=="restore_failure" || scenario=="retained_rtc_pin") {
     assert(stopCalls==4U && clockRestores==4U && restores==1U);
     requireLog("Power: WOR RTC heartbeat");
     requireLog("reason=REPORT_DEADLINE");
@@ -121,6 +135,7 @@ int main(int argc, char** argv) {
     }
     if (scenario=="restore_failure") assert(reinitializations==1U);
     else requireLog("Power: RTC report deadline woke STM32");
+    if (scenario=="retained_rtc_pin") requireLog("released retained RTC pin functions");
   } else if (scenario=="aux_after_stop" || scenario=="edge_after_heartbeat") {
     assert(stopCalls==1U && clockRestores==1U && restores==1U);
     requireLog(scenario=="aux_after_stop" ? "reason=AUX_EDGE_AFTER_STOP" : "reason=AUX_EDGE_BEFORE_STOP");
@@ -129,6 +144,9 @@ int main(int argc, char** argv) {
   } else if (scenario=="edge_during_prepare" || scenario=="edge_during_alarm" || scenario=="edge_before_wfi") {
     assert(stopCalls==0U && clockRestores==0U && restores==1U);
     requireLog("reason=AUX_EDGE_BEFORE_STOP"); requireLog("stop_calls=0");
+    if (scenario=="edge_during_alarm") requireLog("aux_edge_phase=ALARM_SETUP");
+    if (scenario=="edge_during_prepare") requireLog("aux_edge_phase=RADIO_ARMING");
+    if (scenario=="edge_before_wfi") requireLog("aux_edge_phase=STOP_ENTRY");
   } else if (scenario=="aux_low_before_stop") {
     assert(stopCalls==0U && restores==1U);
     requireLog("reason=AUX_LOW_BEFORE_STOP"); requireLog("AUX=LOW");
@@ -138,6 +156,8 @@ int main(int argc, char** argv) {
     assert(stopCalls==0U && restores==1U); requireLog("reason=RTC_ALARM_SETUP_FAILED");
   } else if (scenario=="untrusted") {
     assert(stopCalls==0U && restores==0U); requireLog("Stop requires trusted RTC");
+  } else if (scenario=="rtc_handle_failure") {
+    assert(stopCalls==0U && restores==0U); requireLog("AUX GPIO ownership unavailable");
   } else if (scenario=="prepare_failure" || scenario=="pending_aux_low") {
     assert(stopCalls==0U && restores==0U); requireLog("Mode 2 preparation failed");
     if (scenario=="pending_aux_low") {
@@ -148,5 +168,9 @@ int main(int argc, char** argv) {
     assert(stopCalls==0U && restores==0U);
   }
   assert(!tickSuspended && primask==0U);
+  assert(!fakeRtcWritable);
+  if (scenario!="retained_rtc_pin" || stopCalls>0U) {
+    assert(RTC->CR==preservedCr && RTC->TAFCR==preservedTafcr);
+  }
   std::cout << "PASS " << scenario << '\n';
 }

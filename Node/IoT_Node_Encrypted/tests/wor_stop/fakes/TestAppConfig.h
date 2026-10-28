@@ -30,6 +30,7 @@ public:
   void (*callback)(void*)=nullptr;
   void attachInterrupt(void (*fn)(void*), int) { callback=fn; }
   void detachInterrupt(int) { callback=nullptr; }
+  RTC_HandleTypeDef* getHandle();
 };
 #define HARDWARE_WATCHDOG_H
 enum class WatchdogStage { PowerTransition };
