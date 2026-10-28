@@ -55,6 +55,29 @@ uint32_t g_worNextReportEpoch = 0U;
 void onWorAuxInterrupt() { g_worAuxInterrupt = true; }
 void onWorRtcInterrupt(void*) { g_worRtcInterrupt = true; }
 
+/** @brief Snapshot foreground WOR evidence; an AUX edge is not a decoded command. */
+void printWorSnapshot(const char* event, uint32_t stopCalls, uint32_t elapsedSeconds)
+{
+  SerialMon.print("Power: WOR ");
+  SerialMon.print(event);
+  SerialMon.print(" stop_calls=");
+  SerialMon.print(stopCalls);
+  SerialMon.print(" rtc_elapsed_s=");
+  SerialMon.print(elapsedSeconds);
+  SerialMon.print(" AUX=");
+  SerialMon.print(digitalRead(AppConfig::kLoraAuxPin) == HIGH ? "HIGH" : "LOW");
+  SerialMon.print(" aux_irq=");
+  SerialMon.print(g_worAuxInterrupt ? 1U : 0U);
+  SerialMon.print(" aux_pending=");
+  SerialMon.print(__HAL_GPIO_EXTI_GET_IT(digitalPinToBitMask(AppConfig::kLoraAuxPin)) != RESET ? 1U : 0U);
+  SerialMon.print(" rtc_irq=");
+  SerialMon.print(g_worRtcInterrupt ? 1U : 0U);
+  SerialMon.print(" M0=");
+  SerialMon.print(digitalRead(AppConfig::kLoraMd0Pin) == HIGH ? 1U : 0U);
+  SerialMon.print(" M1=");
+  SerialMon.println(digitalRead(AppConfig::kLoraMd1Pin) == HIGH ? 1U : 0U);
+}
+
 void runLoraWorStopCycle()
 {
   const uint32_t nowEpoch = getEpochTime();
@@ -71,6 +94,24 @@ void runLoraWorStopCycle()
     scheduleFreshSensorCycle();
     return;
   }
+  // Detached GPIO edges can leave a pending EXTI bit during normal traffic.
+  // Clear ONLY this line's stale state while AUX is idle, BEFORE Mode 2 is
+  // selected. Never clear the shared NVIC vector or edges after arming WOR.
+  const uint32_t savedPrimask = __get_PRIMASK();
+  __disable_irq();
+  g_worAuxInterrupt = false;
+  g_worRtcInterrupt = false;
+  const uint32_t auxMask = digitalPinToBitMask(AppConfig::kLoraAuxPin);
+  const bool staleAuxPending = __HAL_GPIO_EXTI_GET_IT(auxMask) != RESET;
+  const bool auxWasHigh = digitalRead(AppConfig::kLoraAuxPin) == HIGH;
+  if (auxWasHigh)
+    __HAL_GPIO_EXTI_CLEAR_IT(auxMask);
+  __set_PRIMASK(savedPrimask);
+  if (staleAuxPending)
+    SerialMon.println(auxWasHigh
+        ? "Power: WOR cleared pre-arm stale AUX pending flag while line HIGH"
+        : "Power: WOR pre-arm AUX LOW; pending flag preserved");
+
   if (!prepareLoraForWakeOnRadio(AppConfig::kPowerSleepEntryTimeoutMs))
   {
     SerialMon.println("Power: E32 Mode 2 preparation failed; staying awake");
@@ -83,24 +124,36 @@ void runLoraWorStopCycle()
   rtc.attachInterrupt(onWorRtcInterrupt, STM32RTC::ALARM_A);
   bool radioWake = false;
   bool failed = false;
+  uint32_t stopCalls = 0U;
+  const uint32_t startedEpoch = getEpochTime();
+  const char* exitReason = "REPORT_DEADLINE";
+  printWorSnapshot("armed", stopCalls, 0U);
   while (getEpochTime() < g_worNextReportEpoch)
   {
     serviceHardwareWatchdog(WatchdogStage::PowerTransition);
     const uint32_t now = getEpochTime();
     uint32_t alarmEpoch = now + AppConfig::kLoraWorWatchdogWakeSeconds;
     if (alarmEpoch > g_worNextReportEpoch) alarmEpoch = g_worNextReportEpoch;
-    g_worAuxInterrupt = false;
+    // Keep an AUX edge that arrived during radio preparation/arming or the
+    // previous foreground heartbeat. Clearing it here can lose a real probe.
     g_worRtcInterrupt = false;
     if (!scheduleRtcWakeAlarm(alarmEpoch))
     {
       failed = true;
+      exitReason = "RTC_ALARM_SETUP_FAILED";
       break;
     }
-    if (digitalRead(AppConfig::kLoraAuxPin) == LOW)
+    if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW)
     {
       radioWake = true;
+      exitReason = g_worAuxInterrupt ? "AUX_EDGE_BEFORE_STOP" : "AUX_LOW_BEFORE_STOP";
       break;
     }
+    SerialMon.print("Power: WOR Stop requested; alarm_epoch=");
+    SerialMon.println(alarmEpoch);
+    // Drain our own diagnostic TX before WFI so a pending debug-UART TX IRQ
+    // does not immediately end the Stop attempt. Never print from an ISR.
+    SerialMon.flush();
     HAL_SuspendTick();
     SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
     // Close the check-to-WFI race: a pending AUX/RTC IRQ must prevent a lost
@@ -108,29 +161,44 @@ void runLoraWorStopCycle()
     __disable_irq();
     __DSB();
     __ISB();
+    bool stopCalled = false;
     if (!g_worAuxInterrupt && !g_worRtcInterrupt &&
         digitalRead(AppConfig::kLoraAuxPin) != LOW)
     {
+      stopCalled = true;
+      ++stopCalls;
       HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
     }
     // F401 returns on HSI after Stop. Restore the Arduino board PLL before
     // touching Serial, millis(), or the LoRa UART.
-    SystemClock_Config();
-    SystemCoreClockUpdate();
+    if (stopCalled)
+    {
+      SystemClock_Config();
+      SystemCoreClockUpdate();
+    }
     HAL_ResumeTick();
     __enable_irq();
     if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW)
     {
       radioWake = true;
+      exitReason = stopCalled
+          ? (g_worAuxInterrupt ? "AUX_EDGE_AFTER_STOP" : "AUX_LOW_AFTER_STOP")
+          : (g_worAuxInterrupt ? "AUX_EDGE_BEFORE_STOP" : "AUX_LOW_BEFORE_STOP");
       break;
     }
     if (!g_worRtcInterrupt && getEpochTime() < alarmEpoch)
     {
       failed = true;
+      exitReason = "UNEXPECTED_WAKE";
       break;
     }
+    printWorSnapshot("RTC heartbeat", stopCalls, getEpochTime() - startedEpoch);
     cancelRtcWakeAlarm();
   }
+  // These fields describe the event before radio restoration changes AUX/M0/M1.
+  SerialMon.print("Power: WOR exit reason=");
+  SerialMon.println(exitReason);
+  printWorSnapshot("exit", stopCalls, getEpochTime() - startedEpoch);
   cancelRtcWakeAlarm();
   rtc.detachInterrupt(STM32RTC::ALARM_A);
   detachInterrupt(digitalPinToInterrupt(AppConfig::kLoraAuxPin));
@@ -152,7 +220,7 @@ void runLoraWorStopCycle()
   {
     g_worCommandWindow = true;
     g_worWindowStartedMs = millis();
-    SerialMon.println("Power: LoRa AUX woke STM32; listening for Mode-1 command");
+    SerialMon.println("Power: WOR AUX activity; receive window opened (command not yet confirmed)");
   }
   else
   {

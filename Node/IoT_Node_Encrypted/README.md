@@ -1,5 +1,7 @@
 # IoT Node Encrypted
 
+28 October update: [LoRa WOR interrupt arming, wake diagnostics and isolated retest](LORA_WOR_DIAGNOSTIC_GUIDE.md).
+
 25 October update: [separate power/WDT counters, clear commands and independent
 SUPMEA simulator comparison](RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md).
 Counter clears are direct-node commands 7/8 with data=0 and a nonzero request ID.

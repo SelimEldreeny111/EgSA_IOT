@@ -2,7 +2,7 @@
 # Run from this directory: doxygen Doxyfile
 PROJECT_NAME           = "WIOT STM32F401 Arduino Node"
 PROJECT_BRIEF          = "Firmware architecture and API reference"
-PROJECT_NUMBER         = "2026-10-26 reset counters and SUPMEA reference"
+PROJECT_NUMBER         = "2026-10-28 regional MQTT and WOR wake diagnostics"
 OUTPUT_DIRECTORY       = Documentation/Doxygen
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
@@ -14,6 +14,7 @@ INPUT                  = DOXYGEN_MAINPAGE.md \
                          POWER_DOWN_MODE_USER_GUIDE.md \
                          FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md \
                          NEW_POWER_MODES_USER_GUIDE.md \
+                         LORA_WOR_DIAGNOSTIC_GUIDE.md \
                          REMOTE_WAKE_USER_GUIDE.md \
                          REMOTE_WAKE_APP_SCHEDULE_GUIDE.md \
                          SENSOR_UNAVAILABLE_ZERO_GUIDE.md \
