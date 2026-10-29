@@ -5,7 +5,7 @@ param(
     [ValidateSet('','true','false')][string]$CommandAckReplies = '',
     [ValidateSet('','true','false')][string]$RemoteWakeApplicationSchedule = '',
     [string[]]$Profiles = @('normal-sim','remote-sim','remote-wifi','remote-lora',
-        'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora',
+        'rtc-wifi','rtc-lora','queued-wifi','queued-lora','wor-lora','wor-lora-aux',
         'gateway-wifi','gateway-wor','valve-test-sim','valve-test-wifi')
 )
 $ErrorActionPreference = 'Stop'
@@ -32,6 +32,7 @@ $wakeBuildFlags = @{
     'queued-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=4 -DAPP_WIFI_POWER_MODE=1';
     'queued-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=4 -DAPP_LORA_POWER_MODE=1';
     'wor-lora' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=3 -DAPP_LORA_POWER_MODE=2';
+    'wor-lora-aux' = '-DUSE_SIM800 -DAPP_UPLINK=2 -DAPP_CONTROLLER_POWER_MODE=3 -DAPP_LORA_POWER_MODE=2 -DAPP_LORA_WOR_WAKE_SOURCE=0';
     'gateway-wifi' = '-DUSE_ESP8266 -DAPP_ROLE=2 -DAPP_CONTROLLER_POWER_MODE=0';
     'gateway-wor' = '-DUSE_ESP8266 -DAPP_ROLE=2 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_LORA_GATEWAY_WOR_TX=1'
 }
@@ -54,7 +55,7 @@ foreach ($wakeBuildProfile in $Profiles) {
     if ($wakeBuildProfile -eq 'rtc-wifi') { $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     if ($wakeBuildProfile -eq 'rtc-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     if ($wakeBuildProfile -eq 'queued-wifi') { $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
-    if ($wakeBuildProfile -eq 'queued-lora' -or $wakeBuildProfile -eq 'wor-lora') { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
+    if ($wakeBuildProfile -in @('queued-lora','wor-lora','wor-lora-aux')) { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     $wakeBuildAckFlag = ''
     if ($CommandAckReplies) { $wakeBuildAckFlag = ' -DAPP_ENABLE_COMMAND_ACK_REPLIES=' + $CommandAckReplies }
     if ($RemoteWakeApplicationSchedule) { $wakeBuildAckFlag += ' -DAPP_REMOTE_WAKE_USE_APP_SCHEDULE=' + $RemoteWakeApplicationSchedule }

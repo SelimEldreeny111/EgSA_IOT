@@ -1,6 +1,8 @@
 # IoT Node Encrypted
 
-28 October update: [LoRa WOR interrupt arming, wake diagnostics and isolated retest](LORA_WOR_DIAGNOSTIC_GUIDE.md).
+29 October update: [LoRa WOR wake using the UART RX pin](LORA_WOR_RX_WAKE_GUIDE.md).
+
+Earlier AUX investigation: [LoRa WOR interrupt arming, wake diagnostics and isolated retest](LORA_WOR_DIAGNOSTIC_GUIDE.md).
 
 25 October update: [separate power/WDT counters, clear commands and independent
 SUPMEA simulator comparison](RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md).

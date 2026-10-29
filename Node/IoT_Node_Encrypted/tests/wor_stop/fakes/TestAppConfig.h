@@ -7,6 +7,11 @@
 #define APP_COMPONENT_MODE_REMOTE_WAKE 2
 #define APP_COMPONENT_MODE_LORA_WOR 3
 #define APP_COMPONENT_MODE_QUEUED 4
+#define APP_LORA_WOR_WAKE_SOURCE_AUX 0
+#define APP_LORA_WOR_WAKE_SOURCE_UART_RX 1
+#ifndef APP_LORA_WOR_WAKE_SOURCE
+#define APP_LORA_WOR_WAKE_SOURCE APP_LORA_WOR_WAKE_SOURCE_UART_RX
+#endif
 #define APP_CONTROLLER_USES_STANDBY 0
 #define APP_CONTROLLER_POWER_MODE 3
 #define APP_HAS_IP_UPLINK 0
@@ -44,6 +49,7 @@ AppRuntimeState& appState();
 namespace AppConfig {
 constexpr bool kLoraPowerDown=false, kWifiPowerDown=false, kSimPowerDown=false;
 constexpr uint32_t kLoraAuxPin=13U, kLoraMd0Pin=2U, kLoraMd1Pin=1U;
+constexpr uint32_t kLoraRxPin=12U;
 constexpr uint32_t kPowerSleepSeconds=60U, kLoraWorWatchdogWakeSeconds=15U;
 constexpr uint32_t kPowerMinimumValidRtcEpoch=1704067200U;
 constexpr uint32_t kPowerSleepEntryTimeoutMs=1000U, kLoraTxCompleteTimeoutMs=10000U;

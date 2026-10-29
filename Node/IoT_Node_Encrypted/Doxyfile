@@ -15,6 +15,7 @@ INPUT                  = DOXYGEN_MAINPAGE.md \
                          FLOW_METER_PROFILES_AND_CONSUMPTION_GUIDE.md \
                          NEW_POWER_MODES_USER_GUIDE.md \
                          LORA_WOR_DIAGNOSTIC_GUIDE.md \
+                         LORA_WOR_RX_WAKE_GUIDE.md \
                          REMOTE_WAKE_USER_GUIDE.md \
                          REMOTE_WAKE_APP_SCHEDULE_GUIDE.md \
                          SENSOR_UNAVAILABLE_ZERO_GUIDE.md \

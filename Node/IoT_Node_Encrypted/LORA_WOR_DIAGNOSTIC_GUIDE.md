@@ -1,5 +1,13 @@
 # LoRa WOR arming and wake diagnostics
 
+**29 October 2026: the default WOR wake input is now UART_RX (PA12 on a sensor
+node).** Use [the RX wake guide](LORA_WOR_RX_WAKE_GUIDE.md) for the active
+configuration, new wake_source/wake_irq diagnostics and bench tests. The
+AUX-specific logs and investigations below describe the earlier implementation,
+which remains selectable with APP_LORA_WOR_WAKE_SOURCE_AUX. That implementation
+continued to exit before Stop in the supplied bench logs; it is not recorded as
+physically fixed.
+
 29 October 2026 | Active Arduino STM32 node only
 
 The bench log repeatedly reported `LoRa AUX woke STM32` while UART counters did

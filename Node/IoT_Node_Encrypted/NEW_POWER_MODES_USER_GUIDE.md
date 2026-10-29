@@ -11,7 +11,7 @@ changes the ESP32 or STM32CubeIDE projects.
 | NORMAL (existing) | `APP_COMPONENT_MODE_NORMAL` (0) | NORMAL (0) | Immediate |
 | RTC_PERIODIC (existing) | `APP_COMPONENT_MODE_POWER_DOWN` (1) | LoRa/Wi-Fi POWER_DOWN (1) | Only during the existing short awake window |
 | REMOTE_WAKE (existing) | `APP_COMPONENT_MODE_REMOTE_WAKE` (2) | NORMAL (0) | Immediate WAKE with CPU Sleep |
-| LORA_WOR_STOP (new) | `APP_COMPONENT_MODE_LORA_WOR` (3) | LoRa WAKE_ON_RADIO (2) | Gateway Mode-1 probe then command; STM32 Stop exits on AUX |
+| LORA_WOR_STOP (new) | `APP_COMPONENT_MODE_LORA_WOR` (3) | LoRa WAKE_ON_RADIO (2) | Gateway Mode-1 probe then command; STM32 Stop exits on UART RX by default |
 | RTC_QUEUED (new) | `APP_COMPONENT_MODE_QUEUED` (4) | LoRa/Wi-Fi POWER_DOWN (1) | Server mailbox dispatches at next Status |
 
 Only compile a **sensor node** with the two new controller profiles. The
@@ -45,24 +45,29 @@ The gateway's wake-preamble setting must be at least the node's receive
 monitor interval. The gateway sends a Mode-1 wake probe, waits for the node
 to restore its clock/UART and change from Mode 2 to Mode 0, and then sends
 the encrypted command. The node's E32 is in Mode 2 between events and cannot
-transmit until returned to Mode 0. AUX on PC13 is the MCU external interrupt;
-M0=PB2 and M1=PB1 are radio mode outputs.
+transmit until returned to Mode 0. The default wake source is LoRa TXD -> STM32
+UART RX (PA12 on a sensor node), monitored by GPIO EXTI while UART alternate
+function is preserved. AUX on PC13 remains connected for ready/busy checks;
+it does not generate wake interrupts in this configuration. M0=PB2 and M1=PB1
+are radio mode outputs. See [RX wake configuration and tests](LORA_WOR_RX_WAKE_GUIDE.md).
+Set APP_LORA_WOR_WAKE_SOURCE=APP_LORA_WOR_WAKE_SOURCE_AUX to retain the older
+AUX wake implementation.
 
 After a successful report, the node listens for
 `APP_LORA_WOR_COMMAND_WINDOW_MS` (default 5 s), then enters STM32 Stop.
-Either AUX or RTC exits Stop. The RTC also wakes the MCU every
+Either the selected wake input or RTC exits Stop. The RTC also wakes the MCU every
 `APP_LORA_WOR_WATCHDOG_WAKE_SECONDS` (default 8 s) to feed the existing IWDG;
 the normal watchdog timeout is now about 30 s. This heartbeat is not used
 to hide a hung active application. On the report deadline the node samples
-and publishes again. On AUX it listens for and handles the command. WAKE can
+and publishes again. On a receive edge it listens for and handles the command. WAKE can
 hold the node active for the requested lease.
 
 **Bench qualification is mandatory.** The first probe packet may be lost
 while the STM32 restores its clock and UART; that is intentional, but the
 subsequent command must be captured. Verify this with the real E32 modules,
 chosen UART/air rates, worst-case temperature, command fragments, and
-collisions. Verify the exact PC13 interrupt polarity and that no other circuit
-drives that pin. If radio restoration fails, firmware resumes active operation
+collisions. Verify the selected wake input and that UART reception remains
+functional after each Stop wake. If radio restoration fails, firmware resumes active operation
 and logs an error rather than claiming it is asleep/reachable.
 
 ### RTC-scheduled command mailbox

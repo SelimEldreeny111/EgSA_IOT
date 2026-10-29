@@ -32,6 +32,8 @@ $wakeConfigCases = @(
     @{Name='queued-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='4';APP_WIFI_POWER_MODE='1'}; Error=$null},
     @{Name='queued-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='4';APP_LORA_POWER_MODE='1';APP_UPLINK='2'}; Error=$null},
     @{Name='wor-lora'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_UPLINK='2'}; Error=$null},
+    @{Name='wor-lora-aux'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_UPLINK='2';APP_LORA_WOR_WAKE_SOURCE='0'}; Error=$null},
+    @{Name='reject-wor-wake-source'; Modem='USE_SIM800'; Defines=@{APP_LORA_WOR_WAKE_SOURCE='99'}; Error='APP_LORA_WOR_WAKE_SOURCE must be AUX or UART_RX'},
     @{Name='gateway-wor'; Modem='USE_ESP8266'; Defines=@{APP_ROLE='2';APP_LORA_GATEWAY_WOR_TX='1'}; Error=$null},
     @{Name='reject-queued-sim'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='4'}; Error='SIM800L periodic POWER_DOWN is unsafe'},
     @{Name='reject-wor-wifi'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='3'}; Error='LORA_WOR requires a LoRa sensor node'},
@@ -61,10 +63,11 @@ try {
     $wakeConfigProductionMacros = (& $wakeConfigCompiler '-dM' '-E' '-x' 'c++' '-I' (Join-Path $PSScriptRoot 'fakes') '-DUSE_SIM800' (Join-Path $wakeConfigRoot 'src/config/AppConfig.h') | Out-String)
     if ($LASTEXITCODE -ne 0 -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_WATCHDOG_TIMEOUT_US 30000000UL\s*$' -or
-        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_NETWORK_RETRIES_PER_STAGE 10U\s*$') {
-        throw 'Expected production defaults: 30-second watchdog and 10 retries per stage'
+        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_NETWORK_RETRIES_PER_STAGE 10U\s*$' -or
+        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_LORA_WOR_WAKE_SOURCE APP_LORA_WOR_WAKE_SOURCE_UART_RX\s*$') {
+        throw 'Expected production defaults: 30-second watchdog, 10 retries and UART_RX WOR wake'
     }
-    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10'
+    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10; WOR UART_RX wake'
     foreach ($wakeConfigCase in $wakeConfigCases) {
         $wakeConfigDefines = $wakeConfigDefaults.Clone()
         foreach ($wakeConfigName in $wakeConfigCase.Defines.Keys) {

@@ -27,6 +27,9 @@ struct PWR_TypeDef { uint32_t CR=0U; };
 struct RTC_TypeDef { uint32_t CR=0U, TAFCR=0U; };
 struct RTC_HandleTypeDef { RTC_TypeDef* Instance=nullptr; };
 struct SCB_TypeDef { uint32_t ICSR=0U; };
+struct GPIO_TypeDef { uint32_t MODER=0U, OSPEEDR=0U, AFR[2]={0U,0U}, PUPDR=0U; };
+extern GPIO_TypeDef fakeRxPort;
+inline GPIO_TypeDef* digitalPinToPort(uint32_t) { return &fakeRxPort; }
 extern PWR_TypeDef* PWR;
 extern RTC_TypeDef* RTC;
 extern SCB_TypeDef* SCB;

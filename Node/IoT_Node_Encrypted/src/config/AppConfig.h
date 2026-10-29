@@ -85,6 +85,14 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #ifndef APP_LORA_WOR_COMMAND_WINDOW_MS
 #define APP_LORA_WOR_COMMAND_WINDOW_MS 5000UL
 #endif
+// WOR wake interrupt source. UART_RX reuses LoRa TXD -> STM32 RX (PA12 on
+// the sensor node). AUX remains connected for radio readiness checks.
+// Select AUX explicitly to retain the previous wake implementation.
+#define APP_LORA_WOR_WAKE_SOURCE_AUX 0
+#define APP_LORA_WOR_WAKE_SOURCE_UART_RX 1
+#ifndef APP_LORA_WOR_WAKE_SOURCE
+#define APP_LORA_WOR_WAKE_SOURCE APP_LORA_WOR_WAKE_SOURCE_UART_RX
+#endif
 // Set to 1 on a separately built LoRa gateway when its nodes use LORA_WOR.
 // It sends a Mode-1 wake probe before forwarding each command.
 #ifndef APP_LORA_GATEWAY_WOR_TX
@@ -247,6 +255,10 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #endif
 #if APP_LORA_WOR_WATCHDOG_WAKE_SECONDS < 2UL || APP_LORA_WOR_WATCHDOG_WAKE_SECONDS > 15UL
 #error "APP_LORA_WOR_WATCHDOG_WAKE_SECONDS must be 2..15 seconds"
+#endif
+#if APP_LORA_WOR_WAKE_SOURCE != APP_LORA_WOR_WAKE_SOURCE_AUX && \
+    APP_LORA_WOR_WAKE_SOURCE != APP_LORA_WOR_WAKE_SOURCE_UART_RX
+#error "APP_LORA_WOR_WAKE_SOURCE must be AUX or UART_RX"
 #endif
 
 #if APP_POWER_SLEEP_ENTRY_TIMEOUT_MS < 100UL || \
