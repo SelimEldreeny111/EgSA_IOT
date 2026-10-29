@@ -66,7 +66,21 @@ for radio-ready/busy checks; it is not an interrupt source in UART_RX mode.
 - Server, protobuf, simulators, ESP32 and CubeIDE are unchanged. Their test suites
   were not rerun for this focused firmware update.
 
-## Bench qualification still required
+## Initial bench current result recorded
+
+After testing firmware b60388b, the user confirmed current dropped to approximately
+9 mA. The supplied log shows wake_source=UART_RX and reaches WOR Stop requested
+with RX HIGH and no pending wake interrupt or buffered UART data. Compared with
+the earlier approximately 42-mA unsuccessful sleep attempt, the reported decrease
+is approximately 33 mA (79%). Measurement location and averaging were not supplied;
+this is not an MCU-only current specification or a whole-cycle average.
+
+See [the dated bench record](LORA_WOR_9MA_BENCH_RESULT_20261029.md) for the exact
+log, configuration, interpretation and remaining acceptance checks. This confirms
+the initial current-reduction observation; a server command/reply and multiple
+RTC/report cycles have not yet been reported.
+
+## Remaining bench qualification
 
 Rebuild/flash the node from the final folder, keeping AUX connected. Confirm
 wake_source=UART_RX, send STIME, then obtain a successful report. Test quiet

@@ -83,3 +83,5 @@ WARN_LOGFILE           = Documentation/Doxygen/warnings.log
 QUIET                  = YES
 
 INPUT += REGIONAL_MQTT_TOPICS_GUIDE.md
+INPUT += ../../Documentation/Validation/LORA_WOR_9MA_BENCH_RESULT_20261029.md
+INPUT += ../../Documentation/Validation/LORA_WOR_RX_WAKE_VERIFICATION_20261029.md

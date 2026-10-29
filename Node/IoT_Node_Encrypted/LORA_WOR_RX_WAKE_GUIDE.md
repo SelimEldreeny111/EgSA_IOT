@@ -2,6 +2,21 @@
 
 29 October 2026 | Arduino STM32 sensor node
 
+## Recorded initial bench result
+
+On 29 October 2026, the user tested firmware b60388b and confirmed current dropped
+to approximately **9 mA**, compared with the earlier unsuccessful sleep attempt
+at approximately **42 mA** (about 33 mA / 79% lower). The supplied log selects
+wake_source=UART_RX and reaches `WOR Stop requested` with M0=0/M1=1 and no pending
+wake/input data. This is the first reported successful current-reduction result
+for the RX wake implementation.
+
+The measurement point and averaging method were not specified; 9 mA is a reported
+bench assembly reading, not MCU-only current or a whole-cycle average. RTC
+heartbeat/report cycles and server command wake/reply are separate checks still
+awaiting reported bench results. Full evidence and acceptance status are in
+[the bench record](../../Documentation/Validation/LORA_WOR_9MA_BENCH_RESULT_20261029.md).
+
 ## Select the behavior
 
 Keep the existing controller/radio modes:

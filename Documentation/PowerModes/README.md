@@ -1,5 +1,12 @@
 # WIOT power-mode reference
 
+29 October bench update: LoRa WOR using UART_RX wake reached the Stop-request
+path and the user reported approximately **9 mA**, versus the earlier approximately
+42-mA unsuccessful sleep attempt. See the [dated bench record and remaining
+tests](../Validation/LORA_WOR_9MA_BENCH_RESULT_20261029.md) and the
+[current RX wake guide](../../Node/IoT_Node_Encrypted/LORA_WOR_RX_WAKE_GUIDE.md).
+The historical reference/PDF below has not been regenerated for this result.
+
 5 October update: REMOTE_WAKE defaults to independent SRATE/STRAN scheduling.
 See [new remote policy and tests](../../Node/IoT_Node_Encrypted/REMOTE_WAKE_APP_SCHEDULE_GUIDE.md).
 The dated 4 October reference/PDF below describe the legacy fixed-interval
