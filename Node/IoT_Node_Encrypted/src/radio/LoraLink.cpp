@@ -1299,6 +1299,7 @@ bool prepareLoraForPowerDown(uint32_t timeoutMs)
     return false;
   }
 
+  // Timed Standby loses the UART state; WOR Stop keeps it (see below).
   SerialLoRa.end();
   return true;
 }
@@ -1317,16 +1318,20 @@ bool prepareLoraForWakeOnRadio(uint32_t timeoutMs)
     digitalWrite(AppConfig::kLoraMd1Pin, LOW);
     return false;
   }
-  SerialLoRa.end();
+  // Keep RX enabled through the receive-arming boundary. HardwareSerial::end()
+  // discards its RX ring; that would hide a packet received during the mode
+  // transition. F401 Stop gates the UART peripheral clock automatically.
   return true;
 }
 
 bool resumeLoraFromWakeOnRadio(uint32_t timeoutMs)
 {
   // AUX may be low because the wake probe is being delivered. Wait for the
-  // radio to finish it before changing mode; the probe is deliberately lost.
+  // radio to finish it before changing mode. The first probe may have been
+  // missed while the STM32/UART clocks were stopped; the actual command follows.
   if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin, timeoutMs)) return false;
-  SerialLoRa.begin(AS32Config::kUartBaudRate, AS32Config::kSerialMode);
+  // The WOR path keeps this UART initialized. Do not reset its RX ring here;
+  // bytes received before Stop or after clock restoration must reach the parser.
   digitalWrite(AppConfig::kLoraMd1Pin, LOW);
   digitalWrite(AppConfig::kLoraMd0Pin, LOW);
   delay(5);

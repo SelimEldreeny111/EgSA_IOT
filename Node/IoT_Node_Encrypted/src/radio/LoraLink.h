@@ -41,7 +41,7 @@ bool isLoraReceiveTransactionActive();
 bool isLoraIdleForPowerDown();
 /** @brief Quiesce the radio within a deadline. @param timeoutMs Maximum wait for in-flight work and AUX readiness. @return True if radio sleep preparation succeeded. */
 bool prepareLoraForPowerDown(uint32_t timeoutMs);
-/** Enter E32 Mode 2 (wake-on-radio receive) and stop the LoRa UART. */
+/** Enter E32 Mode 2; retain UART RX so arming does not discard received data. */
 bool prepareLoraForWakeOnRadio(uint32_t timeoutMs);
 /** Return from E32 Mode 2 to normal bidirectional Mode 0. */
 bool resumeLoraFromWakeOnRadio(uint32_t timeoutMs);

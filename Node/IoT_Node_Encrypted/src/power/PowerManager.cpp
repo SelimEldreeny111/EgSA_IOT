@@ -52,7 +52,7 @@ bool g_worCommandWindow = false;
 uint32_t g_worWindowStartedMs = 0U;
 uint32_t g_worNextReportEpoch = 0U;
 
-enum class WorPhase : uint32_t { Idle, RadioArming, AlarmSetup, StopEntry, StopReturn, Heartbeat };
+enum class WorPhase : uint32_t { Idle, RadioArming, ReceiveArmed, AlarmSetup, StopEntry, StopReturn, Heartbeat };
 volatile WorPhase g_worPhase = WorPhase::Idle;
 volatile WorPhase g_worAuxEdgePhase = WorPhase::Idle;
 
@@ -69,6 +69,7 @@ const char* worPhaseName(WorPhase phase)
   switch (phase)
   {
     case WorPhase::RadioArming: return "RADIO_ARMING";
+    case WorPhase::ReceiveArmed: return "RECEIVE_ARMED";
     case WorPhase::AlarmSetup: return "ALARM_SETUP";
     case WorPhase::StopEntry: return "STOP_ENTRY";
     case WorPhase::StopReturn: return "STOP_RETURN";
@@ -133,6 +134,8 @@ void printWorSnapshot(const char* event, uint32_t stopCalls, uint32_t elapsedSec
   SerialMon.print(__HAL_GPIO_EXTI_GET_IT(digitalPinToBitMask(AppConfig::kLoraAuxPin)) != RESET ? 1U : 0U);
   SerialMon.print(" rtc_irq=");
   SerialMon.print(g_worRtcInterrupt ? 1U : 0U);
+  SerialMon.print(" uart_rx=");
+  SerialMon.print(SerialLoRa.available());
   SerialMon.print(" M0=");
   SerialMon.print(digitalRead(AppConfig::kLoraMd0Pin) == HIGH ? 1U : 0U);
   SerialMon.print(" M1=");
@@ -164,7 +167,8 @@ void runLoraWorStopCycle()
   g_worPhase = WorPhase::RadioArming;
   // Detached GPIO edges can leave a pending EXTI bit during normal traffic.
   // Clear ONLY this line's stale state while AUX is idle, BEFORE Mode 2 is
-  // selected. Never clear the shared NVIC vector or edges after arming WOR.
+  // selected. The final receive baseline is established after Mode 2 is ready.
+  // Never clear the shared NVIC vector or edges after that boundary.
   const uint32_t savedPrimask = __get_PRIMASK();
   __disable_irq();
   g_worAuxInterrupt = false;
@@ -188,8 +192,26 @@ void runLoraWorStopCycle()
     return;
   }
 
+  // HAL_GPIO_Init/attachInterrupt does not clear EXTI pending history. Route
+  // the GPIO with IRQ delivery masked, then establish the idle baseline only
+  // AFTER Mode 2 has settled. Keep the UART open so received bytes during the
+  // transition prevent sleep rather than being discarded by Serial.end().
+  const uint32_t armPrimask = __get_PRIMASK();
+  __disable_irq();
   attachInterrupt(digitalPinToInterrupt(AppConfig::kLoraAuxPin),
                   onWorAuxInterrupt, FALLING);
+  const bool armBusy = digitalRead(AppConfig::kLoraAuxPin) == LOW ||
+      SerialLoRa.available() > 0;
+  const bool armHistory = __HAL_GPIO_EXTI_GET_IT(auxMask) != RESET;
+  if (!armBusy) __HAL_GPIO_EXTI_CLEAR_IT(auxMask);
+  // A falling edge after this clear remains pending. Recheck level/UART below
+  // as well, including an arrival while the baseline was being established.
+  const bool activityAtArm = armBusy ||
+      digitalRead(AppConfig::kLoraAuxPin) == LOW || SerialLoRa.available() > 0;
+  g_worPhase = WorPhase::ReceiveArmed;
+  __set_PRIMASK(armPrimask);
+  if (armHistory && !armBusy)
+    SerialMon.println("Power: WOR idle receive baseline; pre-arm AUX history cleared");
   rtc.attachInterrupt(onWorRtcInterrupt, STM32RTC::ALARM_A);
   bool radioWake = false;
   bool failed = false;
@@ -203,8 +225,7 @@ void runLoraWorStopCycle()
     const uint32_t now = getEpochTime();
     uint32_t alarmEpoch = now + AppConfig::kLoraWorWatchdogWakeSeconds;
     if (alarmEpoch > g_worNextReportEpoch) alarmEpoch = g_worNextReportEpoch;
-    // Keep an AUX edge that arrived during radio preparation/arming or the
-    // previous foreground heartbeat. Clearing it here can lose a real probe.
+    // Preserve all edges after the receive baseline, including heartbeat gaps.
     g_worRtcInterrupt = false;
     g_worPhase = WorPhase::AlarmSetup;
     if (!scheduleRtcWakeAlarm(alarmEpoch))
@@ -213,10 +234,13 @@ void runLoraWorStopCycle()
       exitReason = "RTC_ALARM_SETUP_FAILED";
       break;
     }
-    if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW)
+    if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW ||
+        SerialLoRa.available() > 0 || activityAtArm)
     {
       radioWake = true;
-      exitReason = g_worAuxInterrupt ? "AUX_EDGE_BEFORE_STOP" : "AUX_LOW_BEFORE_STOP";
+      exitReason = g_worAuxInterrupt ? "AUX_EDGE_BEFORE_STOP" :
+          (SerialLoRa.available() > 0 ? "UART_DATA_BEFORE_STOP" :
+          (activityAtArm ? "AUX_ACTIVITY_AT_ARM" : "AUX_LOW_BEFORE_STOP"));
       break;
     }
     g_worPhase = WorPhase::StopEntry;
@@ -234,7 +258,7 @@ void runLoraWorStopCycle()
     __ISB();
     bool stopCalled = false;
     if (!g_worAuxInterrupt && !g_worRtcInterrupt &&
-        digitalRead(AppConfig::kLoraAuxPin) != LOW)
+        digitalRead(AppConfig::kLoraAuxPin) != LOW && SerialLoRa.available() == 0)
     {
       stopCalled = true;
       ++stopCalls;
@@ -250,10 +274,13 @@ void runLoraWorStopCycle()
     }
     HAL_ResumeTick();
     __enable_irq();
-    if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW)
+    if (g_worAuxInterrupt || digitalRead(AppConfig::kLoraAuxPin) == LOW ||
+        SerialLoRa.available() > 0)
     {
       radioWake = true;
-      exitReason = stopCalled
+      exitReason = !g_worAuxInterrupt && SerialLoRa.available() > 0
+          ? (stopCalled ? "UART_DATA_AFTER_STOP" : "UART_DATA_BEFORE_STOP")
+          : stopCalled
           ? (g_worAuxInterrupt ? "AUX_EDGE_AFTER_STOP" : "AUX_LOW_AFTER_STOP")
           : (g_worAuxInterrupt ? "AUX_EDGE_BEFORE_STOP" : "AUX_LOW_BEFORE_STOP");
       break;

@@ -7,7 +7,8 @@ class HardwareSerial {
 public:
   std::ostringstream output;
   unsigned flushes = 0U;
-  int available() { return 0; }
+  int rxBytes = 0;
+  int available() { return rxBytes; }
   template<class T> void print(const T& value) { output << value; }
   template<class T> void print(const T& value, int) { output << value; }
   template<class T> void println(const T& value) { output << value << '\n'; }
@@ -45,7 +46,8 @@ void __disable_irq();
 void __enable_irq();
 void __set_PRIMASK(uint32_t);
 #define __HAL_GPIO_EXTI_GET_IT(mask) (fakeExtiPending & (mask))
-#define __HAL_GPIO_EXTI_CLEAR_IT(mask) (fakeExtiPending &= ~(mask))
+void fakeClearExti(uint32_t);
+#define __HAL_GPIO_EXTI_CLEAR_IT(mask) fakeClearExti(mask)
 #define __HAL_RCC_PWR_CLK_ENABLE() ((void)0)
 #define __HAL_RCC_RTC_ENABLE() ((void)0)
 #define __DSB() ((void)0)

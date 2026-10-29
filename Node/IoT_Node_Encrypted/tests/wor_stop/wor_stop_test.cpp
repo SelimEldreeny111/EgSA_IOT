@@ -19,6 +19,7 @@ bool restoreHealthy=true, idle=true, tickSuspended=false, injected=false;
 bool fakeRtcWritable=false;
 int m0=LOW, m1=LOW;
 void (*auxCallback)()=nullptr;
+bool armCompleted=false;
 RTC_HandleTypeDef* STM32RTC::getHandle() {
   static RTC_HandleTypeDef handle;
   handle.Instance=RTC;
@@ -40,15 +41,35 @@ AppRuntimeState& appState() { return state; }
 int digitalRead(uint32_t pin) { return pin==13U ? (auxHigh ? HIGH : LOW) : (pin==2U ? m0 : m1); }
 void attachInterrupt(uint32_t pin, void (*fn)(), int) {
   assert(pin==13U); auxCallback=fn;
-  if (fakeExtiPending & (1U << 13)) {
+  assert(primask==1U); // GPIO routing and the receive baseline are atomic.
+  if (scenario=="edge_during_attach") injectEdge();
+  if (!primask && (fakeExtiPending & (1U << 13))) {
     fakeExtiPending &= ~(1U << 13); auxCallback();
   }
 }
 void detachInterrupt(uint32_t) { auxCallback=nullptr; }
 uint32_t __get_PRIMASK() { return primask; }
 void __disable_irq() { primask=1U; }
-void __set_PRIMASK(uint32_t value) { primask=value; }
-void __enable_irq() { primask=0U; }
+void __set_PRIMASK(uint32_t value) {
+  primask=value;
+  if (auxCallback && !armCompleted) {
+    armCompleted=true;
+    if (scenario=="edge_after_arm") injectEdge();
+  }
+  if (!primask && auxCallback && (fakeExtiPending & (1U << 13))) {
+    fakeExtiPending &= ~(1U << 13); auxCallback();
+  }
+}
+void __enable_irq() { __set_PRIMASK(0U); }
+void fakeClearExti(uint32_t mask) {
+  fakeExtiPending &= ~mask;
+  if (auxCallback && scenario=="edge_after_baseline_clear" && !injected) {
+    injectEdge(); injected=true; // New edge must survive the baseline clear.
+  }
+  if (auxCallback && scenario=="low_after_baseline_clear" && !injected) {
+    auxHigh=false; injected=true;
+  }
+}
 void HAL_SuspendTick() {
   tickSuspended=true;
   if (scenario=="edge_before_wfi") injectEdge();
@@ -63,7 +84,9 @@ bool isLoraIdleForPowerDown() { return idle; }
 bool prepareLoraForWakeOnRadio(uint32_t) {
   if (!prepareHealthy) return false;
   m0=LOW; m1=HIGH;
-  if (scenario=="edge_during_prepare") injectEdge();
+  if (scenario=="edge_during_prepare" || scenario=="rx_during_prepare" || scenario=="low_during_prepare") injectEdge();
+  if (scenario=="rx_during_prepare") SerialLoRa.rxBytes=12;
+  if (scenario=="low_during_prepare") auxHigh=false;
   return true;
 }
 bool resumeLoraFromWakeOnRadio(uint32_t) {
@@ -75,6 +98,7 @@ bool scheduleRtcWakeAlarm(uint32_t deadline) {
   alarmEpoch=deadline;
   if (scenario=="aux_low_before_stop") auxHigh=false;
   if (scenario=="edge_during_alarm") injectEdge();
+  if (scenario=="uart_during_alarm") SerialLoRa.rxBytes=12;
   return alarmHealthy;
 }
 void cancelRtcWakeAlarm() {
@@ -124,7 +148,7 @@ int main(int argc, char** argv) {
   nowMs=4999U; servicePowerManager(); assert(stopCalls==0U);
   if (scenario=="wake_lease") assert(requestRemoteWake(30U, 123U));
   nowMs=5000U; servicePowerManager();
-  if (scenario=="rtc_deadline" || scenario=="stale_pending" || scenario=="restore_failure" || scenario=="retained_rtc_pin") {
+  if (scenario=="rtc_deadline" || scenario=="stale_pending" || scenario=="restore_failure" || scenario=="retained_rtc_pin" || scenario=="edge_during_prepare" || scenario=="edge_during_attach") {
     assert(stopCalls==4U && clockRestores==4U && restores==1U);
     requireLog("Power: WOR RTC heartbeat");
     requireLog("reason=REPORT_DEADLINE");
@@ -136,17 +160,27 @@ int main(int argc, char** argv) {
     if (scenario=="restore_failure") assert(reinitializations==1U);
     else requireLog("Power: RTC report deadline woke STM32");
     if (scenario=="retained_rtc_pin") requireLog("released retained RTC pin functions");
+    if (scenario=="edge_during_prepare" || scenario=="edge_during_attach")
+      requireLog("idle receive baseline; pre-arm AUX history cleared");
   } else if (scenario=="aux_after_stop" || scenario=="edge_after_heartbeat") {
     assert(stopCalls==1U && clockRestores==1U && restores==1U);
     requireLog(scenario=="aux_after_stop" ? "reason=AUX_EDGE_AFTER_STOP" : "reason=AUX_EDGE_BEFORE_STOP");
     requireLog("AUX=HIGH aux_irq=1");
     requireLog("command not yet confirmed");
-  } else if (scenario=="edge_during_prepare" || scenario=="edge_during_alarm" || scenario=="edge_before_wfi") {
+  } else if (scenario=="edge_after_arm" || scenario=="edge_after_baseline_clear" || scenario=="low_during_prepare" || scenario=="edge_during_alarm" || scenario=="edge_before_wfi") {
     assert(stopCalls==0U && clockRestores==0U && restores==1U);
     requireLog("reason=AUX_EDGE_BEFORE_STOP"); requireLog("stop_calls=0");
     if (scenario=="edge_during_alarm") requireLog("aux_edge_phase=ALARM_SETUP");
-    if (scenario=="edge_during_prepare") requireLog("aux_edge_phase=RADIO_ARMING");
+    if (scenario=="edge_after_arm" || scenario=="edge_after_baseline_clear" || scenario=="low_during_prepare")
+      requireLog("aux_edge_phase=RECEIVE_ARMED");
     if (scenario=="edge_before_wfi") requireLog("aux_edge_phase=STOP_ENTRY");
+  } else if (scenario=="rx_during_prepare" || scenario=="uart_during_alarm") {
+    assert(stopCalls==0U && clockRestores==0U && restores==1U);
+    assert(SerialLoRa.available()==12); // Arming does not consume application bytes.
+    requireLog(scenario=="rx_during_prepare" ? "reason=AUX_EDGE_BEFORE_STOP" : "reason=UART_DATA_BEFORE_STOP");
+  } else if (scenario=="low_after_baseline_clear") {
+    assert(stopCalls==0U && restores==1U);
+    requireLog("reason=AUX_ACTIVITY_AT_ARM");
   } else if (scenario=="aux_low_before_stop") {
     assert(stopCalls==0U && restores==1U);
     requireLog("reason=AUX_LOW_BEFORE_STOP"); requireLog("AUX=LOW");
