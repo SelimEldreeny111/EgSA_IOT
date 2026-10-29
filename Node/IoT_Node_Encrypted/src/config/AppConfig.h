@@ -47,10 +47,10 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #define APP_COMPONENT_MODE_REMOTE_WAKE 2
 
 #ifndef APP_CONTROLLER_POWER_MODE
-#define APP_CONTROLLER_POWER_MODE APP_COMPONENT_MODE_NORMAL
+#define APP_CONTROLLER_POWER_MODE APP_COMPONENT_MODE_LORA_WOR
 #endif
 #ifndef APP_LORA_POWER_MODE
-#define APP_LORA_POWER_MODE APP_COMPONENT_MODE_NORMAL
+#define APP_LORA_POWER_MODE APP_COMPONENT_MODE_WAKE_ON_RADIO
 #endif
 #ifndef APP_WIFI_POWER_MODE
 #define APP_WIFI_POWER_MODE APP_COMPONENT_MODE_NORMAL
@@ -66,7 +66,7 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 // Periodic-mode timing. The first commissioning test should override the sleep
 // interval to 30 seconds; use 300 seconds (5 minutes) for normal operation.
 #ifndef APP_POWER_SLEEP_SECONDS
-#define APP_POWER_SLEEP_SECONDS 300UL
+#define APP_POWER_SLEEP_SECONDS 120UL
 #endif
 #ifndef APP_POWER_COMMAND_WINDOW_MS
 #define APP_POWER_COMMAND_WINDOW_MS 5000UL
@@ -80,7 +80,7 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 // Stop mode retains RAM but the IWDG still runs. Wake on the RTC this often
 // to check application progress and feed the watchdog in foreground code.
 #ifndef APP_LORA_WOR_WATCHDOG_WAKE_SECONDS
-#define APP_LORA_WOR_WATCHDOG_WAKE_SECONDS 8UL
+#define APP_LORA_WOR_WATCHDOG_WAKE_SECONDS 15UL
 #endif
 #ifndef APP_LORA_WOR_COMMAND_WINDOW_MS
 #define APP_LORA_WOR_COMMAND_WINDOW_MS 5000UL
@@ -117,8 +117,8 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 
 /**************** TRANSPORT SELECT ****************/
 #if !defined(USE_SIM800) && !defined(USE_ESP8266)
-#define USE_SIM800
-//#define USE_ESP8266
+//#define USE_SIM800
+#define USE_ESP8266
 #endif
 /*************************************************/
 
@@ -146,7 +146,7 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #endif
 
 #ifndef APP_UPLINK
-#define APP_UPLINK APP_UPLINK_MQTT_DIRECT
+#define APP_UPLINK APP_UPLINK_LORA_TO_GATEWAY
 #endif
 
 #if APP_UPLINK != APP_UPLINK_MQTT_DIRECT && \
@@ -346,7 +346,7 @@ static_assert(sizeof(APP_MQTT_COMPANY) <= 25 && sizeof(APP_MQTT_REGION) <= 25,
               "MQTT company/region must each fit 24 characters for the 512-byte packet buffer");
 
 #ifndef APP_NODE_ID
-#define APP_NODE_ID 3
+#define APP_NODE_ID 2
 #endif
 static_assert(MqttTopicRouting::validNodeLiteral(APP_MQTT_STRINGIFY(APP_NODE_ID)),
               "APP_NODE_ID must be decimal 1..65535 without leading zeros or type suffixes");
@@ -376,8 +376,8 @@ constexpr bool kEspResetActiveLow = true;
 constexpr uint32_t kEspResetPulseMs = 100UL;
 constexpr uint32_t kEspBootDelayMs = 3000UL;
 constexpr uint32_t kSimResetPin = PB0;
-// SIM800L RESET has an internal low-voltage pull-up: pull low, then release.
-// Do not drive it high at 3.3 V. This is emergency reset, not power switching.
+// SIM800L RESET has an internal voltage-domain pull-up. Pull LOW with open
+// drain, then release; never actively drive its pin to STM32's 3.3 V rail.
 constexpr uint32_t kSimResetPulseMs = 250UL;
 constexpr uint32_t kSimBootDelayMs = 3000UL;
 
@@ -400,13 +400,13 @@ constexpr uint32_t kLoraTxPin = PA11;
 #define APP_ENABLE_TUF_SENSOR true
 #endif
 #ifndef APP_ENABLE_HNDA_SENSOR
-#define APP_ENABLE_HNDA_SENSOR false
+#define APP_ENABLE_HNDA_SENSOR true
 #endif
 #ifndef APP_ENABLE_SUPMEA_SENSOR
-#define APP_ENABLE_SUPMEA_SENSOR false
+#define APP_ENABLE_SUPMEA_SENSOR true
 #endif
 #ifndef APP_ENABLE_SONDAS_SENSOR
-#define APP_ENABLE_SONDAS_SENSOR false
+#define APP_ENABLE_SONDAS_SENSOR true
 #endif
 
 // These are the addresses programmed in the physical meters, not commands to
@@ -625,13 +625,13 @@ constexpr float kSondasElectricalConductivityScale = 1.0f;
 #define APP_ENABLE_LATCHING_VALVE true
 #endif
 #ifndef APP_VALVE_OPEN_PULSE_MS
-#define APP_VALVE_OPEN_PULSE_MS 0UL
+#define APP_VALVE_OPEN_PULSE_MS 50UL
 #endif
 #ifndef APP_VALVE_CLOSE_PULSE_MS
-#define APP_VALVE_CLOSE_PULSE_MS 0UL
+#define APP_VALVE_CLOSE_PULSE_MS 50UL
 #endif
 #ifndef APP_VALVE_POLARITY_CONFIRMED
-#define APP_VALVE_POLARITY_CONFIRMED false
+#define APP_VALVE_POLARITY_CONFIRMED true
 #endif
 #ifndef APP_VALVE_OPEN_AIN1_HIGH
 #define APP_VALVE_OPEN_AIN1_HIGH true
