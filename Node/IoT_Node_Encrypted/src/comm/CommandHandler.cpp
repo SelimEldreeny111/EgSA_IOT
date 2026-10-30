@@ -4,6 +4,7 @@
 #include "CommandReplayCache.h"
 
 #include "../config/AppConfig.h"
+#include "../storage/TelemetryArchive.h"
 #include "../app/AppState.h"
 #include "PacketCodec.h"
 #include "../devices/RTC.h"
@@ -51,6 +52,9 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     SerialMon.println(" Not for this node (node topic)");
     return false;
   }
+
+  if (TelemetryArchive::command(cmd.cmd_id))
+    return TelemetryArchive::handle(cmd, isBroadcastTopic);
 
   const auto match = ordinaryCommands.lookup(cmd.request_id, cmd.node_id, cmd.cmd_id,
                                             cmd.cmd_data, isBroadcastTopic, applied);
@@ -217,6 +221,7 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload,
     tlm.command_ack_success = commandApplied;
   }
 
+  if (cmd != nullptr) TelemetryArchive::reply(*cmd, tlm, commandApplied);
   SerialMon.println("Telemetry struct filled");
 
   /* ===================== ENCODE ===================== */

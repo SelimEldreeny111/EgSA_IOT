@@ -6,6 +6,12 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+PB_BIND(FlashLogInfo, FlashLogInfo, AUTO)
+
+
+PB_BIND(HistoryInfo, HistoryInfo, AUTO)
+
+
 PB_BIND(FlowReading, FlowReading, AUTO)
 
 

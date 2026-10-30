@@ -135,7 +135,9 @@ def select_measurement_timestamp(message, received_at: int) -> tuple[int, str]:
     """Use node time only when the node explicitly marks its RTC trusted."""
 
     node_timestamp = int(getattr(message, "timestamp", 0))
-    rtc_valid = bool(getattr(message, "rtc_valid", False))
+    # Acquisition clock trust is independent of the primary meter's period RTC.
+    rtc_valid = bool(getattr(message, "sample_time_valid", False) or
+                     getattr(message, "rtc_valid", False))
     if (
         rtc_valid
         and node_timestamp >= MINIMUM_TRUSTED_RTC_EPOCH

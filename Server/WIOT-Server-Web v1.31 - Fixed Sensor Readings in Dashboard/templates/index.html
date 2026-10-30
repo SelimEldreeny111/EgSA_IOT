@@ -508,6 +508,23 @@
             <!-- COMMANDS -->
             <div class="tab-pane fade" id="Commands" role="tabpanel">
                 <div class="card mb-4">
+                    <div class="card-header"><i class="bi bi-device-hdd me-2"></i>Node flash archive</div>
+                    <div class="card-body">
+                        <p class="status-note">Select a company, region and target node below. Send FLASH_STATUS to read its memory, FLASH_LAST for its latest sample, or FLASH_TODAY to download retained samples from the node's current calendar day. The log clears every 24 elapsed hours. Downloaded records stay separate from live charts.</p>
+                        <p id="flash-memory-summary" role="status">No flash status received.</p>
+                        <p id="flash-transfer-summary" role="status">No download transfer received.</p>
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-outline-primary" onclick="refreshFlashArchive()">Refresh server archive</button>
+                            <button class="btn btn-outline-primary" onclick="downloadFlashCsv()">Export stored records (CSV)</button>
+                        </div>
+                        <div class="status-note small mb-2">First 200 records already saved on this server. CSV includes all saved records for the selected node, including earlier log generations. Clear acceptance starts an asynchronous erase; FLASH_STATUS shows its progress.</div>
+                        <div class="table-responsive"><table class="table table-wiot">
+                            <thead><tr><th>Generation / sequence</th><th>Sample time</th><th>Flow (m³/h)</th><th>Battery (V)</th><th>Soil moisture</th></tr></thead>
+                            <tbody id="flash-records-body"></tbody>
+                        </table></div>
+                    </div>
+                </div>
+                <div class="card mb-4">
                     <div class="card-header"><i class="bi bi-terminal me-2"></i>Send Command</div>
                     <div class="card-body">
                         <div class="row g-3">
@@ -526,6 +543,11 @@
                                     <option value="WAKE">WAKE — remote active period</option>
                                     <option value="CLEAR_POWER_RESETS">Clear power-reset counter</option>
                                     <option value="CLEAR_WDT_RESETS">Clear WDT-reset counter</option>
+                                    <option value="CLEAR_FLASH">CLEAR_FLASH — clear stored samples</option>
+                                    <option value="FLASH_STATUS">FLASH_STATUS — memory information</option>
+                                    <option value="FLASH_LAST">FLASH_LAST — latest stored sample</option>
+                                    <option value="FLASH_TODAY">FLASH_TODAY — download today</option>
+                                    <option value="FLASH_CANCEL">FLASH_CANCEL — stop download</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -907,5 +929,6 @@
 <script src="/static/js/wake_control.js?v=20260929-1"></script>
 <script src="/static/js/safe_html.js?v=20261004-1"></script>
 <script src="/static/js/app.js?v=20261005-2"></script>
+<script src="/static/js/flash_archive.js?v=20261030-1"></script>
 </body>
 </html>

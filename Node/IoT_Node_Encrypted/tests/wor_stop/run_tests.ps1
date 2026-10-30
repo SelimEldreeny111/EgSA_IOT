@@ -14,7 +14,7 @@ try {
         'aux_low_before_stop','unexpected_wake','alarm_failure','untrusted',
         'prepare_failure','pending_aux_low','restore_failure','busy','wake_lease','report_failure',
         'retained_rtc_pin','rtc_handle_failure','edge_during_attach',
-        'rx_during_prepare','low_during_prepare','edge_after_arm',
+        'rx_during_prepare','low_during_prepare','edge_after_arm','storage_busy','storage_deadline','storage_sleep_failure','storage_transfer',
         'edge_after_baseline_clear','low_after_baseline_clear','uart_during_alarm')
     $worCount = 0
     foreach ($worSource in @(0,1)) {

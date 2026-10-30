@@ -44,7 +44,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_all_three_proto_sources_match(self):
         expected = schema(NODE / "src/generated/sensor.proto")
-        self.assertEqual(set(expected), {"FlowReading", "Status_Message", "Telemetry", "CMD_Message"})
+        self.assertEqual(set(expected), {"FlowReading", "Status_Message", "Telemetry", "CMD_Message", "FlashLogInfo", "HistoryInfo"})
         for filename in ("sensor.proto", "messages.proto"):
             with self.subTest(filename=filename):
                 self.assertEqual(expected, schema(SERVER / filename))
@@ -70,6 +70,29 @@ class ReleaseContractTests(unittest.TestCase):
             for field, (_, tag) in fields.items():
                 with self.subTest(message=name, field=field):
                     self.assertEqual(tag, int(tags[f"{name}_{field}"]))
+
+    def test_flash_slot_and_encrypted_frame_capacity_cover_schema_maxima(self):
+        def fill(message):
+            for field in message.DESCRIPTOR.fields:
+                if field.type == field.TYPE_MESSAGE:
+                    fill(getattr(message, field.name))
+                elif field.type == field.TYPE_BOOL:
+                    setattr(message, field.name, True)
+                elif field.type == field.TYPE_FLOAT:
+                    setattr(message, field.name, 1.0)
+                elif field.type == field.TYPE_SINT64:
+                    setattr(message, field.name, -(1 << 63))
+                else:
+                    setattr(message, field.name, (1 << (64 if field.type == field.TYPE_UINT64 else 32))-1)
+        msg=messages.Telemetry();fill(msg)
+        header=(NODE/'src/generated/sensor.pb.h').read_text(encoding='utf-8')
+        maximum=int(re.search(r'#define Telemetry_size\s+(\d+)',header)[1])
+        self.assertLessEqual(len(msg.SerializeToString()),maximum)
+        self.assertLessEqual((maximum//16+1)*16+17,640)
+        for name in ('flash_log','history','command_ack_request_id','command_ack_cmd_id',
+                     'command_ack_success','wake_command_ack','wake_request_id'):
+            msg.ClearField(name)
+        self.assertLessEqual(len(msg.SerializeToString()),472)
 
     def test_four_sensor_voltage_power_ack_and_counter_fields_are_present(self):
         status = messages.Status_Message.DESCRIPTOR.fields_by_name

@@ -21,6 +21,8 @@ if ($BuildRoot) {
 $wakeBuildFqbn = 'STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F401CC'
 $wakeBuildFlags = @{
     'normal-sim' = '-DUSE_SIM800 -DAPP_CONTROLLER_POWER_MODE=0';
+    'normal-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=0';
+    'flash-disabled-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_ENABLE_SPI_FLASH=false';
     # Compile-only fixture durations, NOT manufacturer specifications. No upload.
     'valve-test-sim' = '-DUSE_SIM800 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_ENABLE_LATCHING_VALVE=true -DAPP_VALVE_OPEN_PULSE_MS=60 -DAPP_VALVE_CLOSE_PULSE_MS=80 -DAPP_VALVE_POLARITY_CONFIRMED=true';
     'valve-test-wifi' = '-DUSE_ESP8266 -DAPP_CONTROLLER_POWER_MODE=0 -DAPP_ENABLE_LATCHING_VALVE=true -DAPP_VALVE_OPEN_PULSE_MS=60 -DAPP_VALVE_CLOSE_PULSE_MS=80 -DAPP_VALVE_POLARITY_CONFIRMED=true';
@@ -57,7 +59,11 @@ foreach ($wakeBuildProfile in $Profiles) {
     if ($wakeBuildProfile -eq 'queued-wifi') { $wakeBuildPolicyFlags = ' -DAPP_LORA_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     if ($wakeBuildProfile -in @('queued-lora','wor-lora','wor-lora-aux')) { $wakeBuildPolicyFlags = ' -DAPP_WIFI_POWER_MODE=0 -DAPP_SIM_POWER_MODE=0' }
     $wakeBuildAckFlag = ''
-    if ($CommandAckReplies) { $wakeBuildAckFlag = ' -DAPP_ENABLE_COMMAND_ACK_REPLIES=' + $CommandAckReplies }
+    # The final bench copy selects LoRa by default. Other profile builds must
+    # explicitly select their uplink/role rather than inherit that bench choice.
+    if ($wakeBuildFlags[$wakeBuildProfile] -notmatch 'APP_UPLINK=') { $wakeBuildAckFlag += ' -DAPP_UPLINK=1' }
+    if ($wakeBuildFlags[$wakeBuildProfile] -notmatch 'APP_ROLE=') { $wakeBuildAckFlag += ' -DAPP_ROLE=1' }
+    if ($CommandAckReplies) { $wakeBuildAckFlag += ' -DAPP_ENABLE_COMMAND_ACK_REPLIES=' + $CommandAckReplies }
     if ($RemoteWakeApplicationSchedule) { $wakeBuildAckFlag += ' -DAPP_REMOTE_WAKE_USE_APP_SCHEDULE=' + $RemoteWakeApplicationSchedule }
     $wakeBuildArguments = @('compile', '--fqbn', $wakeBuildFqbn,
         '--build-path', $wakeBuildDirectory,

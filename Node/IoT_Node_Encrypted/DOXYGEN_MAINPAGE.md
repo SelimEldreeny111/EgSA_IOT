@@ -38,6 +38,7 @@ in files excluded from this reference.
 | `src/comm` | MQTT transport, command dispatch, protobuf payload mapping, and encrypted packet codec. |
 | `src/radio` | E32/AS32 LoRa framing, addressing, and link operation. |
 | `src/power` | Component sleep policy, command window, standby request, and wake handling. |
+| `src/storage` | Asynchronous S25FL064L driver, commit-last journal, retained samples and acknowledged history transfers. |
 | `src/platform` | Hardware watchdog initialization and bounded servicing. |
 
 ## Important invariants
@@ -121,3 +122,16 @@ zero-reading, counter and wake behavior, also consult:
 @page regional_mqtt_topics Regional MQTT routing
 
 See REGIONAL_MQTT_TOPICS_GUIDE.md for the company/region/node contract, migration and acceptance tests.
+
+## External telemetry archive
+
+Completed sampling cycles are queued to the S25FL064L journal. Normal reports
+use the latest committed sample, preserving its acquisition time and source flags;
+operational valve/reset/power fields remain current. Elapsed 24-hour retention
+survives resets. Direct clear/status/last/today/cancel commands and scoped server
+persistence ACKs provide bounded retrieval. Flash is asleep before controller
+Stop/Standby, and writes/recovery/transfers defer sleep.
+
+See [SPI flash design and user guide](SPI_FLASH_TELEMETRY_GUIDE.md) and
+[hardware acceptance plan](SPI_FLASH_TEST_PLAN.md) for wiring, capacity, format,
+recovery, command semantics and rollout requirements. Update LoRa gateways too.

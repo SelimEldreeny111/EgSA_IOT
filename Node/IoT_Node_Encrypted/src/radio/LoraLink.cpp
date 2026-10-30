@@ -31,7 +31,7 @@ constexpr size_t kMaxBufferedLength =
     kHeaderLength + sizeof(LoraFrame::payload) + kCrcLength;
 constexpr size_t kDiagnosticPrefixLength = 12U;
 constexpr size_t kAckPayloadLength = 5U;
-constexpr uint16_t kMaxFragmentMaskBits = 16U;
+constexpr uint16_t kMaxFragmentMaskBits = 32U;
 
 static_assert(kMaxWireFrameLength <= 63U,
               "AS32 physical frames must remain below its 63-byte boundary");
@@ -51,7 +51,7 @@ struct ReassemblyContext
   uint8_t fragmentCount;
   uint16_t totalLength;
   uint16_t logicalCrc;
-  uint16_t receivedMask;
+  uint32_t receivedMask;
   size_t bytesReceived;
   uint32_t lastUpdateMs;
   uint8_t payload[sizeof(LoraFrame::payload)];
@@ -776,7 +776,7 @@ void expireReassemblyContexts()
     SerialMon.print(" message=");
     SerialMon.print(context.messageId);
     SerialMon.print(" mask=0x");
-    printHexWord(context.receivedMask);
+    SerialMon.print(context.receivedMask, HEX);
     SerialMon.println();
     ++g_fragmentTimeoutDrops;
     resetReassemblyContext(context);
@@ -920,8 +920,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
     return false;
   }
 
-  const uint16_t fragmentBit =
-      static_cast<uint16_t>(1U << fragmentIndex);
+  const uint32_t fragmentBit = uint32_t(1) << fragmentIndex;
   const bool duplicate = (context->receivedMask & fragmentBit) != 0U;
   if (!duplicate)
   {
@@ -949,7 +948,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   SerialMon.print(" data=");
   SerialMon.print(chunkLength);
   SerialMon.print(" mask=0x");
-  printHexWord(context->receivedMask);
+  SerialMon.print(context->receivedMask, HEX);
   SerialMon.println();
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
@@ -959,8 +958,8 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   }
 #endif
 
-  const uint16_t completeMask = static_cast<uint16_t>(
-      (1UL << fragmentCount) - 1UL);
+  const uint32_t completeMask = fragmentCount == 32U ? UINT32_MAX :
+      (uint32_t(1) << fragmentCount) - 1U;
   if (context->receivedMask != completeMask ||
       context->bytesReceived != context->totalLength)
   {

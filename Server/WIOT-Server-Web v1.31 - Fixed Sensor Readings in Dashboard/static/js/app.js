@@ -124,6 +124,7 @@ async function loadRegionOptions() {
 }
 
 async function handleRegionChange() {
+    if (typeof resetFlashArchiveView === 'function') resetFlashArchiveView();
     if (!/^[A-Za-z0-9_-]{1,40}$/.test(getSelectedRegion())) {
         showToast('Region must contain 1..40 letters, digits, _ or -.', 'danger'); return;
     }
@@ -160,7 +161,8 @@ function updateCommandAvailability() {
     const sendBtn = document.getElementById('send-command-btn');
     const broadcastBtn = document.getElementById('broadcast-command-btn');
     if (sendBtn) sendBtn.disabled = !queued && !isBrokerConnected;
-    if (broadcastBtn) broadcastBtn.disabled = queued || !isBrokerConnected;
+    if (broadcastBtn) broadcastBtn.disabled = queued || !isBrokerConnected ||
+        ['CLEAR_FLASH','FLASH_STATUS','FLASH_LAST','FLASH_TODAY','FLASH_CANCEL'].includes(document.getElementById('cmd-type')?.value);
     const ttl = document.getElementById('cmd-ttl');
     if (ttl) ttl.disabled = !queued;
     const startBtn = document.getElementById('start-stime-btn');
@@ -219,6 +221,7 @@ function getElapsedLabel(seconds) {
 }
 
 function syncNodeSelection(nodeId) {
+    if (typeof resetFlashArchiveView === 'function') resetFlashArchiveView();
     const selectors = ['live-node-select', 'graph-node-select', 'cmd-node'];
     selectors.forEach(id => {
         const el = document.getElementById(id);
@@ -517,6 +520,7 @@ function setGraphWindow(size) {
 }
 
 async function handleCompanyChange() {
+    if (typeof resetFlashArchiveView === 'function') resetFlashArchiveView();
     stopPeriodicStime();
     const company = getSelectedCompany();
     document.getElementById('cfg-region').value = 'Region_1';
@@ -793,7 +797,11 @@ function handleCmdChange() {
         ? 'Active seconds: 1–86400. Use 0 for the node default. Requires REMOTE_WAKE mode.'
         : 'Command-specific data.';
 
-    if (type === 'STIME') {
+    if (['CLEAR_FLASH','FLASH_STATUS','FLASH_LAST','FLASH_TODAY','FLASH_CANCEL'].includes(type)) {
+        inp.disabled = true; inp.value = '0';
+        intervalInput.disabled = true;
+        if (help) help.textContent = 'Direct node command. Data is 0. Use FLASH_STATUS to check progress; downloaded samples stay separate from live data.';
+    } else if (type === 'STIME') {
         inp.disabled = true; inp.value = 'Epoch Time';
         intervalInput.disabled = false;
         if (startBtn) startBtn.disabled = !isBrokerConnected;
@@ -835,6 +843,11 @@ async function sendCommand(broadcast, suppressToast = false) {
         delivery: document.getElementById('cmd-delivery')?.value || 'now',
         ttl_seconds: Number(document.getElementById('cmd-ttl')?.value || 86400)
     };
+    if (['CLEAR_FLASH','FLASH_STATUS','FLASH_LAST','FLASH_TODAY','FLASH_CANCEL'].includes(data.cmd_type)) {
+        if (broadcast) { showToast('Flash commands must target one node.', 'danger'); return; }
+        if (data.cmd_type === 'CLEAR_FLASH' && !window.confirm(`Clear stored telemetry on Node ${nodeValue}? This starts a new 24-hour log and cannot be undone.`)) return;
+        data.cmd_data = 0;
+    }
     if (['CLEAR_POWER_RESETS', 'CLEAR_WDT_RESETS'].includes(data.cmd_type)) {
         if (broadcast) { showToast('Counter clear must target one node.', 'danger'); return; }
         if (!window.confirm(`Clear ${data.cmd_type === 'CLEAR_POWER_RESETS' ? 'power' : 'WDT'} reset counter for Node ${nodeValue}? This cannot be undone.`)) return;

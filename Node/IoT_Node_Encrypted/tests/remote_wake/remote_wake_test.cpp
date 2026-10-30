@@ -13,6 +13,7 @@ PWR_TypeDef* PWR=&powerRegs; RTC_TypeDef* RTC=&rtcRegs; SCB_TypeDef* SCB=&scbReg
 AppRuntimeState state;
 uint32_t nowMs=0U, backup[20]={}, wfiCount=0U, watchdogFeeds=0U;
 bool publishing=false;
+bool TelemetryArchive::busyForTest=false;
 Telemetry encodedTelemetry;
 const void* Telemetry_fields=nullptr;
 uint32_t millis() { return nowMs; }
@@ -59,6 +60,10 @@ void runApplicationScheduleTests()
   notifyPowerManagerSensorCycle(false); servicePowerManager();
   assert(!powerManagerAllowsSensorWork() && powerManagerState()==2U);
   powerManagerIdleCpu(); assert(wfiCount==1U && watchdogFeeds==0U);
+  TelemetryArchive::busyForTest=true;servicePowerManager();
+  assert(powerManagerAllowsSensorWork()&&powerManagerShouldRunApplication());
+  powerManagerIdleCpu();assert(wfiCount==1U); // No sleep while flash/transfer work is pending.
+  TelemetryArchive::busyForTest=false;servicePowerManager();assert(!powerManagerAllowsSensorWork());
   SerialAT.queued=1; assert(powerManagerShouldRunApplication()); SerialAT.queued=0;
 
   nowMs=9999U; servicePowerManager(); assert(!powerManagerAllowsSensorWork());
@@ -188,6 +193,9 @@ int main()
   assert(!powerManagerAllowsSensorWork() && powerManagerState()==2U);
   SCB->SCR=SCB_SCR_SLEEPDEEP_Msk;
   powerManagerIdleCpu(); assert(wfiCount==1U && SCB->SCR==0U);
+  TelemetryArchive::busyForTest=true;assert(powerManagerShouldRunApplication());
+  powerManagerIdleCpu();assert(wfiCount==1U);
+  TelemetryArchive::busyForTest=false;
   assert(watchdogFeeds==0U); // never mask hangs by feeding from sleep/interrupt code
   assert(powerManagerShouldRunApplication());
   assert(!powerManagerShouldRunApplication());

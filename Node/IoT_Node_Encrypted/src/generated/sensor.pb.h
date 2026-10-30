@@ -10,8 +10,39 @@
 #endif
 
 /* Struct definitions */
-/* When both flow meters are enabled, the original flow fields carry TUF for
- backward compatibility, and this optional record carries Supmea. */
+typedef struct _FlashLogInfo {
+    uint32_t state;
+    uint32_t jedec_id;
+    uint32_t capacity_bytes;
+    uint32_t usable_bytes;
+    uint32_t used_bytes;
+    uint32_t free_bytes;
+    uint32_t record_count;
+    uint32_t maximum_records;
+    uint32_t generation;
+    uint32_t latest_sequence;
+    uint32_t retention_started_epoch;
+    uint32_t next_clear_epoch;
+    uint32_t clear_sectors_remaining;
+    uint32_t dropped_samples;
+    uint32_t corrupt_records;
+    bool busy;
+    bool rtc_trusted;
+} FlashLogInfo;
+
+typedef struct _HistoryInfo {
+    uint32_t request_id;
+    uint32_t generation;
+    uint32_t sequence;
+    uint32_t index;
+    uint32_t total;
+    uint32_t day_key;
+    uint32_t kind;
+    uint32_t phase;
+    uint32_t result;
+    bool ack_required;
+} HistoryInfo;
+
 typedef struct _FlowReading {
     float flow_rate;
     float velocity;
@@ -40,7 +71,7 @@ typedef struct _Status_Message {
     float flow_rate_per_day;
     float flow_rate_per_month;
     float flow_rate_per_year;
-    uint32_t node_status; /* Valve: 0=commanded closed/OFF, 1=open/ON, 2=unknown, 3=fault (no feedback). */
+    uint32_t node_status;
     float soil_temperature;
     float soil_moisture;
     uint32_t soil_moisture_temp_valid;
@@ -50,12 +81,9 @@ typedef struct _Status_Message {
     uint32_t soil_moisture_temp_ec_valid;
     uint32_t active_sensor_count;
     uint32_t sensor_mask;
-    /* Added in V1.1. Tag 19 preserves compatibility with deployed tags 4..18,
- while nanopb still places this member directly after timestamp. */
     float battery_voltage;
-    /* Flow schema v2. Existing field numbers 1-19 remain wire-compatible. */
-    uint32_t flow_meter_type; /* 0=none, 1=TUF, 2=Supmea */
-    uint32_t flow_period_source; /* 1=meter native, 2=node RTC */
+    uint32_t flow_meter_type;
+    uint32_t flow_period_source;
     bool flow_live_valid;
     bool flow_period_totals_valid;
     bool flow_cumulative_totals_valid;
@@ -67,20 +95,22 @@ typedef struct _Status_Message {
     uint32_t flow_meter_alarm_flags;
     bool has_secondary_flow_meter;
     FlowReading secondary_flow_meter;
-    /* Power v4: 0=unknown; 1=NORMAL, 2=RTC_PERIODIC, 3=REMOTE_WAKE,
- 4=RTC_QUEUED, 5=LORA_WOR_STOP. Existing tag numbers are unchanged. */
     uint32_t power_mode;
-    uint32_t power_state; /* 1=ACTIVE, 2=REACHABLE_IDLE */
-    uint32_t wake_remaining_seconds; /* active lease/window, not idle time */
-    uint32_t wdt_reset_count; /* cumulative hardware IWDG resets */
-    uint32_t power_reset_count; /* power-on/brownout; excludes Standby/software */
+    uint32_t power_state;
+    uint32_t wake_remaining_seconds;
+    uint32_t wdt_reset_count;
+    uint32_t power_reset_count;
+    uint32_t sample_sequence;
+    bool sample_time_valid;
+    bool stored_sample;
+    bool live_fallback;
 } Status_Message;
 
 typedef struct _CMD_Message {
     uint32_t node_id;
     uint32_t cmd_id;
     uint64_t cmd_data;
-    uint32_t request_id; /* WAKE correlation; 0=legacy/manual */
+    uint32_t request_id;
 } CMD_Message;
 
 typedef struct _Telemetry {
@@ -88,8 +118,6 @@ typedef struct _Telemetry {
     uint64_t timestamp;
     uint32_t sampling_rate;
     uint32_t Transmission_rate;
-    /* V1 reserved1 was never assigned application data. Its tag is now the
- battery voltage field requested for system telemetry. */
     float battery_voltage;
     uint32_t reserved2;
     uint32_t reserved3;
@@ -100,7 +128,7 @@ typedef struct _Telemetry {
     float flow_rate_per_day;
     float flow_rate_per_month;
     float flow_rate_per_year;
-    uint32_t node_status; /* Same valve codes as Status; never measured position. */
+    uint32_t node_status;
     float soil_temperature;
     float soil_moisture;
     uint32_t soil_moisture_temp_valid;
@@ -125,13 +153,21 @@ typedef struct _Telemetry {
     uint32_t power_mode;
     uint32_t power_state;
     uint32_t wake_remaining_seconds;
-    bool wake_command_ack; /* explicit accepted WAKE response */
-    uint32_t wake_request_id; /* echoes CMD request_id on WAKE ACK */
-    uint32_t command_ack_request_id; /* nonzero queued command correlation */
-    uint32_t command_ack_cmd_id; /* command accepted by this node */
-    bool command_ack_success; /* application-level confirmation */
-    uint32_t wdt_reset_count; /* cumulative hardware IWDG resets */
-    uint32_t power_reset_count; /* independently clearable power-on/brownout */
+    bool wake_command_ack;
+    uint32_t wake_request_id;
+    uint32_t command_ack_request_id;
+    uint32_t command_ack_cmd_id;
+    bool command_ack_success;
+    uint32_t wdt_reset_count;
+    uint32_t power_reset_count;
+    bool has_flash_log;
+    FlashLogInfo flash_log;
+    bool has_history;
+    HistoryInfo history;
+    uint32_t sample_sequence;
+    bool sample_time_valid;
+    bool stored_sample;
+    bool live_fallback;
 } Telemetry;
 
 
@@ -140,16 +176,47 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
+#define FlashLogInfo_init_default                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define HistoryInfo_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0}
+#define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define CMD_Message_init_default                 {0, 0, 0, 0}
-#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlashLogInfo_init_default, false, HistoryInfo_init_default, 0, 0, 0, 0}
+#define FlashLogInfo_init_zero                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define HistoryInfo_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0}
+#define Status_Message_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define CMD_Message_init_zero                    {0, 0, 0, 0}
-#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlashLogInfo_init_zero, false, HistoryInfo_init_zero, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define FlashLogInfo_state_tag                   1
+#define FlashLogInfo_jedec_id_tag                2
+#define FlashLogInfo_capacity_bytes_tag          3
+#define FlashLogInfo_usable_bytes_tag            4
+#define FlashLogInfo_used_bytes_tag              5
+#define FlashLogInfo_free_bytes_tag              6
+#define FlashLogInfo_record_count_tag            7
+#define FlashLogInfo_maximum_records_tag         8
+#define FlashLogInfo_generation_tag              9
+#define FlashLogInfo_latest_sequence_tag         10
+#define FlashLogInfo_retention_started_epoch_tag 11
+#define FlashLogInfo_next_clear_epoch_tag        12
+#define FlashLogInfo_clear_sectors_remaining_tag 13
+#define FlashLogInfo_dropped_samples_tag         14
+#define FlashLogInfo_corrupt_records_tag         15
+#define FlashLogInfo_busy_tag                    16
+#define FlashLogInfo_rtc_trusted_tag             17
+#define HistoryInfo_request_id_tag               1
+#define HistoryInfo_generation_tag               2
+#define HistoryInfo_sequence_tag                 3
+#define HistoryInfo_index_tag                    4
+#define HistoryInfo_total_tag                    5
+#define HistoryInfo_day_key_tag                  6
+#define HistoryInfo_kind_tag                     7
+#define HistoryInfo_phase_tag                    8
+#define HistoryInfo_result_tag                   9
+#define HistoryInfo_ack_required_tag             10
 #define FlowReading_flow_rate_tag                1
 #define FlowReading_velocity_tag                 2
 #define FlowReading_flow_rate_per_day_tag        3
@@ -202,6 +269,10 @@ extern "C" {
 #define Status_Message_wake_remaining_seconds_tag 34
 #define Status_Message_wdt_reset_count_tag       35
 #define Status_Message_power_reset_count_tag     36
+#define Status_Message_sample_sequence_tag       37
+#define Status_Message_sample_time_valid_tag     38
+#define Status_Message_stored_sample_tag         39
+#define Status_Message_live_fallback_tag         40
 #define CMD_Message_node_id_tag                  1
 #define CMD_Message_cmd_id_tag                   2
 #define CMD_Message_cmd_data_tag                 3
@@ -251,8 +322,49 @@ extern "C" {
 #define Telemetry_command_ack_success_tag        43
 #define Telemetry_wdt_reset_count_tag            44
 #define Telemetry_power_reset_count_tag          45
+#define Telemetry_flash_log_tag                  46
+#define Telemetry_history_tag                    47
+#define Telemetry_sample_sequence_tag            48
+#define Telemetry_sample_time_valid_tag          49
+#define Telemetry_stored_sample_tag              50
+#define Telemetry_live_fallback_tag              51
 
 /* Struct field encoding specification for nanopb */
+#define FlashLogInfo_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   state,             1) \
+X(a, STATIC,   SINGULAR, UINT32,   jedec_id,          2) \
+X(a, STATIC,   SINGULAR, UINT32,   capacity_bytes,    3) \
+X(a, STATIC,   SINGULAR, UINT32,   usable_bytes,      4) \
+X(a, STATIC,   SINGULAR, UINT32,   used_bytes,        5) \
+X(a, STATIC,   SINGULAR, UINT32,   free_bytes,        6) \
+X(a, STATIC,   SINGULAR, UINT32,   record_count,      7) \
+X(a, STATIC,   SINGULAR, UINT32,   maximum_records,   8) \
+X(a, STATIC,   SINGULAR, UINT32,   generation,        9) \
+X(a, STATIC,   SINGULAR, UINT32,   latest_sequence,  10) \
+X(a, STATIC,   SINGULAR, UINT32,   retention_started_epoch,  11) \
+X(a, STATIC,   SINGULAR, UINT32,   next_clear_epoch,  12) \
+X(a, STATIC,   SINGULAR, UINT32,   clear_sectors_remaining,  13) \
+X(a, STATIC,   SINGULAR, UINT32,   dropped_samples,  14) \
+X(a, STATIC,   SINGULAR, UINT32,   corrupt_records,  15) \
+X(a, STATIC,   SINGULAR, BOOL,     busy,             16) \
+X(a, STATIC,   SINGULAR, BOOL,     rtc_trusted,      17)
+#define FlashLogInfo_CALLBACK NULL
+#define FlashLogInfo_DEFAULT NULL
+
+#define HistoryInfo_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   request_id,        1) \
+X(a, STATIC,   SINGULAR, UINT32,   generation,        2) \
+X(a, STATIC,   SINGULAR, UINT32,   sequence,          3) \
+X(a, STATIC,   SINGULAR, UINT32,   index,             4) \
+X(a, STATIC,   SINGULAR, UINT32,   total,             5) \
+X(a, STATIC,   SINGULAR, UINT32,   day_key,           6) \
+X(a, STATIC,   SINGULAR, UINT32,   kind,              7) \
+X(a, STATIC,   SINGULAR, UINT32,   phase,             8) \
+X(a, STATIC,   SINGULAR, UINT32,   result,            9) \
+X(a, STATIC,   SINGULAR, BOOL,     ack_required,     10)
+#define HistoryInfo_CALLBACK NULL
+#define HistoryInfo_DEFAULT NULL
+
 #define FlowReading_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, FLOAT,    flow_rate,         1) \
 X(a, STATIC,   SINGULAR, FLOAT,    velocity,          2) \
@@ -309,7 +421,11 @@ X(a, STATIC,   SINGULAR, UINT32,   power_mode,       32) \
 X(a, STATIC,   SINGULAR, UINT32,   power_state,      33) \
 X(a, STATIC,   SINGULAR, UINT32,   wake_remaining_seconds,  34) \
 X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  35) \
-X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  36)
+X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  36) \
+X(a, STATIC,   SINGULAR, UINT32,   sample_sequence,  37) \
+X(a, STATIC,   SINGULAR, BOOL,     sample_time_valid,  38) \
+X(a, STATIC,   SINGULAR, BOOL,     stored_sample,    39) \
+X(a, STATIC,   SINGULAR, BOOL,     live_fallback,    40)
 #define Status_Message_CALLBACK NULL
 #define Status_Message_DEFAULT NULL
 #define Status_Message_secondary_flow_meter_MSGTYPE FlowReading
@@ -367,17 +483,29 @@ X(a, STATIC,   SINGULAR, UINT32,   command_ack_request_id,  41) \
 X(a, STATIC,   SINGULAR, UINT32,   command_ack_cmd_id,  42) \
 X(a, STATIC,   SINGULAR, BOOL,     command_ack_success,  43) \
 X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  44) \
-X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  45)
+X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  45) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  flash_log,        46) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  history,          47) \
+X(a, STATIC,   SINGULAR, UINT32,   sample_sequence,  48) \
+X(a, STATIC,   SINGULAR, BOOL,     sample_time_valid,  49) \
+X(a, STATIC,   SINGULAR, BOOL,     stored_sample,    50) \
+X(a, STATIC,   SINGULAR, BOOL,     live_fallback,    51)
 #define Telemetry_CALLBACK NULL
 #define Telemetry_DEFAULT NULL
 #define Telemetry_secondary_flow_meter_MSGTYPE FlowReading
+#define Telemetry_flash_log_MSGTYPE FlashLogInfo
+#define Telemetry_history_MSGTYPE HistoryInfo
 
+extern const pb_msgdesc_t FlashLogInfo_msg;
+extern const pb_msgdesc_t HistoryInfo_msg;
 extern const pb_msgdesc_t FlowReading_msg;
 extern const pb_msgdesc_t Status_Message_msg;
 extern const pb_msgdesc_t CMD_Message_msg;
 extern const pb_msgdesc_t Telemetry_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
+#define FlashLogInfo_fields &FlashLogInfo_msg
+#define HistoryInfo_fields &HistoryInfo_msg
 #define FlowReading_fields &FlowReading_msg
 #define Status_Message_fields &Status_Message_msg
 #define CMD_Message_fields &CMD_Message_msg
@@ -385,10 +513,12 @@ extern const pb_msgdesc_t Telemetry_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define CMD_Message_size                         29
+#define FlashLogInfo_size                        96
 #define FlowReading_size                         91
+#define HistoryInfo_size                         56
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size
-#define Status_Message_size                      317
-#define Telemetry_size                           372
+#define Status_Message_size                      333
+#define Telemetry_size                           546
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -22,6 +22,15 @@ import protobuf_impl  # noqa: E402
 
 
 class FlowSchemaTests(unittest.TestCase):
+    def test_stored_sample_time_is_independent_of_primary_meter_rtc(self):
+        msg=messages_pb2.Status_Message(node_id=2,timestamp=1800000000,
+            sample_time_valid=True,stored_sample=True,sample_sequence=7,rtc_valid=False)
+        self.assertEqual(flow_schema.select_measurement_timestamp(msg,1800003600),
+                         (1800000000,'node_rtc'))
+        msg.sample_time_valid=False
+        self.assertEqual(flow_schema.select_measurement_timestamp(msg,1800003600),
+                         (1800003600,'server_received'))
+
     def test_status_v2_round_trip_preserves_both_sensor_families(self):
         payload = protobuf_impl.build_status(
             node_id=7,

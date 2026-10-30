@@ -195,3 +195,26 @@ a completed push; check `FINAL_COPY_INFO.md` for the actual publication status.
 ## 26 October 2026: regional MQTT contract
 
 Active node/web topics now use lowercase `wiot/{company}/{region}/{node}/data|status|cmd`; broadcast is `wiot/{company}/{region}/broadcast`. Bench identity is Company_1 / Region_1 / node 3. Follow [the regional migration guide](Node/IoT_Node_Encrypted/REGIONAL_MQTT_TOPICS_GUIDE.md) before coordinated server/node deployment.
+
+## 30 October 2026 — external telemetry log
+
+The S25FL064L update is described in
+[storage design/use](Node/IoT_Node_Encrypted/SPI_FLASH_TELEMETRY_GUIDE.md) and
+[acceptance steps](Node/IoT_Node_Encrypted/SPI_FLASH_TEST_PLAN.md). It logs completed
+samples, transmits the last committed sample, clears every 24 elapsed hours,
+and adds direct commands 9–13 plus internal persistence ACK 14. Historical replies
+are isolated from live charts/consumption. Install the matching server and gateway
+before updated nodes; larger frames need the widened LoRa reassembly buffer.
+
+The final bench configuration remains node 2, Company_1/Region_1, UART_RX WOR,
+all four sensors; this is not a generic factory configuration. The existing
+50 ms valve commissioning values are retained, with output inhibited on this
+LoRa profile because of the PC13 AUX/STBY conflict. SPI logging defaults enabled;
+first commissioning requires STIME and explicit CLEAR_FLASH. Private files and
+server runtime databases are not release artifacts.
+
+`regenerate_protocol.py --protoc <path-to-protoc>` regenerates checked-in schemas
+using nanopb 0.4.9.1 / protoc 33.5. Validate-Release.ps1 includes native flash,
+server archive and dashboard regressions. Build profiles normal-wifi and
+flash-disabled-wifi are available in the existing firmware build matrix. Hardware
+SPI qualification and a 24/48-hour soak are still required.

@@ -37,6 +37,7 @@
  ******************************************************************************/
 
 /* ================== INCLUDES ================== */
+#include "src/storage/TelemetryArchive.h"
 #include "src/app/IoT_Node.h"
 #include "src/app/GatewayApp.h"
 #include "src/app/FlowMeterManager.h"
@@ -107,6 +108,10 @@ void pollLoraCommands()
     }
 
     g_loraCommandHandledThisPass = true;
+    if (cmd.cmd_id == CMD_HISTORY_ACK) {
+      TelemetryArchive::handle(cmd, isBroadcastCommand);
+      continue;
+    }
     if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
     {
       if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
@@ -199,6 +204,7 @@ void setup()
 #else
   setup_Init();
 #endif
+  TelemetryArchive::begin();
   initializePowerManagerAfterSetup();
   setRs485CommandService(serviceNodeCommandsDuringSensorWait);
   serviceHardwareWatchdog(WatchdogStage::Setup);
@@ -254,6 +260,7 @@ void loop()
   asyncPublishStep(); // correlated replies precede routine sensor/status work
 #endif
 
+  TelemetryArchive::step();
   const bool allowSensorWork = powerManagerAllowsSensorWork();
   bool commandPriority = g_loraCommandHandledThisPass;
 #if APP_HAS_IP_UPLINK
@@ -276,6 +283,7 @@ void loop()
 
   // Exactly one enabled sensor per pass; RX is serviced between every sensor
   // and in rate-limited Modbus wait gaps. Never publish a half-finished cycle.
+  const bool samplingWasActive = sensorCycle.active();
   if (allowSensorWork && !commandPriority && sensorCycle.active())
   {
     const auto sensor = sensorCycle.next(AppConfig::kEnableTufSensor,
@@ -312,6 +320,7 @@ void loop()
   }
   // A partial multi-sensor snapshot must finish even when its start deadline
   // was already consumed. Commands still take priority between sensor reads.
+  if (samplingWasActive && !sensorCycle.active()) TelemetryArchive::capture();
   notifyPowerManagerSensorCycle(sensorCycle.active());
 
   commandPriority = g_loraCommandHandledThisPass;
@@ -320,7 +329,7 @@ void loop()
 #endif
   // Only complete sensor snapshots are eligible for a routine Status send.
   if (allowSensorWork &&
-      !sensorCycle.active() && !commandPriority && !isAsyncPublishBusy() &&
+      !sensorCycle.active() && !commandPriority && !TelemetryArchive::writePending() && !isAsyncPublishBusy() &&
       (millis() - state.lastSendMs >= state.transmissionPeriodMs))
   {
 #if APP_HAS_LORA
@@ -381,6 +390,23 @@ void loop()
     printLoraDiagnostics();
   }
 #endif
+  // Bulk is deliberately last: at most one packet, with server-persistence ACK.
+  if (!g_loraCommandHandledThisPass && !sensorCycle.active() && !isAsyncPublishBusy()
+#if APP_HAS_IP_UPLINK
+      && !mqttCommandWorkPending()
+#endif
+      ) {
+    uint8_t archived[AppConfig::kCodecBufferSize];
+    size_t archivedLength=0;
+    if (TelemetryArchive::packet(archived,sizeof(archived),archivedLength)) {
+#if APP_HAS_LORA
+      const bool sent=sendLoraFrame(LoraPayloadType::SystemTelemetry,AppConfig::kNodeId,archived,archivedLength);
+#else
+      const bool sent=publishMqttPayload(kMqttPublishTopicTlm,archived,archivedLength);
+#endif
+      TelemetryArchive::published(sent);
+    }
+  }
   servicePowerManager();
   serviceHardwareWatchdog(WatchdogStage::MainLoop);
   powerManagerIdleCpu();

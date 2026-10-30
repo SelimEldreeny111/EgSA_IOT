@@ -18,6 +18,15 @@ unsigned stopCalls=0U, clockRestores=0U, restores=0U, reinitializations=0U;
 bool auxHigh=true, trusted=true, alarmHealthy=true, prepareHealthy=true;
 bool restoreHealthy=true, idle=true, tickSuspended=false, injected=false;
 bool fakeRtcWritable=false;
+bool flashAsleep=false;
+namespace TelemetryArchive {
+bool blocking(){return scenario=="storage_busy"||scenario=="storage_transfer";}
+bool transferring(){return scenario=="storage_transfer";}
+uint32_t expiry(){return scenario=="storage_deadline"?1800000020U:0U;}
+bool maintenanceDue(uint32_t now){return expiry()&&now>=expiry();}
+bool prepareSleep(){if(scenario=="storage_sleep_failure")return false;flashAsleep=true;return true;}
+void resume(){flashAsleep=false;}
+}
 int m0=LOW, m1=LOW;
 void (*auxCallback)()=nullptr;
 bool armCompleted=false, rxHigh=true;
@@ -152,6 +161,7 @@ int main(int argc, char** argv) {
   if (scenario=="rx_mode_invalid") fakeRxPort.MODER &= ~(3UL << 24);
   const uint32_t originalMode=fakeRxPort.MODER;
   initializePowerManagerAfterSetup();
+  const uint32_t originalReadMs=state.lastReadMs;
   if (scenario=="untrusted") trusted=false;
   if (scenario=="alarm_failure") alarmHealthy=false;
   if (scenario=="prepare_failure") prepareHealthy=false;
@@ -172,6 +182,7 @@ int main(int argc, char** argv) {
   nowMs=4999U; servicePowerManager(); assert(stopCalls==0U);
   if (scenario=="wake_lease") assert(requestRemoteWake(30U, 123U));
   nowMs=5000U; servicePowerManager();
+  if(scenario=="storage_transfer")assert(powerManagerAllowsSensorWork());
   if (scenario=="rtc_deadline" || scenario=="stale_pending" || scenario=="restore_failure" || scenario=="retained_rtc_pin" || scenario=="edge_during_prepare" || scenario=="edge_during_attach" || scenario=="aux_noise" || scenario=="mode_preserved") {
     assert(stopCalls==4U && clockRestores==4U && restores==1U);
     requireLog("Power: WOR RTC heartbeat");
@@ -186,6 +197,12 @@ int main(int argc, char** argv) {
     if (scenario=="retained_rtc_pin") requireLog("released retained RTC pin functions");
     if (scenario=="edge_during_prepare" || scenario=="edge_during_attach")
       requireLog("idle receive baseline; pre-arm wake history cleared");
+  } else if (scenario=="storage_deadline") {
+    assert(stopCalls==2U && restores==1U && epoch==1800000020U);
+    requireLog("reason=STORAGE_MAINTENANCE");
+    assert(state.lastReadMs==originalReadMs); // Storage service does not force a sensor read.
+  } else if (scenario=="storage_sleep_failure") {
+    assert(stopCalls==0U && restores==1U);requireLog("reason=STORAGE_BUSY");
   } else if (scenario=="aux_after_stop" || scenario=="edge_after_heartbeat") {
     assert(stopCalls==1U && clockRestores==1U && restores==1U);
     requireLog(scenario=="aux_after_stop" ? "reason=WAKE_EDGE_AFTER_STOP" : "reason=WAKE_EDGE_BEFORE_STOP");
@@ -228,12 +245,13 @@ int main(int argc, char** argv) {
       assert(fakeExtiPending==(wakeBit)); requireLog("pending flag preserved");
     }
   } else {
-    assert(scenario=="busy" || scenario=="wake_lease" || scenario=="report_failure");
+    assert(scenario=="busy" || scenario=="wake_lease" || scenario=="report_failure" || scenario=="storage_busy" || scenario=="storage_transfer");
     assert(stopCalls==0U && restores==0U);
   }
   assert(fakeRxPort.MODER==originalMode && fakeRxPort.OSPEEDR==(1UL << 24));
   assert(fakeRxPort.PUPDR==(1UL << 24) && fakeRxPort.AFR[1]==0xA00800BBU);
   assert(!tickSuspended && primask==0U);
+  assert(!flashAsleep);
   assert(!fakeRtcWritable);
   if (scenario!="retained_rtc_pin" || stopCalls>0U) {
     assert(RTC->CR==preservedCr && RTC->TAFCR==preservedTafcr);

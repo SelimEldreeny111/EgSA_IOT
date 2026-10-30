@@ -1,4 +1,5 @@
 /** @file MQTT.cpp @brief IP uplink, MQTT connection, command intake, and async publish FSM. */
+#include "../storage/TelemetryArchive.h"
 #include "MQTT.h"
 
 #include "../config/AppConfig.h"
@@ -371,6 +372,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
   {
     SerialMon.println("CMD rejected: topic/payload node mismatch");
+    return;
+  }
+  if (cmd.cmd_id == CMD_HISTORY_ACK) {
+    TelemetryArchive::handle(cmd,isBroadcastTopic);
     return;
   }
   g_commandHandledThisPass = true;

@@ -218,6 +218,64 @@ class ServerValidationTests(unittest.TestCase):
                 save.assert_not_called()
 
 
+    def test_flash_ingress_commits_then_acks_without_touching_live_samples(self):
+        from flash_archive import FlashArchive
+        archive=FlashArchive(Path(self.temp.name)/'archive-ingress.db')
+        msg=messages_pb2.Telemetry(node_id=2,timestamp=1800000000,flow_rate=12.5,
+            sample_sequence=1,sample_time_valid=True,stored_sample=True)
+        msg.history.CopyFrom(messages_pb2.HistoryInfo(request_id=123,generation=1,
+            sequence=1,index=1,total=1,day_key=20261030,kind=2,phase=2,ack_required=True))
+        fake=SimpleNamespace(is_connected=lambda:True,publish_plaintext=Mock(return_value=True))
+        with patch.object(self.server,'_flash_archive',archive), patch.object(self.server,'mqtt_client',fake), \
+                patch.object(self.server,'save_message') as live,patch.object(self.server,'emit_iot_message') as emit:
+            self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/2/data',msg.SerializeToString())
+            live.assert_not_called();emit.assert_not_called()
+            self.assertEqual(len(archive.records('Company_1','Region_1',2)),1)
+            topic,raw=fake.publish_plaintext.call_args.args
+            ack=messages_pb2.CMD_Message.FromString(raw)
+            self.assertEqual((topic,ack.cmd_id,ack.request_id,ack.cmd_data),
+                ('wiot/Company_1/Region_1/2/cmd',14,123,(2<<32)|1))
+            fake.publish_plaintext.reset_mock()
+            with patch.object(archive,'accept',side_effect=OSError('disk full')):
+                self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/2/data',msg.SerializeToString())
+            fake.publish_plaintext.assert_not_called()
+
+    def test_flash_status_ack_validates_and_api_is_company_scoped(self):
+        from flash_archive import FlashArchive
+        archive=FlashArchive(Path(self.temp.name)/'archive-api.db')
+        msg=messages_pb2.Telemetry(node_id=2,command_ack_cmd_id=10,
+            command_ack_request_id=123,command_ack_success=True)
+        msg.flash_log.state=1
+        with patch.object(self.server,'_flash_archive',archive),patch.object(self.server,'command_mailbox') as queue:
+            self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/2/data',msg.SerializeToString())
+            queue.return_value.acknowledge.assert_called_once()
+            client=self.client()
+            self.assertEqual(client.get('/api/flash/status?company=Company_1&region=Region_1&node=2').get_json()['memory']['state_name'],'Missing')
+            self.assertIsNone(client.get('/api/flash/status?company=Company_1&region=Region_2&node=2').get_json()['memory'])
+            self.assertEqual(client.get('/api/flash/records?company=Company_2&region=Region_1&node=2').status_code,403)
+            response=client.get('/api/flash/records?company=Company_1&region=Region_1&node=2&format=csv')
+            self.assertIn(b'generation,sequence,sample_epoch',response.data)
+            response.close()
+
+    def test_flash_command_api_never_broadcasts_or_exposes_internal_ack(self):
+        fake=SimpleNamespace(is_connected=lambda:True,publish_plaintext=Mock(return_value=True))
+        with patch.object(self.server,'mqtt_client',fake),patch.object(self.server,'command_mailbox') as queue:
+            for command in ('CLEAR_FLASH','FLASH_STATUS','FLASH_LAST','FLASH_TODAY','FLASH_CANCEL'):
+                response=self.client().post('/api/command',json=dict(company='Company_1',region='Region_1',
+                    node_id=2,cmd_type=command,cmd_data=0,broadcast=True))
+                self.assertEqual(response.status_code,400)
+            response=self.client().post('/api/command',json=dict(company='Company_1',node_id=2,cmd_type='HISTORY_ACK',cmd_data=0))
+            self.assertEqual(response.status_code,400)
+            queue.return_value.enqueue.assert_not_called()
+
+    def test_internal_history_ack_echo_never_enters_live_history(self):
+        msg=messages_pb2.CMD_Message(node_id=2,cmd_id=14,cmd_data=(2<<32)|1,request_id=123)
+        with patch.object(self.server,'save_message') as save,patch.object(self.server,'emit_iot_message') as emit:
+            self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/2/cmd',msg.SerializeToString())
+            save.assert_not_called();emit.assert_not_called()
+
+
+
 class MqttReadinessTests(unittest.TestCase):
     def setUp(self):
         logger = patch('mqtt_impl.logger')

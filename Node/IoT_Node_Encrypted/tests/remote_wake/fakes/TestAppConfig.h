@@ -45,6 +45,7 @@ constexpr uint32_t kOpenCloseNodeGpio=13U;
 constexpr size_t kCodecBufferSize=384U;
 }
 #define PB_SENSOR_PB_H_INCLUDED
+struct Status_Message {};
 struct CMD_Message { uint32_t node_id, cmd_id; uint64_t cmd_data; uint32_t request_id; };
 struct Telemetry {
   uint32_t node_id=0U, timestamp=0U, sampling_rate=0U, Transmission_rate=0U;
@@ -60,4 +61,12 @@ extern const void* Telemetry_fields;
 bool encodeEncryptedMessage(const void*, const void*, uint8_t*, size_t, size_t&);
 #define SENSOR_PAYLOAD_MAPPER_H
 void populateSensorPayloadFields(Telemetry&, const AppRuntimeState&);
+#define WIOT_TELEMETRY_ARCHIVE_H
+namespace TelemetryArchive {
+extern bool busyForTest;
+inline bool blocking(){return busyForTest;}
+inline bool command(uint32_t id){return id>=9&&id<=14;}
+inline bool handle(const CMD_Message&,bool){return false;}
+inline void reply(const CMD_Message&,Telemetry&,bool){}
+}
 #endif

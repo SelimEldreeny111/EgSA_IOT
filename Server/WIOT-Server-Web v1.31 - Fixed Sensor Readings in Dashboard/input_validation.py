@@ -60,10 +60,17 @@ def validate_message(message, topic_node):
     elif message.node_id != topic_node:
         raise ValueError(f'Node ID mismatch - topic={topic_node}, payload={message.node_id}')
     if message.DESCRIPTOR.name == 'CMD_Message':
-        integer(message.cmd_id, 1, 8, 'Command ID')
+        integer(message.cmd_id, 1, 14, 'Command ID')
         integer(message.cmd_data, 0, SQLITE_MAX_INT, 'Command data')
         if message.cmd_id in (7, 8) and (broadcast_echo or message.cmd_data != 0 or not message.request_id):
             raise ValueError('Counter clear requires direct node, data=0 and request ID')
+        if message.cmd_id >= 9:
+            if broadcast_echo or not message.request_id:
+                raise ValueError('Flash commands require direct node and request ID')
+            if message.cmd_id not in (12, 14) and message.cmd_data != 0:
+                raise ValueError('Flash command requires data=0')
+            if message.cmd_id == 14 and message.cmd_data >> 32 not in (2, 3):
+                raise ValueError('Invalid history ACK phase')
         return
     for descriptor in message.DESCRIPTOR.fields:
         value = getattr(message, descriptor.name)
@@ -77,6 +84,9 @@ def validate_message(message, topic_node):
             raise ValueError(f'{descriptor.name} exceeds durable integer range')
     _validate_reading(message)
     integer(message.timestamp, 0, MAX_EPOCH, 'Timestamp')
+    if getattr(message, 'stored_sample', False) and (
+            not message.sample_time_valid or not message.sample_sequence or message.live_fallback):
+        raise ValueError('Stored sample requires valid time/sequence and cannot be a live fallback')
     for field, maximum in (('node_status', 3), ('active_sensor_count', 4),
             ('sensor_mask', 15), ('soil_moisture_temp_valid', 1),
             ('soil_moisture_temp_ec_valid', 1), ('power_mode', 5), ('power_state', 2)):
@@ -88,7 +98,7 @@ def validate_message(message, topic_node):
             # periods in milliseconds. Do not reject valid long report intervals.
             if value and not 5000 <= value <= 86400000:
                 raise ValueError(f'{field} must be 0 (legacy) or 5000..86400000 milliseconds')
-        integer(message.command_ack_cmd_id, 0, 8, 'ACK command ID')
+        integer(message.command_ack_cmd_id, 0, 13, 'ACK command ID')
 
 
 def _validate_reading(reading):
@@ -100,4 +110,5 @@ def _validate_reading(reading):
             raise ValueError(f'{descriptor.name} exceeds durable integer range')
     for field, maximum in (('flow_meter_type', 2), ('flow_period_source', 2),
             ('flow_period_quality', 6)):
-        integer(getattr(reading, field), 0, maximum, field)
+        if field in reading.DESCRIPTOR.fields_by_name:
+            integer(getattr(reading, field), 0, maximum, field)

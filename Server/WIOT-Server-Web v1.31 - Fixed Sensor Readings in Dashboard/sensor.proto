@@ -3,6 +3,43 @@ syntax = "proto3";
 // Arduino/nanopb wire schema. Field numbers are part of the deployed V1
 // protocol and must never be renumbered or reused.
 
+// Storage state: 0=disabled,1=missing,2=unformatted,3=recovering,4=ready,5=full,6=fault.
+message FlashLogInfo {
+  uint32 state = 1;
+  uint32 jedec_id = 2;
+  uint32 capacity_bytes = 3;
+  uint32 usable_bytes = 4;
+  uint32 used_bytes = 5;
+  uint32 free_bytes = 6;
+  uint32 record_count = 7;
+  uint32 maximum_records = 8;
+  uint32 generation = 9;
+  uint32 latest_sequence = 10;
+  uint32 retention_started_epoch = 11;
+  uint32 next_clear_epoch = 12;
+  uint32 clear_sectors_remaining = 13;
+  uint32 dropped_samples = 14;
+  uint32 corrupt_records = 15;
+  bool busy = 16;
+  bool rtc_trusted = 17;
+}
+
+// kind: 1=last,2=today. phase: 1=preparing,2=record,3=end.
+// result: 0=OK,1=empty,2=not ready,3=time untrusted,4=cancelled,
+// 5=retention changed,6=ACK timeout,7=read/encode failure,8=busy.
+message HistoryInfo {
+  uint32 request_id = 1;
+  uint32 generation = 2;
+  uint32 sequence = 3;
+  uint32 index = 4;
+  uint32 total = 5;
+  uint32 day_key = 6;
+  uint32 kind = 7;
+  uint32 phase = 8;
+  uint32 result = 9;
+  bool ack_required = 10;
+}
+
 // When both flow meters are enabled, the original flow fields carry TUF for
 // backward compatibility, and this optional record carries Supmea.
 message FlowReading {
@@ -69,6 +106,10 @@ message Status_Message {
   uint32 wake_remaining_seconds = 34;      // active lease/window, not idle time
   uint32 wdt_reset_count = 35;             // cumulative hardware IWDG resets
   uint32 power_reset_count = 36;           // power-on/brownout; excludes Standby/software
+  uint32 sample_sequence = 37;
+  bool sample_time_valid = 38;
+  bool stored_sample = 39;
+  bool live_fallback = 40;
 }
 
 message CMD_Message {
@@ -128,4 +169,10 @@ message Telemetry {
   bool command_ack_success = 43;           // application-level confirmation
   uint32 wdt_reset_count = 44;             // cumulative hardware IWDG resets
   uint32 power_reset_count = 45;           // independently clearable power-on/brownout
+  FlashLogInfo flash_log = 46;
+  HistoryInfo history = 47;
+  uint32 sample_sequence = 48;
+  bool sample_time_valid = 49;
+  bool stored_sample = 50;
+  bool live_fallback = 51;
 }

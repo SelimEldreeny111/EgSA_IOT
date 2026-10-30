@@ -43,7 +43,7 @@ function Invoke-ReleasePythonTests([string]$Directory) {
 }
 Start-Transcript -Path (Join-Path $releaseOutput 'verification.log') | Out-Null
 try {
-    foreach ($releaseSuite in @('valve','mqtt_priority','network_recovery','watchdog_counter','sensor_availability','rtc_supmea','remote_wake','wor_stop')) {
+    foreach ($releaseSuite in @('valve','mqtt_priority','network_recovery','watchdog_counter','sensor_availability','rtc_supmea','remote_wake','wor_stop','flash_journal')) {
         Write-Host "Node host suite: $releaseSuite"
         if ($releaseSuite -eq 'valve' -and $UseFactoryConfigurationFixture) {
             & (Join-Path $releaseNode "tests/$releaseSuite/run_tests.ps1") -CompilerPath $Compiler -UseFactoryConfigurationFixture
@@ -63,6 +63,7 @@ try {
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_command_timeline.js'))
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_reset_counter_commands.js'))
     Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_region_ui.js'))
+    Invoke-ReleaseNative $NodeJs @((Join-Path $releaseServer 'tests/test_flash_archive.js'))
     Push-Location -LiteralPath $releaseRoot
     try { Invoke-ReleaseNative $Python @('-m','unittest','discover','-s','tests/release_audit','-v') }
     finally { Pop-Location }

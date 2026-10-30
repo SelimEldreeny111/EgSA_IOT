@@ -1,6 +1,7 @@
 /** @file PowerManager.cpp @brief Per-component power policy and RTC-standby coordination. */
 #include "PowerManager.h"
 #include "RemoteWakeCycle.h"
+#include "../storage/TelemetryArchive.h"
 
 #include "../app/AppState.h"
 #include "../comm/MQTT.h"
@@ -240,6 +241,7 @@ void runLoraWorStopCycle()
     SerialMon.println("Power: WOR idle receive baseline; pre-arm wake history cleared");
   rtc.attachInterrupt(onWorRtcInterrupt, STM32RTC::ALARM_A);
   bool radioWake = false;
+  bool storageWake = false;
   bool failed = !wakeArmed;
   uint32_t stopCalls = 0U;
   const uint32_t startedEpoch = getEpochTime();
@@ -249,8 +251,15 @@ void runLoraWorStopCycle()
   {
     serviceHardwareWatchdog(WatchdogStage::PowerTransition);
     const uint32_t now = getEpochTime();
+    if (TelemetryArchive::maintenanceDue(now)) {
+      storageWake = true;
+      exitReason = "STORAGE_MAINTENANCE";
+      break;
+    }
     uint32_t alarmEpoch = now + AppConfig::kLoraWorWatchdogWakeSeconds;
     if (alarmEpoch > g_worNextReportEpoch) alarmEpoch = g_worNextReportEpoch;
+    const uint32_t storageDeadline = TelemetryArchive::expiry();
+    if (storageDeadline > now && storageDeadline < alarmEpoch) alarmEpoch = storageDeadline;
     // Preserve all edges after the receive baseline, including heartbeat gaps.
     g_worRtcInterrupt = false;
     g_worPhase = WorPhase::AlarmSetup;
@@ -275,6 +284,11 @@ void runLoraWorStopCycle()
     // Drain our own diagnostic TX before WFI so a pending debug-UART TX IRQ
     // does not immediately end the Stop attempt. Never print from an ISR.
     SerialMon.flush();
+    if (!TelemetryArchive::prepareSleep()) {
+      failed = true;
+      exitReason = "STORAGE_BUSY";
+      break;
+    }
     HAL_SuspendTick();
     SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
     // Close the check-to-WFI race: a pending wake/RTC IRQ must prevent a lost
@@ -300,6 +314,7 @@ void runLoraWorStopCycle()
     }
     HAL_ResumeTick();
     __enable_irq();
+    TelemetryArchive::resume();
     if (g_worWireInterrupt || digitalRead(kWorWakePin) == LOW ||
         SerialLoRa.available() > 0)
     {
@@ -342,6 +357,12 @@ void runLoraWorStopCycle()
   {
     g_worCommandWindow = false;
     SerialMon.println("Power: Stop cycle aborted; active scheduling resumed");
+  }
+  else if (storageWake)
+  {
+    g_worCommandWindow = true;
+    g_worWindowStartedMs = millis() - AppConfig::kLoraWorCommandWindowMs;
+    SerialMon.println("Power: RTC retention deadline; service flash before resuming Stop");
   }
   else if (radioWake)
   {
@@ -597,6 +618,7 @@ void assertEarlySleepPins()
 
 bool activeTransportIsIdleForPowerDown()
 {
+  if (TelemetryArchive::blocking()) return false;
 #if APP_HAS_LORA
   return isLoraIdleForPowerDown();
 #elif APP_HAS_IP_UPLINK
@@ -641,6 +663,10 @@ PowerDownRequestOutcome requestPowerDownCycle()
     return PowerDownRequestOutcome::AbortActiveCycle;
   }
 
+  const uint32_t imminentStorageDeadline = TelemetryArchive::expiry();
+  if (imminentStorageDeadline && imminentStorageDeadline <= requestEpoch + 5U)
+    return PowerDownRequestOutcome::RetrySleepPreparation;
+
 #if APP_HAS_LORA
   if (!prepareLoraForPowerDown(AppConfig::kPowerSleepEntryTimeoutMs))
   {
@@ -658,14 +684,29 @@ PowerDownRequestOutcome requestPowerDownCycle()
   }
 #endif
 
-  const uint32_t deadlineEpoch =
-      requestEpoch + AppConfig::kPowerSleepSeconds;
+  // A command may have queued a clear while the transport was quiescing.
+  // Never reset into Standby with an uncommitted record/metadata operation.
+  if (!TelemetryArchive::prepareSleep())
+  {
+#if APP_HAS_LORA
+    initializeLoraLink();
+#elif APP_HAS_IP_UPLINK
+    restoreMqttTransportAfterPowerDownAbort();
+#endif
+    return PowerDownRequestOutcome::RetrySleepPreparation;
+  }
+
+  uint32_t deadlineEpoch = requestEpoch + AppConfig::kPowerSleepSeconds;
+  const uint32_t storageDeadline = TelemetryArchive::expiry();
+  if (storageDeadline > requestEpoch + 5U && storageDeadline < deadlineEpoch)
+    deadlineEpoch = storageDeadline;
   if (!storePersistentSleepState(
           requestEpoch,
           deadlineEpoch,
-          AppConfig::kPowerSleepSeconds))
+          deadlineEpoch - requestEpoch))
   {
     clearPersistentSleepState();
+    TelemetryArchive::resume();
     SerialMon.println("Power: RTC backup-state verification failed; sleep cancelled");
 #if APP_HAS_LORA
     initializeLoraLink();
@@ -927,6 +968,10 @@ void notifyPowerManagerSensorCycle(bool active)
 
 bool powerManagerAllowsSensorWork()
 {
+#if APP_CONTROLLER_USES_STANDBY || APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  // A long history download defers sleep, not the sampling/report deadlines.
+  if (TelemetryArchive::transferring()) return true;
+#endif
 #if APP_CONTROLLER_USES_STANDBY
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
   if (queuedWakeActive()) return true;
@@ -994,6 +1039,7 @@ void servicePowerManager()
 #elif APP_HAS_LORA
   transportIdle = isLoraIdleForPowerDown();
 #endif
+  transportIdle = transportIdle && !TelemetryArchive::blocking();
   const uint32_t nowMs = millis();
   const AppRuntimeState& state = appState();
   const bool applicationDue = nowMs - state.lastReadMs >= state.samplingPeriodMs ||
@@ -1017,6 +1063,7 @@ void servicePowerManager()
     SerialMon.println("Power: scheduled work/reply pending; resume without forcing other deadlines");
   }
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+  if (TelemetryArchive::blocking()) return;
   if (!g_worCommandWindow || queuedWakeActive() ||
       millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs ||
       !isLoraIdleForPowerDown()) return;
@@ -1125,7 +1172,7 @@ bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
 bool powerManagerShouldRunApplication()
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  if (g_remoteWakeCycle.active()) return true;
+  if (g_remoteWakeCycle.active() || TelemetryArchive::blocking()) return true;
   bool uartReady = false;
 #if APP_HAS_IP_UPLINK
   uartReady = SerialAT.available() > 0;
@@ -1147,7 +1194,7 @@ bool powerManagerShouldRunApplication()
 void powerManagerIdleCpu()
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  if (!g_remoteWakeCycle.active())
+  if (!g_remoteWakeCycle.active() && !TelemetryArchive::blocking())
   {
     // Keep SysTick and UART interrupts running. The 1-ms tick bounds a lost
     // wake-edge race; regular application checkpoints feed IWDG, never an ISR.

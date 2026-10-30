@@ -2,7 +2,7 @@
 # Run from this directory: doxygen Doxyfile
 PROJECT_NAME           = "WIOT STM32F401 Arduino Node"
 PROJECT_BRIEF          = "Firmware architecture and API reference"
-PROJECT_NUMBER         = "2026-10-28 regional MQTT and WOR wake diagnostics"
+PROJECT_NUMBER         = "2026-10-30 SPI flash telemetry archive"
 OUTPUT_DIRECTORY       = Documentation/Doxygen
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
@@ -85,3 +85,6 @@ QUIET                  = YES
 INPUT += REGIONAL_MQTT_TOPICS_GUIDE.md
 INPUT += ../../Documentation/Validation/LORA_WOR_9MA_BENCH_RESULT_20261029.md
 INPUT += ../../Documentation/Validation/LORA_WOR_RX_WAKE_VERIFICATION_20261029.md
+
+INPUT += SPI_FLASH_TELEMETRY_GUIDE.md
+INPUT += SPI_FLASH_TEST_PLAN.md

@@ -8,6 +8,10 @@
 #define PB15 31
 #define PC13 45
 #define PA0 0
+#define PA4 4
+#define PA5 5
+#define PA6 6
+#define PA7 7
 #define PA8 8
 #define PA9 9
 #define PA10 10

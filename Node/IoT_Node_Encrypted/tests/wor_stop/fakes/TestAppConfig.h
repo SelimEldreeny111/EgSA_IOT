@@ -2,6 +2,11 @@
 #define WOR_TEST_CONFIG_H
 #include "Arduino.h"
 #define APP_CONFIG_H
+#define WIOT_TELEMETRY_ARCHIVE_H
+namespace TelemetryArchive {
+bool blocking(); bool transferring(); bool maintenanceDue(uint32_t); uint32_t expiry();
+bool prepareSleep(); void resume();
+}
 #define APP_COMPONENT_MODE_NORMAL 0
 #define APP_COMPONENT_MODE_POWER_DOWN 1
 #define APP_COMPONENT_MODE_REMOTE_WAKE 2

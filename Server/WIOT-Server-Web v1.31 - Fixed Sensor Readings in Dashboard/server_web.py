@@ -36,6 +36,7 @@ from flow_schema import (
 )
 from mqtt_impl import MqttNodeClient
 from command_queue import CommandQueue
+from flash_archive import FlashArchive, FLASH_COMMANDS, HISTORY_ACK
 from input_validation import company_id, integer, parse_topic, validate_message, MAX_PROTO_BYTES
 from tenant_storage import database_path, storage_id, preflight as tenant_preflight
 
@@ -117,7 +118,42 @@ def browser_security_headers(response):
 logging.basicConfig(filename='system.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 mqtt_client = None
 _command_queue = None
+_flash_archive = None
 _command_dispatch_lock = threading.RLock()
+
+
+def flash_archive_store():
+    """Lazy initialization leaves live databases untouched until a flash reply/query."""
+    global _flash_archive
+    with _command_dispatch_lock:
+        if _flash_archive is None:
+            _flash_archive = FlashArchive(os.path.join(os.path.dirname(__file__), 'flash_archive.db'))
+        return _flash_archive
+
+
+def accept_flash_reply(company, region, node, msg):
+    """No archive replay enters live charts or meter accumulation."""
+    event, ack = flash_archive_store().accept(company, region, node, msg)
+    if msg.command_ack_request_id:
+        command_mailbox().acknowledge(company, node, msg.command_ack_request_id,
+            msg.command_ack_cmd_id, success=msg.command_ack_success, region=region)
+    socketio.emit('flash_event', event, room=company)
+    socketio.emit('flash_event', event, room=GLOBAL_ROOM)
+    if ack and mqtt_client is not None and mqtt_client.is_connected():
+        request_id, data = ack
+        response = messages_pb2.CMD_Message(node_id=node, cmd_id=HISTORY_ACK,
+            cmd_data=data, request_id=request_id)
+        mqtt_client.publish_plaintext(command_topic(company, region, node, False), response.SerializeToString())
+    log_event(f'[FLASH] {company}/{region}/{node} reply persisted; history ACK={bool(ack)}', company=company)
+
+
+def sample_source_details(msg):
+    """Preserve stored/fallback provenance in live history without adding a DB migration."""
+    if msg.stored_sample:
+        return f'Stored sample #{msg.sample_sequence}; acquired epoch={msg.timestamp}'
+    if msg.live_fallback:
+        return 'Live fallback; no committed flash sample available'
+    return ''
 
 
 def command_mailbox():
@@ -180,6 +216,7 @@ def _required_secret(name: str) -> str:
 GLOBAL_ROOM = '__all__'
 CMD_NAMES = {"SRATE": 1, "STRAN": 2, "STIME": 3, "GOSTM": 4, "VALVE": 5, "WAKE": WAKE_COMMAND_ID,
              "CLEAR_POWER_RESETS": 7, "CLEAR_WDT_RESETS": 8}
+CMD_NAMES.update(FLASH_COMMANDS)
 CMD_NAMES_REV = {v: k for k, v in CMD_NAMES.items()}
 
 def log_event(msg: str, company=None):
@@ -992,8 +1029,9 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             )
             period_rows = calendar_period_rows(msg, flow_metadata, measured_at)
             secondary_flow = _secondary_flow_data(msg, f"{company}/{region}", measured_at)
+            source_details = sample_source_details(msg)
             save_message(timestamp_epoch, "Status", msg.node_id, msg.sensor_id, msg.flow_rate, msg.velocity,
-                         msg.flow_rate_per_day, msg.flow_rate_per_month, msg.flow_rate_per_year, "", company, msg.node_status,
+                         msg.flow_rate_per_day, msg.flow_rate_per_month, msg.flow_rate_per_year, source_details, company, msg.node_status,
                          msg.soil_temperature, msg.soil_moisture, msg.soil_moisture_temp_valid,
                          msg.ec_temperature, msg.ec_moisture, msg.electrical_conductivity, msg.soil_moisture_temp_ec_valid,
                          msg.active_sensor_count, msg.sensor_mask, msg.battery_voltage,
@@ -1008,7 +1046,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Status", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
                 "Flow": msg.flow_rate, "Velocity": msg.velocity, "Flow Day": msg.flow_rate_per_day,
                 "Flow Month": msg.flow_rate_per_month, "Flow Year": msg.flow_rate_per_year,
-                "Node Status": msg.node_status, "Details": "", "Company": company, "Region": region,
+                "Node Status": msg.node_status, "Details": source_details, "Company": company, "Region": region,
                 "Battery Voltage": msg.battery_voltage,
                 "Soil Temp": msg.soil_temperature, "Soil Moist": msg.soil_moisture, "Soil Valid": msg.soil_moisture_temp_valid,
                 "EC Temp": msg.ec_temperature, "EC Moist": msg.ec_moisture, "EC Cond": msg.electrical_conductivity, "EC Valid": msg.soil_moisture_temp_ec_valid,
@@ -1029,6 +1067,10 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             msg.ParseFromString(plaintext)
             validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed Telemetry: node_id={msg.node_id} sensor_id={msg.sensor_id}")
+            if msg.HasField('flash_log') or msg.HasField('history'):
+                accept_flash_reply(company, region, topic_node_id, msg)
+                return
+
             
             flow_metadata = extract_flow_metadata(msg)
             power_info = power_metadata(msg)
@@ -1113,6 +1155,8 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             msg.ParseFromString(plaintext)
             validate_message(msg, topic_node_id)
             logging.info(f"[PLAINTEXT] Parsed CMD_Message: node_id={msg.node_id} cmd_id={msg.cmd_id} cmd_data={msg.cmd_data}")
+            if msg.cmd_id == HISTORY_ACK:
+                return  # Internal persistence receipt, not an operator command/live reading.
             
             cmd_name = CMD_NAMES_REV.get(msg.cmd_id, str(msg.cmd_id))
             det = f"Cmd={cmd_name}({msg.cmd_id}), Data={msg.cmd_data}"
@@ -1552,6 +1596,53 @@ def api_broker_status():
             "details": str(e)
         })
 
+@app.route('/api/flash/status')
+@login_required
+def api_flash_status():
+    try:
+        company = request.args.get('company', session.get('company'))
+        if not can_manage_company(company):
+            return jsonify(error='Cannot read another company'), 403
+        region = region_id(request.args.get('region', DEFAULT_REGION))
+        node = integer(request.args.get('node', 1), 1, 65535, 'Node ID')
+        return jsonify(flash_archive_store().summary(company, region, node))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+
+
+@app.route('/api/flash/records')
+@login_required
+def api_flash_records():
+    try:
+        company = request.args.get('company', session.get('company'))
+        if not can_manage_company(company):
+            return jsonify(error='Cannot read another company'), 403
+        company_id(company)
+        region = region_id(request.args.get('region', DEFAULT_REGION))
+        node = integer(request.args.get('node', 1), 1, 65535, 'Node ID')
+        offset = integer(request.args.get('offset', 0), 0, 10000000, 'Offset')
+        if request.args.get('format') == 'csv':
+            def generate():
+                page = 0
+                out = StringIO(); writer = csv.writer(out)
+                writer.writerow(['generation','sequence','sample_epoch','node_calendar_day','telemetry_json'])
+                yield out.getvalue()
+                while True:
+                    rows = flash_archive_store().records(company, region, node, 200, page)
+                    if not rows:
+                        break
+                    out.seek(0); out.truncate(0)
+                    for row in rows:
+                        writer.writerow([row['generation'],row['sequence'],row['epoch'],row['day'],json.dumps(row['data'])])
+                    yield out.getvalue()
+                    page += len(rows)
+            return Response(generate(), mimetype='text/csv', headers={
+                'Content-Disposition': 'attachment; filename="flash-telemetry.csv"'})
+        return jsonify(records=flash_archive_store().records(company, region, node, 200, offset))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+
+
 @app.route('/api/command', methods=['POST'])
 @admin_required
 def api_command():
@@ -1606,6 +1697,16 @@ def api_command():
         cmd_id = CMD_NAMES.get(cmd_type, 0)
         if cmd_type == "STIME": cmd_data = int(time.time())
         elif cmd_type == "GOSTM": cmd_data = 0
+        elif cmd_type in FLASH_COMMANDS:
+            if broadcast:
+                return jsonify(success=False, error="Flash commands must target one node"), 400
+            try:
+                if cmd_type == 'FLASH_TODAY':
+                    cmd_data = integer(data.get('cmd_data', 0), 0, (1 << 63)-1, 'History resume cursor')
+                else:
+                    cmd_data = integer(data.get('cmd_data', 0), 0, 0, 'Flash command data')
+            except ValueError as exc:
+                return jsonify(success=False, error=str(exc)), 400
         elif cmd_type in ("CLEAR_POWER_RESETS", "CLEAR_WDT_RESETS"):
             if broadcast:
                 return jsonify(success=False, error="Counter clear must target one node"), 400

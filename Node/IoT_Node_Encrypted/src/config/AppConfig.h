@@ -115,6 +115,33 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #endif
 /*********************************************************/
 
+// External S25FL064L telemetry log (dedicated SPI1, 3.3 V). A new/unknown
+// format requires explicit CLEAR_FLASH; unknown JEDEC IDs are never written.
+#ifndef APP_ENABLE_SPI_FLASH
+#define APP_ENABLE_SPI_FLASH true
+#endif
+#ifndef APP_FLASH_SPI_HZ
+#define APP_FLASH_SPI_HZ 4000000UL
+#endif
+#ifndef APP_FLASH_HISTORY_ACK_TIMEOUT_MS
+#define APP_FLASH_HISTORY_ACK_TIMEOUT_MS 60000UL
+#endif
+#ifndef APP_FLASH_HISTORY_MAX_ATTEMPTS
+#define APP_FLASH_HISTORY_MAX_ATTEMPTS 3U
+#endif
+#if APP_ENABLE_SPI_FLASH != 0 && APP_ENABLE_SPI_FLASH != 1
+#error "APP_ENABLE_SPI_FLASH must be true or false"
+#endif
+#if APP_FLASH_SPI_HZ < 100000UL || APP_FLASH_SPI_HZ > 12000000UL
+#error "APP_FLASH_SPI_HZ must be 100000..12000000"
+#endif
+#if APP_FLASH_HISTORY_ACK_TIMEOUT_MS < 10000UL || APP_FLASH_HISTORY_ACK_TIMEOUT_MS > 300000UL
+#error "APP_FLASH_HISTORY_ACK_TIMEOUT_MS must be 10000..300000"
+#endif
+#if APP_FLASH_HISTORY_MAX_ATTEMPTS < 1 || APP_FLASH_HISTORY_MAX_ATTEMPTS > 5
+#error "APP_FLASH_HISTORY_MAX_ATTEMPTS must be 1..5"
+#endif
+
 /**************** TRANSPORT SELECT ****************/
 #if !defined(USE_SIM800) && !defined(USE_ESP8266)
 //#define USE_SIM800
@@ -295,7 +322,7 @@ static_assert(APP_REMOTE_WAKE_USE_APP_SCHEDULE == true || APP_REMOTE_WAKE_USE_AP
 #endif
 
 #define TINY_GSM_RX_BUFFER 1024
-#define MQTT_MAX_PACKET_SIZE 512
+#define MQTT_MAX_PACKET_SIZE 1024
 
 namespace AppConfig 
 {
@@ -680,16 +707,23 @@ static_assert(kValveAin1Pin != kValveAin2Pin &&
 
 constexpr size_t kAesBlockSize = 16;
 constexpr size_t kIvLength = 16;
-// Worst-case Telemetry protobuf is 372 bytes; AES-CBC framing needs 401.
-constexpr size_t kCodecBufferSize = 416;
-// PubSubClient's buffer contains the MQTT header and topic as well as the
-// encrypted payload. The dual-flow/power envelope can reach 401 bytes, so the
-// 512-byte whole-packet buffer still has room for the MQTT topic and header.
+// Appended storage metadata raises maximum protobuf size; leave bounded room
+// for AES framing. TelemetryPayload.cpp checks the generated maximum as well.
+constexpr size_t kCodecBufferSize = 640;
+// PubSubClient stores the topic/header and encrypted payload in one buffer.
 constexpr size_t kMqttPacketBufferSize = MQTT_MAX_PACKET_SIZE;
 static_assert(kMqttPacketBufferSize >= 5U + 2U + sizeof(APP_MQTT_PREFIX) - 1U +
-              1U + 5U + 1U + 6U + 401U,
+              1U + 5U + 1U + 6U + kCodecBufferSize,
               "MQTT packet buffer cannot hold maximum telemetry and configured topic");
 constexpr uint8_t kProtocolVersion = 1;
+
+constexpr bool kEnableSpiFlash = APP_ENABLE_SPI_FLASH;
+constexpr uint32_t kFlashMosiPin=PA7, kFlashMisoPin=PA6, kFlashSckPin=PA5, kFlashCsPin=PA4;
+constexpr uint32_t kFlashSpiHz=APP_FLASH_SPI_HZ;
+constexpr uint32_t kFlashExpectedJedec=0x016017UL;
+constexpr uint32_t kFlashCapacityBytes=8UL*1024UL*1024UL;
+constexpr uint32_t kFlashHistoryAckTimeoutMs=APP_FLASH_HISTORY_ACK_TIMEOUT_MS;
+constexpr uint8_t kFlashHistoryMaxAttempts=APP_FLASH_HISTORY_MAX_ATTEMPTS;
 
 constexpr uint32_t kDefaultSamplingPeriodMs = 10000UL;
 constexpr uint32_t kDefaultTransmissionPeriodMs = 15000UL;
