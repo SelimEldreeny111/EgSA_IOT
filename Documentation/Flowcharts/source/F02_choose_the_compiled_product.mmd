@@ -1,0 +1,31 @@
+flowchart TD
+  a(["Read AppConfig.h<br/>Private deployment files stay local"]):::term
+  b{"Which role?"}:::dec
+  c["Sensor node<br/>APP_ROLE_SENSOR_NODE"]:::proc
+  d["Gateway<br/>No sensor polling or local archive"]:::proc
+  e{"Direct IP or LoRa uplink?"}:::dec
+  f["WiFi or SIM modem<br/>One selected external modem"]:::proc
+  g["LoRa node -&gt; gateway<br/>Use role-specific UART pins"]:::proc
+  h["Select each sensor true / false<br/>Choose unique addresses 1..247"]:::proc
+  i{"Compile-time guards<br/>Check modes, pins and buffers"}:::dec
+  j(["Build the selected firmware"]):::term
+  k["Reject invalid configuration<br/>Correct it before flashing"]:::bad
+  a --> b
+  b -->|Node| c
+  b -->|Gateway| d
+  c --> e
+  c --> h
+  e -->|Direct| f
+  e -->|LoRa| g
+  d -->|IP uplink + LoRa| f
+  f --> i
+  g --> i
+  h --> i
+  i -->|Valid| j
+  i -->|Invalid| k
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

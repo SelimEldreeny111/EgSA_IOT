@@ -1,0 +1,128 @@
+<svg width="724pt" height="631pt"
+ viewBox="0.00 0.00 724.00 631.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 618.13)">
+<title>F23</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M415.72,-568.98C415.72,-566.01 415.72,-562.77 415.72,-559.36"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="418.24,-559.58 415.72,-552.38 413.2,-559.58 418.24,-559.58"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M364.05,-457.29C347.41,-444.44 329.24,-430.4 313.58,-418.3"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="315.19,-416.37 307.96,-413.96 312.11,-420.36 315.19,-416.37"/>
+<text xml:space="preserve" text-anchor="middle" x="347.47" y="-423.95" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- b&#45;&gt;h -->
+<g id="edge3" class="edge">
+<title>b&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M467.39,-457.29C484.03,-444.44 502.2,-430.4 517.86,-418.3"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="519.33,-420.36 523.48,-413.96 516.25,-416.37 519.33,-420.36"/>
+<text xml:space="preserve" text-anchor="middle" x="520.41" y="-423.95" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M273.72,-360.39C273.72,-352.81 273.72,-344.29 273.72,-335.97"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="276.24,-336.02 273.72,-328.82 271.2,-336.02 276.24,-336.02"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M273.72,-261.53C273.72,-253.64 273.72,-245.16 273.72,-237.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="276.24,-237.36 273.72,-230.16 271.2,-237.36 276.24,-237.36"/>
+<text xml:space="preserve" text-anchor="middle" x="284.97" y="-239.57" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- d&#45;&gt;h -->
+<g id="edge6" class="edge">
+<title>d&#45;&gt;h</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M346.97,-318.59C384.27,-330.43 429.93,-344.93 469.2,-357.4"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="468.19,-359.73 475.82,-359.5 469.72,-354.92 468.19,-359.73"/>
+<text xml:space="preserve" text-anchor="middle" x="458.13" y="-338.24" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge7" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M273.72,-175.85C273.72,-172.76 273.72,-169.56 273.72,-166.36"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="276.24,-166.4 273.72,-159.2 271.2,-166.4 276.24,-166.4"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M237.73,-104.89C225.41,-96.23 211.31,-86.33 197.75,-76.8"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="199.48,-74.93 192.14,-72.86 196.59,-79.06 199.48,-74.93"/>
+<text xml:space="preserve" text-anchor="middle" x="245.54" y="-82.9" font-family="Arial" font-size="14.00" fill="#405c70">Verified</text>
+</g>
+<!-- f&#45;&gt;i -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M309.71,-104.89C326.27,-93.25 346.05,-79.35 363.42,-67.15"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="364.83,-69.23 369.28,-63.03 361.94,-65.11 364.83,-69.23"/>
+<text xml:space="preserve" text-anchor="middle" x="362.58" y="-82.9" font-family="Arial" font-size="14.00" fill="#405c70">Failed</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M521.46,-605.17C521.46,-605.17 309.99,-605.17 309.99,-605.17 303.99,-605.17 297.99,-599.17 297.99,-593.17 297.99,-593.17 297.99,-581.17 297.99,-581.17 297.99,-575.17 303.99,-569.17 309.99,-569.17 309.99,-569.17 521.46,-569.17 521.46,-569.17 527.46,-569.17 533.46,-575.17 533.46,-581.17 533.46,-581.17 533.46,-593.17 533.46,-593.17 533.46,-599.17 527.46,-605.17 521.46,-605.17"/>
+<text xml:space="preserve" text-anchor="middle" x="415.72" y="-580.77" font-family="Arial" font-size="17.00" fill="white">All sensor groups completed</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="415.72,-550.17 183.25,-498.21 415.72,-446.25 648.19,-498.21 415.72,-550.17"/>
+<text xml:space="preserve" text-anchor="middle" x="415.72" y="-501.56" font-family="Arial" font-size="17.00" fill="#513f12">Enabled, ready, trusted time</text>
+<text xml:space="preserve" text-anchor="middle" x="415.72" y="-482.06" font-family="Arial" font-size="17.00" fill="#513f12">and unexpired generation?</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M387.71,-412.5C387.71,-412.5 159.74,-412.5 159.74,-412.5 153.74,-412.5 147.74,-406.5 147.74,-400.5 147.74,-400.5 147.74,-372.54 147.74,-372.54 147.74,-366.54 153.74,-360.54 159.74,-360.54 159.74,-360.54 387.71,-360.54 387.71,-360.54 393.71,-360.54 399.71,-366.54 399.71,-372.54 399.71,-372.54 399.71,-400.5 399.71,-400.5 399.71,-406.5 393.71,-412.5 387.71,-412.5"/>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-389.87" font-family="Arial" font-size="17.00" fill="#163b55">Encode canonical Telemetry</text>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-370.37" font-family="Arial" font-size="17.00" fill="#163b55">No command / history wrapper</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="273.72,-326.79 0,-294.33 273.72,-261.87 547.44,-294.33 273.72,-326.79"/>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-287.93" font-family="Arial" font-size="17.00" fill="#513f12">Queue has room and log not full?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M383.21,-228.12C383.21,-228.12 164.24,-228.12 164.24,-228.12 158.24,-228.12 152.24,-222.12 152.24,-216.12 152.24,-216.12 152.24,-188.16 152.24,-188.16 152.24,-182.16 158.24,-176.16 164.24,-176.16 164.24,-176.16 383.21,-176.16 383.21,-176.16 389.21,-176.16 395.21,-182.16 395.21,-188.16 395.21,-188.16 395.21,-216.12 395.21,-216.12 395.21,-222.12 389.21,-228.12 383.21,-228.12"/>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-205.49" font-family="Arial" font-size="17.00" fill="#163b55">Allocate / verify current sector</text>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-185.99" font-family="Arial" font-size="17.00" fill="#163b55">Program two body pages</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M386.58,-157.16C386.58,-157.16 160.86,-157.16 160.86,-157.16 154.86,-157.16 148.86,-151.16 148.86,-145.16 148.86,-145.16 148.86,-117.2 148.86,-117.2 148.86,-111.2 154.86,-105.2 160.86,-105.2 160.86,-105.2 386.58,-105.2 386.58,-105.2 392.58,-105.2 398.58,-111.2 398.58,-117.2 398.58,-117.2 398.58,-145.16 398.58,-145.16 398.58,-151.16 392.58,-157.16 386.58,-157.16"/>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-134.53" font-family="Arial" font-size="17.00" fill="#163b55">Poll completion in later passes</text>
+<text xml:space="preserve" text-anchor="middle" x="273.72" y="-115.03" font-family="Arial" font-size="17.00" fill="#163b55">Read back body / CRC</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#e1f2ed" stroke="#7da89b" stroke-width="1.05" d="M267.83,-64.95C267.83,-68.53 210.86,-71.45 140.72,-71.45 70.58,-71.45 13.61,-68.53 13.61,-64.95 13.61,-64.95 13.61,-6.5 13.61,-6.5 13.61,-2.91 70.58,0 140.72,0 210.86,0 267.83,-2.91 267.83,-6.5 267.83,-6.5 267.83,-64.95 267.83,-64.95"/>
+<path fill="none" stroke="#7da89b" stroke-width="1.05" d="M267.83,-64.95C267.83,-61.37 210.86,-58.45 140.72,-58.45 70.58,-58.45 13.61,-61.37 13.61,-64.95"/>
+<text xml:space="preserve" text-anchor="middle" x="140.72" y="-39.07" font-family="Arial" font-size="17.00" fill="#214b43">Write commit marker last</text>
+<text xml:space="preserve" text-anchor="middle" x="140.72" y="-19.57" font-family="Arial" font-size="17.00" fill="#214b43">Update count / latest sequence</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M685.58,-412.5C685.58,-412.5 429.86,-412.5 429.86,-412.5 423.86,-412.5 417.86,-406.5 417.86,-400.5 417.86,-400.5 417.86,-372.54 417.86,-372.54 417.86,-366.54 423.86,-360.54 429.86,-360.54 429.86,-360.54 685.58,-360.54 685.58,-360.54 691.58,-360.54 697.58,-366.54 697.58,-372.54 697.58,-372.54 697.58,-400.5 697.58,-400.5 697.58,-406.5 691.58,-412.5 685.58,-412.5"/>
+<text xml:space="preserve" text-anchor="middle" x="557.72" y="-389.87" font-family="Arial" font-size="17.00" fill="#733c3c">Count skipped / dropped sample</text>
+<text xml:space="preserve" text-anchor="middle" x="557.72" y="-370.37" font-family="Arial" font-size="17.00" fill="#733c3c">Keep reporting with honest source</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M515.46,-61.7C515.46,-61.7 297.99,-61.7 297.99,-61.7 291.99,-61.7 285.99,-55.7 285.99,-49.7 285.99,-49.7 285.99,-21.74 285.99,-21.74 285.99,-15.74 291.99,-9.74 297.99,-9.74 297.99,-9.74 515.46,-9.74 515.46,-9.74 521.46,-9.74 527.46,-15.74 527.46,-21.74 527.46,-21.74 527.46,-49.7 527.46,-49.7 527.46,-55.7 521.46,-61.7 515.46,-61.7"/>
+<text xml:space="preserve" text-anchor="middle" x="406.72" y="-39.07" font-family="Arial" font-size="17.00" fill="#733c3c">I/O / status / timeout failure</text>
+<text xml:space="preserve" text-anchor="middle" x="406.72" y="-19.57" font-family="Arial" font-size="17.00" fill="#733c3c">Latch Fault, no silent success</text>
+</g>
+</g>
+</svg>

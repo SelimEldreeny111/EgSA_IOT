@@ -1,0 +1,25 @@
+flowchart TD
+  a(["Select project to build"]):::term
+  b["Arduino STM32F401<br/>Active release documented here"]:::proc
+  c["ESP32 Arduino port<br/>Separate architecture snapshot"]:::proc
+  d["STM32CubeIDE HAL port<br/>Separate native implementation"]:::proc
+  e["Current sensing / commands / WDT<br/>Power modes / RTC totals / SPI log"]:::proc
+  f["Remapped three UART roles<br/>External ESP8266 / SIM retained"]:::proc
+  g["SensorNode / LoRaGateway<br/>HAL startup, UART rings, drivers"]:::proc
+  h(["Use this book F01-F29<br/>for active release behavior"]):::term
+  i(["Inspect own config and schema<br/>Do not assume current feature parity"]):::term
+  a --> b
+  a --> c
+  a --> d
+  b --> e
+  c --> f
+  d --> g
+  e --> h
+  f --> i
+  g --> i
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

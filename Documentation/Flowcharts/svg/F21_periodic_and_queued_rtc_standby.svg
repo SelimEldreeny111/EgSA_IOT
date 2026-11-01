@@ -1,0 +1,135 @@
+<svg width="789pt" height="589pt"
+ viewBox="0.00 0.00 789.00 589.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 575.67)">
+<title>F21</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M329.36,-526.39C329.36,-523.33 329.36,-520.04 329.36,-516.69"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="331.88,-516.76 329.36,-509.56 326.84,-516.76 331.88,-516.76"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M329.36,-455.28C329.36,-452.25 329.36,-449.06 329.36,-445.78"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="331.88,-445.9 329.36,-438.7 326.84,-445.9 331.88,-445.9"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M268.76,-343.25C249.43,-330.32 228.39,-316.25 210.36,-304.2"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="212.19,-302.39 204.81,-300.48 209.39,-306.58 212.19,-302.39"/>
+<text xml:space="preserve" text-anchor="middle" x="266.79" y="-310.53" font-family="Arial" font-size="14.00" fill="#405c70">Not ready</text>
+</g>
+<!-- c&#45;&gt;e -->
+<g id="edge5" class="edge">
+<title>c&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M385.68,-342.39C409.73,-324.71 432.36,-308.08 432.36,-308.08 432.36,-308.08 435.52,-306.35 440.4,-303.67"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="441.38,-306.01 446.48,-300.34 438.95,-301.59 441.38,-306.01"/>
+<text xml:space="preserve" text-anchor="middle" x="451.86" y="-310.53" font-family="Arial" font-size="14.00" fill="#405c70">Ready</text>
+</g>
+<!-- d&#45;&gt;c -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;c</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M330.95,-297.73C336.9,-298.58 340.36,-299.08 340.36,-299.08 340.36,-299.08 475.36,-308.08 475.36,-308.08 475.36,-308.08 475.36,-323.83 475.36,-323.83 475.36,-323.83 452.22,-333.33 424.36,-344.77"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="423.71,-342.31 418.01,-347.38 425.62,-346.97 423.71,-342.31"/>
+<text xml:space="preserve" text-anchor="middle" x="506.86" y="-310.53" font-family="Arial" font-size="14.00" fill="#405c70">Later pass</text>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M494.36,-246.76C494.36,-243.66 494.36,-240.42 494.36,-237.14"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="496.88,-237.37 494.36,-230.17 491.84,-237.37 496.88,-237.37"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M428.7,-156.33C410.95,-146.85 391.93,-136.69 374.8,-127.55"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="376.15,-125.41 368.61,-124.24 373.78,-129.86 376.15,-125.41"/>
+<text xml:space="preserve" text-anchor="middle" x="434.61" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">Verified</text>
+</g>
+<!-- f&#45;&gt;i -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M521.37,-156.33C527.98,-147.75 535.02,-138.61 541.53,-130.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="543.38,-131.9 545.78,-124.66 539.39,-128.82 543.38,-131.9"/>
+<text xml:space="preserve" text-anchor="middle" x="559.55" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">Failure</text>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge9" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M319.36,-70.65C319.36,-67.56 319.36,-64.36 319.36,-61.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="321.88,-61.2 319.36,-54 316.84,-61.2 321.88,-61.2"/>
+</g>
+<!-- h&#45;&gt;a -->
+<g id="edge10" class="edge">
+<title>h&#45;&gt;a</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M456.34,-43.58C559.18,-56.04 682.36,-70.96 682.36,-70.96 682.36,-70.96 682.36,-122.92 682.36,-122.92 682.36,-122.92 628.36,-436.75 628.36,-436.75 628.36,-436.75 471.36,-507.71 471.36,-507.71 471.36,-507.71 440,-515.66 406.76,-524.08"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="406.33,-521.59 399.97,-525.8 407.57,-526.48 406.33,-521.59"/>
+<text xml:space="preserve" text-anchor="middle" x="711.83" y="-267.67" font-family="Arial" font-size="14.00" fill="#405c70">RTC boot + work</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M462.47,-562.71C462.47,-562.71 196.25,-562.71 196.25,-562.71 190.25,-562.71 184.25,-556.71 184.25,-550.71 184.25,-550.71 184.25,-538.71 184.25,-538.71 184.25,-532.71 190.25,-526.71 196.25,-526.71 196.25,-526.71 462.47,-526.71 462.47,-526.71 468.47,-526.71 474.47,-532.71 474.47,-538.71 474.47,-538.71 474.47,-550.71 474.47,-550.71 474.47,-556.71 468.47,-562.71 462.47,-562.71"/>
+<text xml:space="preserve" text-anchor="middle" x="329.36" y="-538.31" font-family="Arial" font-size="17.00" fill="white">Fresh sample and successful report</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M450.1,-507.71C450.1,-507.71 208.62,-507.71 208.62,-507.71 202.62,-507.71 196.62,-501.71 196.62,-495.71 196.62,-495.71 196.62,-467.75 196.62,-467.75 196.62,-461.75 202.62,-455.75 208.62,-455.75 208.62,-455.75 450.1,-455.75 450.1,-455.75 456.1,-455.75 462.1,-461.75 462.1,-467.75 462.1,-467.75 462.1,-495.71 462.1,-495.71 462.1,-501.71 456.1,-507.71 450.1,-507.71"/>
+<text xml:space="preserve" text-anchor="middle" x="329.36" y="-485.08" font-family="Arial" font-size="17.00" fill="#163b55">Command window</text>
+<text xml:space="preserve" text-anchor="middle" x="329.36" y="-465.58" font-family="Arial" font-size="17.00" fill="#163b55">Periodic or longer queued policy</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="329.36,-436.75 39.14,-384.79 329.36,-332.83 619.58,-384.79 329.36,-436.75"/>
+<text xml:space="preserve" text-anchor="middle" x="329.36" y="-388.14" font-family="Arial" font-size="17.00" fill="#513f12">Window elapsed, no active lease</text>
+<text xml:space="preserve" text-anchor="middle" x="329.36" y="-368.64" font-family="Arial" font-size="17.00" fill="#513f12">transport / flash idle and RTC valid?</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M318.72,-299.08C318.72,-299.08 12,-299.08 12,-299.08 6,-299.08 0,-293.08 0,-287.08 0,-287.08 0,-259.12 0,-259.12 0,-253.12 6,-247.12 12,-247.12 12,-247.12 318.72,-247.12 318.72,-247.12 324.72,-247.12 330.72,-253.12 330.72,-259.12 330.72,-259.12 330.72,-287.08 330.72,-287.08 330.72,-293.08 324.72,-299.08 318.72,-299.08"/>
+<text xml:space="preserve" text-anchor="middle" x="165.36" y="-276.45" font-family="Arial" font-size="17.00" fill="#163b55">Keep awake / retry preparation</text>
+<text xml:space="preserve" text-anchor="middle" x="165.36" y="-256.95" font-family="Arial" font-size="17.00" fill="#163b55">Queued command can hold WAKE lease</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M627.85,-299.08C627.85,-299.08 360.88,-299.08 360.88,-299.08 354.88,-299.08 348.88,-293.08 348.88,-287.08 348.88,-287.08 348.88,-259.12 348.88,-259.12 348.88,-253.12 354.88,-247.12 360.88,-247.12 360.88,-247.12 627.85,-247.12 627.85,-247.12 633.85,-247.12 639.85,-253.12 639.85,-259.12 639.85,-259.12 639.85,-287.08 639.85,-287.08 639.85,-293.08 633.85,-299.08 627.85,-299.08"/>
+<text xml:space="preserve" text-anchor="middle" x="494.36" y="-276.45" font-family="Arial" font-size="17.00" fill="#163b55">Put radio into supported sleep</text>
+<text xml:space="preserve" text-anchor="middle" x="494.36" y="-256.95" font-family="Arial" font-size="17.00" fill="#163b55">Put idle flash into deep power&#45;down</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#e1f2ed" stroke="#7da89b" stroke-width="1.05" d="M631.97,-221.62C631.97,-225.2 570.29,-228.12 494.36,-228.12 418.43,-228.12 356.75,-225.2 356.75,-221.62 356.75,-221.62 356.75,-163.17 356.75,-163.17 356.75,-159.58 418.43,-156.67 494.36,-156.67 570.29,-156.67 631.97,-159.58 631.97,-163.17 631.97,-163.17 631.97,-221.62 631.97,-221.62"/>
+<path fill="none" stroke="#7da89b" stroke-width="1.05" d="M631.97,-221.62C631.97,-218.04 570.29,-215.12 494.36,-215.12 418.43,-215.12 356.75,-218.04 356.75,-221.62"/>
+<text xml:space="preserve" text-anchor="middle" x="494.36" y="-195.74" font-family="Arial" font-size="17.00" fill="#214b43">Store checked RTC sleep request</text>
+<text xml:space="preserve" text-anchor="middle" x="494.36" y="-176.24" font-family="Arial" font-size="17.00" fill="#214b43">Limit deadline by flash expiry</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M429.22,-122.92C429.22,-122.92 209.5,-122.92 209.5,-122.92 203.5,-122.92 197.5,-116.92 197.5,-110.92 197.5,-110.92 197.5,-82.96 197.5,-82.96 197.5,-76.96 203.5,-70.96 209.5,-70.96 209.5,-70.96 429.22,-70.96 429.22,-70.96 435.22,-70.96 441.22,-76.96 441.22,-82.96 441.22,-82.96 441.22,-110.92 441.22,-110.92 441.22,-116.92 435.22,-122.92 429.22,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="319.36" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Software reset</text>
+<text xml:space="preserve" text-anchor="middle" x="319.36" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">Early boot before IWDG [F03]</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M443.85,-51.96C443.85,-51.96 194.88,-51.96 194.88,-51.96 188.88,-51.96 182.88,-45.96 182.88,-39.96 182.88,-39.96 182.88,-12 182.88,-12 182.88,-6 188.88,0 194.88,0 194.88,0 443.85,0 443.85,0 449.85,0 455.85,-6 455.85,-12 455.85,-12 455.85,-39.96 455.85,-39.96 455.85,-45.96 449.85,-51.96 443.85,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="319.36" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Enter Standby until RTC deadline</text>
+<text xml:space="preserve" text-anchor="middle" x="319.36" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Wake is a new startup</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M661.6,-122.92C661.6,-122.92 471.12,-122.92 471.12,-122.92 465.12,-122.92 459.12,-116.92 459.12,-110.92 459.12,-110.92 459.12,-82.96 459.12,-82.96 459.12,-76.96 465.12,-70.96 471.12,-70.96 471.12,-70.96 661.6,-70.96 661.6,-70.96 667.6,-70.96 673.6,-76.96 673.6,-82.96 673.6,-82.96 673.6,-110.92 673.6,-110.92 673.6,-116.92 667.6,-122.92 661.6,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="566.36" y="-100.29" font-family="Arial" font-size="17.00" fill="#733c3c">Abort failed handoff</text>
+<text xml:space="preserve" text-anchor="middle" x="566.36" y="-80.79" font-family="Arial" font-size="17.00" fill="#733c3c">Restore active scheduling</text>
+</g>
+</g>
+</svg>

@@ -1,0 +1,30 @@
+flowchart TD
+  a(["Direct FLASH_TODAY / resume<br/>Require retained trusted log"]):::term
+  b["Freeze day, generation, final seq<br/>Count matching valid records"]:::proc
+  c["Read next CRC-valid sample<br/>Attach request / index / total"]:::proc
+  d["Send after priority work<br/>Server commits scoped row [F26]"]:::proc
+  e{"Matching internal CMD14 received?"}:::dec
+  f["Advance cursor<br/>Send next row or successful End"]:::proc
+  g["Bounded retry same row<br/>Then ACK-timeout terminal result"]:::proc
+  h{"Cancel / expiry / read error?"}:::dec
+  i(["Send explicit terminal result<br/>Release after ACK / bounded timeout"]):::term
+  a --> b
+  b --> c
+  b -->|Empty result| i
+  c --> d
+  d --> e
+  e -->|Yes| f
+  e -->|Timeout| g
+  g -->|Attempts remain| d
+  g -->|Exhausted| i
+  f -->|More rows| c
+  f -->|End| i
+  b -->|During job| h
+  h -->|Yes| i
+  h -->|No| c
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

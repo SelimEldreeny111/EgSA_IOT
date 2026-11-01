@@ -1,0 +1,39 @@
+// F16 Node command dispatch replay and replies
+digraph F16 {
+graph [rankdir=TB, bgcolor="transparent", pad="0.18", nodesep="0.25", ranksep="0.25", splines=polyline, outputorder=edgesfirst];
+node [fontname="Arial", fontsize=17, margin="0.13,0.09", penwidth=1.05];
+edge [fontname="Arial", fontsize=14, color="#587083", fontcolor="#405C70", arrowsize=0.72, penwidth=1.15];
+"a" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Decoded command and topic class"];
+"b" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Direct target matches this node\nor permitted broadcast?"];
+"c" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Storage CMD 9..14?"];
+"d" [shape="box", style="rounded,filled", fillcolor="#EEEAF8", fontcolor="#4B416D", color="#A69BC7", label="Direct-only archive service\n14 advances transfer without reply"];
+"e" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="WAKE / GOSTM special request\nOr ordinary replay-cache lookup"];
+"f" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Fresh / legal ordinary intent?"];
+"g" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Apply rates / time / valve\nOr clear reset counter [catalog]"];
+"h" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Duplicate: reuse result\nConflict / invalid: reject"];
+"i" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Should telemetry reply be sent?"];
+"j" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Correlated data / action ACK\nQueue ahead of routine Status"];
+"k" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="No automatic reply\nCommand effect may still apply"];
+"x" [shape="box", style="rounded,filled", fillcolor="#FBE9E9", fontcolor="#733C3C", color="#C49393", label="Ignore wrong target"];
+{rank=same; "a";}
+{rank=same; "b";}
+{rank=same; "c"; "x";}
+{rank=same; "d"; "e";}
+{rank=same; "f";}
+{rank=same; "g"; "h";}
+{rank=same; "i";}
+{rank=same; "j"; "k";}
+"a" -> "b" [];
+"b" -> "c" [label="Yes"];
+"b" -> "x" [label="No"];
+"c" -> "d" [label="Yes"];
+"c" -> "e" [label="No"];
+"e" -> "f" [];
+"f" -> "g" [label="New / valid"];
+"f" -> "h" [label="Duplicate / bad"];
+"g" -> "i" [];
+"h" -> "i" [];
+"d" -> "i" [label="Except internal 14"];
+"i" -> "j" [label="Enabled / explicit\nrequest"];
+"i" -> "k" [label="Action ACK disabled"];
+}

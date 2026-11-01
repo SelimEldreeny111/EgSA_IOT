@@ -1,0 +1,25 @@
+flowchart TD
+  a(["Authorized project change<br/>Preserve deployment secrets"]):::term
+  b["Regenerate matching schemas<br/>If the protocol changed"]:::proc
+  c["Run native / server / simulator<br/>And cross-component regression suites"]:::proc
+  d["Build firmware profiles<br/>Check flash load / RAM / EEPROM area"]:::proc
+  e{"Checks pass?"}:::dec
+  f["Update guides / Doxygen / flows<br/>Synchronize verified final folder"]:::proc
+  g["Create new feature branch<br/>Publish complete change and verify ref"]:::proc
+  h(["Run physical acceptance<br/>Supply, sensors, RF, power, flash soak"]):::term
+  i["Fix defect and repeat<br/>Do not claim hardware validation"]:::bad
+  a --> b
+  b --> c
+  c --> d
+  d --> e
+  e -->|Yes| f
+  e -->|No| i
+  i -->|Recheck| c
+  f --> g
+  g --> h
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

@@ -1,0 +1,28 @@
+flowchart TD
+  a(["VALVE command<br/>0 close / 1 open"]):::term
+  b{"Enabled, pins available, commissioned<br/>and not busy?"}:::dec
+  c{"Already at commanded target?"}:::dec
+  d["Check minimum interval<br/>Then persist Unknown / verify"]:::proc
+  e["Arm TIM10 cutoff first<br/>PB9 / PB15 set polarity"]:::proc
+  f["Enable bridge with PC13 STBY<br/>ISR or foreground cuts power"]:::proc
+  g{"Pulse completed correctly?"}:::dec
+  h(["Set commanded Open / Closed<br/>Persist and ACK completion"]):::term
+  i["Reject / Fault; bridge stays OFF<br/>Interrupted state remains Unknown"]:::bad
+  j(["Accept without another pulse"]):::term
+  a --> b
+  b -->|Yes| c
+  b -->|No| i
+  c -->|Yes| j
+  c -->|No| d
+  d -->|Verified| e
+  d -->|Storage failure| i
+  e --> f
+  f --> g
+  g -->|Yes| h
+  g -->|No| i
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

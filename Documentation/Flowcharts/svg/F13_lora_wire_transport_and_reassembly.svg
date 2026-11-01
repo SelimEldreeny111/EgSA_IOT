@@ -1,0 +1,161 @@
+<svg width="1095pt" height="503pt"
+ viewBox="0.00 0.00 1095.00 503.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 489.89)">
+<title>F13</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M259.47,-424.66C259.47,-421.57 259.47,-418.37 259.47,-415.18"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="261.99,-415.21 259.47,-408.01 256.95,-415.21 261.99,-415.21"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M259.47,-353.7C259.47,-350.61 259.47,-347.41 259.47,-344.22"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="261.99,-344.25 259.47,-337.05 256.95,-344.25 261.99,-344.25"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M259.47,-282.91C259.47,-275.33 259.47,-266.81 259.47,-258.49"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="261.99,-258.54 259.47,-251.34 256.95,-258.54 261.99,-258.54"/>
+</g>
+<!-- c&#45;&gt;f -->
+<g id="edge8" class="edge">
+<title>c&#45;&gt;f</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M387.9,-309.03C501.15,-309.03 665.82,-309.03 782.21,-309.03"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="781.92,-311.55 789.12,-309.03 781.92,-306.51 781.92,-311.55"/>
+<text xml:space="preserve" text-anchor="middle" x="589.53" y="-314.48" font-family="Arial" font-size="14.00" fill="#405c70">Radio peer</text>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M239.92,-186.31C232.68,-175.38 224.44,-162.93 217.03,-151.74"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="219.34,-150.66 213.27,-146.05 215.14,-153.45 219.34,-150.66"/>
+<text xml:space="preserve" text-anchor="middle" x="266.93" y="-162.08" font-family="Arial" font-size="14.00" fill="#405c70">Node uplink</text>
+</g>
+<!-- d&#45;&gt;i -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M291.86,-187.96C300,-180.95 306.47,-175.38 306.47,-175.38 306.47,-175.38 334.47,-150.63 334.47,-150.63 334.47,-150.63 347.85,-89.35 355.77,-53.07"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="358.21,-53.71 357.29,-46.13 353.29,-52.63 358.21,-53.71"/>
+<text xml:space="preserve" text-anchor="middle" x="400.92" y="-120.62" font-family="Arial" font-size="14.00" fill="#405c70">No transport ACK</text>
+<text xml:space="preserve" text-anchor="middle" x="400.92" y="-104.87" font-family="Arial" font-size="14.00" fill="#405c70">required</text>
+</g>
+<!-- e&#45;&gt;c -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;c</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M312.05,-144.64C328.24,-148.18 339.47,-150.63 339.47,-150.63 339.47,-150.63 527.47,-184.38 527.47,-184.38 527.47,-184.38 527.47,-249.3 527.47,-249.3 527.47,-249.3 454.25,-265.35 384.35,-280.66"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="384.04,-278.15 377.55,-282.15 385.12,-283.07 384.04,-278.15"/>
+<text xml:space="preserve" text-anchor="middle" x="573.6" y="-211.42" font-family="Arial" font-size="14.00" fill="#405c70">Retry if allowed</text>
+</g>
+<!-- e&#45;&gt;i -->
+<g id="edge7" class="edge">
+<title>e&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M238.86,-91.7C264.2,-76.82 291.22,-60.96 291.22,-60.96 291.22,-60.96 303.34,-55.1 317.5,-48.25"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="318.57,-50.53 323.95,-45.13 316.38,-45.99 318.57,-50.53"/>
+<text xml:space="preserve" text-anchor="middle" x="319.35" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Accepted</text>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M888.85,-282.67C875.26,-272.1 859.35,-259.73 845.1,-248.65"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="846.85,-246.82 839.62,-244.39 843.76,-250.8 846.85,-246.82"/>
+<text xml:space="preserve" text-anchor="middle" x="891.9" y="-260.75" font-family="Arial" font-size="14.00" fill="#405c70">Valid</text>
+</g>
+<!-- f&#45;&gt;j -->
+<g id="edge10" class="edge">
+<title>f&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M936.89,-282.74C964.03,-238.25 1017.47,-150.63 1017.47,-150.63 1017.47,-150.63 1017.47,-85.71 1017.47,-85.71 1017.47,-85.71 998.49,-71.78 979.02,-57.48"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="980.56,-55.49 973.26,-53.26 977.58,-59.55 980.56,-55.49"/>
+<text xml:space="preserve" text-anchor="middle" x="1031.42" y="-162.08" font-family="Arial" font-size="14.00" fill="#405c70">Invalid</text>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge11" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M789.97,-190.44C783.58,-179.98 776.06,-167.65 769.08,-156.21"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="771.4,-155.17 765.49,-150.34 767.09,-157.8 771.4,-155.17"/>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge12" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M657.66,-96.37C593.61,-81.36 507.72,-61.24 444.93,-46.53"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="445.51,-44.08 437.93,-44.89 444.36,-48.99 445.51,-44.08"/>
+<text xml:space="preserve" text-anchor="middle" x="576.76" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- h&#45;&gt;j -->
+<g id="edge13" class="edge">
+<title>h&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M799.93,-91.93C823.53,-80.78 851.41,-67.62 875.88,-56.06"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="876.68,-58.47 882.12,-53.12 874.53,-53.91 876.68,-58.47"/>
+<text xml:space="preserve" text-anchor="middle" x="910.44" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Bad / timed out</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M382.46,-476.93C382.46,-476.93 136.49,-476.93 136.49,-476.93 130.49,-476.93 124.49,-470.93 124.49,-464.93 124.49,-464.93 124.49,-436.97 124.49,-436.97 124.49,-430.97 130.49,-424.97 136.49,-424.97 136.49,-424.97 382.46,-424.97 382.46,-424.97 388.46,-424.97 394.46,-430.97 394.46,-436.97 394.46,-436.97 394.46,-464.93 394.46,-464.93 394.46,-470.93 388.46,-476.93 382.46,-476.93"/>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-454.3" font-family="Arial" font-size="17.00" fill="white">Encrypted logical payload</text>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-434.8" font-family="Arial" font-size="17.00" fill="white">At most 640 bytes buffer capacity</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M359.58,-405.97C359.58,-405.97 159.36,-405.97 159.36,-405.97 153.36,-405.97 147.36,-399.97 147.36,-393.97 147.36,-393.97 147.36,-366.01 147.36,-366.01 147.36,-360.01 153.36,-354.01 159.36,-354.01 159.36,-354.01 359.58,-354.01 359.58,-354.01 365.58,-354.01 371.58,-360.01 371.58,-366.01 371.58,-366.01 371.58,-393.97 371.58,-393.97 371.58,-399.97 365.58,-405.97 359.58,-405.97"/>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-383.34" font-family="Arial" font-size="17.00" fill="#163b55">Split when required</text>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-363.84" font-family="Arial" font-size="17.00" fill="#163b55">27 data bytes per fragment</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M375.71,-335.01C375.71,-335.01 143.24,-335.01 143.24,-335.01 137.24,-335.01 131.24,-329.01 131.24,-323.01 131.24,-323.01 131.24,-295.05 131.24,-295.05 131.24,-289.05 137.24,-283.05 143.24,-283.05 143.24,-283.05 375.71,-283.05 375.71,-283.05 381.71,-283.05 387.71,-289.05 387.71,-295.05 387.71,-295.05 387.71,-323.01 387.71,-323.01 387.71,-329.01 381.71,-335.01 375.71,-335.01"/>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-312.38" font-family="Arial" font-size="17.00" fill="#163b55">TX physical frame + CRC</text>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-292.88" font-family="Arial" font-size="17.00" fill="#163b55">Wait for module AUX readiness</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="259.47,-249.3 0,-216.84 259.47,-184.38 518.94,-216.84 259.47,-249.3"/>
+<text xml:space="preserve" text-anchor="middle" x="259.47" y="-210.44" font-family="Arial" font-size="17.00" fill="#513f12">Required uplink fragment ACK?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M313.21,-144.15C313.21,-144.15 77.74,-144.15 77.74,-144.15 71.74,-144.15 65.74,-138.15 65.74,-132.15 65.74,-132.15 65.74,-104.19 65.74,-104.19 65.74,-98.19 71.74,-92.19 77.74,-92.19 77.74,-92.19 313.21,-92.19 313.21,-92.19 319.21,-92.19 325.21,-98.19 325.21,-104.19 325.21,-104.19 325.21,-132.15 325.21,-132.15 325.21,-138.15 319.21,-144.15 313.21,-144.15"/>
+<text xml:space="preserve" text-anchor="middle" x="195.47" y="-121.52" font-family="Arial" font-size="17.00" fill="#163b55">Receive / ACK or bounded retry</text>
+<text xml:space="preserve" text-anchor="middle" x="195.47" y="-102.02" font-family="Arial" font-size="17.00" fill="#163b55">No ACK &#45;&gt; send failure</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M1039.58,-335.01C1039.58,-335.01 803.36,-335.01 803.36,-335.01 797.36,-335.01 791.36,-329.01 791.36,-323.01 791.36,-323.01 791.36,-295.05 791.36,-295.05 791.36,-289.05 797.36,-283.05 803.36,-283.05 803.36,-283.05 1039.58,-283.05 1039.58,-283.05 1045.58,-283.05 1051.58,-289.05 1051.58,-295.05 1051.58,-295.05 1051.58,-323.01 1051.58,-323.01 1051.58,-329.01 1045.58,-335.01 1039.58,-335.01"/>
+<text xml:space="preserve" text-anchor="middle" x="921.47" y="-312.38" font-family="Arial" font-size="17.00" fill="#163b55">RX: check wire version, network</text>
+<text xml:space="preserve" text-anchor="middle" x="921.47" y="-292.88" font-family="Arial" font-size="17.00" fill="#163b55">Length, source and CRC</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M931.46,-242.82C931.46,-242.82 679.49,-242.82 679.49,-242.82 673.49,-242.82 667.49,-236.82 667.49,-230.82 667.49,-230.82 667.49,-202.86 667.49,-202.86 667.49,-196.86 673.49,-190.86 679.49,-190.86 679.49,-190.86 931.46,-190.86 931.46,-190.86 937.46,-190.86 943.46,-196.86 943.46,-202.86 943.46,-202.86 943.46,-230.82 943.46,-230.82 943.46,-236.82 937.46,-242.82 931.46,-242.82"/>
+<text xml:space="preserve" text-anchor="middle" x="805.47" y="-220.19" font-family="Arial" font-size="17.00" fill="#163b55">Reassemble by source / message</text>
+<text xml:space="preserve" text-anchor="middle" x="805.47" y="-200.69" font-family="Arial" font-size="17.00" fill="#163b55">32&#45;bit received mask</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="746.47,-150.63 484.75,-118.17 746.47,-85.71 1008.19,-118.17 746.47,-150.63"/>
+<text xml:space="preserve" text-anchor="middle" x="746.47" y="-111.77" font-family="Arial" font-size="17.00" fill="#513f12">Complete length + logical CRC?</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M490.08,-43.98C490.08,-43.98 232.86,-43.98 232.86,-43.98 226.86,-43.98 220.86,-37.98 220.86,-31.98 220.86,-31.98 220.86,-19.98 220.86,-19.98 220.86,-13.98 226.86,-7.98 232.86,-7.98 232.86,-7.98 490.08,-7.98 490.08,-7.98 496.08,-7.98 502.08,-13.98 502.08,-19.98 502.08,-19.98 502.08,-31.98 502.08,-31.98 502.08,-37.98 496.08,-43.98 490.08,-43.98"/>
+<text xml:space="preserve" text-anchor="middle" x="361.47" y="-19.58" font-family="Arial" font-size="17.00" fill="white">Queue complete application frame</text>
+</g>
+<!-- j -->
+<g id="node10" class="node">
+<title>j</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M1057.08,-51.96C1057.08,-51.96 817.86,-51.96 817.86,-51.96 811.86,-51.96 805.86,-45.96 805.86,-39.96 805.86,-39.96 805.86,-12 805.86,-12 805.86,-6 811.86,0 817.86,0 817.86,0 1057.08,0 1057.08,0 1063.08,0 1069.08,-6 1069.08,-12 1069.08,-12 1069.08,-39.96 1069.08,-39.96 1069.08,-45.96 1063.08,-51.96 1057.08,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="937.47" y="-29.33" font-family="Arial" font-size="17.00" fill="#733c3c">Discard / expire incomplete data</text>
+<text xml:space="preserve" text-anchor="middle" x="937.47" y="-9.83" font-family="Arial" font-size="17.00" fill="#733c3c">Increment diagnostics</text>
+</g>
+</g>
+</svg>

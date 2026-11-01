@@ -1,0 +1,159 @@
+<svg width="881pt" height="626pt"
+ viewBox="0.00 0.00 881.00 626.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 612.81)">
+<title>F04</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M372.22,-547.58C372.22,-544.49 372.22,-541.29 372.22,-538.1"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="374.74,-538.13 372.22,-530.93 369.7,-538.13 374.74,-538.13"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M372.22,-476.62C372.22,-473.53 372.22,-470.33 372.22,-467.14"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="374.74,-467.17 372.22,-459.97 369.7,-467.17 374.74,-467.17"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M372.22,-405.83C372.22,-402.69 372.22,-399.41 372.22,-396.11"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="374.74,-396.31 372.22,-389.11 369.7,-396.31 374.74,-396.31"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M328.72,-327.73C298.44,-309.78 257.99,-285.8 226.35,-267.05"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="227.9,-265.04 220.42,-263.54 225.33,-269.38 227.9,-265.04"/>
+<text xml:space="preserve" text-anchor="middle" x="342.98" y="-299.75" font-family="Arial" font-size="14.00" fill="#405c70">Allowed / yes</text>
+</g>
+<!-- d&#45;&gt;h -->
+<g id="edge8" class="edge">
+<title>d&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M416.16,-327.73C439.91,-313.8 469.85,-296.23 497,-280.3"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="498.15,-282.55 503.08,-276.73 495.59,-278.2 498.15,-282.55"/>
+<text xml:space="preserve" text-anchor="middle" x="473.91" y="-299.75" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M176.22,-209.85C176.22,-195.06 176.22,-176.1 176.22,-159.35"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="178.74,-159.77 176.22,-152.57 173.7,-159.77 178.74,-159.77"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge6" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M176.22,-85.37C176.22,-77.49 176.22,-69.01 176.22,-61.02"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="178.74,-61.21 176.22,-54.01 173.7,-61.21 178.74,-61.21"/>
+<text xml:space="preserve" text-anchor="middle" x="187.47" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- f&#45;&gt;h -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;h</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M242.83,-138.81C301.41,-156.08 387.92,-181.59 457.3,-202.04"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="456.38,-204.4 464,-204.02 457.81,-199.57 456.38,-204.4"/>
+<text xml:space="preserve" text-anchor="middle" x="382.78" y="-162.08" font-family="Arial" font-size="14.00" fill="#405c70">Not yet</text>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge9" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M256.56,-52.48C306.48,-68.33 361.22,-85.71 361.22,-85.71 361.22,-85.71 436.22,-150.63 436.22,-150.63 436.22,-150.63 468.19,-170.84 500.9,-191.52"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="499.42,-193.56 506.85,-195.28 502.11,-189.3 499.42,-193.56"/>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge10" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M564.59,-185.06C563.4,-174.36 562.16,-163.29 561.05,-153.36"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="563.56,-153.2 560.26,-146.32 558.56,-153.76 563.56,-153.2"/>
+<text xml:space="preserve" text-anchor="middle" x="574.58" y="-162.08" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- h&#45;&gt;j -->
+<g id="edge11" class="edge">
+<title>h&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M622.64,-194.23C650.16,-172.64 678.22,-150.63 678.22,-150.63 678.22,-150.63 678.22,-85.71 678.22,-85.71 678.22,-85.71 674.94,-73.66 671.35,-60.48"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="673.88,-60.19 669.56,-53.91 669.02,-61.52 673.88,-60.19"/>
+<text xml:space="preserve" text-anchor="middle" x="686.85" y="-112.75" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- i&#45;&gt;j -->
+<g id="edge12" class="edge">
+<title>i&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M586.75,-91.81C598.94,-81.34 613.19,-69.1 626,-58.09"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="627.41,-60.2 631.23,-53.6 624.13,-56.38 627.41,-60.2"/>
+</g>
+<!-- j&#45;&gt;a -->
+<g id="edge13" class="edge">
+<title>j&#45;&gt;a</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M691.3,-52.27C742.47,-96.76 843.22,-184.38 843.22,-184.38 843.22,-184.38 843.22,-288.3 843.22,-288.3 843.22,-288.3 502.22,-528.89 502.22,-528.89 502.22,-528.89 481.05,-536.05 455.79,-544.6"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="455.13,-542.16 449.11,-546.86 456.74,-546.94 455.13,-542.16"/>
+<text xml:space="preserve" text-anchor="middle" x="825.21" y="-349.09" font-family="Arial" font-size="14.00" fill="#405c70">Next pass</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M474.95,-599.85C474.95,-599.85 269.48,-599.85 269.48,-599.85 263.48,-599.85 257.48,-593.85 257.48,-587.85 257.48,-587.85 257.48,-559.89 257.48,-559.89 257.48,-553.89 263.48,-547.89 269.48,-547.89 269.48,-547.89 474.95,-547.89 474.95,-547.89 480.95,-547.89 486.95,-553.89 486.95,-559.89 486.95,-559.89 486.95,-587.85 486.95,-587.85 486.95,-593.85 480.95,-599.85 474.95,-599.85"/>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-577.22" font-family="Arial" font-size="17.00" fill="white">Loop progress checkpoint</text>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-557.72" font-family="Arial" font-size="17.00" fill="white">Remote idle gate if selected</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M480.95,-528.89C480.95,-528.89 263.48,-528.89 263.48,-528.89 257.48,-528.89 251.48,-522.89 251.48,-516.89 251.48,-516.89 251.48,-488.93 251.48,-488.93 251.48,-482.93 257.48,-476.93 263.48,-476.93 263.48,-476.93 480.95,-476.93 480.95,-476.93 486.95,-476.93 492.95,-482.93 492.95,-488.93 492.95,-488.93 492.95,-516.89 492.95,-516.89 492.95,-522.89 486.95,-528.89 480.95,-528.89"/>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-506.26" font-family="Arial" font-size="17.00" fill="#163b55">Pump commands and replies</text>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-486.76" font-family="Arial" font-size="17.00" fill="#163b55">MQTT or LoRa [F11 / F16]</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M492.2,-457.93C492.2,-457.93 252.23,-457.93 252.23,-457.93 246.23,-457.93 240.23,-451.93 240.23,-445.93 240.23,-445.93 240.23,-417.97 240.23,-417.97 240.23,-411.97 246.23,-405.97 252.23,-405.97 252.23,-405.97 492.2,-405.97 492.2,-405.97 498.2,-405.97 504.2,-411.97 504.2,-417.97 504.2,-417.97 504.2,-445.93 504.2,-445.93 504.2,-451.93 498.2,-457.93 492.2,-457.93"/>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-435.3" font-family="Arial" font-size="17.00" fill="#163b55">Advance flash state machine</text>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-415.8" font-family="Arial" font-size="17.00" fill="#163b55">Check power / command priority</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="372.22,-386.97 139.75,-354.51 372.22,-322.05 604.69,-354.51 372.22,-386.97"/>
+<text xml:space="preserve" text-anchor="middle" x="372.22" y="-348.11" font-family="Arial" font-size="17.00" fill="#513f12">Sample due or cycle active?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M275.95,-262.32C275.95,-262.32 76.48,-262.32 76.48,-262.32 70.48,-262.32 64.48,-256.32 64.48,-250.32 64.48,-250.32 64.48,-222.36 64.48,-222.36 64.48,-216.36 70.48,-210.36 76.48,-210.36 76.48,-210.36 275.95,-210.36 275.95,-210.36 281.95,-210.36 287.95,-216.36 287.95,-222.36 287.95,-222.36 287.95,-250.32 287.95,-250.32 287.95,-256.32 281.95,-262.32 275.95,-262.32"/>
+<text xml:space="preserve" text-anchor="middle" x="176.22" y="-239.69" font-family="Arial" font-size="17.00" fill="#163b55">Poll one enabled sensor</text>
+<text xml:space="preserve" text-anchor="middle" x="176.22" y="-220.19" font-family="Arial" font-size="17.00" fill="#163b55">Finish all groups [F05&#45;F09]</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="176.22,-150.63 0,-118.17 176.22,-85.71 352.44,-118.17 176.22,-150.63"/>
+<text xml:space="preserve" text-anchor="middle" x="176.22" y="-111.77" font-family="Arial" font-size="17.00" fill="#513f12">Complete snapshot?</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M288.7,-51.96C288.7,-51.96 63.73,-51.96 63.73,-51.96 57.73,-51.96 51.73,-45.96 51.73,-39.96 51.73,-39.96 51.73,-12 51.73,-12 51.73,-6 57.73,0 63.73,0 63.73,0 288.7,0 288.7,0 294.7,0 300.7,-6 300.7,-12 300.7,-12 300.7,-39.96 300.7,-39.96 300.7,-45.96 294.7,-51.96 288.7,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="176.22" y="-29.33" font-family="Arial" font-size="17.00" fill="#163b55">Queue canonical flash sample</text>
+<text xml:space="preserve" text-anchor="middle" x="176.22" y="-9.83" font-family="Arial" font-size="17.00" fill="#163b55">No half&#45;finished sensor cycle</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="570.22,-288.3 306.25,-236.34 570.22,-184.38 834.19,-236.34 570.22,-288.3"/>
+<text xml:space="preserve" text-anchor="middle" x="570.22" y="-239.69" font-family="Arial" font-size="17.00" fill="#513f12">Routine transmit due and safe?</text>
+<text xml:space="preserve" text-anchor="middle" x="570.22" y="-220.19" font-family="Arial" font-size="17.00" fill="#513f12">No sensor / write / reply pending</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M657.71,-144.15C657.71,-144.15 456.74,-144.15 456.74,-144.15 450.74,-144.15 444.74,-138.15 444.74,-132.15 444.74,-132.15 444.74,-104.19 444.74,-104.19 444.74,-98.19 450.74,-92.19 456.74,-92.19 456.74,-92.19 657.71,-92.19 657.71,-92.19 663.71,-92.19 669.71,-98.19 669.71,-104.19 669.71,-104.19 669.71,-132.15 669.71,-132.15 669.71,-138.15 663.71,-144.15 657.71,-144.15"/>
+<text xml:space="preserve" text-anchor="middle" x="557.22" y="-121.52" font-family="Arial" font-size="17.00" fill="#163b55">Publish latest stored Status</text>
+<text xml:space="preserve" text-anchor="middle" x="557.22" y="-102.02" font-family="Arial" font-size="17.00" fill="#163b55">Explicit live fallback [F10]</text>
+</g>
+<!-- j -->
+<g id="node10" class="node">
+<title>j</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M780.33,-51.96C780.33,-51.96 544.11,-51.96 544.11,-51.96 538.11,-51.96 532.11,-45.96 532.11,-39.96 532.11,-39.96 532.11,-12 532.11,-12 532.11,-6 538.11,0 544.11,0 544.11,0 780.33,0 780.33,0 786.33,0 792.33,-6 792.33,-12 792.33,-12 792.33,-39.96 792.33,-39.96 792.33,-45.96 786.33,-51.96 780.33,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="662.22" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Bulk packet last, at most one</text>
+<text xml:space="preserve" text-anchor="middle" x="662.22" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Then power service / WDT / idle</text>
+</g>
+</g>
+</svg>

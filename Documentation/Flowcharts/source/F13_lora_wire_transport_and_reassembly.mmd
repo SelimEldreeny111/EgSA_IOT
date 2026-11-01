@@ -1,0 +1,30 @@
+flowchart TD
+  a(["Encrypted logical payload<br/>At most 640 bytes buffer capacity"]):::term
+  b["Split when required<br/>27 data bytes per fragment"]:::proc
+  c["TX physical frame + CRC<br/>Wait for module AUX readiness"]:::proc
+  d{"Required uplink fragment ACK?"}:::dec
+  e["Receive / ACK or bounded retry<br/>No ACK -&gt; send failure"]:::proc
+  f["RX: check wire version, network<br/>Length, source and CRC"]:::proc
+  g["Reassemble by source / message<br/>32-bit received mask"]:::proc
+  h{"Complete length + logical CRC?"}:::dec
+  i(["Queue complete application frame"]):::term
+  j["Discard / expire incomplete data<br/>Increment diagnostics"]:::bad
+  a --> b
+  b --> c
+  c --> d
+  d -->|Node uplink| e
+  d -->|No transport ACK required| i
+  e -->|Retry if allowed| c
+  e -->|Accepted| i
+  c -->|Radio peer| f
+  f -->|Valid| g
+  f -->|Invalid| j
+  g --> h
+  h -->|Yes| i
+  h -->|Bad / timed out| j
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

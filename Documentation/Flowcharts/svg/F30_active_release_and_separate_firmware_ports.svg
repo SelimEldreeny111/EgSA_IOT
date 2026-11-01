@@ -1,0 +1,122 @@
+<svg width="886pt" height="272pt"
+ viewBox="0.00 0.00 886.00 272.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 258.84)">
+<title>F30</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M358.37,-209.37C335.49,-204.62 310.17,-199.37 285.35,-194.22"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="285.87,-191.75 278.31,-192.75 284.84,-196.68 285.87,-191.75"/>
+</g>
+<!-- a&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>a&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M442.74,-209.53C442.74,-206.83 442.74,-203.97 442.74,-201.05"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="445.26,-201.18 442.74,-193.98 440.22,-201.18 445.26,-201.18"/>
+</g>
+<!-- a&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>a&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M524.77,-209.37C547.01,-204.62 571.63,-199.37 595.76,-194.22"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="596.05,-196.73 602.57,-192.76 595,-191.8 596.05,-196.73"/>
+</g>
+<!-- b&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>b&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M150.38,-139.59C150,-136.73 149.61,-133.77 149.22,-130.81"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="151.73,-130.57 148.29,-123.77 146.73,-131.23 151.73,-130.57"/>
+</g>
+<!-- c&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>c&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M442.74,-139.59C442.74,-136.73 442.74,-133.77 442.74,-130.81"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="445.26,-130.98 442.74,-123.78 440.22,-130.98 445.26,-130.98"/>
+</g>
+<!-- d&#45;&gt;g -->
+<g id="edge6" class="edge">
+<title>d&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M725.22,-139.59C725.39,-136.73 725.57,-133.77 725.74,-130.81"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="728.25,-131.11 726.16,-123.78 723.22,-130.82 728.25,-131.11"/>
+</g>
+<!-- e&#45;&gt;h -->
+<g id="edge7" class="edge">
+<title>e&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M144.74,-69.63C144.74,-66.77 144.74,-63.81 144.74,-60.85"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="147.26,-61.02 144.74,-53.82 142.22,-61.02 147.26,-61.02"/>
+</g>
+<!-- f&#45;&gt;i -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M496.01,-69.44C505.02,-65.13 514.44,-60.62 523.63,-56.23"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="524.65,-58.53 530.06,-53.15 522.48,-53.98 524.65,-58.53"/>
+</g>
+<!-- g&#45;&gt;i -->
+<g id="edge9" class="edge">
+<title>g&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M674.08,-69.44C665.01,-65.13 655.53,-60.62 646.27,-56.23"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="647.37,-53.96 639.79,-53.14 645.21,-58.51 647.37,-53.96"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M521.85,-245.88C521.85,-245.88 363.62,-245.88 363.62,-245.88 357.62,-245.88 351.62,-239.88 351.62,-233.88 351.62,-233.88 351.62,-221.88 351.62,-221.88 351.62,-215.88 357.62,-209.88 363.62,-209.88 363.62,-209.88 521.85,-209.88 521.85,-209.88 527.85,-209.88 533.85,-215.88 533.85,-221.88 533.85,-221.88 533.85,-233.88 533.85,-233.88 533.85,-239.88 527.85,-245.88 521.85,-245.88"/>
+<text xml:space="preserve" text-anchor="middle" x="442.74" y="-221.48" font-family="Arial" font-size="17.00" fill="white">Select project to build</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M274.47,-191.88C274.47,-191.88 33,-191.88 33,-191.88 27,-191.88 21,-185.88 21,-179.88 21,-179.88 21,-151.92 21,-151.92 21,-145.92 27,-139.92 33,-139.92 33,-139.92 274.47,-139.92 274.47,-139.92 280.47,-139.92 286.47,-145.92 286.47,-151.92 286.47,-151.92 286.47,-179.88 286.47,-179.88 286.47,-185.88 280.47,-191.88 274.47,-191.88"/>
+<text xml:space="preserve" text-anchor="middle" x="153.74" y="-169.25" font-family="Arial" font-size="17.00" fill="#163b55">Arduino STM32F401</text>
+<text xml:space="preserve" text-anchor="middle" x="153.74" y="-149.75" font-family="Arial" font-size="17.00" fill="#163b55">Active release documented here</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M559.72,-191.88C559.72,-191.88 325.75,-191.88 325.75,-191.88 319.75,-191.88 313.75,-185.88 313.75,-179.88 313.75,-179.88 313.75,-151.92 313.75,-151.92 313.75,-145.92 319.75,-139.92 325.75,-139.92 325.75,-139.92 559.72,-139.92 559.72,-139.92 565.72,-139.92 571.72,-145.92 571.72,-151.92 571.72,-151.92 571.72,-179.88 571.72,-179.88 571.72,-185.88 565.72,-191.88 559.72,-191.88"/>
+<text xml:space="preserve" text-anchor="middle" x="442.74" y="-169.25" font-family="Arial" font-size="17.00" fill="#163b55">ESP32 Arduino port</text>
+<text xml:space="preserve" text-anchor="middle" x="442.74" y="-149.75" font-family="Arial" font-size="17.00" fill="#163b55">Separate architecture snapshot</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M842.22,-191.88C842.22,-191.88 605.25,-191.88 605.25,-191.88 599.25,-191.88 593.25,-185.88 593.25,-179.88 593.25,-179.88 593.25,-151.92 593.25,-151.92 593.25,-145.92 599.25,-139.92 605.25,-139.92 605.25,-139.92 842.22,-139.92 842.22,-139.92 848.22,-139.92 854.22,-145.92 854.22,-151.92 854.22,-151.92 854.22,-179.88 854.22,-179.88 854.22,-185.88 848.22,-191.88 842.22,-191.88"/>
+<text xml:space="preserve" text-anchor="middle" x="723.74" y="-169.25" font-family="Arial" font-size="17.00" fill="#163b55">STM32CubeIDE HAL port</text>
+<text xml:space="preserve" text-anchor="middle" x="723.74" y="-149.75" font-family="Arial" font-size="17.00" fill="#163b55">Separate native implementation</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M277.47,-121.92C277.47,-121.92 12,-121.92 12,-121.92 6,-121.92 0,-115.92 0,-109.92 0,-109.92 0,-81.96 0,-81.96 0,-75.96 6,-69.96 12,-69.96 12,-69.96 277.47,-69.96 277.47,-69.96 283.47,-69.96 289.47,-75.96 289.47,-81.96 289.47,-81.96 289.47,-109.92 289.47,-109.92 289.47,-115.92 283.47,-121.92 277.47,-121.92"/>
+<text xml:space="preserve" text-anchor="middle" x="144.74" y="-99.29" font-family="Arial" font-size="17.00" fill="#163b55">Current sensing / commands / WDT</text>
+<text xml:space="preserve" text-anchor="middle" x="144.74" y="-79.79" font-family="Arial" font-size="17.00" fill="#163b55">Power modes / RTC totals / SPI log</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M565.72,-121.92C565.72,-121.92 319.75,-121.92 319.75,-121.92 313.75,-121.92 307.75,-115.92 307.75,-109.92 307.75,-109.92 307.75,-81.96 307.75,-81.96 307.75,-75.96 313.75,-69.96 319.75,-69.96 319.75,-69.96 565.72,-69.96 565.72,-69.96 571.72,-69.96 577.72,-75.96 577.72,-81.96 577.72,-81.96 577.72,-109.92 577.72,-109.92 577.72,-115.92 571.72,-121.92 565.72,-121.92"/>
+<text xml:space="preserve" text-anchor="middle" x="442.74" y="-99.29" font-family="Arial" font-size="17.00" fill="#163b55">Remapped three UART roles</text>
+<text xml:space="preserve" text-anchor="middle" x="442.74" y="-79.79" font-family="Arial" font-size="17.00" fill="#163b55">External ESP8266 / SIM retained</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M848.1,-121.92C848.1,-121.92 607.38,-121.92 607.38,-121.92 601.38,-121.92 595.38,-115.92 595.38,-109.92 595.38,-109.92 595.38,-81.96 595.38,-81.96 595.38,-75.96 601.38,-69.96 607.38,-69.96 607.38,-69.96 848.1,-69.96 848.1,-69.96 854.1,-69.96 860.1,-75.96 860.1,-81.96 860.1,-81.96 860.1,-109.92 860.1,-109.92 860.1,-115.92 854.1,-121.92 848.1,-121.92"/>
+<text xml:space="preserve" text-anchor="middle" x="727.74" y="-99.29" font-family="Arial" font-size="17.00" fill="#163b55">SensorNode / LoRaGateway</text>
+<text xml:space="preserve" text-anchor="middle" x="727.74" y="-79.79" font-family="Arial" font-size="17.00" fill="#163b55">HAL startup, UART rings, drivers</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M242.97,-51.96C242.97,-51.96 46.5,-51.96 46.5,-51.96 40.5,-51.96 34.5,-45.96 34.5,-39.96 34.5,-39.96 34.5,-12 34.5,-12 34.5,-6 40.5,0 46.5,0 46.5,0 242.97,0 242.97,0 248.97,0 254.97,-6 254.97,-12 254.97,-12 254.97,-39.96 254.97,-39.96 254.97,-45.96 248.97,-51.96 242.97,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="144.74" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Use this book F01&#45;F29</text>
+<text xml:space="preserve" text-anchor="middle" x="144.74" y="-9.83" font-family="Arial" font-size="17.00" fill="white">for active release behavior</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M721.22,-51.96C721.22,-51.96 448.25,-51.96 448.25,-51.96 442.25,-51.96 436.25,-45.96 436.25,-39.96 436.25,-39.96 436.25,-12 436.25,-12 436.25,-6 442.25,0 448.25,0 448.25,0 721.22,0 721.22,0 727.22,0 733.22,-6 733.22,-12 733.22,-12 733.22,-39.96 733.22,-39.96 733.22,-45.96 727.22,-51.96 721.22,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="584.74" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Inspect own config and schema</text>
+<text xml:space="preserve" text-anchor="middle" x="584.74" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Do not assume current feature parity</text>
+</g>
+</g>
+</svg>

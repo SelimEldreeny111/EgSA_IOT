@@ -1,0 +1,165 @@
+<svg width="903pt" height="626pt"
+ viewBox="0.00 0.00 903.00 626.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 612.81)">
+<title>F02</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M601.74,-547.75C601.74,-544.61 601.74,-541.33 601.74,-538.03"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="604.26,-538.23 601.74,-531.03 599.22,-538.23 604.26,-538.23"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M568.33,-473.6C550.86,-462.18 529.21,-448.03 510.14,-435.57"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="511.57,-433.49 504.16,-431.66 508.81,-437.71 511.57,-433.49"/>
+<text xml:space="preserve" text-anchor="middle" x="553" y="-441.67" font-family="Arial" font-size="14.00" fill="#405c70">Node</text>
+</g>
+<!-- b&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>b&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M635.63,-473.6C653.42,-462.13 675.5,-447.91 694.91,-435.41"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="696.05,-437.67 700.74,-431.65 693.32,-433.43 696.05,-437.67"/>
+<text xml:space="preserve" text-anchor="middle" x="715.39" y="-441.67" font-family="Arial" font-size="14.00" fill="#405c70">Gateway</text>
+</g>
+<!-- c&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M475.06,-378.12C476.87,-374.1 478.78,-369.86 480.69,-365.62"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="482.96,-366.71 483.63,-359.11 478.37,-364.63 482.96,-366.71"/>
+</g>
+<!-- c&#45;&gt;h -->
+<g id="edge5" class="edge">
+<title>c&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M353.15,-377.8C321.56,-370.54 287.01,-362.59 254.94,-355.22"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="255.68,-352.8 248.1,-353.64 254.55,-357.71 255.68,-352.8"/>
+</g>
+<!-- d&#45;&gt;f -->
+<g id="edge8" class="edge">
+<title>d&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M735.47,-377.98C727.5,-345.81 714.74,-294.34 714.74,-294.34 714.74,-294.34 709.81,-282.29 704.43,-269.11"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="706.77,-268.18 701.71,-262.47 702.1,-270.09 706.77,-268.18"/>
+<text xml:space="preserve" text-anchor="middle" x="780.35" y="-321.38" font-family="Arial" font-size="14.00" fill="#405c70">IP uplink + LoRa</text>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M548.95,-301.87C573.34,-290.47 602.72,-276.74 628.4,-264.74"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="629.21,-267.14 634.66,-261.81 627.07,-262.58 629.21,-267.14"/>
+<text xml:space="preserve" text-anchor="middle" x="634.82" y="-272.04" font-family="Arial" font-size="14.00" fill="#405c70">Direct</text>
+</g>
+<!-- e&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>e&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M477.49,-297.26C470.89,-287.97 463.52,-277.59 456.74,-268.03"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="458.92,-266.75 452.7,-262.33 454.81,-269.66 458.92,-266.75"/>
+<text xml:space="preserve" text-anchor="middle" x="483.78" y="-272.04" font-family="Arial" font-size="14.00" fill="#405c70">LoRa</text>
+</g>
+<!-- f&#45;&gt;i -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M621.86,-208.17C594.02,-197.88 561.38,-185.82 531.17,-174.66"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="532.4,-172.43 524.77,-172.3 530.65,-177.16 532.4,-172.43"/>
+</g>
+<!-- g&#45;&gt;i -->
+<g id="edge10" class="edge">
+<title>g&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M433.74,-208.17C433.74,-205.13 433.74,-201.94 433.74,-198.67"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="436.26,-198.79 433.74,-191.59 431.22,-198.79 436.26,-198.79"/>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge11" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M173.49,-300.38C224.67,-265.92 309.74,-208.63 309.74,-208.63 309.74,-208.63 333.07,-195.46 359.5,-180.55"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="360.47,-182.9 365.5,-177.17 357.99,-178.51 360.47,-182.9"/>
+</g>
+<!-- i&#45;&gt;j -->
+<g id="edge12" class="edge">
+<title>i&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M387.64,-94.89C370.85,-79.66 352.48,-63.01 338.14,-50.01"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="340.16,-48.44 333.14,-45.48 336.78,-52.18 340.16,-48.44"/>
+<text xml:space="preserve" text-anchor="middle" x="380.62" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Valid</text>
+</g>
+<!-- i&#45;&gt;k -->
+<g id="edge13" class="edge">
+<title>i&#45;&gt;k</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M479.83,-94.89C493.25,-82.72 507.67,-69.64 520.25,-58.24"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="521.71,-60.32 525.35,-53.62 518.32,-56.59 521.71,-60.32"/>
+<text xml:space="preserve" text-anchor="middle" x="535.1" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Invalid</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M727.35,-599.85C727.35,-599.85 476.12,-599.85 476.12,-599.85 470.12,-599.85 464.12,-593.85 464.12,-587.85 464.12,-587.85 464.12,-559.89 464.12,-559.89 464.12,-553.89 470.12,-547.89 476.12,-547.89 476.12,-547.89 727.35,-547.89 727.35,-547.89 733.35,-547.89 739.35,-553.89 739.35,-559.89 739.35,-559.89 739.35,-587.85 739.35,-587.85 739.35,-593.85 733.35,-599.85 727.35,-599.85"/>
+<text xml:space="preserve" text-anchor="middle" x="601.74" y="-577.22" font-family="Arial" font-size="17.00" fill="white">Read AppConfig.h</text>
+<text xml:space="preserve" text-anchor="middle" x="601.74" y="-557.72" font-family="Arial" font-size="17.00" fill="white">Private deployment files stay local</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="601.74,-528.89 492.26,-496.43 601.74,-463.97 711.21,-496.43 601.74,-528.89"/>
+<text xml:space="preserve" text-anchor="middle" x="601.74" y="-490.03" font-family="Arial" font-size="17.00" fill="#513f12">Which role?</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M575.85,-430.22C575.85,-430.22 351.62,-430.22 351.62,-430.22 345.62,-430.22 339.62,-424.22 339.62,-418.22 339.62,-418.22 339.62,-390.26 339.62,-390.26 339.62,-384.26 345.62,-378.26 351.62,-378.26 351.62,-378.26 575.85,-378.26 575.85,-378.26 581.85,-378.26 587.85,-384.26 587.85,-390.26 587.85,-390.26 587.85,-418.22 587.85,-418.22 587.85,-424.22 581.85,-430.22 575.85,-430.22"/>
+<text xml:space="preserve" text-anchor="middle" x="463.74" y="-407.59" font-family="Arial" font-size="17.00" fill="#163b55">Sensor node</text>
+<text xml:space="preserve" text-anchor="middle" x="463.74" y="-388.09" font-family="Arial" font-size="17.00" fill="#163b55">APP_ROLE_SENSOR_NODE</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M865.47,-430.22C865.47,-430.22 618,-430.22 618,-430.22 612,-430.22 606,-424.22 606,-418.22 606,-418.22 606,-390.26 606,-390.26 606,-384.26 612,-378.26 618,-378.26 618,-378.26 865.47,-378.26 865.47,-378.26 871.47,-378.26 877.47,-384.26 877.47,-390.26 877.47,-390.26 877.47,-418.22 877.47,-418.22 877.47,-424.22 871.47,-430.22 865.47,-430.22"/>
+<text xml:space="preserve" text-anchor="middle" x="741.74" y="-407.59" font-family="Arial" font-size="17.00" fill="#163b55">Gateway</text>
+<text xml:space="preserve" text-anchor="middle" x="741.74" y="-388.09" font-family="Arial" font-size="17.00" fill="#163b55">No sensor polling or local archive</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="497.74,-359.26 289.26,-326.8 497.73,-294.34 706.21,-326.8 497.74,-359.26"/>
+<text xml:space="preserve" text-anchor="middle" x="497.74" y="-320.4" font-family="Arial" font-size="17.00" fill="#513f12">Direct IP or LoRa uplink?</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M802.85,-260.59C802.85,-260.59 578.62,-260.59 578.62,-260.59 572.62,-260.59 566.62,-254.59 566.62,-248.59 566.62,-248.59 566.62,-220.63 566.62,-220.63 566.62,-214.63 572.62,-208.63 578.62,-208.63 578.62,-208.63 802.85,-208.63 802.85,-208.63 808.85,-208.63 814.85,-214.63 814.85,-220.63 814.85,-220.63 814.85,-248.59 814.85,-248.59 814.85,-254.59 808.85,-260.59 802.85,-260.59"/>
+<text xml:space="preserve" text-anchor="middle" x="690.74" y="-237.96" font-family="Arial" font-size="17.00" fill="#163b55">WiFi or SIM modem</text>
+<text xml:space="preserve" text-anchor="middle" x="690.74" y="-218.46" font-family="Arial" font-size="17.00" fill="#163b55">One selected external modem</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M536.85,-260.59C536.85,-260.59 330.62,-260.59 330.62,-260.59 324.62,-260.59 318.62,-254.59 318.62,-248.59 318.62,-248.59 318.62,-220.63 318.62,-220.63 318.62,-214.63 324.62,-208.63 330.62,-208.63 330.62,-208.63 536.85,-208.63 536.85,-208.63 542.85,-208.63 548.85,-214.63 548.85,-220.63 548.85,-220.63 548.85,-248.59 548.85,-248.59 548.85,-254.59 542.85,-260.59 536.85,-260.59"/>
+<text xml:space="preserve" text-anchor="middle" x="433.74" y="-237.96" font-family="Arial" font-size="17.00" fill="#163b55">LoRa node &#45;&gt; gateway</text>
+<text xml:space="preserve" text-anchor="middle" x="433.74" y="-218.46" font-family="Arial" font-size="17.00" fill="#163b55">Use role&#45;specific UART pins</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M259.47,-352.78C259.47,-352.78 12,-352.78 12,-352.78 6,-352.78 0,-346.78 0,-340.78 0,-340.78 0,-312.82 0,-312.82 0,-306.82 6,-300.82 12,-300.82 12,-300.82 259.47,-300.82 259.47,-300.82 265.47,-300.82 271.47,-306.82 271.47,-312.82 271.47,-312.82 271.47,-340.78 271.47,-340.78 271.47,-346.78 265.47,-352.78 259.47,-352.78"/>
+<text xml:space="preserve" text-anchor="middle" x="135.74" y="-330.15" font-family="Arial" font-size="17.00" fill="#163b55">Select each sensor true / false</text>
+<text xml:space="preserve" text-anchor="middle" x="135.74" y="-310.65" font-family="Arial" font-size="17.00" fill="#163b55">Choose unique addresses 1..247</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="433.74,-189.63 179.52,-137.67 433.73,-85.71 687.96,-137.67 433.74,-189.63"/>
+<text xml:space="preserve" text-anchor="middle" x="433.74" y="-141.02" font-family="Arial" font-size="17.00" fill="#513f12">Compile&#45;time guards</text>
+<text xml:space="preserve" text-anchor="middle" x="433.74" y="-121.52" font-family="Arial" font-size="17.00" fill="#513f12">Check modes, pins and buffers</text>
+</g>
+<!-- j -->
+<g id="node10" class="node">
+<title>j</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M412.85,-43.98C412.85,-43.98 212.62,-43.98 212.62,-43.98 206.62,-43.98 200.62,-37.98 200.62,-31.98 200.62,-31.98 200.62,-19.98 200.62,-19.98 200.62,-13.98 206.62,-7.98 212.62,-7.98 212.62,-7.98 412.85,-7.98 412.85,-7.98 418.85,-7.98 424.85,-13.98 424.85,-19.98 424.85,-19.98 424.85,-31.98 424.85,-31.98 424.85,-37.98 418.85,-43.98 412.85,-43.98"/>
+<text xml:space="preserve" text-anchor="middle" x="312.74" y="-19.58" font-family="Arial" font-size="17.00" fill="white">Build the selected firmware</text>
+</g>
+<!-- k -->
+<g id="node11" class="node">
+<title>k</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M654.47,-51.96C654.47,-51.96 455,-51.96 455,-51.96 449,-51.96 443,-45.96 443,-39.96 443,-39.96 443,-12 443,-12 443,-6 449,0 455,0 455,0 654.47,0 654.47,0 660.47,0 666.47,-6 666.47,-12 666.47,-12 666.47,-39.96 666.47,-39.96 666.47,-45.96 660.47,-51.96 654.47,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="554.74" y="-29.33" font-family="Arial" font-size="17.00" fill="#733c3c">Reject invalid configuration</text>
+<text xml:space="preserve" text-anchor="middle" x="554.74" y="-9.83" font-family="Arial" font-size="17.00" fill="#733c3c">Correct it before flashing</text>
+</g>
+</g>
+</svg>

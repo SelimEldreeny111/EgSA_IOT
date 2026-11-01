@@ -1,0 +1,30 @@
+flowchart TD
+  a(["Loop progress checkpoint<br/>Remote idle gate if selected"]):::term
+  b["Pump commands and replies<br/>MQTT or LoRa [F11 / F16]"]:::proc
+  c["Advance flash state machine<br/>Check power / command priority"]:::proc
+  d{"Sample due or cycle active?"}:::dec
+  e["Poll one enabled sensor<br/>Finish all groups [F05-F09]"]:::proc
+  f{"Complete snapshot?"}:::dec
+  g["Queue canonical flash sample<br/>No half-finished sensor cycle"]:::proc
+  h{"Routine transmit due and safe?<br/>No sensor / write / reply pending"}:::dec
+  i["Publish latest stored Status<br/>Explicit live fallback [F10]"]:::proc
+  j(["Bulk packet last, at most one<br/>Then power service / WDT / idle"]):::term
+  a --> b
+  b --> c
+  c --> d
+  d -->|Allowed / yes| e
+  e --> f
+  f -->|Yes| g
+  f -->|Not yet| h
+  d -->|No| h
+  g --> h
+  h -->|Yes| i
+  h -->|No| j
+  i --> j
+  j -->|Next pass| a
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

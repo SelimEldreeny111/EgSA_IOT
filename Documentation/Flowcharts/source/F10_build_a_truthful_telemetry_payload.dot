@@ -1,0 +1,32 @@
+// F10 Build a truthful telemetry payload
+digraph F10 {
+graph [rankdir=TB, bgcolor="transparent", pad="0.18", nodesep="0.25", ranksep="0.25", splines=polyline, outputorder=edgesfirst];
+node [fontname="Arial", fontsize=17, margin="0.13,0.09", penwidth=1.05];
+edge [fontname="Arial", fontsize=14, color="#587083", fontcolor="#405C70", arrowsize=0.72, penwidth=1.15];
+"a" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Complete runtime snapshot"];
+"b" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Average battery ADC samples\nApply divider and calibration"];
+"c" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="TUF primary if both enabled\nSupmea -> secondary_flow_meter"];
+"d" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Routine Status or GOSTM?"];
+"e" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Routine: latest committed sample\nElse explicit live_fallback"];
+"f" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="GOSTM: current runtime snapshot\nAttach requested ACK metadata"];
+"g" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Keep failed groups zero / invalid\nRefresh valve, reset and power state"];
+"h" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Encode nanopb + PKCS7 padding\nAES-128-CBC with 16-byte IV"];
+"i" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Version + IV + ciphertext\nPublish on selected route"];
+{rank=same; "a";}
+{rank=same; "b"; "c";}
+{rank=same; "d";}
+{rank=same; "e"; "f";}
+{rank=same; "g";}
+{rank=same; "h";}
+{rank=same; "i";}
+"a" -> "b" [];
+"a" -> "c" [];
+"b" -> "d" [];
+"c" -> "d" [];
+"d" -> "e" [label="Routine Status"];
+"d" -> "f" [label="GOSTM / reply"];
+"e" -> "g" [];
+"f" -> "g" [];
+"g" -> "h" [];
+"h" -> "i" [];
+}

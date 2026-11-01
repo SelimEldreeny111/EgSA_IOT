@@ -1,0 +1,32 @@
+flowchart TD
+  a(["Forward total and sample UTC<br/>Load saved baseline if available"]):::term
+  b{"RTC trusted and calendar valid?"}:::dec
+  c{"No usable baseline?"}:::dec
+  d["Set baseline, zero / partial totals<br/>Persist and wait for next sample"]:::proc
+  e["Handle backward clock / counter<br/>Noise clamp, reset or anomaly"]:::proc
+  f["Accepted delta liters<br/>Current minus previous total"]:::proc
+  g{"Period boundary crossed?"}:::dec
+  h["Add full delta to same buckets"]:::proc
+  i["Allocate current-period share<br/>Proportional time, Estimated"]:::proc
+  j["Return unavailable / uncertain<br/>Preserve internal history"]:::bad
+  k(["Persist backup + checkpoints<br/>Publish m3 and quality"]):::term
+  a --> b
+  b -->|Yes| c
+  b -->|No| j
+  c -->|First sample| d
+  c -->|Baseline exists| e
+  e -->|Normal accepted change| f
+  e -->|Reset / anomaly / time event| k
+  f --> g
+  g -->|No| h
+  g -->|Yes| i
+  h --> k
+  i --> k
+  d --> k
+  j --> k
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

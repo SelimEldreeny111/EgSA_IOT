@@ -1,0 +1,38 @@
+// F24 Flash recovery retention and clearing
+digraph F24 {
+graph [rankdir=TB, bgcolor="transparent", pad="0.18", nodesep="0.25", ranksep="0.25", splines=polyline, outputorder=edgesfirst];
+node [fontname="Arial", fontsize=17, margin="0.13,0.09", penwidth=1.05];
+edge [fontname="Arial", fontsize=14, color="#587083", fontcolor="#405C70", arrowsize=0.72, penwidth=1.15];
+"a" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Probe chip / read metadata copies"];
+"b" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Recognized chip + valid format?"];
+"c" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Recover valid committed records\nSkip torn / CRC-bad slots"];
+"d" [shape="box", style="rounded,filled", fillcolor="#FBE9E9", fontcolor="#733C3C", color="#C49393", label="Missing: retry probe\nUnformatted: explicit clear required"];
+"e" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Trusted 24-hour expiry\nor accepted CLEAR_FLASH?"];
+"f" [shape="cylinder", style="filled", fillcolor="#E1F2ED", fontcolor="#214B43", color="#7DA89B", label="Commit alternate metadata\nNew generation / retention start"];
+"g" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Old records no longer exposed\nSweep old sectors cooperatively"];
+"h" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Sector now owned by new log?"];
+"i" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Protect it; skip this sector"];
+"j" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Erase old sector if necessary\nPersist sweep completion"];
+"k" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Ready / Full: normal archive use"];
+{rank=same; "a";}
+{rank=same; "b";}
+{rank=same; "c"; "d";}
+{rank=same; "e";}
+{rank=same; "f"; "k";}
+{rank=same; "g";}
+{rank=same; "h";}
+{rank=same; "i"; "j";}
+"a" -> "b" [];
+"b" -> "c" [label="Yes"];
+"b" -> "d" [label="No"];
+"d" -> "e" [label="Manual initialization"];
+"c" -> "e" [];
+"e" -> "f" [label="Yes"];
+"e" -> "k" [label="No"];
+"f" -> "g" [];
+"g" -> "h" [];
+"h" -> "i" [label="Yes"];
+"h" -> "j" [label="No"];
+"i" -> "g" [label="Next sector", constraint="false", color="#8195A4", style="dashed"];
+"j" -> "g" [label="Next sector", constraint="false", color="#8195A4", style="dashed"];
+}

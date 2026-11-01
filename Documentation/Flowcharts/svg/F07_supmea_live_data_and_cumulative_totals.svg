@@ -1,0 +1,111 @@
+<svg width="503pt" height="531pt"
+ viewBox="0.00 0.00 503.00 531.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 518.39)">
+<title>F07</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M246.36,-453.16C246.36,-450.07 246.36,-446.87 246.36,-443.68"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="248.88,-443.71 246.36,-436.51 243.84,-443.71 248.88,-443.71"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M246.36,-382.2C246.36,-379.11 246.36,-375.91 246.36,-372.72"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="248.88,-372.75 246.36,-365.55 243.84,-372.75 248.88,-372.75"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M246.36,-311.41C246.36,-308.27 246.36,-304.99 246.36,-301.69"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="248.88,-301.89 246.36,-294.69 243.84,-301.89 248.88,-301.89"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M210.68,-232.27C196.91,-221.92 181.07,-210.02 166.87,-199.35"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="168.71,-197.58 161.44,-195.27 165.68,-201.61 168.71,-197.58"/>
+<text xml:space="preserve" text-anchor="middle" x="238.33" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">For valid groups</text>
+</g>
+<!-- d&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M282.34,-232.27C296.23,-221.92 312.19,-210.02 326.51,-199.35"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="327.73,-201.59 331.99,-195.26 324.71,-197.54 327.73,-201.59"/>
+<text xml:space="preserve" text-anchor="middle" x="371.88" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">For failed groups</text>
+</g>
+<!-- e&#45;&gt;g -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M148.36,-141.61C151.7,-137.77 155.19,-133.77 158.63,-129.81"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="160.39,-131.62 163.22,-124.54 156.59,-128.31 160.39,-131.62"/>
+</g>
+<!-- f&#45;&gt;h -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M356.75,-141.44C344.9,-113.02 327.36,-70.96 327.36,-70.96 327.36,-70.96 319.9,-65.1 310.43,-57.66"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="312.2,-55.85 304.98,-53.38 309.09,-59.81 312.2,-55.85"/>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge8" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M217.53,-70.65C222.73,-66.44 228.17,-62.02 233.51,-57.69"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="234.84,-59.85 238.84,-53.36 231.66,-55.94 234.84,-59.85"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M345.72,-505.43C345.72,-505.43 147,-505.43 147,-505.43 141,-505.43 135,-499.43 135,-493.43 135,-493.43 135,-465.47 135,-465.47 135,-459.47 141,-453.47 147,-453.47 147,-453.47 345.72,-453.47 345.72,-453.47 351.72,-453.47 357.72,-459.47 357.72,-465.47 357.72,-465.47 357.72,-493.43 357.72,-493.43 357.72,-499.43 351.72,-505.43 345.72,-505.43"/>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-482.8" font-family="Arial" font-size="17.00" fill="white">Begin Supmea poll</text>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-463.3" font-family="Arial" font-size="17.00" fill="white">Zero a new result structure</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M371.6,-434.47C371.6,-434.47 121.12,-434.47 121.12,-434.47 115.12,-434.47 109.12,-428.47 109.12,-422.47 109.12,-422.47 109.12,-394.51 109.12,-394.51 109.12,-388.51 115.12,-382.51 121.12,-382.51 121.12,-382.51 371.6,-382.51 371.6,-382.51 377.6,-382.51 383.6,-388.51 383.6,-394.51 383.6,-394.51 383.6,-422.47 383.6,-422.47 383.6,-428.47 377.6,-434.47 371.6,-434.47"/>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-411.84" font-family="Arial" font-size="17.00" fill="#163b55">FC03 totals at decimal 90</text>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-392.34" font-family="Arial" font-size="17.00" fill="#163b55">6 registers: forward / reverse / net</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M370.47,-363.51C370.47,-363.51 122.25,-363.51 122.25,-363.51 116.25,-363.51 110.25,-357.51 110.25,-351.51 110.25,-351.51 110.25,-323.55 110.25,-323.55 110.25,-317.55 116.25,-311.55 122.25,-311.55 122.25,-311.55 370.47,-311.55 370.47,-311.55 376.47,-311.55 382.47,-317.55 382.47,-323.55 382.47,-323.55 382.47,-351.51 382.47,-351.51 382.47,-357.51 376.47,-363.51 370.47,-363.51"/>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-340.88" font-family="Arial" font-size="17.00" fill="#163b55">FC03 live block at decimal 98</text>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-321.38" font-family="Arial" font-size="17.00" fill="#163b55">10 registers: flow, velocity, alarms</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="246.36,-292.55 15.39,-260.09 246.36,-227.63 477.33,-260.09 246.36,-292.55"/>
+<text xml:space="preserve" text-anchor="middle" x="246.36" y="-253.69" font-family="Arial" font-size="17.00" fill="#513f12">Each group valid and finite?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M240.72,-193.88C240.72,-193.88 12,-193.88 12,-193.88 6,-193.88 0,-187.88 0,-181.88 0,-181.88 0,-153.92 0,-153.92 0,-147.92 6,-141.92 12,-141.92 12,-141.92 240.72,-141.92 240.72,-141.92 246.72,-141.92 252.72,-147.92 252.72,-153.92 252.72,-153.92 252.72,-181.88 252.72,-181.88 252.72,-187.88 246.72,-193.88 240.72,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="126.36" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Normalize volume flow to m3/h</text>
+<text xml:space="preserve" text-anchor="middle" x="126.36" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">Convert cumulative m3 to liters</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M452.47,-193.88C452.47,-193.88 282.25,-193.88 282.25,-193.88 276.25,-193.88 270.25,-187.88 270.25,-181.88 270.25,-181.88 270.25,-153.92 270.25,-153.92 270.25,-147.92 276.25,-141.92 282.25,-141.92 282.25,-141.92 452.47,-141.92 452.47,-141.92 458.47,-141.92 464.47,-147.92 464.47,-153.92 464.47,-153.92 464.47,-181.88 464.47,-181.88 464.47,-187.88 458.47,-193.88 452.47,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="367.36" y="-171.25" font-family="Arial" font-size="17.00" fill="#733c3c">Zero only failed groups</text>
+<text xml:space="preserve" text-anchor="middle" x="367.36" y="-151.75" font-family="Arial" font-size="17.00" fill="#733c3c">Mark them unavailable</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eeeaf8" stroke="#a69bc7" stroke-width="1.05" d="M306.72,-122.92C306.72,-122.92 66,-122.92 66,-122.92 60,-122.92 54,-116.92 54,-110.92 54,-110.92 54,-82.96 54,-82.96 54,-76.96 60,-70.96 66,-70.96 66,-70.96 306.72,-70.96 306.72,-70.96 312.72,-70.96 318.72,-76.96 318.72,-82.96 318.72,-82.96 318.72,-110.92 318.72,-110.92 318.72,-116.92 312.72,-122.92 306.72,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="186.36" y="-100.29" font-family="Arial" font-size="17.00" fill="#4b416d">Valid forward total + trusted RTC</text>
+<text xml:space="preserve" text-anchor="middle" x="186.36" y="-80.79" font-family="Arial" font-size="17.00" fill="#4b416d">Update accumulator [F09]</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M366.97,-51.96C366.97,-51.96 175.75,-51.96 175.75,-51.96 169.75,-51.96 163.75,-45.96 163.75,-39.96 163.75,-39.96 163.75,-12 163.75,-12 163.75,-6 169.75,0 175.75,0 175.75,0 366.97,0 366.97,0 372.97,0 378.97,-6 378.97,-12 378.97,-12 378.97,-39.96 378.97,-39.96 378.97,-45.96 372.97,-51.96 366.97,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="271.36" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Map live / totals / periods</text>
+<text xml:space="preserve" text-anchor="middle" x="271.36" y="-9.83" font-family="Arial" font-size="17.00" fill="white">with separate quality flags</text>
+</g>
+</g>
+</svg>

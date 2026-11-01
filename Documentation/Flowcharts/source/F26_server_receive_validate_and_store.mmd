@@ -1,0 +1,29 @@
+flowchart TD
+  a(["MQTT RX frame<br/>Bounded topic / payload size"]):::term
+  b["Check envelope, decrypt AES<br/>Validate PKCS7 / parse protobuf"]:::proc
+  c{"Topic, node ID, numbers<br/>and enum fields valid?"}:::dec
+  d["Status / live Telemetry<br/>Select measured time / quality"]:::proc
+  e["Flash metadata / history<br/>Separate archive transaction"]:::proc
+  f["Command echo<br/>Internal ACK14 is not live history"]:::proc
+  g[("Store live readings / periods<br/>Deduplicate flow samples")]:::db
+  h[("Store archive row / transfer<br/>Only then send HISTORY_ACK")]:::db
+  i(["Emit scoped dashboard events<br/>Dispatch queued command on Status"]):::term
+  j["Drop and log invalid message<br/>No database / execution ACK effect"]:::bad
+  a --> b
+  b -->|Decoded| c
+  b -->|Decode failed| j
+  c -->|Valid live| d
+  c -->|Valid archive| e
+  c -->|Valid command| f
+  c -->|Invalid| j
+  d --> g
+  e --> h
+  g --> i
+  h --> i
+  f -->|Operator echo only| i
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

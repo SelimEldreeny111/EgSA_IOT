@@ -1,0 +1,23 @@
+flowchart TD
+  a(["Begin TUF poll<br/>Zero a new result structure"]):::term
+  b["FC03 at 0x0000, 6 registers<br/>Flow and velocity"]:::proc
+  c{"Core reply / floats valid?"}:::dec
+  d["Read day / month<br/>0x007C, 4 registers"]:::proc
+  e["Read yearly integer + fraction<br/>0x0090, 4 registers"]:::proc
+  f["Read optional error code<br/>0x0047, 1 register"]:::proc
+  g["Publish zero invalid core<br/>Do not reuse last reading"]:::bad
+  h(["Set independent live / period<br/>validity and TUF source"]):::term
+  a --> b
+  b --> c
+  c -->|Yes| d
+  c -->|No| g
+  d --> e
+  e --> f
+  f --> h
+  g --> h
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

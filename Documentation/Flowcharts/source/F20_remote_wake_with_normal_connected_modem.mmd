@@ -1,0 +1,25 @@
+flowchart TD
+  a(["REMOTE_WAKE active / reachable idle"]):::term
+  b{"UART command, app deadline,<br/>reply / flash work or WAKE lease?"}:::dec
+  c["Resume foreground work<br/>Do not force unrelated deadlines"]:::proc
+  d["Service commands first<br/>Then only due sample / send work"]:::proc
+  e{"No due / busy work<br/>and no active WAKE lease?"}:::dec
+  f["Reachable idle<br/>Normal modem, UART / SysTick alive"]:::proc
+  g(["WFI light CPU Sleep<br/>Interrupt / periodic poll resumes"]):::term
+  h["Keep application active<br/>Preserve pending operations"]:::proc
+  a --> b
+  b -->|Yes| c
+  b -->|No| f
+  c --> d
+  d --> e
+  e -->|Yes| f
+  e -->|No| h
+  h -->|Next pass| b
+  f --> g
+  g -->|UART / tick / deadline| b
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

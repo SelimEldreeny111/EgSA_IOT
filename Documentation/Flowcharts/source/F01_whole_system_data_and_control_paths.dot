@@ -1,0 +1,38 @@
+// F01 Whole system data and control paths
+digraph F01 {
+graph [rankdir=TB, bgcolor="transparent", pad="0.18", nodesep="0.25", ranksep="0.25", splines=polyline, outputorder=edgesfirst];
+node [fontname="Arial", fontsize=17, margin="0.13,0.09", penwidth=1.05];
+edge [fontname="Arial", fontsize=14, color="#587083", fontcolor="#405C70", arrowsize=0.72, penwidth=1.15];
+"s" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="TUF / Supmea / HNDA / Sondas\nOne shared RS485 bus"];
+"n" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="STM32 Arduino sensor node\nAcquire, validate and schedule"];
+"f" [shape="cylinder", style="filled", fillcolor="#E1F2ED", fontcolor="#214B43", color="#7DA89B", label="External SPI telemetry log\nComplete samples / 24 h batches"];
+"v" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="TB6612FNG valve driver\nCommanded state only"];
+"ip" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="ESP8266 or SIM800L\nDirect MQTT route"];
+"r" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="E32 / AS32 LoRa node\nReliable radio frames"];
+"g" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="LoRa gateway\nLoRa + WiFi / SIM uplink"];
+"b" [shape="cylinder", style="filled", fillcolor="#E1F2ED", fontcolor="#214B43", color="#7DA89B", label="MQTT broker\nCompany / region / node topics"];
+"w" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Python web server\nDecrypt, validate, store, command"];
+"u" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Browser dashboard\nLive data / commands / history"];
+{rank=same; "s";}
+{rank=same; "n"; "f"; "v";}
+{rank=same; "ip"; "r";}
+{rank=same; "g"; "b";}
+{rank=same; "w";}
+{rank=same; "u";}
+"s" -> "n" [label="Measurements"];
+"n" -> "f" [label="Store", constraint="false", color="#8195A4", style="dashed"];
+"f" -> "n" [label="Latest sample", constraint="false", color="#8195A4", style="dashed"];
+"n" -> "v" [label="Valve command", constraint="false", color="#8195A4", style="dashed"];
+"n" -> "ip" [];
+"n" -> "r" [];
+"r" -> "g" [label="Radio"];
+"g" -> "r" [label="Commands", constraint="false", color="#8195A4", style="dashed"];
+"ip" -> "b" [];
+"b" -> "ip" [label="Commands", constraint="false", color="#8195A4", style="dashed"];
+"g" -> "b" [constraint="false", color="#8195A4", style="dashed"];
+"b" -> "g" [label="Commands", constraint="false", color="#8195A4", style="dashed"];
+"b" -> "w" [];
+"w" -> "b" [label="Commands", constraint="false", color="#8195A4", style="dashed"];
+"w" -> "u" [];
+"u" -> "w" [label="Operator intent", constraint="false", color="#8195A4", style="dashed"];
+}

@@ -1,0 +1,30 @@
+flowchart TD
+  a(["Gateway loop<br/>Drain LoRa UART first"]):::term
+  b{"Fragment transaction active?"}:::dec
+  c["Defer MQTT work<br/>Maintain fragment turnaround"]:::proc
+  d["Service network / MQTT<br/>Receive command topics"]:::proc
+  e{"Complete uplink frame available?"}:::dec
+  f["Status -&gt; /status<br/>System telemetry -&gt; /data"]:::proc
+  g["Build company / region / source<br/>Publish encrypted body unchanged"]:::proc
+  h["Parse direct / broadcast topic<br/>Forward radio command [F16]"]:::proc
+  i{"WOR configured at gateway?<br/>Mode-1 probe before command"}:::dec
+  j(["Send command, restore Mode 0<br/>Then resume bridge / heartbeat"]):::term
+  a --> b
+  b -->|Yes| c
+  b -->|No| d
+  c --> e
+  d --> e
+  e -->|Supported uplink| f
+  f --> g
+  d -->|Downlink callback| h
+  h --> i
+  i -->|Probe or normal TX| j
+  g --> j
+  e -->|No frame| j
+  j -->|Next pass| a
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

@@ -1,0 +1,159 @@
+<svg width="1008pt" height="641pt"
+ viewBox="0.00 0.00 1008.00 641.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 627.56)">
+<title>F14</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M395.97,-562.5C395.97,-559.36 395.97,-556.08 395.97,-552.78"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="398.49,-552.98 395.97,-545.78 393.45,-552.98 398.49,-552.98"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M359.4,-483.36C345.28,-473.01 329.05,-461.11 314.5,-450.44"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="316.2,-448.57 308.91,-446.34 313.22,-452.63 316.2,-448.57"/>
+<text xml:space="preserve" text-anchor="middle" x="349.41" y="-456.42" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- b&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>b&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M432.54,-483.36C446.66,-473.01 462.89,-461.11 477.44,-450.44"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="478.72,-452.63 483.03,-446.34 475.74,-448.57 478.72,-452.63"/>
+<text xml:space="preserve" text-anchor="middle" x="480.73" y="-456.42" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- c&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M272.97,-392.87C272.97,-385.29 272.97,-376.77 272.97,-368.45"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="275.49,-368.5 272.97,-361.3 270.45,-368.5 275.49,-368.5"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M449.46,-392.51C417.37,-380.74 379.25,-366.76 346.66,-354.82"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="347.76,-352.54 340.14,-352.42 346.03,-357.27 347.76,-352.54"/>
+</g>
+<!-- d&#45;&gt;h -->
+<g id="edge8" class="edge">
+<title>d&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M523.45,-392.54C525.6,-380.31 527.72,-368.26 527.72,-368.26 527.72,-368.26 550.62,-362.51 579.16,-355.35"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="579.71,-357.81 586.08,-353.62 578.48,-352.93 579.71,-357.81"/>
+<text xml:space="preserve" text-anchor="middle" x="581.35" y="-370.71" font-family="Arial" font-size="14.00" fill="#405c70">Downlink callback</text>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M268.37,-294.36C266.06,-278.6 263.27,-259.5 260.91,-243.42"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="263.45,-243.32 259.91,-236.56 258.46,-244.05 263.45,-243.32"/>
+<text xml:space="preserve" text-anchor="middle" x="317.61" y="-272.04" font-family="Arial" font-size="14.00" fill="#405c70">Supported uplink</text>
+</g>
+<!-- e&#45;&gt;j -->
+<g id="edge12" class="edge">
+<title>e&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M333.41,-301.1C354.02,-292.67 371.97,-285.34 371.97,-285.34 371.97,-285.34 388.13,-130.74 395.44,-60.72"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="397.91,-61.38 396.15,-53.95 392.9,-60.85 397.91,-61.38"/>
+<text xml:space="preserve" text-anchor="middle" x="416.07" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">No frame</text>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M249.24,-182.19C245.25,-167.1 240.15,-147.79 235.83,-131.47"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="238.38,-131.24 234.1,-124.93 233.51,-132.53 238.38,-131.24"/>
+</g>
+<!-- g&#45;&gt;j -->
+<g id="edge11" class="edge">
+<title>g&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M290.53,-70.46C302.54,-65.64 315.18,-60.58 327.41,-55.67"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="328.03,-58.14 333.77,-53.12 326.15,-53.46 328.03,-58.14"/>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge9" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M688.97,-300.31C688.97,-291.14 688.97,-280.36 688.97,-269.51"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="691.49,-269.75 688.97,-262.55 686.45,-269.75 691.49,-269.75"/>
+</g>
+<!-- i&#45;&gt;j -->
+<g id="edge10" class="edge">
+<title>i&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M626.4,-168.65C572.55,-135.11 495.99,-87.42 446.9,-56.83"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="448.48,-54.85 441.04,-53.18 445.81,-59.13 448.48,-54.85"/>
+<text xml:space="preserve" text-anchor="middle" x="608.05" y="-91.52" font-family="Arial" font-size="14.00" fill="#405c70">Probe or normal TX</text>
+</g>
+<!-- j&#45;&gt;a -->
+<g id="edge13" class="edge">
+<title>j&#45;&gt;a</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M531.78,-48.45C600.83,-59.62 670.97,-70.96 670.97,-70.96 670.97,-70.96 959.97,-156.67 959.97,-156.67 959.97,-156.67 959.97,-260.59 959.97,-260.59 959.97,-260.59 644.97,-543.64 644.97,-543.64 644.97,-543.64 567.14,-557.39 498.5,-569.51"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="498.12,-567.02 491.47,-570.75 498.99,-571.98 498.12,-567.02"/>
+<text xml:space="preserve" text-anchor="middle" x="952.23" y="-321.38" font-family="Arial" font-size="14.00" fill="#405c70">Next pass</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M477.33,-614.6C477.33,-614.6 314.61,-614.6 314.61,-614.6 308.61,-614.6 302.61,-608.6 302.61,-602.6 302.61,-602.6 302.61,-574.64 302.61,-574.64 302.61,-568.64 308.61,-562.64 314.61,-562.64 314.61,-562.64 477.33,-562.64 477.33,-562.64 483.33,-562.64 489.33,-568.64 489.33,-574.64 489.33,-574.64 489.33,-602.6 489.33,-602.6 489.33,-608.6 483.33,-614.6 477.33,-614.6"/>
+<text xml:space="preserve" text-anchor="middle" x="395.97" y="-591.97" font-family="Arial" font-size="17.00" fill="white">Gateway loop</text>
+<text xml:space="preserve" text-anchor="middle" x="395.97" y="-572.47" font-family="Arial" font-size="17.00" fill="white">Drain LoRa UART first</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="395.97,-543.64 156,-511.18 395.97,-478.72 635.94,-511.18 395.97,-543.64"/>
+<text xml:space="preserve" text-anchor="middle" x="395.97" y="-504.78" font-family="Arial" font-size="17.00" fill="#513f12">Fragment transaction active?</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M383.96,-444.97C383.96,-444.97 161.99,-444.97 161.99,-444.97 155.99,-444.97 149.99,-438.97 149.99,-432.97 149.99,-432.97 149.99,-405.01 149.99,-405.01 149.99,-399.01 155.99,-393.01 161.99,-393.01 161.99,-393.01 383.96,-393.01 383.96,-393.01 389.96,-393.01 395.96,-399.01 395.96,-405.01 395.96,-405.01 395.96,-432.97 395.96,-432.97 395.96,-438.97 389.96,-444.97 383.96,-444.97"/>
+<text xml:space="preserve" text-anchor="middle" x="272.97" y="-422.34" font-family="Arial" font-size="17.00" fill="#163b55">Defer MQTT work</text>
+<text xml:space="preserve" text-anchor="middle" x="272.97" y="-402.84" font-family="Arial" font-size="17.00" fill="#163b55">Maintain fragment turnaround</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M611.58,-444.97C611.58,-444.97 426.36,-444.97 426.36,-444.97 420.36,-444.97 414.36,-438.97 414.36,-432.97 414.36,-432.97 414.36,-405.01 414.36,-405.01 414.36,-399.01 420.36,-393.01 426.36,-393.01 426.36,-393.01 611.58,-393.01 611.58,-393.01 617.58,-393.01 623.58,-399.01 623.58,-405.01 623.58,-405.01 623.58,-432.97 623.58,-432.97 623.58,-438.97 617.58,-444.97 611.58,-444.97"/>
+<text xml:space="preserve" text-anchor="middle" x="518.97" y="-422.34" font-family="Arial" font-size="17.00" fill="#163b55">Service network / MQTT</text>
+<text xml:space="preserve" text-anchor="middle" x="518.97" y="-402.84" font-family="Arial" font-size="17.00" fill="#163b55">Receive command topics</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="272.97,-359.26 0,-326.8 272.97,-294.34 545.94,-326.8 272.97,-359.26"/>
+<text xml:space="preserve" text-anchor="middle" x="272.97" y="-320.4" font-family="Arial" font-size="17.00" fill="#513f12">Complete uplink frame available?</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M350.46,-234.61C350.46,-234.61 161.49,-234.61 161.49,-234.61 155.49,-234.61 149.49,-228.61 149.49,-222.61 149.49,-222.61 149.49,-194.65 149.49,-194.65 149.49,-188.65 155.49,-182.65 161.49,-182.65 161.49,-182.65 350.46,-182.65 350.46,-182.65 356.46,-182.65 362.46,-188.65 362.46,-194.65 362.46,-194.65 362.46,-222.61 362.46,-222.61 362.46,-228.61 356.46,-234.61 350.46,-234.61"/>
+<text xml:space="preserve" text-anchor="middle" x="255.97" y="-211.98" font-family="Arial" font-size="17.00" fill="#163b55">Status &#45;&gt; /status</text>
+<text xml:space="preserve" text-anchor="middle" x="255.97" y="-192.48" font-family="Arial" font-size="17.00" fill="#163b55">System telemetry &#45;&gt; /data</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M358.96,-122.92C358.96,-122.92 94.99,-122.92 94.99,-122.92 88.99,-122.92 82.99,-116.92 82.99,-110.92 82.99,-110.92 82.99,-82.96 82.99,-82.96 82.99,-76.96 88.99,-70.96 94.99,-70.96 94.99,-70.96 358.96,-70.96 358.96,-70.96 364.96,-70.96 370.96,-76.96 370.96,-82.96 370.96,-82.96 370.96,-110.92 370.96,-110.92 370.96,-116.92 364.96,-122.92 358.96,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="226.97" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Build company / region / source</text>
+<text xml:space="preserve" text-anchor="middle" x="226.97" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">Publish encrypted body unchanged</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M801.83,-352.78C801.83,-352.78 576.11,-352.78 576.11,-352.78 570.11,-352.78 564.11,-346.78 564.11,-340.78 564.11,-340.78 564.11,-312.82 564.11,-312.82 564.11,-306.82 570.11,-300.82 576.11,-300.82 576.11,-300.82 801.83,-300.82 801.83,-300.82 807.83,-300.82 813.83,-306.82 813.83,-312.82 813.83,-312.82 813.83,-340.78 813.83,-340.78 813.83,-346.78 807.83,-352.78 801.83,-352.78"/>
+<text xml:space="preserve" text-anchor="middle" x="688.97" y="-330.15" font-family="Arial" font-size="17.00" fill="#163b55">Parse direct / broadcast topic</text>
+<text xml:space="preserve" text-anchor="middle" x="688.97" y="-310.65" font-family="Arial" font-size="17.00" fill="#163b55">Forward radio command [F16]</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="688.97,-260.59 427.25,-208.63 688.97,-156.67 950.69,-208.63 688.97,-260.59"/>
+<text xml:space="preserve" text-anchor="middle" x="688.97" y="-211.98" font-family="Arial" font-size="17.00" fill="#513f12">WOR configured at gateway?</text>
+<text xml:space="preserve" text-anchor="middle" x="688.97" y="-192.48" font-family="Arial" font-size="17.00" fill="#513f12">Mode&#45;1 probe before command</text>
+</g>
+<!-- j -->
+<g id="node10" class="node">
+<title>j</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M519.33,-51.96C519.33,-51.96 278.61,-51.96 278.61,-51.96 272.61,-51.96 266.61,-45.96 266.61,-39.96 266.61,-39.96 266.61,-12 266.61,-12 266.61,-6 272.61,0 278.61,0 278.61,0 519.33,0 519.33,0 525.33,0 531.33,-6 531.33,-12 531.33,-12 531.33,-39.96 531.33,-39.96 531.33,-45.96 525.33,-51.96 519.33,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="398.97" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Send command, restore Mode 0</text>
+<text xml:space="preserve" text-anchor="middle" x="398.97" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Then resume bridge / heartbeat</text>
+</g>
+</g>
+</svg>

@@ -1,0 +1,125 @@
+<svg width="600pt" height="617pt"
+ viewBox="0.00 0.00 600.00 617.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 604.1)">
+<title>F29</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M282.11,-538.87C282.11,-535.78 282.11,-532.58 282.11,-529.39"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="284.63,-529.42 282.11,-522.22 279.59,-529.42 284.63,-529.42"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M282.11,-467.91C282.11,-464.82 282.11,-461.62 282.11,-458.43"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="284.63,-458.46 282.11,-451.26 279.59,-458.46 284.63,-458.46"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M282.11,-396.95C282.11,-393.86 282.11,-390.66 282.11,-387.47"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="284.63,-387.5 282.11,-380.3 279.59,-387.5 284.63,-387.5"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M282.11,-326.16C282.11,-318.58 282.11,-310.06 282.11,-301.74"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="284.63,-301.79 282.11,-294.59 279.59,-301.79 284.63,-301.79"/>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M249.59,-235.63C234.15,-224.49 215.5,-211.03 199.01,-199.13"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="200.82,-197.33 193.5,-195.16 197.87,-201.42 200.82,-197.33"/>
+<text xml:space="preserve" text-anchor="middle" x="234.61" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- e&#45;&gt;i -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M320.07,-237.04C347.18,-221.29 378.86,-202.88 378.86,-202.88 378.86,-202.88 381.98,-201.15 386.8,-198.47"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="387.72,-200.85 392.79,-195.15 385.28,-196.44 387.72,-200.85"/>
+<text xml:space="preserve" text-anchor="middle" x="387.49" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M157.11,-141.61C157.11,-138.52 157.11,-135.32 157.11,-132.13"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="159.63,-132.16 157.11,-124.96 154.59,-132.16 159.63,-132.16"/>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge9" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M157.11,-70.65C157.11,-67.56 157.11,-64.36 157.11,-61.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="159.63,-61.2 157.11,-54 154.59,-61.2 159.63,-61.2"/>
+</g>
+<!-- i&#45;&gt;c -->
+<g id="edge7" class="edge">
+<title>i&#45;&gt;c</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M442.04,-194.19C445.43,-238.68 452.11,-326.3 452.11,-326.3 452.11,-326.3 452.11,-378.26 452.11,-378.26 452.11,-378.26 422.96,-385.8 388.81,-394.64"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="388.53,-392.1 382.19,-396.35 389.79,-396.98 388.53,-392.1"/>
+<text xml:space="preserve" text-anchor="middle" x="477.67" y="-304" font-family="Arial" font-size="14.00" fill="#405c70">Recheck</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M390.47,-591.14C390.47,-591.14 173.75,-591.14 173.75,-591.14 167.75,-591.14 161.75,-585.14 161.75,-579.14 161.75,-579.14 161.75,-551.18 161.75,-551.18 161.75,-545.18 167.75,-539.18 173.75,-539.18 173.75,-539.18 390.47,-539.18 390.47,-539.18 396.47,-539.18 402.47,-545.18 402.47,-551.18 402.47,-551.18 402.47,-579.14 402.47,-579.14 402.47,-585.14 396.47,-591.14 390.47,-591.14"/>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-568.51" font-family="Arial" font-size="17.00" fill="white">Authorized project change</text>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-549.01" font-family="Arial" font-size="17.00" fill="white">Preserve deployment secrets</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M398.35,-520.18C398.35,-520.18 165.88,-520.18 165.88,-520.18 159.88,-520.18 153.88,-514.18 153.88,-508.18 153.88,-508.18 153.88,-480.22 153.88,-480.22 153.88,-474.22 159.88,-468.22 165.88,-468.22 165.88,-468.22 398.35,-468.22 398.35,-468.22 404.35,-468.22 410.35,-474.22 410.35,-480.22 410.35,-480.22 410.35,-508.18 410.35,-508.18 410.35,-514.18 404.35,-520.18 398.35,-520.18"/>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-497.55" font-family="Arial" font-size="17.00" fill="#163b55">Regenerate matching schemas</text>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-478.05" font-family="Arial" font-size="17.00" fill="#163b55">If the protocol changed</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M430.22,-449.22C430.22,-449.22 134,-449.22 134,-449.22 128,-449.22 122,-443.22 122,-437.22 122,-437.22 122,-409.26 122,-409.26 122,-403.26 128,-397.26 134,-397.26 134,-397.26 430.22,-397.26 430.22,-397.26 436.22,-397.26 442.22,-403.26 442.22,-409.26 442.22,-409.26 442.22,-437.22 442.22,-437.22 442.22,-443.22 436.22,-449.22 430.22,-449.22"/>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-426.59" font-family="Arial" font-size="17.00" fill="#163b55">Run native / server / simulator</text>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-407.09" font-family="Arial" font-size="17.00" fill="#163b55">And cross&#45;component regression suites</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M431.35,-378.26C431.35,-378.26 132.88,-378.26 132.88,-378.26 126.88,-378.26 120.88,-372.26 120.88,-366.26 120.88,-366.26 120.88,-338.3 120.88,-338.3 120.88,-332.3 126.88,-326.3 132.88,-326.3 132.88,-326.3 431.35,-326.3 431.35,-326.3 437.35,-326.3 443.35,-332.3 443.35,-338.3 443.35,-338.3 443.35,-366.26 443.35,-366.26 443.35,-372.26 437.35,-378.26 431.35,-378.26"/>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-355.63" font-family="Arial" font-size="17.00" fill="#163b55">Build firmware profiles</text>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-336.13" font-family="Arial" font-size="17.00" fill="#163b55">Check flash load / RAM / EEPROM area</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="282.11,-292.55 156.89,-260.09 282.11,-227.63 407.33,-260.09 282.11,-292.55"/>
+<text xml:space="preserve" text-anchor="middle" x="282.11" y="-253.69" font-family="Arial" font-size="17.00" fill="#513f12">Checks pass?</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M276.35,-193.88C276.35,-193.88 37.88,-193.88 37.88,-193.88 31.88,-193.88 25.88,-187.88 25.88,-181.88 25.88,-181.88 25.88,-153.92 25.88,-153.92 25.88,-147.92 31.88,-141.92 37.88,-141.92 37.88,-141.92 276.35,-141.92 276.35,-141.92 282.35,-141.92 288.35,-147.92 288.35,-153.92 288.35,-153.92 288.35,-181.88 288.35,-181.88 288.35,-187.88 282.35,-193.88 276.35,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="157.11" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Update guides / Doxygen / flows</text>
+<text xml:space="preserve" text-anchor="middle" x="157.11" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">Synchronize verified final folder</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M302.22,-122.92C302.22,-122.92 12,-122.92 12,-122.92 6,-122.92 0,-116.92 0,-110.92 0,-110.92 0,-82.96 0,-82.96 0,-76.96 6,-70.96 12,-70.96 12,-70.96 302.22,-70.96 302.22,-70.96 308.22,-70.96 314.22,-76.96 314.22,-82.96 314.22,-82.96 314.22,-110.92 314.22,-110.92 314.22,-116.92 308.22,-122.92 302.22,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="157.11" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Create new feature branch</text>
+<text xml:space="preserve" text-anchor="middle" x="157.11" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">Publish complete change and verify ref</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M299.6,-51.96C299.6,-51.96 14.62,-51.96 14.62,-51.96 8.62,-51.96 2.62,-45.96 2.62,-39.96 2.62,-39.96 2.62,-12 2.62,-12 2.62,-6 8.62,0 14.63,0 14.63,0 299.6,0 299.6,0 305.6,0 311.6,-6 311.6,-12 311.6,-12 311.6,-39.96 311.6,-39.96 311.6,-45.96 305.6,-51.96 299.6,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="157.11" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Run physical acceptance</text>
+<text xml:space="preserve" text-anchor="middle" x="157.11" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Supply, sensors, RF, power, flash soak</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M561.97,-193.88C561.97,-193.88 318.25,-193.88 318.25,-193.88 312.25,-193.88 306.25,-187.88 306.25,-181.88 306.25,-181.88 306.25,-153.92 306.25,-153.92 306.25,-147.92 312.25,-141.92 318.25,-141.92 318.25,-141.92 561.97,-141.92 561.97,-141.92 567.97,-141.92 573.97,-147.92 573.97,-153.92 573.97,-153.92 573.97,-181.88 573.97,-181.88 573.97,-187.88 567.97,-193.88 561.97,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="440.11" y="-171.25" font-family="Arial" font-size="17.00" fill="#733c3c">Fix defect and repeat</text>
+<text xml:space="preserve" text-anchor="middle" x="440.11" y="-151.75" font-family="Arial" font-size="17.00" fill="#733c3c">Do not claim hardware validation</text>
+</g>
+</g>
+</svg>

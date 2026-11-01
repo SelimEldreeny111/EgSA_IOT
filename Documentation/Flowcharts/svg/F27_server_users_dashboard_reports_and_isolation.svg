@@ -1,0 +1,132 @@
+<svg width="1165pt" height="460pt"
+ viewBox="0.00 0.00 1165.00 460.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 447.43)">
+<title>F27</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M636.11,-382.2C636.11,-379.11 636.11,-375.91 636.11,-372.72"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="638.63,-372.75 636.11,-365.55 633.59,-372.75 638.63,-372.75"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M636.11,-311.41C636.11,-308.27 636.11,-304.99 636.11,-301.69"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="638.63,-301.89 636.11,-294.69 633.59,-301.89 638.63,-301.89"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M540.58,-241.75C468.75,-228.72 369.01,-210.62 286.91,-195.72"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="287.77,-193.32 280.23,-194.51 286.87,-198.27 287.77,-193.32"/>
+<text xml:space="preserve" text-anchor="middle" x="434.01" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">Read view</text>
+</g>
+<!-- c&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M586,-234.92C562.57,-223.62 534.47,-210.07 509.84,-198.19"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="511.13,-196.01 503.55,-195.15 508.94,-200.55 511.13,-196.01"/>
+<text xml:space="preserve" text-anchor="middle" x="597.34" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">Permitted action</text>
+</g>
+<!-- c&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>c&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M669.71,-232.27C682.56,-222.02 697.32,-210.24 710.59,-199.64"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="711.97,-201.77 716.02,-195.31 708.82,-197.83 711.97,-201.77"/>
+<text xml:space="preserve" text-anchor="middle" x="747.3" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">Archive query</text>
+</g>
+<!-- c&#45;&gt;i -->
+<g id="edge6" class="edge">
+<title>c&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M717.84,-239.74C771.2,-227.11 841.66,-210.43 900.82,-196.43"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="901.34,-198.89 907.76,-194.78 900.18,-193.99 901.34,-198.89"/>
+<text xml:space="preserve" text-anchor="middle" x="893.31" y="-205.33" font-family="Arial" font-size="14.00" fill="#405c70">Denied</text>
+</g>
+<!-- d&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>d&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M253.66,-141.42C279,-135.78 305.88,-129.8 331.34,-124.14"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="331.74,-126.63 338.22,-122.61 330.65,-121.71 331.74,-126.63"/>
+</g>
+<!-- e&#45;&gt;g -->
+<g id="edge8" class="edge">
+<title>e&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M449.11,-141.61C449.11,-138.52 449.11,-135.32 449.11,-132.13"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="451.63,-132.16 449.11,-124.96 446.59,-132.16 451.63,-132.16"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M638.25,-141.42C614.91,-136.05 590.22,-130.38 566.64,-124.96"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="567.29,-122.52 559.71,-123.36 566.16,-127.43 567.29,-122.52"/>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge10" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M449.11,-70.65C449.11,-67.56 449.11,-64.36 449.11,-61.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="451.63,-61.2 449.11,-54 446.59,-61.2 451.63,-61.2"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M756.85,-434.47C756.85,-434.47 515.38,-434.47 515.38,-434.47 509.38,-434.47 503.38,-428.47 503.38,-422.47 503.38,-422.47 503.38,-394.51 503.38,-394.51 503.38,-388.51 509.38,-382.51 515.38,-382.51 515.38,-382.51 756.85,-382.51 756.85,-382.51 762.85,-382.51 768.85,-388.51 768.85,-394.51 768.85,-394.51 768.85,-422.47 768.85,-422.47 768.85,-428.47 762.85,-434.47 756.85,-434.47"/>
+<text xml:space="preserve" text-anchor="middle" x="636.11" y="-411.84" font-family="Arial" font-size="17.00" fill="white">Start server / initialize databases</text>
+<text xml:space="preserve" text-anchor="middle" x="636.11" y="-392.34" font-family="Arial" font-size="17.00" fill="white">Initial users require local secrets</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M757.6,-363.51C757.6,-363.51 514.62,-363.51 514.62,-363.51 508.62,-363.51 502.62,-357.51 502.62,-351.51 502.62,-351.51 502.62,-323.55 502.62,-323.55 502.62,-317.55 508.62,-311.55 514.62,-311.55 514.62,-311.55 757.6,-311.55 757.6,-311.55 763.6,-311.55 769.6,-317.55 769.6,-323.55 769.6,-323.55 769.6,-351.51 769.6,-351.51 769.6,-357.51 763.6,-363.51 757.6,-363.51"/>
+<text xml:space="preserve" text-anchor="middle" x="636.11" y="-340.88" font-family="Arial" font-size="17.00" fill="#163b55">Login and verify password hash</text>
+<text xml:space="preserve" text-anchor="middle" x="636.11" y="-321.38" font-family="Arial" font-size="17.00" fill="#163b55">Establish role / company session</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="636.11,-292.55 423.89,-260.09 636.11,-227.63 848.33,-260.09 636.11,-292.55"/>
+<text xml:space="preserve" text-anchor="middle" x="636.11" y="-253.69" font-family="Arial" font-size="17.00" fill="#513f12">User request authorized?</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M266.22,-193.88C266.22,-193.88 12,-193.88 12,-193.88 6,-193.88 0,-187.88 0,-181.88 0,-181.88 0,-153.92 0,-153.92 0,-147.92 6,-141.92 12,-141.92 12,-141.92 266.22,-141.92 266.22,-141.92 272.22,-141.92 278.22,-147.92 278.22,-153.92 278.22,-153.92 278.22,-181.88 278.22,-181.88 278.22,-187.88 272.22,-193.88 266.22,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="139.11" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Live dashboard / history / graphs</text>
+<text xml:space="preserve" text-anchor="middle" x="139.11" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">Thresholds, map and node details</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M590.1,-193.88C590.1,-193.88 308.12,-193.88 308.12,-193.88 302.12,-193.88 296.12,-187.88 296.12,-181.88 296.12,-181.88 296.12,-153.92 296.12,-153.92 296.12,-147.92 302.12,-141.92 308.12,-141.92 308.12,-141.92 590.1,-141.92 590.1,-141.92 596.1,-141.92 602.1,-147.92 602.1,-153.92 602.1,-153.92 602.1,-181.88 602.1,-181.88 602.1,-187.88 596.1,-193.88 590.1,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="449.11" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Admin: commands, user / node config</text>
+<text xml:space="preserve" text-anchor="middle" x="449.11" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">Supervisor: shared broker controls</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M865.72,-193.88C865.72,-193.88 632.5,-193.88 632.5,-193.88 626.5,-193.88 620.5,-187.88 620.5,-181.88 620.5,-181.88 620.5,-153.92 620.5,-153.92 620.5,-147.92 626.5,-141.92 632.5,-141.92 632.5,-141.92 865.72,-141.92 865.72,-141.92 871.72,-141.92 877.72,-147.92 877.72,-153.92 877.72,-153.92 877.72,-181.88 877.72,-181.88 877.72,-187.88 871.72,-193.88 865.72,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="749.11" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Flash archive status / progress</text>
+<text xml:space="preserve" text-anchor="middle" x="749.11" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">Stored records and CSV export</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M545.85,-122.92C545.85,-122.92 352.38,-122.92 352.38,-122.92 346.38,-122.92 340.38,-116.92 340.38,-110.92 340.38,-110.92 340.38,-82.96 340.38,-82.96 340.38,-76.96 346.38,-70.96 352.38,-70.96 352.38,-70.96 545.85,-70.96 545.85,-70.96 551.85,-70.96 557.85,-76.96 557.85,-82.96 557.85,-82.96 557.85,-110.92 557.85,-110.92 557.85,-116.92 551.85,-122.92 545.85,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="449.11" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Scope every query / event</text>
+<text xml:space="preserve" text-anchor="middle" x="449.11" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">Company + region + node</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M587.47,-51.96C587.47,-51.96 310.75,-51.96 310.75,-51.96 304.75,-51.96 298.75,-45.96 298.75,-39.96 298.75,-39.96 298.75,-12 298.75,-12 298.75,-6 304.75,0 310.75,0 310.75,0 587.47,0 587.47,0 593.47,0 599.47,-6 599.47,-12 599.47,-12 599.47,-39.96 599.47,-39.96 599.47,-45.96 593.47,-51.96 587.47,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="449.11" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Return API / Socket.IO view</text>
+<text xml:space="preserve" text-anchor="middle" x="449.11" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Safe text rendering / bounded history</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M1126.6,-193.88C1126.6,-193.88 907.62,-193.88 907.62,-193.88 901.62,-193.88 895.62,-187.88 895.62,-181.88 895.62,-181.88 895.62,-153.92 895.62,-153.92 895.62,-147.92 901.62,-141.92 907.62,-141.92 907.62,-141.92 1126.6,-141.92 1126.6,-141.92 1132.6,-141.92 1138.6,-147.92 1138.6,-153.92 1138.6,-153.92 1138.6,-181.88 1138.6,-181.88 1138.6,-187.88 1132.6,-193.88 1126.6,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="1017.11" y="-171.25" font-family="Arial" font-size="17.00" fill="#733c3c">Reject unauthorized request</text>
+<text xml:space="preserve" text-anchor="middle" x="1017.11" y="-151.75" font-family="Arial" font-size="17.00" fill="#733c3c">No cross&#45;company side effect</text>
+</g>
+</g>
+</svg>

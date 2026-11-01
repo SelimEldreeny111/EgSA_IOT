@@ -1,0 +1,28 @@
+flowchart TD
+  a(["Service IP transport<br/>Connect / MQTT loop if due"]):::term
+  b["Incoming command callback<br/>Check topic / decode / target"]:::proc
+  c{"Internal HISTORY_ACK 14?"}:::dec
+  d["Advance archive cursor only<br/>No reply-to-ACK loop"]:::proc
+  e["Handle operator command<br/>Discard queued stale routine Status"]:::proc
+  f{"Reply requested / enabled?"}:::dec
+  g["Queue correlated telemetry reply<br/>Before routine publish work"]:::proc
+  h["Drain priority reply first<br/>Then eligible routine Status"]:::proc
+  i(["Verified write / modem outcome<br/>Return result to power manager"]):::term
+  a -->|RX callback| b
+  b --> c
+  c -->|Yes| d
+  c -->|No| e
+  e --> f
+  f -->|Yes| g
+  f -->|No| h
+  g --> h
+  d --> h
+  a -->|No command| h
+  h --> i
+  i -->|Next pass| a
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

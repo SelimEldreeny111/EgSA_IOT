@@ -1,0 +1,33 @@
+flowchart TD
+  s["TUF / Supmea / HNDA / Sondas<br/>One shared RS485 bus"]:::proc
+  n["STM32 Arduino sensor node<br/>Acquire, validate and schedule"]:::proc
+  f[("External SPI telemetry log<br/>Complete samples / 24 h batches")]:::db
+  v["TB6612FNG valve driver<br/>Commanded state only"]:::proc
+  ip["ESP8266 or SIM800L<br/>Direct MQTT route"]:::proc
+  r["E32 / AS32 LoRa node<br/>Reliable radio frames"]:::proc
+  g["LoRa gateway<br/>LoRa + WiFi / SIM uplink"]:::proc
+  b[("MQTT broker<br/>Company / region / node topics")]:::db
+  w["Python web server<br/>Decrypt, validate, store, command"]:::proc
+  u(["Browser dashboard<br/>Live data / commands / history"]):::term
+  s -->|Measurements| n
+  n -->|Store| f
+  f -->|Latest sample| n
+  n -->|Valve command| v
+  n --> ip
+  n --> r
+  r -->|Radio| g
+  g -->|Commands| r
+  ip --> b
+  b -->|Commands| ip
+  g --> b
+  b -->|Commands| g
+  b --> w
+  w -->|Commands| b
+  w --> u
+  u -->|Operator intent| w
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

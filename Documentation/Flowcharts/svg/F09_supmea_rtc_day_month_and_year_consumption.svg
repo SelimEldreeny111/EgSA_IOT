@@ -1,0 +1,172 @@
+<svg width="968pt" height="672pt"
+ viewBox="0.00 0.00 968.00 672.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 659.52)">
+<title>F09</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M607.86,-594.46C607.86,-591.32 607.86,-588.04 607.86,-584.74"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="610.38,-584.94 607.86,-577.74 605.34,-584.94 610.38,-584.94"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M564.69,-515.72C543.76,-502.92 518.59,-487.52 497.14,-474.4"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="498.67,-472.38 491.21,-470.77 496.04,-476.68 498.67,-472.38"/>
+<text xml:space="preserve" text-anchor="middle" x="549.57" y="-488.38" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- b&#45;&gt;j -->
+<g id="edge3" class="edge">
+<title>b&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M662.49,-516.99C690.82,-503.95 725.57,-487.95 755.02,-474.4"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="755.71,-476.85 761.2,-471.55 753.6,-472.28 755.71,-476.85"/>
+<text xml:space="preserve" text-anchor="middle" x="734.06" y="-488.38" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M381.82,-424.23C337.45,-411.69 278.82,-395.11 229.39,-381.14"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="230.2,-378.75 222.58,-379.21 228.83,-383.6 230.2,-378.75"/>
+<text xml:space="preserve" text-anchor="middle" x="337.05" y="-389.71" font-family="Arial" font-size="14.00" fill="#405c70">First sample</text>
+</g>
+<!-- c&#45;&gt;e -->
+<g id="edge5" class="edge">
+<title>c&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M449.86,-411.67C449.86,-403.79 449.86,-395.31 449.86,-387.32"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="452.38,-387.51 449.86,-380.31 447.34,-387.51 452.38,-387.51"/>
+<text xml:space="preserve" text-anchor="middle" x="494.86" y="-389.71" font-family="Arial" font-size="14.00" fill="#405c70">Baseline exists</text>
+</g>
+<!-- d&#45;&gt;k -->
+<g id="edge13" class="edge">
+<title>d&#45;&gt;k</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M123.66,-326.16C116.59,-301.51 106.86,-267.57 106.86,-267.57 106.86,-267.57 106.86,-267.57 106.86,-95.94 106.86,-95.94 125.86,-70.96 125.86,-70.96 125.86,-70.96 275.35,-54.23 389.93,-41.41"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="390.21,-43.91 397.08,-40.61 389.65,-38.9 390.21,-43.91"/>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M446.86,-326.16C445.94,-318.45 444.91,-309.84 443.93,-301.63"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="446.46,-301.54 443.1,-294.69 441.45,-302.13 446.46,-301.54"/>
+<text xml:space="preserve" text-anchor="middle" x="521.13" y="-304" font-family="Arial" font-size="14.00" fill="#405c70">Normal accepted change</text>
+</g>
+<!-- e&#45;&gt;k -->
+<g id="edge7" class="edge">
+<title>e&#45;&gt;k</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M563.15,-325.79C584.8,-320.92 600.86,-317.3 600.86,-317.3 600.86,-317.3 666.86,-267.57 666.86,-267.57 666.86,-267.57 666.86,-267.57 666.86,-95.94 666.86,-95.94 647.86,-70.96 647.86,-70.96 647.86,-70.96 626.85,-63.8 601.78,-55.25"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="602.8,-52.94 595.17,-53 601.18,-57.71 602.8,-52.94"/>
+<text xml:space="preserve" text-anchor="middle" x="734.74" y="-191.58" font-family="Arial" font-size="14.00" fill="#405c70">Reset / anomaly / time</text>
+<text xml:space="preserve" text-anchor="middle" x="734.74" y="-175.83" font-family="Arial" font-size="14.00" fill="#405c70">event</text>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M430.2,-240.45C428.74,-236.63 427.19,-232.62 425.65,-228.6"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="428.05,-227.82 423.11,-222.01 423.34,-229.63 428.05,-227.82"/>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge9" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M367.83,-162.77C344.91,-149.25 316.98,-132.79 295.01,-119.84"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="296.48,-117.78 289,-116.3 293.92,-122.12 296.48,-117.78"/>
+<text xml:space="preserve" text-anchor="middle" x="347.57" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- g&#45;&gt;i -->
+<g id="edge10" class="edge">
+<title>g&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M443.26,-161.07C455.32,-151 469.1,-139.5 481.56,-129.09"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="483.08,-131.1 486.99,-124.55 479.85,-127.23 483.08,-131.1"/>
+<text xml:space="preserve" text-anchor="middle" x="488.96" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- h&#45;&gt;k -->
+<g id="edge11" class="edge">
+<title>h&#45;&gt;k</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M324.06,-78.45C351.39,-71.23 383.74,-62.68 414.15,-54.65"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="414.66,-57.12 420.98,-52.84 413.38,-52.24 414.66,-57.12"/>
+</g>
+<!-- i&#45;&gt;k -->
+<g id="edge12" class="edge">
+<title>i&#45;&gt;k</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M518.86,-70.65C518.86,-67.56 518.86,-64.36 518.86,-61.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="521.38,-61.2 518.86,-54 516.34,-61.2 521.38,-61.2"/>
+</g>
+<!-- j&#45;&gt;k -->
+<g id="edge14" class="edge">
+<title>j&#45;&gt;k</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M821.48,-418.35C825.33,-391.66 830.86,-353.28 830.86,-353.28 830.86,-353.28 830.86,-353.28 830.86,-95.94 830.86,-95.94 729.87,-73.62 642.8,-54.37"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="643.42,-51.93 635.85,-52.84 642.34,-56.85 643.42,-51.93"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M727.1,-646.56C727.1,-646.56 488.62,-646.56 488.62,-646.56 482.62,-646.56 476.62,-640.56 476.62,-634.56 476.62,-634.56 476.62,-606.6 476.62,-606.6 476.62,-600.6 482.62,-594.6 488.62,-594.6 488.62,-594.6 727.1,-594.6 727.1,-594.6 733.1,-594.6 739.1,-600.6 739.1,-606.6 739.1,-606.6 739.1,-634.56 739.1,-634.56 739.1,-640.56 733.1,-646.56 727.1,-646.56"/>
+<text xml:space="preserve" text-anchor="middle" x="607.86" y="-623.93" font-family="Arial" font-size="17.00" fill="white">Forward total and sample UTC</text>
+<text xml:space="preserve" text-anchor="middle" x="607.86" y="-604.43" font-family="Arial" font-size="17.00" fill="white">Load saved baseline if available</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="607.86,-575.6 343.14,-543.14 607.86,-510.68 872.58,-543.14 607.86,-575.6"/>
+<text xml:space="preserve" text-anchor="middle" x="607.86" y="-536.74" font-family="Arial" font-size="17.00" fill="#513f12">RTC trusted and calendar valid?</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="449.86,-476.93 275.14,-444.47 449.86,-412.01 624.58,-444.47 449.86,-476.93"/>
+<text xml:space="preserve" text-anchor="middle" x="449.86" y="-438.07" font-family="Arial" font-size="17.00" fill="#513f12">No usable baseline?</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M249.72,-378.26C249.72,-378.26 12,-378.26 12,-378.26 6,-378.26 0,-372.26 0,-366.26 0,-366.26 0,-338.3 0,-338.3 0,-332.3 6,-326.3 12,-326.3 12,-326.3 249.72,-326.3 249.72,-326.3 255.72,-326.3 261.72,-332.3 261.72,-338.3 261.72,-338.3 261.72,-366.26 261.72,-366.26 261.72,-372.26 255.72,-378.26 249.72,-378.26"/>
+<text xml:space="preserve" text-anchor="middle" x="130.86" y="-355.63" font-family="Arial" font-size="17.00" fill="#163b55">Set baseline, zero / partial totals</text>
+<text xml:space="preserve" text-anchor="middle" x="130.86" y="-336.13" font-family="Arial" font-size="17.00" fill="#163b55">Persist and wait for next sample</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M570.6,-378.26C570.6,-378.26 329.12,-378.26 329.12,-378.26 323.12,-378.26 317.12,-372.26 317.12,-366.26 317.12,-366.26 317.12,-338.3 317.12,-338.3 317.12,-332.3 323.12,-326.3 329.12,-326.3 329.12,-326.3 570.6,-326.3 570.6,-326.3 576.6,-326.3 582.6,-332.3 582.6,-338.3 582.6,-338.3 582.6,-366.26 582.6,-366.26 582.6,-372.26 576.6,-378.26 570.6,-378.26"/>
+<text xml:space="preserve" text-anchor="middle" x="449.86" y="-355.63" font-family="Arial" font-size="17.00" fill="#163b55">Handle backward clock / counter</text>
+<text xml:space="preserve" text-anchor="middle" x="449.86" y="-336.13" font-family="Arial" font-size="17.00" fill="#163b55">Noise clamp, reset or anomaly</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M544.47,-292.55C544.47,-292.55 335.25,-292.55 335.25,-292.55 329.25,-292.55 323.25,-286.55 323.25,-280.55 323.25,-280.55 323.25,-252.59 323.25,-252.59 323.25,-246.59 329.25,-240.59 335.25,-240.59 335.25,-240.59 544.47,-240.59 544.47,-240.59 550.47,-240.59 556.47,-246.59 556.47,-252.59 556.47,-252.59 556.47,-280.55 556.47,-280.55 556.47,-286.55 550.47,-292.55 544.47,-292.55"/>
+<text xml:space="preserve" text-anchor="middle" x="439.86" y="-269.92" font-family="Arial" font-size="17.00" fill="#163b55">Accepted delta liters</text>
+<text xml:space="preserve" text-anchor="middle" x="439.86" y="-250.42" font-family="Arial" font-size="17.00" fill="#163b55">Current minus previous total</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="410.86,-221.59 190.39,-189.13 410.86,-156.67 631.33,-189.13 410.86,-221.59"/>
+<text xml:space="preserve" text-anchor="middle" x="410.86" y="-182.73" font-family="Arial" font-size="17.00" fill="#513f12">Period boundary crossed?</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M368.85,-114.94C368.85,-114.94 146.88,-114.94 146.88,-114.94 140.88,-114.94 134.88,-108.94 134.88,-102.94 134.88,-102.94 134.88,-90.94 134.88,-90.94 134.88,-84.94 140.88,-78.94 146.88,-78.94 146.88,-78.94 368.85,-78.94 368.85,-78.94 374.85,-78.94 380.85,-84.94 380.85,-90.94 380.85,-90.94 380.85,-102.94 380.85,-102.94 380.85,-108.94 374.85,-114.94 368.85,-114.94"/>
+<text xml:space="preserve" text-anchor="middle" x="257.86" y="-90.54" font-family="Arial" font-size="17.00" fill="#163b55">Add full delta to same buckets</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M627.22,-122.92C627.22,-122.92 410.5,-122.92 410.5,-122.92 404.5,-122.92 398.5,-116.92 398.5,-110.92 398.5,-110.92 398.5,-82.96 398.5,-82.96 398.5,-76.96 404.5,-70.96 410.5,-70.96 410.5,-70.96 627.22,-70.96 627.22,-70.96 633.22,-70.96 639.22,-76.96 639.22,-82.96 639.22,-82.96 639.22,-110.92 639.22,-110.92 639.22,-116.92 633.22,-122.92 627.22,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="518.86" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Allocate current&#45;period share</text>
+<text xml:space="preserve" text-anchor="middle" x="518.86" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">Proportional time, Estimated</text>
+</g>
+<!-- j -->
+<g id="node10" class="node">
+<title>j</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M929.6,-470.45C929.6,-470.45 706.12,-470.45 706.12,-470.45 700.12,-470.45 694.12,-464.45 694.12,-458.45 694.12,-458.45 694.12,-430.49 694.12,-430.49 694.12,-424.49 700.12,-418.49 706.12,-418.49 706.12,-418.49 929.6,-418.49 929.6,-418.49 935.6,-418.49 941.6,-424.49 941.6,-430.49 941.6,-430.49 941.6,-458.45 941.6,-458.45 941.6,-464.45 935.6,-470.45 929.6,-470.45"/>
+<text xml:space="preserve" text-anchor="middle" x="817.86" y="-447.82" font-family="Arial" font-size="17.00" fill="#733c3c">Return unavailable / uncertain</text>
+<text xml:space="preserve" text-anchor="middle" x="817.86" y="-428.32" font-family="Arial" font-size="17.00" fill="#733c3c">Preserve internal history</text>
+</g>
+<!-- k -->
+<g id="node11" class="node">
+<title>k</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M626.47,-51.96C626.47,-51.96 411.25,-51.96 411.25,-51.96 405.25,-51.96 399.25,-45.96 399.25,-39.96 399.25,-39.96 399.25,-12 399.25,-12 399.25,-6 405.25,0 411.25,0 411.25,0 626.47,0 626.47,0 632.47,0 638.47,-6 638.47,-12 638.47,-12 638.47,-39.96 638.47,-39.96 638.47,-45.96 632.47,-51.96 626.47,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="518.86" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Persist backup + checkpoints</text>
+<text xml:space="preserve" text-anchor="middle" x="518.86" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Publish m3 and quality</text>
+</g>
+</g>
+</svg>

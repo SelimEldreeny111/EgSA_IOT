@@ -1,0 +1,148 @@
+<svg width="1104pt" height="637pt"
+ viewBox="0.00 0.00 1104.00 637.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 624.1)">
+<title>F22</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M601.24,-558.87C601.24,-555.78 601.24,-552.58 601.24,-549.39"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="603.76,-549.42 601.24,-542.22 598.72,-549.42 603.76,-549.42"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M601.24,-487.91C601.24,-484.82 601.24,-481.62 601.24,-478.43"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="603.76,-478.46 601.24,-471.26 598.72,-478.46 603.76,-478.46"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M601.24,-416.8C601.24,-413.76 601.24,-410.57 601.24,-407.3"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="603.76,-407.42 601.24,-400.22 598.72,-407.42 603.76,-407.42"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M545.7,-304.14C524.56,-288.47 501.27,-271.21 483.35,-257.93"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="485.2,-256.16 477.91,-253.9 482.2,-260.21 485.2,-256.16"/>
+<text xml:space="preserve" text-anchor="middle" x="529.62" y="-272.04" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- d&#45;&gt;j -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;j</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M656.39,-304.14C673.2,-291.6 691.39,-278.03 707.1,-266.3"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="708.48,-268.42 712.74,-262.09 705.46,-264.38 708.48,-268.42"/>
+<text xml:space="preserve" text-anchor="middle" x="709.31" y="-272.04" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M453.24,-216.2C453.24,-211.04 453.24,-205.09 453.24,-198.82"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="455.76,-199.05 453.24,-191.85 450.72,-199.05 455.76,-199.05"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M361.92,-102.71C321.16,-87.56 273.67,-69.9 234.81,-55.45"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="235.91,-53.17 228.28,-53.02 234.15,-57.9 235.91,-53.17"/>
+<text xml:space="preserve" text-anchor="middle" x="297.45" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">RX</text>
+</g>
+<!-- f&#45;&gt;h -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M453.24,-85.36C453.24,-77.1 453.24,-68.74 453.24,-61.02"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="455.76,-61.24 453.24,-54.04 450.72,-61.24 455.76,-61.24"/>
+<text xml:space="preserve" text-anchor="middle" x="482.86" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Heartbeat</text>
+</g>
+<!-- f&#45;&gt;i -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M534.13,-100.6C566.52,-86.16 603.35,-69.74 633.99,-56.07"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="634.91,-58.42 640.46,-53.19 632.85,-53.82 634.91,-58.42"/>
+<text xml:space="preserve" text-anchor="middle" x="646.29" y="-63.41" font-family="Arial" font-size="14.00" fill="#405c70">Deadline</text>
+</g>
+<!-- g&#45;&gt;a -->
+<g id="edge11" class="edge">
+<title>g&#45;&gt;a</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M316.72,-50.55C322.73,-51.44 326.24,-51.96 326.24,-51.96 326.24,-51.96 677.24,-60.96 677.24,-60.96 677.24,-60.96 736.24,-85.71 736.24,-85.71 736.24,-85.71 977.24,-208.63 977.24,-208.63 977.24,-208.63 977.24,-260.59 977.24,-260.59 977.24,-260.59 910.24,-398.26 910.24,-398.26 910.24,-398.26 757.24,-540.18 757.24,-540.18 757.24,-540.18 730.94,-547.59 699.94,-556.33"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="699.45,-553.85 693.2,-558.23 700.82,-558.7 699.45,-553.85"/>
+<text xml:space="preserve" text-anchor="middle" x="1019.19" y="-340.88" font-family="Arial" font-size="14.00" fill="#405c70">After work / window</text>
+</g>
+<!-- h&#45;&gt;c -->
+<g id="edge10" class="edge">
+<title>h&#45;&gt;c</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M572.03,-50.16C577.79,-51.29 581.24,-51.96 581.24,-51.96 581.24,-51.96 677.24,-60.96 677.24,-60.96 677.24,-60.96 736.24,-85.71 736.24,-85.71 736.24,-85.71 736.24,-189.63 736.24,-189.63 736.24,-189.63 712.24,-198.63 712.24,-198.63 712.24,-198.63 712.24,-199.63 712.24,-199.63 712.24,-199.63 905.24,-208.63 905.24,-208.63 905.24,-208.63 905.24,-260.59 905.24,-260.59 905.24,-260.59 900.24,-269.59 900.24,-269.59 900.24,-269.59 893.24,-398.26 893.24,-398.26 893.24,-398.26 730.24,-407.26 730.24,-407.26 730.24,-407.26 719.18,-410.26 703.55,-414.5"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="702.95,-412.05 696.67,-416.36 704.27,-416.91 702.95,-412.05"/>
+<text xml:space="preserve" text-anchor="middle" x="938.99" y="-229.19" font-family="Arial" font-size="14.00" fill="#405c70">Still waiting</text>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M748.6,-611.14C748.6,-611.14 453.88,-611.14 453.88,-611.14 447.88,-611.14 441.88,-605.14 441.88,-599.14 441.88,-599.14 441.88,-571.18 441.88,-571.18 441.88,-565.18 447.88,-559.18 453.88,-559.18 453.88,-559.18 748.6,-559.18 748.6,-559.18 754.6,-559.18 760.6,-565.18 760.6,-571.18 760.6,-571.18 760.6,-599.14 760.6,-599.14 760.6,-605.14 754.6,-611.14 748.6,-611.14"/>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-588.51" font-family="Arial" font-size="17.00" fill="white">Report sent, command window elapsed</text>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-569.01" font-family="Arial" font-size="17.00" fill="white">No lease / busy transfer / write</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M736.22,-540.18C736.22,-540.18 466.25,-540.18 466.25,-540.18 460.25,-540.18 454.25,-534.18 454.25,-528.18 454.25,-528.18 454.25,-500.22 454.25,-500.22 454.25,-494.22 460.25,-488.22 466.25,-488.22 466.25,-488.22 736.22,-488.22 736.22,-488.22 742.22,-488.22 748.22,-494.22 748.22,-500.22 748.22,-500.22 748.22,-528.18 748.22,-528.18 748.22,-534.18 742.22,-540.18 736.22,-540.18"/>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-517.55" font-family="Arial" font-size="17.00" fill="#163b55">Enter radio Mode 2</text>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-498.05" font-family="Arial" font-size="17.00" fill="#163b55">M0 LOW, M1 HIGH; verify readiness</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M735.47,-469.22C735.47,-469.22 467,-469.22 467,-469.22 461,-469.22 455,-463.22 455,-457.22 455,-457.22 455,-429.26 455,-429.26 455,-423.26 461,-417.26 467,-417.26 467,-417.26 735.47,-417.26 735.47,-417.26 741.47,-417.26 747.47,-423.26 747.47,-429.26 747.47,-429.26 747.47,-457.22 747.47,-457.22 747.47,-463.22 741.47,-469.22 735.47,-469.22"/>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-446.59" font-family="Arial" font-size="17.00" fill="#163b55">Arm UART RX falling&#45;edge wake</text>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-427.09" font-family="Arial" font-size="17.00" fill="#163b55">Set nearest RTC alarm; flash sleeps</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="601.24,-398.26 317.76,-346.3 601.23,-294.34 884.71,-346.3 601.24,-398.26"/>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-349.65" font-family="Arial" font-size="17.00" fill="#513f12">Safe to enter Stop?</text>
+<text xml:space="preserve" text-anchor="middle" x="601.24" y="-330.15" font-family="Arial" font-size="17.00" fill="#513f12">Check pending edge / UART / RTC</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M570.22,-252.61C570.22,-252.61 336.25,-252.61 336.25,-252.61 330.25,-252.61 324.25,-246.61 324.25,-240.61 324.25,-240.61 324.25,-228.61 324.25,-228.61 324.25,-222.61 330.25,-216.61 336.25,-216.61 336.25,-216.61 570.22,-216.61 570.22,-216.61 576.22,-216.61 582.22,-222.61 582.22,-228.61 582.22,-228.61 582.22,-240.61 582.22,-240.61 582.22,-246.61 576.22,-252.61 570.22,-252.61"/>
+<text xml:space="preserve" text-anchor="middle" x="453.24" y="-228.21" font-family="Arial" font-size="17.00" fill="#163b55">STM32 Stop with RAM retained</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="453.24,-189.63 179.51,-137.67 453.23,-85.71 726.96,-137.67 453.24,-189.63"/>
+<text xml:space="preserve" text-anchor="middle" x="453.24" y="-141.02" font-family="Arial" font-size="17.00" fill="#513f12">Wake source?</text>
+<text xml:space="preserve" text-anchor="middle" x="453.24" y="-121.52" font-family="Arial" font-size="17.00" fill="#513f12">Restore clocks before UART work</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M304.47,-51.96C304.47,-51.96 12,-51.96 12,-51.96 6,-51.96 0,-45.96 0,-39.96 0,-39.96 0,-12 0,-12 0,-6 6,0 12,0 12,0 304.47,0 304.47,0 310.47,0 316.47,-6 316.47,-12 316.47,-12 316.47,-39.96 316.47,-39.96 316.47,-45.96 310.47,-51.96 304.47,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="158.24" y="-29.33" font-family="Arial" font-size="17.00" fill="#163b55">UART activity: return Mode 0</text>
+<text xml:space="preserve" text-anchor="middle" x="158.24" y="-9.83" font-family="Arial" font-size="17.00" fill="#163b55">Receive command; data not yet proven</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M559.72,-51.96C559.72,-51.96 346.75,-51.96 346.75,-51.96 340.75,-51.96 334.75,-45.96 334.75,-39.96 334.75,-39.96 334.75,-12 334.75,-12 334.75,-6 340.75,0 346.75,0 346.75,0 559.72,0 559.72,0 565.72,0 571.72,-6 571.72,-12 571.72,-12 571.72,-39.96 571.72,-39.96 571.72,-45.96 565.72,-51.96 559.72,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="453.24" y="-29.33" font-family="Arial" font-size="17.00" fill="#163b55">RTC heartbeat: service WDT</text>
+<text xml:space="preserve" text-anchor="middle" x="453.24" y="-9.83" font-family="Arial" font-size="17.00" fill="#163b55">If no deadline, return to Stop</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M796.72,-51.96C796.72,-51.96 601.75,-51.96 601.75,-51.96 595.75,-51.96 589.75,-45.96 589.75,-39.96 589.75,-39.96 589.75,-12 589.75,-12 589.75,-6 595.75,0 601.75,0 601.75,0 796.72,0 796.72,0 802.72,0 808.72,-6 808.72,-12 808.72,-12 808.72,-39.96 808.72,-39.96 808.72,-45.96 802.72,-51.96 796.72,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="699.24" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Report / flash expiry due</text>
+<text xml:space="preserve" text-anchor="middle" x="699.24" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Return for scheduled work</text>
+</g>
+<!-- j -->
+<g id="node10" class="node">
+<title>j</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M884.72,-260.59C884.72,-260.59 611.75,-260.59 611.75,-260.59 605.75,-260.59 599.75,-254.59 599.75,-248.59 599.75,-248.59 599.75,-220.63 599.75,-220.63 599.75,-214.63 605.75,-208.63 611.75,-208.63 611.75,-208.63 884.72,-208.63 884.72,-208.63 890.72,-208.63 896.72,-214.63 896.72,-220.63 896.72,-220.63 896.72,-248.59 896.72,-248.59 896.72,-254.59 890.72,-260.59 884.72,-260.59"/>
+<text xml:space="preserve" text-anchor="middle" x="748.24" y="-237.96" font-family="Arial" font-size="17.00" fill="#733c3c">Activity or setup failure</text>
+<text xml:space="preserve" text-anchor="middle" x="748.24" y="-218.46" font-family="Arial" font-size="17.00" fill="#733c3c">Stay active / preserve received bytes</text>
+</g>
+</g>
+</svg>

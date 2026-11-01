@@ -1,0 +1,32 @@
+flowchart TD
+  a(["Decoded command and topic class"]):::term
+  b{"Direct target matches this node<br/>or permitted broadcast?"}:::dec
+  c{"Storage CMD 9..14?"}:::dec
+  d["Direct-only archive service<br/>14 advances transfer without reply"]:::ref
+  e["WAKE / GOSTM special request<br/>Or ordinary replay-cache lookup"]:::proc
+  f{"Fresh / legal ordinary intent?"}:::dec
+  g["Apply rates / time / valve<br/>Or clear reset counter [catalog]"]:::proc
+  h["Duplicate: reuse result<br/>Conflict / invalid: reject"]:::proc
+  i{"Should telemetry reply be sent?"}:::dec
+  j(["Correlated data / action ACK<br/>Queue ahead of routine Status"]):::term
+  k(["No automatic reply<br/>Command effect may still apply"]):::term
+  x["Ignore wrong target"]:::bad
+  a --> b
+  b -->|Yes| c
+  b -->|No| x
+  c -->|Yes| d
+  c -->|No| e
+  e --> f
+  f -->|New / valid| g
+  f -->|Duplicate / bad| h
+  g --> i
+  h --> i
+  d -->|Except internal 14| i
+  i -->|Enabled / explicit request| j
+  i -->|Action ACK disabled| k
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

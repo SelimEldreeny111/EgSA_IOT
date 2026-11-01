@@ -1,0 +1,133 @@
+<svg width="709pt" height="598pt"
+ viewBox="0.00 0.00 709.00 598.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 585.1)">
+<title>F05</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M263.61,-519.87C263.61,-516.78 263.61,-513.58 263.61,-510.39"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="266.13,-510.42 263.61,-503.22 261.09,-510.42 266.13,-510.42"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M263.61,-448.91C263.61,-445.82 263.61,-442.62 263.61,-439.43"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="266.13,-439.46 263.61,-432.26 261.09,-439.46 266.13,-439.46"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M263.61,-377.8C263.61,-374.76 263.61,-371.57 263.61,-368.3"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="266.13,-368.42 263.61,-361.22 261.09,-368.42 266.13,-368.42"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M209.22,-267.29C187.93,-252.03 163.89,-234.79 143.94,-220.48"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="145.52,-218.52 138.2,-216.37 142.58,-222.61 145.52,-218.52"/>
+<text xml:space="preserve" text-anchor="middle" x="203.25" y="-233.04" font-family="Arial" font-size="14.00" fill="#405c70">Success</text>
+</g>
+<!-- d&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M318,-267.29C338.96,-252.27 362.59,-235.32 382.36,-221.14"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="383.66,-223.31 388.04,-217.07 380.72,-219.22 383.66,-223.31"/>
+<text xml:space="preserve" text-anchor="middle" x="389.21" y="-233.04" font-family="Arial" font-size="14.00" fill="#405c70">Failure</text>
+</g>
+<!-- e&#45;&gt;i -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M103.49,-162.95C105.53,-135.48 108.82,-91.35 111.09,-60.85"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="113.58,-61.35 111.6,-53.98 108.55,-60.98 113.58,-61.35"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M379.06,-163.72C357.71,-152.52 332.2,-139.15 309.78,-127.39"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="311.08,-125.23 303.54,-124.12 308.74,-129.69 311.08,-125.23"/>
+<text xml:space="preserve" text-anchor="middle" x="356.02" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- f&#45;&gt;h -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M454.37,-160.83C464.87,-150.86 476.83,-139.51 487.66,-129.22"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="489.14,-131.29 492.63,-124.5 485.67,-127.63 489.14,-131.29"/>
+<text xml:space="preserve" text-anchor="middle" x="527.54" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">No / exception</text>
+</g>
+<!-- g&#45;&gt;b -->
+<g id="edge8" class="edge">
+<title>g&#45;&gt;b</title>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M377.47,-121.2C383.2,-122.28 386.61,-122.92 386.61,-122.92 386.61,-122.92 574.61,-131.92 574.61,-131.92 574.61,-131.92 638.61,-156.67 638.61,-156.67 638.61,-156.67 638.61,-221.59 638.61,-221.59 638.61,-221.59 504.61,-359.26 504.61,-359.26 504.61,-359.26 400.61,-430.22 400.61,-430.22 400.61,-430.22 378.1,-437.45 351.33,-446.04"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="350.65,-443.61 344.56,-448.21 352.19,-448.41 350.65,-443.61"/>
+<text xml:space="preserve" text-anchor="middle" x="644.23" y="-301.88" font-family="Arial" font-size="14.00" fill="#405c70">Next attempt</text>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge10" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M395.4,-72.6C389.88,-71.57 386.61,-70.96 386.61,-70.96 386.61,-70.96 308.77,-58.42 236.23,-46.73"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="236.64,-44.25 229.13,-45.59 235.84,-49.22 236.64,-44.25"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M361.85,-572.14C361.85,-572.14 165.38,-572.14 165.38,-572.14 159.38,-572.14 153.38,-566.14 153.38,-560.14 153.38,-560.14 153.38,-532.18 153.38,-532.18 153.38,-526.18 159.38,-520.18 165.38,-520.18 165.38,-520.18 361.85,-520.18 361.85,-520.18 367.85,-520.18 373.85,-526.18 373.85,-532.18 373.85,-532.18 373.85,-560.14 373.85,-560.14 373.85,-566.14 367.85,-572.14 361.85,-572.14"/>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-549.51" font-family="Arial" font-size="17.00" fill="white">Select enabled sensor</text>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-530.01" font-family="Arial" font-size="17.00" fill="white">Use its configured slave ID</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M383.22,-501.18C383.22,-501.18 144,-501.18 144,-501.18 138,-501.18 132,-495.18 132,-489.18 132,-489.18 132,-461.22 132,-461.22 132,-455.22 138,-449.22 144,-449.22 144,-449.22 383.22,-449.22 383.22,-449.22 389.22,-449.22 395.22,-455.22 395.22,-461.22 395.22,-461.22 395.22,-489.18 395.22,-489.18 395.22,-495.18 389.22,-501.18 383.22,-501.18"/>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-478.55" font-family="Arial" font-size="17.00" fill="#163b55">Ensure silent interval</text>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-459.05" font-family="Arial" font-size="17.00" fill="#163b55">DE HIGH, send Modbus request</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M379.47,-430.22C379.47,-430.22 147.75,-430.22 147.75,-430.22 141.75,-430.22 135.75,-424.22 135.75,-418.22 135.75,-418.22 135.75,-390.26 135.75,-390.26 135.75,-384.26 141.75,-378.26 147.75,-378.26 147.75,-378.26 379.47,-378.26 379.47,-378.26 385.47,-378.26 391.47,-384.26 391.47,-390.26 391.47,-390.26 391.47,-418.22 391.47,-418.22 391.47,-424.22 385.47,-430.22 379.47,-430.22"/>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-407.59" font-family="Arial" font-size="17.00" fill="#163b55">DE LOW and wait for response</text>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-388.09" font-family="Arial" font-size="17.00" fill="#163b55">Service commands in idle gaps</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="263.61,-359.26 31.14,-307.3 263.61,-255.34 496.08,-307.3 263.61,-359.26"/>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-310.65" font-family="Arial" font-size="17.00" fill="#513f12">Valid ID, function, length</text>
+<text xml:space="preserve" text-anchor="middle" x="263.61" y="-291.15" font-family="Arial" font-size="17.00" fill="#513f12">and CRC / response status?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M191.22,-215.11C191.22,-215.11 12,-215.11 12,-215.11 6,-215.11 0,-209.11 0,-203.11 0,-203.11 0,-175.15 0,-175.15 0,-169.15 6,-163.15 12,-163.15 12,-163.15 191.22,-163.15 191.22,-163.15 197.22,-163.15 203.22,-169.15 203.22,-175.15 203.22,-175.15 203.22,-203.11 203.22,-203.11 203.22,-209.11 197.22,-215.11 191.22,-215.11"/>
+<text xml:space="preserve" text-anchor="middle" x="101.61" y="-192.48" font-family="Arial" font-size="17.00" fill="#163b55">Decode this sensor map</text>
+<text xml:space="preserve" text-anchor="middle" x="101.61" y="-172.98" font-family="Arial" font-size="17.00" fill="#163b55">Check numeric validity</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="425.61,-221.59 221.64,-189.13 425.61,-156.67 629.58,-189.13 425.61,-221.59"/>
+<text xml:space="preserve" text-anchor="middle" x="425.61" y="-182.73" font-family="Arial" font-size="17.00" fill="#513f12">Transport retry allowed?</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M365.35,-122.92C365.35,-122.92 141.88,-122.92 141.88,-122.92 135.88,-122.92 129.88,-116.92 129.88,-110.92 129.88,-110.92 129.88,-82.96 129.88,-82.96 129.88,-76.96 135.88,-70.96 141.88,-70.96 141.88,-70.96 365.35,-70.96 365.35,-70.96 371.35,-70.96 377.35,-76.96 377.35,-82.96 377.35,-82.96 377.35,-110.92 377.35,-110.92 377.35,-116.92 371.35,-122.92 365.35,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="253.61" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Retry bounded TUF / Supmea</text>
+<text xml:space="preserve" text-anchor="middle" x="253.61" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">At most two read attempts</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M633.47,-122.92C633.47,-122.92 407.75,-122.92 407.75,-122.92 401.75,-122.92 395.75,-116.92 395.75,-110.92 395.75,-110.92 395.75,-82.96 395.75,-82.96 395.75,-76.96 401.75,-70.96 407.75,-70.96 407.75,-70.96 633.47,-70.96 633.47,-70.96 639.47,-70.96 645.47,-76.96 645.47,-82.96 645.47,-82.96 645.47,-110.92 645.47,-110.92 645.47,-116.92 639.47,-122.92 633.47,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="520.61" y="-100.29" font-family="Arial" font-size="17.00" fill="#733c3c">Replace failed group with zero</text>
+<text xml:space="preserve" text-anchor="middle" x="520.61" y="-80.79" font-family="Arial" font-size="17.00" fill="#733c3c">Keep validity false</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M215.22,-51.96C215.22,-51.96 12,-51.96 12,-51.96 6,-51.96 0,-45.96 0,-39.96 0,-39.96 0,-12 0,-12 0,-6 6,0 12,0 12,0 215.22,0 215.22,0 221.22,0 227.22,-6 227.22,-12 227.22,-12 227.22,-39.96 227.22,-39.96 227.22,-45.96 221.22,-51.96 215.22,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="113.61" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Update runtime snapshot</text>
+<text xml:space="preserve" text-anchor="middle" x="113.61" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Continue next sensor / loop</text>
+</g>
+</g>
+</svg>

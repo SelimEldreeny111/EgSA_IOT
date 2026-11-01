@@ -1,0 +1,129 @@
+<svg width="596pt" height="515pt"
+ viewBox="0.00 0.00 596.00 515.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 502.43)">
+<title>F10</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M242.24,-453C231.74,-448.42 220.13,-443.36 208.65,-438.37"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="209.95,-436.18 202.34,-435.62 207.93,-440.8 209.95,-436.18"/>
+</g>
+<!-- a&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>a&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M323.05,-453C333.71,-448.42 345.48,-443.36 357.12,-438.37"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="357.92,-440.76 363.54,-435.61 355.93,-436.13 357.92,-440.76"/>
+</g>
+<!-- b&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>b&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M189.37,-382.16C201.73,-375.5 215.18,-368.25 227.9,-361.4"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="229.04,-363.64 234.18,-358.01 226.65,-359.21 229.04,-363.64"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M376.68,-382.16C364.02,-375.43 350.24,-368.11 337.23,-361.2"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="338.75,-359.15 331.21,-358 336.38,-363.61 338.75,-359.15"/>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M240.24,-304.21C222.79,-293.5 202.44,-281.02 184.34,-269.91"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="185.67,-267.77 178.21,-266.15 183.03,-272.06 185.67,-267.77"/>
+<text xml:space="preserve" text-anchor="middle" x="257.52" y="-276.29" font-family="Arial" font-size="14.00" fill="#405c70">Routine Status</text>
+</g>
+<!-- d&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>d&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M324.48,-304.21C341.93,-293.5 362.28,-281.02 380.38,-269.91"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="381.69,-272.06 386.51,-266.15 379.05,-267.77 381.69,-272.06"/>
+<text xml:space="preserve" text-anchor="middle" x="419.47" y="-276.29" font-family="Arial" font-size="14.00" fill="#405c70">GOSTM / reply</text>
+</g>
+<!-- e&#45;&gt;g -->
+<g id="edge7" class="edge">
+<title>e&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M189.31,-212.38C199.18,-207.72 209.55,-202.82 219.63,-198.06"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="220.62,-200.37 226.06,-195.02 218.47,-195.82 220.62,-200.37"/>
+</g>
+<!-- f&#45;&gt;g -->
+<g id="edge8" class="edge">
+<title>f&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M374.67,-212.38C364.57,-207.67 353.94,-202.72 343.63,-197.92"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="344.99,-195.77 337.4,-195.01 342.86,-200.34 344.99,-195.77"/>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge9" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M281.36,-141.61C281.36,-138.52 281.36,-135.32 281.36,-132.13"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="283.88,-132.16 281.36,-124.96 278.84,-132.16 283.88,-132.16"/>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge10" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M281.36,-70.65C281.36,-67.56 281.36,-64.36 281.36,-61.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="283.88,-61.2 281.36,-54 278.84,-61.2 283.88,-61.2"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M384.72,-489.47C384.72,-489.47 180,-489.47 180,-489.47 174,-489.47 168,-483.47 168,-477.47 168,-477.47 168,-465.47 168,-465.47 168,-459.47 174,-453.47 180,-453.47 180,-453.47 384.72,-453.47 384.72,-453.47 390.72,-453.47 396.72,-459.47 396.72,-465.47 396.72,-465.47 396.72,-477.47 396.72,-477.47 396.72,-483.47 390.72,-489.47 384.72,-489.47"/>
+<text xml:space="preserve" text-anchor="middle" x="282.36" y="-465.07" font-family="Arial" font-size="17.00" fill="white">Complete runtime snapshot</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M254.1,-434.47C254.1,-434.47 30.62,-434.47 30.62,-434.47 24.62,-434.47 18.62,-428.47 18.62,-422.47 18.62,-422.47 18.62,-394.51 18.62,-394.51 18.62,-388.51 24.62,-382.51 30.62,-382.51 30.62,-382.51 254.1,-382.51 254.1,-382.51 260.1,-382.51 266.1,-388.51 266.1,-394.51 266.1,-394.51 266.1,-422.47 266.1,-422.47 266.1,-428.47 260.1,-434.47 254.1,-434.47"/>
+<text xml:space="preserve" text-anchor="middle" x="142.36" y="-411.84" font-family="Arial" font-size="17.00" fill="#163b55">Average battery ADC samples</text>
+<text xml:space="preserve" text-anchor="middle" x="142.36" y="-392.34" font-family="Arial" font-size="17.00" fill="#163b55">Apply divider and calibration</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M552.97,-434.47C552.97,-434.47 295.75,-434.47 295.75,-434.47 289.75,-434.47 283.75,-428.47 283.75,-422.47 283.75,-422.47 283.75,-394.51 283.75,-394.51 283.75,-388.51 289.75,-382.51 295.75,-382.51 295.75,-382.51 552.97,-382.51 552.97,-382.51 558.97,-382.51 564.97,-388.51 564.97,-394.51 564.97,-394.51 564.97,-422.47 564.97,-422.47 564.97,-428.47 558.97,-434.47 552.97,-434.47"/>
+<text xml:space="preserve" text-anchor="middle" x="424.36" y="-411.84" font-family="Arial" font-size="17.00" fill="#163b55">TUF primary if both enabled</text>
+<text xml:space="preserve" text-anchor="middle" x="424.36" y="-392.34" font-family="Arial" font-size="17.00" fill="#163b55">Supmea &#45;&gt; secondary_flow_meter</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="282.36,-363.51 54.39,-331.05 282.36,-298.59 510.33,-331.05 282.36,-363.51"/>
+<text xml:space="preserve" text-anchor="middle" x="282.36" y="-324.65" font-family="Arial" font-size="17.00" fill="#513f12">Routine Status or GOSTM?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M258.72,-264.84C258.72,-264.84 12,-264.84 12,-264.84 6,-264.84 0,-258.84 0,-252.84 0,-252.84 0,-224.88 0,-224.88 0,-218.88 6,-212.88 12,-212.88 12,-212.88 258.72,-212.88 258.72,-212.88 264.72,-212.88 270.72,-218.88 270.72,-224.88 270.72,-224.88 270.72,-252.84 270.72,-252.84 270.72,-258.84 264.72,-264.84 258.72,-264.84"/>
+<text xml:space="preserve" text-anchor="middle" x="135.36" y="-242.21" font-family="Arial" font-size="17.00" fill="#163b55">Routine: latest committed sample</text>
+<text xml:space="preserve" text-anchor="middle" x="135.36" y="-222.71" font-family="Arial" font-size="17.00" fill="#163b55">Else explicit live_fallback</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M557.97,-264.84C557.97,-264.84 300.75,-264.84 300.75,-264.84 294.75,-264.84 288.75,-258.84 288.75,-252.84 288.75,-252.84 288.75,-224.88 288.75,-224.88 288.75,-218.88 294.75,-212.88 300.75,-212.88 300.75,-212.88 557.97,-212.88 557.97,-212.88 563.97,-212.88 569.97,-218.88 569.97,-224.88 569.97,-224.88 569.97,-252.84 569.97,-252.84 569.97,-258.84 563.97,-264.84 557.97,-264.84"/>
+<text xml:space="preserve" text-anchor="middle" x="429.36" y="-242.21" font-family="Arial" font-size="17.00" fill="#163b55">GOSTM: current runtime snapshot</text>
+<text xml:space="preserve" text-anchor="middle" x="429.36" y="-222.71" font-family="Arial" font-size="17.00" fill="#163b55">Attach requested ACK metadata</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M417.85,-193.88C417.85,-193.88 144.88,-193.88 144.88,-193.88 138.88,-193.88 132.88,-187.88 132.88,-181.88 132.88,-181.88 132.88,-153.92 132.88,-153.92 132.88,-147.92 138.88,-141.92 144.88,-141.92 144.88,-141.92 417.85,-141.92 417.85,-141.92 423.85,-141.92 429.85,-147.92 429.85,-153.92 429.85,-153.92 429.85,-181.88 429.85,-181.88 429.85,-187.88 423.85,-193.88 417.85,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="281.36" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Keep failed groups zero / invalid</text>
+<text xml:space="preserve" text-anchor="middle" x="281.36" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">Refresh valve, reset and power state</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M409.97,-122.92C409.97,-122.92 152.75,-122.92 152.75,-122.92 146.75,-122.92 140.75,-116.92 140.75,-110.92 140.75,-110.92 140.75,-82.96 140.75,-82.96 140.75,-76.96 146.75,-70.96 152.75,-70.96 152.75,-70.96 409.97,-70.96 409.97,-70.96 415.97,-70.96 421.97,-76.96 421.97,-82.96 421.97,-82.96 421.97,-110.92 421.97,-110.92 421.97,-116.92 415.97,-122.92 409.97,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="281.36" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Encode nanopb + PKCS7 padding</text>
+<text xml:space="preserve" text-anchor="middle" x="281.36" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">AES&#45;128&#45;CBC with 16&#45;byte IV</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M375.1,-51.96C375.1,-51.96 187.62,-51.96 187.62,-51.96 181.62,-51.96 175.62,-45.96 175.62,-39.96 175.62,-39.96 175.62,-12 175.62,-12 175.62,-6 181.62,0 187.62,0 187.62,0 375.1,0 375.1,0 381.1,0 387.1,-6 387.1,-12 387.1,-12 387.1,-39.96 387.1,-39.96 387.1,-45.96 381.1,-51.96 375.1,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="281.36" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Version + IV + ciphertext</text>
+<text xml:space="preserve" text-anchor="middle" x="281.36" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Publish on selected route</text>
+</g>
+</g>
+</svg>

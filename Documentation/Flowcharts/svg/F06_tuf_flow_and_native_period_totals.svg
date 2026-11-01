@@ -1,0 +1,111 @@
+<svg width="437pt" height="531pt"
+ viewBox="0.00 0.00 437.00 531.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 518.39)">
+<title>F06</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M201.72,-453.16C201.72,-450.07 201.72,-446.87 201.72,-443.68"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="204.24,-443.71 201.72,-436.51 199.2,-443.71 204.24,-443.71"/>
+</g>
+<!-- b&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>b&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M201.72,-382.37C201.72,-379.23 201.72,-375.95 201.72,-372.65"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="204.24,-372.85 201.72,-365.65 199.2,-372.85 204.24,-372.85"/>
+</g>
+<!-- c&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>c&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M171.1,-303.23C159.49,-293.07 146.18,-281.41 134.16,-270.89"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="136.02,-269.18 128.95,-266.33 132.7,-272.97 136.02,-269.18"/>
+<text xml:space="preserve" text-anchor="middle" x="164.56" y="-276.29" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- c&#45;&gt;g -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M232.64,-303.23C244.36,-293.07 257.8,-281.41 269.93,-270.89"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="271.42,-272.94 275.21,-266.32 268.12,-269.14 271.42,-272.94"/>
+<text xml:space="preserve" text-anchor="middle" x="274.72" y="-276.29" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- d&#45;&gt;e -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M114.49,-212.57C116.71,-209.01 119.02,-205.31 121.31,-201.64"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="123.36,-203.1 125.03,-195.66 119.09,-200.44 123.36,-203.1"/>
+</g>
+<!-- e&#45;&gt;f -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M147.59,-141.61C148.33,-138.43 149.09,-135.13 149.86,-131.84"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="152.29,-132.5 151.46,-124.92 147.38,-131.36 152.29,-132.5"/>
+</g>
+<!-- f&#45;&gt;h -->
+<g id="edge7" class="edge">
+<title>f&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M183.39,-70.65C187.48,-66.62 191.75,-62.41 195.96,-58.27"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="197.45,-60.33 200.82,-53.49 193.92,-56.74 197.45,-60.33"/>
+</g>
+<!-- g&#45;&gt;h -->
+<g id="edge8" class="edge">
+<title>g&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M300.56,-212.51C291.04,-165.82 271.72,-70.96 271.72,-70.96 271.72,-70.96 266.3,-65.54 259.27,-58.51"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="261.16,-56.85 254.29,-53.54 257.6,-60.41 261.16,-56.85"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M301.08,-505.43C301.08,-505.43 102.36,-505.43 102.36,-505.43 96.36,-505.43 90.36,-499.43 90.36,-493.43 90.36,-493.43 90.36,-465.47 90.36,-465.47 90.36,-459.47 96.36,-453.47 102.36,-453.47 102.36,-453.47 301.08,-453.47 301.08,-453.47 307.08,-453.47 313.08,-459.47 313.08,-465.47 313.08,-465.47 313.08,-493.43 313.08,-493.43 313.08,-499.43 307.08,-505.43 301.08,-505.43"/>
+<text xml:space="preserve" text-anchor="middle" x="201.72" y="-482.8" font-family="Arial" font-size="17.00" fill="white">Begin TUF poll</text>
+<text xml:space="preserve" text-anchor="middle" x="201.72" y="-463.3" font-family="Arial" font-size="17.00" fill="white">Zero a new result structure</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M304.83,-434.47C304.83,-434.47 98.61,-434.47 98.61,-434.47 92.61,-434.47 86.61,-428.47 86.61,-422.47 86.61,-422.47 86.61,-394.51 86.61,-394.51 86.61,-388.51 92.61,-382.51 98.61,-382.51 98.61,-382.51 304.83,-382.51 304.83,-382.51 310.83,-382.51 316.83,-388.51 316.83,-394.51 316.83,-394.51 316.83,-422.47 316.83,-422.47 316.83,-428.47 310.83,-434.47 304.83,-434.47"/>
+<text xml:space="preserve" text-anchor="middle" x="201.72" y="-411.84" font-family="Arial" font-size="17.00" fill="#163b55">FC03 at 0x0000, 6 registers</text>
+<text xml:space="preserve" text-anchor="middle" x="201.72" y="-392.34" font-family="Arial" font-size="17.00" fill="#163b55">Flow and velocity</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="201.72,-363.51 0,-331.05 201.72,-298.59 403.44,-331.05 201.72,-363.51"/>
+<text xml:space="preserve" text-anchor="middle" x="201.72" y="-324.65" font-family="Arial" font-size="17.00" fill="#513f12">Core reply / floats valid?</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M170.33,-264.84C170.33,-264.84 27.11,-264.84 27.11,-264.84 21.11,-264.84 15.11,-258.84 15.11,-252.84 15.11,-252.84 15.11,-224.88 15.11,-224.88 15.11,-218.88 21.11,-212.88 27.11,-212.88 27.11,-212.88 170.33,-212.88 170.33,-212.88 176.33,-212.88 182.33,-218.88 182.33,-224.88 182.33,-224.88 182.33,-252.84 182.33,-252.84 182.33,-258.84 176.33,-264.84 170.33,-264.84"/>
+<text xml:space="preserve" text-anchor="middle" x="98.72" y="-242.21" font-family="Arial" font-size="17.00" fill="#163b55">Read day / month</text>
+<text xml:space="preserve" text-anchor="middle" x="98.72" y="-222.71" font-family="Arial" font-size="17.00" fill="#163b55">0x007C, 4 registers</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M251.21,-193.88C251.21,-193.88 32.23,-193.88 32.23,-193.88 26.23,-193.88 20.23,-187.88 20.23,-181.88 20.23,-181.88 20.23,-153.92 20.23,-153.92 20.23,-147.92 26.23,-141.92 32.23,-141.92 32.23,-141.92 251.21,-141.92 251.21,-141.92 257.21,-141.92 263.21,-147.92 263.21,-153.92 263.21,-153.92 263.21,-181.88 263.21,-181.88 263.21,-187.88 257.21,-193.88 251.21,-193.88"/>
+<text xml:space="preserve" text-anchor="middle" x="141.72" y="-171.25" font-family="Arial" font-size="17.00" fill="#163b55">Read yearly integer + fraction</text>
+<text xml:space="preserve" text-anchor="middle" x="141.72" y="-151.75" font-family="Arial" font-size="17.00" fill="#163b55">0x0090, 4 registers</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M250.33,-122.92C250.33,-122.92 65.11,-122.92 65.11,-122.92 59.11,-122.92 53.11,-116.92 53.11,-110.92 53.11,-110.92 53.11,-82.96 53.11,-82.96 53.11,-76.96 59.11,-70.96 65.11,-70.96 65.11,-70.96 250.33,-70.96 250.33,-70.96 256.33,-70.96 262.33,-76.96 262.33,-82.96 262.33,-82.96 262.33,-110.92 262.33,-110.92 262.33,-116.92 256.33,-122.92 250.33,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="157.72" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Read optional error code</text>
+<text xml:space="preserve" text-anchor="middle" x="157.72" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">0x0047, 1 register</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M399.08,-264.84C399.08,-264.84 212.36,-264.84 212.36,-264.84 206.36,-264.84 200.36,-258.84 200.36,-252.84 200.36,-252.84 200.36,-224.88 200.36,-224.88 200.36,-218.88 206.36,-212.88 212.36,-212.88 212.36,-212.88 399.08,-212.88 399.08,-212.88 405.08,-212.88 411.08,-218.88 411.08,-224.88 411.08,-224.88 411.08,-252.84 411.08,-252.84 411.08,-258.84 405.08,-264.84 399.08,-264.84"/>
+<text xml:space="preserve" text-anchor="middle" x="305.72" y="-242.21" font-family="Arial" font-size="17.00" fill="#733c3c">Publish zero invalid core</text>
+<text xml:space="preserve" text-anchor="middle" x="305.72" y="-222.71" font-family="Arial" font-size="17.00" fill="#733c3c">Do not reuse last reading</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M334.2,-51.96C334.2,-51.96 121.24,-51.96 121.24,-51.96 115.24,-51.96 109.23,-45.96 109.23,-39.96 109.23,-39.96 109.23,-12 109.23,-12 109.23,-6 115.23,0 121.23,0 121.23,0 334.2,0 334.2,0 340.2,0 346.2,-6 346.2,-12 346.2,-12 346.2,-39.96 346.2,-39.96 346.2,-45.96 340.2,-51.96 334.2,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="227.72" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Set independent live / period</text>
+<text xml:space="preserve" text-anchor="middle" x="227.72" y="-9.83" font-family="Arial" font-size="17.00" fill="white">validity and TUF source</text>
+</g>
+</g>
+</svg>

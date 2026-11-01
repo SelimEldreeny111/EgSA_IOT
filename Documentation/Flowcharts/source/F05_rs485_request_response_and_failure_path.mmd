@@ -1,0 +1,26 @@
+flowchart TD
+  a(["Select enabled sensor<br/>Use its configured slave ID"]):::term
+  b["Ensure silent interval<br/>DE HIGH, send Modbus request"]:::proc
+  c["DE LOW and wait for response<br/>Service commands in idle gaps"]:::proc
+  d{"Valid ID, function, length<br/>and CRC / response status?"}:::dec
+  e["Decode this sensor map<br/>Check numeric validity"]:::proc
+  f{"Transport retry allowed?"}:::dec
+  g["Retry bounded TUF / Supmea<br/>At most two read attempts"]:::proc
+  h["Replace failed group with zero<br/>Keep validity false"]:::bad
+  i(["Update runtime snapshot<br/>Continue next sensor / loop"]):::term
+  a --> b
+  b --> c
+  c --> d
+  d -->|Success| e
+  d -->|Failure| f
+  e --> i
+  f -->|Yes| g
+  g -->|Next attempt| b
+  f -->|No / exception| h
+  h --> i
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

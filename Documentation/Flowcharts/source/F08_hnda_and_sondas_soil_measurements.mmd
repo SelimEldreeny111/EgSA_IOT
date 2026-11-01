@@ -1,0 +1,27 @@
+flowchart TD
+  a(["Poll next enabled soil sensor"]):::term
+  b["HNDA / Honde<br/>FC03 from 0x0000, 2 registers"]:::proc
+  c["Sondas<br/>FC03 from 0x0000, 3 registers"]:::proc
+  d{"Successful response?"}:::dec
+  e{"Successful response?"}:::dec
+  f["Signed temperature / 10<br/>Unsigned moisture / 10"]:::proc
+  g["Temperature / 10, moisture / 10<br/>EC with configured scale"]:::proc
+  h["Zero fields + validity false"]:::bad
+  i(["HNDA -&gt; soil_* fields<br/>Sondas -&gt; ec_* fields"]):::term
+  a -->|HNDA| b
+  a -->|Sondas| c
+  b --> d
+  c --> e
+  d -->|Yes| f
+  e -->|Yes| g
+  d -->|No| h
+  e -->|No| h
+  f --> i
+  g --> i
+  h --> i
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

@@ -1,0 +1,137 @@
+<svg width="788pt" height="388pt"
+ viewBox="0.00 0.00 788.00 388.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 375.26)">
+<title>F08</title>
+<!-- a&#45;&gt;b -->
+<g id="edge1" class="edge">
+<title>a&#45;&gt;b</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M379.46,-325.93C364.63,-317.48 346.38,-307.09 329.41,-297.43"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="330.74,-295.28 323.23,-293.91 328.24,-299.66 330.74,-295.28"/>
+<text xml:space="preserve" text-anchor="middle" x="382.28" y="-304" font-family="Arial" font-size="14.00" fill="#405c70">HNDA</text>
+</g>
+<!-- a&#45;&gt;c -->
+<g id="edge2" class="edge">
+<title>a&#45;&gt;c</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M444.38,-325.93C461.34,-317.37 482.25,-306.81 501.6,-297.04"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="502.65,-299.33 507.95,-293.84 500.38,-294.83 502.65,-299.33"/>
+<text xml:space="preserve" text-anchor="middle" x="512.34" y="-304" font-family="Arial" font-size="14.00" fill="#405c70">Sondas</text>
+</g>
+<!-- b&#45;&gt;d -->
+<g id="edge3" class="edge">
+<title>b&#45;&gt;d</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M246.42,-240.24C239.38,-234.41 231.81,-228.13 224.48,-222.05"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="226.34,-220.32 219.18,-217.67 223.12,-224.2 226.34,-220.32"/>
+</g>
+<!-- c&#45;&gt;e -->
+<g id="edge4" class="edge">
+<title>c&#45;&gt;e</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M565.3,-240.45C566.04,-236.93 566.83,-233.24 567.61,-229.54"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="570.05,-230.18 569.08,-222.62 565.12,-229.14 570.05,-230.18"/>
+</g>
+<!-- d&#45;&gt;f -->
+<g id="edge5" class="edge">
+<title>d&#45;&gt;f</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M165.76,-160.09C158.99,-150.69 151.38,-140.14 144.39,-130.43"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="146.45,-128.99 140.2,-124.62 142.36,-131.94 146.45,-128.99"/>
+<text xml:space="preserve" text-anchor="middle" x="166.67" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- d&#45;&gt;h -->
+<g id="edge7" class="edge">
+<title>d&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M229.27,-163.72C253.71,-149.94 284,-132.87 307.59,-119.58"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="308.76,-121.81 313.8,-116.08 306.29,-117.42 308.76,-121.81"/>
+<text xml:space="preserve" text-anchor="middle" x="293.63" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- e&#45;&gt;g -->
+<g id="edge6" class="edge">
+<title>e&#45;&gt;g</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M583.42,-157.6C585.44,-149.33 587.63,-140.33 589.69,-131.88"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="592.1,-132.62 591.36,-125.03 587.21,-131.43 592.1,-132.62"/>
+<text xml:space="preserve" text-anchor="middle" x="600.84" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+</g>
+<!-- e&#45;&gt;h -->
+<g id="edge8" class="edge">
+<title>e&#45;&gt;h</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M519.71,-166.07C482.74,-151.57 434.7,-132.73 398.51,-118.54"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="399.75,-116.32 392.13,-116.04 397.91,-121.02 399.75,-116.32"/>
+<text xml:space="preserve" text-anchor="middle" x="476.49" y="-134.37" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+</g>
+<!-- f&#45;&gt;i -->
+<g id="edge9" class="edge">
+<title>f&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M204.11,-70.46C220.57,-65.41 237.93,-60.09 254.65,-54.97"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="254.98,-57.5 261.13,-52.98 253.51,-52.68 254.98,-57.5"/>
+</g>
+<!-- g&#45;&gt;i -->
+<g id="edge10" class="edge">
+<title>g&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M504.85,-70.46C485.34,-65.12 464.71,-59.47 445,-54.08"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="445.9,-51.71 438.29,-52.24 444.57,-56.57 445.9,-51.71"/>
+</g>
+<!-- h&#45;&gt;i -->
+<g id="edge11" class="edge">
+<title>h&#45;&gt;i</title>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M345.97,-78.54C345.97,-73.23 345.97,-67.2 345.97,-61.18"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="348.49,-61.4 345.97,-54.2 343.45,-61.4 348.49,-61.4"/>
+</g>
+<!-- a -->
+<g id="node1" class="node">
+<title>a</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M516.46,-362.3C516.46,-362.3 303.49,-362.3 303.49,-362.3 297.49,-362.3 291.49,-356.3 291.49,-350.3 291.49,-350.3 291.49,-338.3 291.49,-338.3 291.49,-332.3 297.49,-326.3 303.49,-326.3 303.49,-326.3 516.46,-326.3 516.46,-326.3 522.46,-326.3 528.46,-332.3 528.46,-338.3 528.46,-338.3 528.46,-350.3 528.46,-350.3 528.46,-356.3 522.46,-362.3 516.46,-362.3"/>
+<text xml:space="preserve" text-anchor="middle" x="409.97" y="-337.9" font-family="Arial" font-size="17.00" fill="white">Poll next enabled soil sensor</text>
+</g>
+<!-- b -->
+<g id="node2" class="node">
+<title>b</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M390.21,-292.55C390.21,-292.55 163.74,-292.55 163.74,-292.55 157.74,-292.55 151.74,-286.55 151.74,-280.55 151.74,-280.55 151.74,-252.59 151.74,-252.59 151.74,-246.59 157.74,-240.59 163.74,-240.59 163.74,-240.59 390.21,-240.59 390.21,-240.59 396.21,-240.59 402.21,-246.59 402.21,-252.59 402.21,-252.59 402.21,-280.55 402.21,-280.55 402.21,-286.55 396.21,-292.55 390.21,-292.55"/>
+<text xml:space="preserve" text-anchor="middle" x="276.97" y="-269.92" font-family="Arial" font-size="17.00" fill="#163b55">HNDA / Honde</text>
+<text xml:space="preserve" text-anchor="middle" x="276.97" y="-250.42" font-family="Arial" font-size="17.00" fill="#163b55">FC03 from 0x0000, 2 registers</text>
+</g>
+<!-- c -->
+<g id="node3" class="node">
+<title>c</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M673.21,-292.55C673.21,-292.55 446.74,-292.55 446.74,-292.55 440.74,-292.55 434.74,-286.55 434.74,-280.55 434.74,-280.55 434.74,-252.59 434.74,-252.59 434.74,-246.59 440.74,-240.59 446.74,-240.59 446.74,-240.59 673.21,-240.59 673.21,-240.59 679.21,-240.59 685.21,-246.59 685.21,-252.59 685.21,-252.59 685.21,-280.55 685.21,-280.55 685.21,-286.55 679.21,-292.55 673.21,-292.55"/>
+<text xml:space="preserve" text-anchor="middle" x="559.97" y="-269.92" font-family="Arial" font-size="17.00" fill="#163b55">Sondas</text>
+<text xml:space="preserve" text-anchor="middle" x="559.97" y="-250.42" font-family="Arial" font-size="17.00" fill="#163b55">FC03 from 0x0000, 3 registers</text>
+</g>
+<!-- d -->
+<g id="node4" class="node">
+<title>d</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="185.97,-221.59 0,-189.13 185.97,-156.67 371.94,-189.13 185.97,-221.59"/>
+<text xml:space="preserve" text-anchor="middle" x="185.97" y="-182.73" font-family="Arial" font-size="17.00" fill="#513f12">Successful response?</text>
+</g>
+<!-- e -->
+<g id="node5" class="node">
+<title>e</title>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="575.97,-221.59 390,-189.13 575.97,-156.67 761.94,-189.13 575.97,-221.59"/>
+<text xml:space="preserve" text-anchor="middle" x="575.97" y="-182.73" font-family="Arial" font-size="17.00" fill="#513f12">Successful response?</text>
+</g>
+<!-- f -->
+<g id="node6" class="node">
+<title>f</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M210.96,-122.92C210.96,-122.92 30.99,-122.92 30.99,-122.92 24.99,-122.92 18.99,-116.92 18.99,-110.92 18.99,-110.92 18.99,-82.96 18.99,-82.96 18.99,-76.96 24.99,-70.96 30.99,-70.96 30.99,-70.96 210.96,-70.96 210.96,-70.96 216.96,-70.96 222.96,-76.96 222.96,-82.96 222.96,-82.96 222.96,-110.92 222.96,-110.92 222.96,-116.92 216.96,-122.92 210.96,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="120.97" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Signed temperature / 10</text>
+<text xml:space="preserve" text-anchor="middle" x="120.97" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">Unsigned moisture / 10</text>
+</g>
+<!-- g -->
+<g id="node7" class="node">
+<title>g</title>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M714.58,-122.92C714.58,-122.92 481.36,-122.92 481.36,-122.92 475.36,-122.92 469.36,-116.92 469.36,-110.92 469.36,-110.92 469.36,-82.96 469.36,-82.96 469.36,-76.96 475.36,-70.96 481.36,-70.96 481.36,-70.96 714.58,-70.96 714.58,-70.96 720.58,-70.96 726.58,-76.96 726.58,-82.96 726.58,-82.96 726.58,-110.92 726.58,-110.92 726.58,-116.92 720.58,-122.92 714.58,-122.92"/>
+<text xml:space="preserve" text-anchor="middle" x="597.97" y="-100.29" font-family="Arial" font-size="17.00" fill="#163b55">Temperature / 10, moisture / 10</text>
+<text xml:space="preserve" text-anchor="middle" x="597.97" y="-80.79" font-family="Arial" font-size="17.00" fill="#163b55">EC with configured scale</text>
+</g>
+<!-- h -->
+<g id="node8" class="node">
+<title>h</title>
+<path fill="#fbe9e9" stroke="#c49393" stroke-width="1.05" d="M438.96,-114.94C438.96,-114.94 252.99,-114.94 252.99,-114.94 246.99,-114.94 240.99,-108.94 240.99,-102.94 240.99,-102.94 240.99,-90.94 240.99,-90.94 240.99,-84.94 246.99,-78.94 252.99,-78.94 252.99,-78.94 438.96,-78.94 438.96,-78.94 444.96,-78.94 450.96,-84.94 450.96,-90.94 450.96,-90.94 450.96,-102.94 450.96,-102.94 450.96,-108.94 444.96,-114.94 438.96,-114.94"/>
+<text xml:space="preserve" text-anchor="middle" x="345.97" y="-90.54" font-family="Arial" font-size="17.00" fill="#733c3c">Zero fields + validity false</text>
+</g>
+<!-- i -->
+<g id="node9" class="node">
+<title>i</title>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M424.33,-51.96C424.33,-51.96 267.61,-51.96 267.61,-51.96 261.61,-51.96 255.61,-45.96 255.61,-39.96 255.61,-39.96 255.61,-12 255.61,-12 255.61,-6 261.61,0 267.61,0 267.61,0 424.33,0 424.33,0 430.33,0 436.33,-6 436.33,-12 436.33,-12 436.33,-39.96 436.33,-39.96 436.33,-45.96 430.33,-51.96 424.33,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="345.97" y="-29.33" font-family="Arial" font-size="17.00" fill="white">HNDA &#45;&gt; soil_* fields</text>
+<text xml:space="preserve" text-anchor="middle" x="345.97" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Sondas &#45;&gt; ec_* fields</text>
+</g>
+</g>
+</svg>

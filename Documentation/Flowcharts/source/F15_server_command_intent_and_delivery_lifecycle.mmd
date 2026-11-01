@@ -1,0 +1,29 @@
+flowchart TD
+  a(["Authenticated operator request<br/>Company / region / node / action"]):::term
+  b{"Authorized scope and valid data?"}:::dec
+  c[("Create command journal intent<br/>Request ID, actor and TTL")]:::db
+  d{"Deliver now or next Status?"}:::dec
+  e["Claim immediately when online"]:::proc
+  f["Wait for matching node Status<br/>Then atomically claim"]:::proc
+  g["Publish encrypted command<br/>Record broker receipt separately"]:::proc
+  h{"Matching node reply?"}:::dec
+  i(["Accepted / rejected by node<br/>Store execution receipt"]):::term
+  j["Bounded rate retry or unknown<br/>Expiry / superseded intent retained"]:::bad
+  k["Reject invalid / unauthorized request"]:::bad
+  a --> b
+  b -->|Yes| c
+  b -->|No| k
+  c --> d
+  d -->|Now| e
+  d -->|Next wake| f
+  e --> g
+  f --> g
+  g --> h
+  h -->|Correlated reply| i
+  h -->|Timeout / no reply| j
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

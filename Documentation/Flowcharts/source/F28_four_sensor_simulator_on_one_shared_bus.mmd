@@ -1,0 +1,26 @@
+flowchart TD
+  a(["Configure COM port / bus<br/>Add / clone / batch-add devices"]):::term
+  b["Validate unique slave addresses<br/>Choose fixed / dynamic signal values"]:::proc
+  c["Simulation tick updates devices<br/>Totals + local Supmea calendar oracle"]:::proc
+  d{"Serial request with valid CRC?"}:::dec
+  e["Route to enabled device address<br/>Validate function / register range"]:::proc
+  f["Encode that sensor register map<br/>Apply selected fault / delay behavior"]:::proc
+  g(["Reply with CRC / exception<br/>Or intentional silence / corruption"]):::term
+  h["Ignore noise / unknown address<br/>Update traffic counters"]:::proc
+  i["GUI readings / logs / oracle CSV<br/>Compare node and simulator totals"]:::proc
+  a --> b
+  b --> c
+  c --> d
+  d -->|Yes| e
+  d -->|No / no device| h
+  e --> f
+  f --> g
+  c --> i
+  g -->|Next request| d
+  h -->|Continue| d
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

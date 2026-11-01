@@ -1,0 +1,30 @@
+flowchart TD
+  a(["Choose controller mode<br/>Then selected radio policy"]):::term
+  b{"Gateway role?"}:::dec
+  c["Controller NORMAL required<br/>Radio stays ready"]:::proc
+  d["NORMAL<br/>Controller / selected radio normal"]:::proc
+  e["REMOTE_WAKE<br/>CPU Sleep, radio NORMAL [F20]"]:::ref
+  f["POWER_DOWN / QUEUED<br/>RTC Standby + sleeping radio [F21]"]:::ref
+  g["LORA_WOR<br/>STM32 Stop + radio Mode 2 [F22]"]:::ref
+  h{"Selected hardware and policies<br/>pass compile-time checks?"}:::dec
+  i(["Run chosen policy"]):::term
+  j["Reject configuration<br/>Fix role, pins or radio pairing"]:::bad
+  a --> b
+  b -->|Gateway| c
+  b -->|Node normal| d
+  b -->|Node remote| e
+  b -->|Node periodic / queued| f
+  b -->|Node WOR| g
+  c --> h
+  d --> h
+  e --> h
+  f --> h
+  g --> h
+  h -->|Yes| i
+  h -->|No| j
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

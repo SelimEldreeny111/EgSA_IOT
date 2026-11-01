@@ -1,0 +1,26 @@
+flowchart TD
+  a(["Power / reset / RTC Standby exit"]):::term
+  b["Safe valve pins when available<br/>Snapshot RCC / Standby cause"]:::proc
+  c{"Valid pending sleep handoff?"}:::dec
+  d["Enter / continue RTC Standby<br/>Before arming the IWDG [F21]"]:::ref
+  e["Classify cause, update counters<br/>Arm hardware WDT [F18]"]:::proc
+  f["Sensor node setup_Init<br/>RTC, ADC, transport and sensors"]:::proc
+  g["Gateway setup<br/>LoRa and IP / MQTT only"]:::proc
+  h["Begin archive recovery<br/>Initialize power manager"]:::proc
+  i(["Install command-service hook<br/>Enter cooperative loop"]):::term
+  a --> b
+  b --> c
+  c -->|Yes, deadline future| d
+  d -->|RTC wake| a
+  c -->|No / elapsed| e
+  e -->|Node| f
+  e -->|Gateway| g
+  f --> h
+  g --> h
+  h --> i
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

@@ -1,0 +1,31 @@
+flowchart TD
+  a(["A physical connection attempt"]):::term
+  b{"Selected modem?"}:::dec
+  c["WiFi: firmware credentials<br/>Then saved / operator fallback"]:::proc
+  d["SIM: registration then GPRS<br/>Use configured APN"]:::proc
+  e{"Network connected?"}:::dec
+  f(["Clear failure count / stage<br/>Continue MQTT connection"]):::term
+  g["Count returned network failure"]:::proc
+  h{"Reached 10 failures in stage?"}:::dec
+  i["Keep bounded retry policy"]:::proc
+  j["First set: reset modem RST<br/>Start second set of 10"]:::proc
+  k["Second set: reset modem<br/>Request controller reset"]:::bad
+  a --> b
+  b -->|ESP8266| c
+  b -->|SIM800| d
+  c --> e
+  d --> e
+  e -->|Yes| f
+  e -->|No| g
+  g --> h
+  h -->|Not yet| i
+  i -->|Retry| a
+  h -->|Stage 1 threshold| j
+  j -->|Retry stage 2| a
+  h -->|Stage 2 threshold| k
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7

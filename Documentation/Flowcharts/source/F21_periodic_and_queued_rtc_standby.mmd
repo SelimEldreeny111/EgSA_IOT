@@ -1,0 +1,26 @@
+flowchart TD
+  a(["Fresh sample and successful report"]):::term
+  b["Command window<br/>Periodic or longer queued policy"]:::proc
+  c{"Window elapsed, no active lease<br/>transport / flash idle and RTC valid?"}:::dec
+  d["Keep awake / retry preparation<br/>Queued command can hold WAKE lease"]:::proc
+  e["Put radio into supported sleep<br/>Put idle flash into deep power-down"]:::proc
+  f[("Store checked RTC sleep request<br/>Limit deadline by flash expiry")]:::db
+  g["Software reset<br/>Early boot before IWDG [F03]"]:::proc
+  h(["Enter Standby until RTC deadline<br/>Wake is a new startup"]):::term
+  i["Abort failed handoff<br/>Restore active scheduling"]:::bad
+  a --> b
+  b --> c
+  c -->|Not ready| d
+  d -->|Later pass| c
+  c -->|Ready| e
+  e --> f
+  f -->|Verified| g
+  f -->|Failure| i
+  g --> h
+  h -->|RTC boot + work| a
+  classDef term fill:#173E5B,color:white,stroke:#173E5B
+  classDef proc fill:#EAF2F8,color:#163B55,stroke:#91A9BC
+  classDef dec fill:#FFF1D2,color:#513F12,stroke:#C4A35E
+  classDef db fill:#E1F2ED,color:#214B43,stroke:#7DA89B
+  classDef bad fill:#FBE9E9,color:#733C3C,stroke:#C49393
+  classDef ref fill:#EEEAF8,color:#4B416D,stroke:#A69BC7
