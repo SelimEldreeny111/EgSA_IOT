@@ -1,20 +1,52 @@
 # STM32 node software design documentation
 
-The Word file remains the 7 October design baseline. The 25 October implementation
-adds independent power/WDT counters, clear commands 7/8 and SUPMEA simulator-only
-calendar comparison. Its current supplement is
-Node/IoT_Node_Encrypted/RESET_COUNTERS_AND_SUPMEA_REFERENCE_GUIDE.md; regenerated
-Doxygen includes the new APIs and guide. The frozen Word baseline is not a claim
-that its old field/command tables already include those later additions.
+[Open the updated Word design](WIOT_STM32_Node_Software_Design_V1.0.docx).
 
-`WIOT_STM32_Node_Software_Design_V1.0.docx` is the full node design definition and justification document, dated 7 October 2026.
+The requested legacy filename is retained. The cover, identifier and revision
+history identify this edition as **V1.1, 1 November 2026**. It supersedes the
+7 October V1.0 contents and incorporates runtime release
+`f478b47ecedb108328b9befe762b24b85320c225` plus the system flowchart reference
+published in `104cf15`.
 
 Scope: the active Arduino STM32F401 node, its selectable LoRa gateway role, and the node/server protocol boundary. ESP32, STM32CubeIDE and server internal implementation are outside this document's scope.
 
-The document adapts the supplied EgSA DDS example's organization, cover and header. The proposed identifier is WIOT-NOD-DDS-07-001-V1.0; reviewer and approval fields remain unassigned. It is an engineering review edition, not a qualification certificate.
+The document preserves the supplied EgSA organization, cover, logo and header.
+The identifier is WIOT-NOD-DDS-07-001-V1.1; reviewer/approval fields remain unassigned.
 
-It contains 59 physical pages, 40 numbered design tables, full deployed protobuf field maps, configuration and power combination tables, 26 individual test procedures, a public module interface reference and troubleshooting guidance. It distinguishes existing regression evidence from hardware acceptance that remains to be performed.
+It contains **78 physical pages, 44 numbered design tables, 34 acceptance
+procedures and ten embedded flowcharts**. The diagram appendix uses A3 landscape
+pages for readability; the main design remains portrait.
 
-Document QA: Microsoft Word field refresh and PDF export, canonical document rasterization, page-by-page visual review, contents/page numbering checks and template package preservation checks. The source example remains unchanged. Private deployment keys and passwords are not reproduced. QA render images and intermediate PDFs are not release deliverables.
+Updated material includes regional MQTT routes, separate power/WDT counters and
+clear commands, UART RX LoRa WOR wake, RTC heartbeat/report scheduling, and the
+initial reported 9-mA assembly observation. It adds S25FL064L wiring, capacity,
+commit-last sample recovery, elapsed 24-hour retention, memory queries and
+acknowledged history export. All six protobuf message tables and command IDs
+1-14 match the current protocol. Packet/build budgets, module ownership and test
+allocation are updated, with ten core node diagrams in Appendix D and references
+to the [complete thirty-chart system package](../Flowcharts/README.md).
 
-The inspected working baseline is `WIOT_Final_PowerModes_20261001/Node/IoT_Node_Encrypted`, including the 5 October schedule-driven remote-wake update. The documentation release makes no firmware or server changes. Later code/configuration updates require document review and renewed verification.
+[VERIFICATION.md](VERIFICATION.md) records schema checks, Word field refresh,
+continuous numbering, retained-template layout and page-image review.
+Prior runtime regression/build results are cited as existing evidence; this
+documentation update does not claim a new hardware test run.
+
+## Regeneration
+
+From a Git checkout containing the pinned original edition and flowchart sources:
+
+```powershell
+python Documentation/NodeSoftwareDesign/update_design.py
+./Documentation/NodeSoftwareDesign/refresh_word.ps1
+```
+
+The builder needs Python, python-docx and Graphviz. The second step requires
+Microsoft Word on Windows. It uses a separate hidden instance, updates contents
+and page fields, saves the DOCX and exports a QA PDF under ignored `tmp/design`.
+Render and inspect all pages after changes. QA PDFs/page images are not release
+deliverables.
+
+The builder is an edition-specific revision of the pinned template. Review its
+text, source contract and configuration values before regenerating against a
+later runtime release. Firmware, server, simulator and private deployment files
+are unchanged by this documentation update.
