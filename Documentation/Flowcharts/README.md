@@ -1,5 +1,8 @@
 # WIOT software flowcharts
 
+For a single large architecture chart and realistic deployment illustration,
+see the [system overview](../SystemOverview/README.md), also available in editable PowerPoint.
+
 Reviewed on **1 November 2026** against the active Arduino STM32 release,
 commit `f478b47ecedb108328b9befe762b24b85320c225`. The diagrams describe the
 implemented behavior in that release. Source file hashes and verified function

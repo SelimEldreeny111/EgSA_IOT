@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3200" height="1800" viewBox="0 0 3200 1800"><defs>
+<marker id="data" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1478BA"/></marker>
+<marker id="control" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#80549B"/></marker>
+<marker id="service" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526A7D"/></marker>
+</defs><rect width="3200" height="1800" fill="white"/>
+<text x="60" y="103.72" font-family="Arial,sans-serif" font-size="58" fill="#153A55" font-weight="700" text-anchor="start">WIOT SOFTWARE ARCHITECTURE</text>
+<text x="60" y="166.54" font-family="Arial,sans-serif" font-size="31" fill="#526A7D" font-weight="400" text-anchor="start">One overview of the active Arduino STM32 node, LoRa gateway, Python server and sensor simulator</text>
+<text x="60" y="237.36" font-family="Arial,sans-serif" font-size="29" fill="#153A55" font-weight="700" text-anchor="start">FIELD INTERFACES</text>
+<path d="M60 258H640" stroke="#153A55" stroke-width="3"/>
+<text x="700" y="237.36" font-family="Arial,sans-serif" font-size="29" fill="#153A55" font-weight="700" text-anchor="start">ARDUINO STM32 SENSOR NODE</text>
+<path d="M700 258H1640" stroke="#153A55" stroke-width="3"/>
+<text x="1690" y="237.36" font-family="Arial,sans-serif" font-size="29" fill="#153A55" font-weight="700" text-anchor="start">COMMUNICATIONS / GATEWAY</text>
+<path d="M1690 258H2280" stroke="#153A55" stroke-width="3"/>
+<text x="2330" y="237.36" font-family="Arial,sans-serif" font-size="29" fill="#153A55" font-weight="700" text-anchor="start">MQTT BROKER / PYTHON WEB SERVER</text>
+<path d="M2330 258H3140" stroke="#153A55" stroke-width="3"/>
+<polyline points="1170,395 1170,435" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="1170,555 1170,605" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="900,725 900,805" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="900,925 900,975" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="900,1115 900,1155" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="1100,1217 1200,1217" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="1420,1155 1420,1115" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="1420,725 1420,805" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<polyline points="1420,925 1420,975" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<polyline points="350,810 350,890" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="640,952 665,952 665,860 700,860" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="60,1507 30,1507 30,952 60,952" fill="none" stroke="#526A7D" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#service)" />
+<polyline points="700,675 680,675 680,1232 640,1232" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<polyline points="900,1095 1120,1095 1120,1422 1100,1422" fill="none" stroke="#526A7D" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#service)" />
+<polyline points="700,1607 688,1607 688,700 700,700" fill="none" stroke="#526A7D" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#service)" />
+<polyline points="1640,700 1652,700 1652,1607 1640,1607" fill="none" stroke="#526A7D" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#service)" />
+<polyline points="1640,1035 1668,1035 1668,665 1690,665" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="1985,725 1985,805" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="1985,925 1985,995" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" marker-start="url(#data)"/>
+<polyline points="1985,1175 1985,1235" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" marker-start="url(#data)"/>
+<polyline points="2280,665 2293,665 2293,1297 2280,1297" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" marker-start="url(#data)"/>
+<polyline points="1690,865 1678,865 1678,640 1640,640" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<polyline points="2280,1320 2310,1320 2310,332 2330,332" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" marker-start="url(#data)"/>
+<polyline points="2735,395 2735,450" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="2735,570 2735,620" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="2515,740 2515,815" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="2950,740 2950,815" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="2515,980 2515,1060" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="2950,980 2950,1060" fill="none" stroke="#1478BA" stroke-width="3"  marker-end="url(#data)" />
+<polyline points="2735,1175 2735,1250" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<polyline points="2735,1370 2735,1450" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<polyline points="3140,1512 3170,1512 3170,332 3140,332" fill="none" stroke="#80549B" stroke-width="3"  marker-end="url(#control)" />
+<rect x="60" y="280" width="580" height="115" rx="13" fill="#F4F6F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="78" y="319.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Power and battery monitor</text>
+<text x="78" y="354.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Controller + converters + selected radio</text>
+<text x="78" y="380.46000000000004" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">ADC voltage with calibrated divider</text>
+<rect x="60" y="450" width="580" height="360" rx="13" fill="#EFF6FA" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="78" y="489.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Four independently enabled sensors</text>
+<text x="78" y="582.03" font-family="Arial,sans-serif" font-size="27" fill="#526A7D" font-weight="400" text-anchor="start">TUF: flow / velocity; native day, month, year</text>
+<text x="78" y="613.89" font-family="Arial,sans-serif" font-size="27" fill="#526A7D" font-weight="400" text-anchor="start">Supmea: flow / cumulative forward totals</text>
+<text x="78" y="645.75" font-family="Arial,sans-serif" font-size="27" fill="#526A7D" font-weight="400" text-anchor="start">HNDA (Honde): moisture / temperature</text>
+<text x="78" y="677.6099999999999" font-family="Arial,sans-serif" font-size="27" fill="#526A7D" font-weight="400" text-anchor="start">Sondas: moisture / temperature / EC</text>
+<text x="78" y="709.4699999999999" font-family="Arial,sans-serif" font-size="27" fill="#526A7D" font-weight="400" text-anchor="start">Each type has its own enable and slave ID</text>
+<text x="78" y="741.3299999999999" font-family="Arial,sans-serif" font-size="27" fill="#526A7D" font-weight="400" text-anchor="start">All four can share the same RS485 bus</text>
+<rect x="60" y="890" width="580" height="125" rx="13" fill="#EFF6FA" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="78" y="929.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Shared RS485 / Modbus RTU</text>
+<text x="78" y="969.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">9600 baud, 8N1; direction control</text>
+<text x="78" y="995.46" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">CRC / address checks; bounded timeout / retries</text>
+<rect x="60" y="1160" width="580" height="160" rx="13" fill="#F2EDF8" stroke="#80549B" stroke-width="1.8"/>
+<text x="78" y="1199.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Latching solenoid control</text>
+<text x="78" y="1244.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">TB6612FNG polarity pulse; bridge then OFF</text>
+<text x="78" y="1269.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Commissioned pulse times and pin checks</text>
+<text x="78" y="1295.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Telemetry is commanded state; no position sensor</text>
+<rect x="60" y="1435" width="580" height="160" rx="13" fill="#F4F6F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="78" y="1474.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Bench sensor simulator</text>
+<text x="78" y="1519.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Multiple virtual sensors; unique bus addresses</text>
+<text x="78" y="1544.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Fixed / changing values; fault testing</text>
+<text x="78" y="1570.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Independent Supmea RTC comparison totals</text>
+<rect x="700" y="280" width="940" height="115" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="319.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Build configuration and boot</text>
+<text x="718" y="354.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Role / uplink; four sensor enables + addresses; pins; power modes; ACK policy</text>
+<text x="718" y="380.46000000000004" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Private deployment settings and AES key remain local</text>
+<rect x="700" y="435" width="940" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="474.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Initialize and recover</text>
+<text x="718" y="512" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Safe valve output; classify reset; recover persistent reset counters</text>
+<text x="718" y="537.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">RTC, ADC, bus, selected radio, flash recovery; arm IWDG</text>
+<rect x="700" y="605" width="940" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="644.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Cooperative application loop - COMMANDS FIRST</text>
+<text x="718" y="682" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Pump LoRa / MQTT; validate target and request; dispatch command</text>
+<text x="718" y="707.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Prioritize replies; advance storage; then sample / report / history / power</text>
+<rect x="700" y="805" width="400" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="844.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Sampling cycle when due</text>
+<text x="718" y="882" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Poll one enabled sensor per pass</text>
+<text x="718" y="907.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Service command traffic in idle gaps</text>
+<rect x="700" y="975" width="400" height="140" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="1014.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Complete sensor snapshot</text>
+<text x="718" y="1049.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Zero unavailable sensor groups</text>
+<text x="718" y="1074.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Attach validity, RTC, voltage, valve</text>
+<text x="718" y="1100.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">and persistent reset counters</text>
+<rect x="700" y="1155" width="400" height="150" rx="13" fill="#E7F3ED" stroke="#257865" stroke-width="1.8"/>
+<text x="718" y="1194.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Commit sample to SPI flash</text>
+<text x="718" y="1234.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">S25FL064L: 8 MiB NOR journal</text>
+<text x="718" y="1259.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">CRC, commit marker, recovery</text>
+<text x="718" y="1285.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Retention: 24 elapsed hours</text>
+<rect x="1200" y="1155" width="440" height="150" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1218" y="1194.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Transmission cycle when due</text>
+<text x="1218" y="1234.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Read latest committed sample</text>
+<text x="1218" y="1259.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Explicitly marked live fallback</text>
+<text x="1218" y="1285.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Keep original acquisition timestamp</text>
+<rect x="1200" y="975" width="440" height="140" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1218" y="1014.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Protobuf + AES-CBC envelope</text>
+<text x="1218" y="1049.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Periodic Status; requested Telemetry</text>
+<text x="1218" y="1074.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Command result; flash metadata</text>
+<text x="1218" y="1100.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Stored samples / history progress</text>
+<rect x="1200" y="805" width="440" height="120" rx="13" fill="#F2EDF8" stroke="#80549B" stroke-width="1.8"/>
+<text x="1218" y="844.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Execute accepted command</text>
+<text x="1218" y="882" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Rates / time / valve / wake / counters</text>
+<text x="1218" y="907.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Flash clear, status, last, today, cancel</text>
+<rect x="700" y="1355" width="400" height="150" rx="13" fill="#F4F6F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="1394.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">RTC consumption service</text>
+<text x="718" y="1434.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Supmea forward-total differences</text>
+<text x="718" y="1459.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Day / month / year boundaries</text>
+<text x="718" y="1485.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Persist baseline / quality; TUF native</text>
+<rect x="1200" y="1355" width="440" height="150" rx="13" fill="#F4F6F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1218" y="1394.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Watchdog / reset recovery</text>
+<text x="1218" y="1434.02" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">30 s IWDG; foreground progress</text>
+<text x="1218" y="1459.98" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Stall -&gt; reset; retained reset counters</text>
+<text x="1218" y="1485.94" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">10 retries: modem; next 10: full reset</text>
+<rect x="700" y="1555" width="940" height="115" rx="13" fill="#F4F6F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="718" y="1594.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Idle / power manager</text>
+<text x="718" y="1629.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">NORMAL; REMOTE_WAKE; RTC periodic / queued Standby; LoRa WOR Stop</text>
+<text x="718" y="1655.46" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Wake for work / commands; RTC heartbeat feeds IWDG; storage guards sleep</text>
+<rect x="1690" y="605" width="590" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1708" y="644.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Select the compiled uplink</text>
+<text x="1708" y="682" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Direct WiFi / SIM MQTT, or LoRa to a gateway</text>
+<text x="1708" y="707.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">One route is active in a node build</text>
+<rect x="1690" y="805" width="590" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1708" y="844.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">E32 / AS32 LoRa transport</text>
+<text x="1708" y="882" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Logical frame, CRC, fragments, retries / ACKs</text>
+<text x="1708" y="907.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Network ID / source node; UART RX wake</text>
+<rect x="1690" y="995" width="590" height="180" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1708" y="1034.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">STM32 LoRa gateway</text>
+<text x="1708" y="1076.04" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Reassemble node payload -&gt; MQTT publish</text>
+<text x="1708" y="1102" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Server CMD -&gt; Mode-1 wake probe -&gt; command</text>
+<text x="1708" y="1127.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Gateway NORMAL; sleeping nodes need WOR_TX=1</text>
+<text x="1708" y="1153.92" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Fragment handling takes priority over MQTT work</text>
+<rect x="1690" y="1235" width="590" height="145" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1708" y="1274.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Selected external IP modem</text>
+<text x="1708" y="1311.52" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">ESP8266 WiFi OR SIM800L GSM / GPRS</text>
+<text x="1708" y="1337.48" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">MQTT connection / publish / receive callback</text>
+<text x="1708" y="1363.44" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Bounded network retries and reset recovery</text>
+<rect x="1690" y="1470" width="590" height="175" rx="13" fill="#F4F6F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="1708" y="1509.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Radio / MQTT contract</text>
+<text x="1708" y="1548.54" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Telemetry upstream; commands downstream</text>
+<text x="1708" y="1574.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Gateway forwards the encrypted node payload</text>
+<text x="1708" y="1600.46" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">LoRa ACK != broker receipt != node execution</text>
+<text x="1708" y="1626.42" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Execution requires a matching application reply</text>
+<rect x="2330" y="280" width="810" height="115" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="2348" y="319.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">MQTT broker - company / region / node topics</text>
+<text x="2348" y="354.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">wiot/{company}/{region}/{node}/data | status | cmd</text>
+<text x="2348" y="380.46000000000004" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">wiot/{company}/{region}/broadcast</text>
+<rect x="2330" y="450" width="810" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="2348" y="489.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Python server: decrypt and validate</text>
+<text x="2348" y="527" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Envelope / padding; protobuf; topic-to-payload node identity</text>
+<text x="2348" y="552.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Company / region access scope; validity and message classification</text>
+<rect x="2330" y="620" width="810" height="120" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="2348" y="659.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Route the decoded message</text>
+<text x="2348" y="697" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Status / live telemetry / command acknowledgement / flash reply</text>
+<text x="2348" y="722.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Archived readings remain separate from live consumption / charts</text>
+<rect x="2330" y="815" width="380" height="165" rx="13" fill="#E7F3ED" stroke="#257865" stroke-width="1.8"/>
+<text x="2348" y="854.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Live SQLite storage</text>
+<text x="2348" y="901.52" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Measurements + validity</text>
+<text x="2348" y="927.48" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Consumption / reset counts</text>
+<text x="2348" y="953.44" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Power and valve metadata</text>
+<rect x="2760" y="815" width="380" height="165" rx="13" fill="#E7F3ED" stroke="#257865" stroke-width="1.8"/>
+<text x="2778" y="854.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Flash archive SQLite</text>
+<text x="2778" y="901.52" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Memory status + indexed samples</text>
+<text x="2778" y="927.48" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">History progress / generation</text>
+<text x="2778" y="953.44" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">History ACK only after commit</text>
+<rect x="2330" y="1060" width="810" height="115" rx="13" fill="#EAF2F8" stroke="#9AB0C0" stroke-width="1.8"/>
+<text x="2348" y="1099.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Web dashboard, downloads and reports</text>
+<text x="2348" y="1134.5" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Accounts / roles; company -&gt; region -&gt; node selection</text>
+<text x="2348" y="1160.46" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Live readings, charts, consumption, flash archive and CSV</text>
+<rect x="2330" y="1250" width="810" height="120" rx="13" fill="#F2EDF8" stroke="#80549B" stroke-width="1.8"/>
+<text x="2348" y="1289.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Operator command and execution tracking</text>
+<text x="2348" y="1327" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Validate scope / arguments; allocate request ID; queue and retry</text>
+<text x="2348" y="1352.96" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Track broker receipt separately from node execution / rejection</text>
+<rect x="2330" y="1450" width="810" height="145" rx="13" fill="#F2EDF8" stroke="#80549B" stroke-width="1.8"/>
+<text x="2348" y="1489.18" font-family="Arial,sans-serif" font-size="27" fill="#153A55" font-weight="700" text-anchor="start">Encode / encrypt and publish CMD</text>
+<text x="2348" y="1526.52" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">SRATE, STRAN, STIME, telemetry, valve, WAKE, reset-counter clears</text>
+<text x="2348" y="1552.48" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">Flash: clear / status / last / today / cancel</text>
+<text x="2348" y="1578.44" font-family="Arial,sans-serif" font-size="22" fill="#526A7D" font-weight="400" text-anchor="start">History persistence acknowledgement advances the node transfer</text>
+<text x="1422.5" y="960.82" font-family="Arial,sans-serif" font-size="23" fill="#80549B" font-weight="400" text-anchor="middle">Result / explicit query reply</text>
+<text x="315" y="1374.82" font-family="Arial,sans-serif" font-size="23" fill="#526A7D" font-weight="400" text-anchor="middle">Alternative test bus</text>
+<text x="1982.5" y="1414.82" font-family="Arial,sans-serif" font-size="23" fill="#526A7D" font-weight="400" text-anchor="middle">Direct MQTT bypasses gateway</text>
+<text x="60" y="1718.5" font-family="Arial,sans-serif" font-size="25" fill="#526A7D" font-weight="400" text-anchor="start">BLUE: measurements / transport     PURPLE: commands / replies     GREEN: stored data     DASHED: test or supporting service</text>
+<text x="60" y="1767.16" font-family="Arial,sans-serif" font-size="24" fill="#526A7D" font-weight="400" text-anchor="start">RTC schedules wakeups; IWDG expiry resets. WOR report timing uses APP_POWER_SLEEP_SECONDS; independent SRATE / STRAN applies to schedule-driven REMOTE_WAKE.</text>
+</svg>
