@@ -30,6 +30,7 @@ For the LoRa **sensor node**, select LoRa uplink and:
 ```cpp
 #define APP_CONTROLLER_POWER_MODE APP_COMPONENT_MODE_LORA_WOR
 #define APP_LORA_POWER_MODE APP_COMPONENT_MODE_WAKE_ON_RADIO
+#define APP_LORA_WOR_USE_APP_SCHEDULE true
 ```
 
 Set `APP_UPLINK=APP_UPLINK_LORA_TO_GATEWAY` (the value is 2). Build the
@@ -56,10 +57,14 @@ AUX wake implementation.
 After a successful report, the node listens for
 `APP_LORA_WOR_COMMAND_WINDOW_MS` (default 5 s), then enters STM32 Stop.
 Either the selected wake input or RTC exits Stop. The RTC also wakes the MCU every
-`APP_LORA_WOR_WATCHDOG_WAKE_SECONDS` (default 8 s) to feed the existing IWDG;
+`APP_LORA_WOR_WATCHDOG_WAKE_SECONDS` (default 15 s) to feed the existing IWDG;
 the normal watchdog timeout is now about 30 s. This heartbeat is not used
-to hide a hung active application. On the report deadline the node samples
-and publishes again. On a receive edge it listens for and handles the command. WAKE can
+to hide a hung active application. The default app-schedule policy wakes only
+for the due SRATE and/or STRAN work; a sample-only event does not force a
+report, and a send-only event does not force a read. The fixed
+APP_POWER_SLEEP_SECONDS cycle is retained only when the selector is false.
+See [independent WOR scheduling and tests](LORA_WOR_APP_SCHEDULE_GUIDE.md).
+On a receive edge it listens for and handles the command. WAKE can
 hold the node active for the requested lease.
 
 **Bench qualification is mandatory.** The first probe packet may be lost

@@ -85,6 +85,12 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #ifndef APP_LORA_WOR_COMMAND_WINDOW_MS
 #define APP_LORA_WOR_COMMAND_WINDOW_MS 5000UL
 #endif
+// true: WOR Stop follows independent SRATE/STRAN application deadlines.
+// APP_POWER_SLEEP_SECONDS then has no effect on WOR sampling or reporting.
+// false retains the legacy combined cycle after APP_POWER_SLEEP_SECONDS.
+#ifndef APP_LORA_WOR_USE_APP_SCHEDULE
+#define APP_LORA_WOR_USE_APP_SCHEDULE true
+#endif
 // WOR wake interrupt source. UART_RX reuses LoRa TXD -> STM32 RX (PA12 on
 // the sensor node). AUX remains connected for radio readiness checks.
 // Select AUX explicitly to retain the previous wake implementation.
@@ -283,6 +289,11 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #if APP_LORA_WOR_WATCHDOG_WAKE_SECONDS < 2UL || APP_LORA_WOR_WATCHDOG_WAKE_SECONDS > 15UL
 #error "APP_LORA_WOR_WATCHDOG_WAKE_SECONDS must be 2..15 seconds"
 #endif
+#if APP_LORA_WOR_USE_APP_SCHEDULE != 0 && APP_LORA_WOR_USE_APP_SCHEDULE != 1
+#error "APP_LORA_WOR_USE_APP_SCHEDULE must be true or false"
+#endif
+static_assert(APP_LORA_WOR_USE_APP_SCHEDULE == true || APP_LORA_WOR_USE_APP_SCHEDULE == false,
+    "APP_LORA_WOR_USE_APP_SCHEDULE must be true or false");
 #if APP_LORA_WOR_WAKE_SOURCE != APP_LORA_WOR_WAKE_SOURCE_AUX && \
     APP_LORA_WOR_WAKE_SOURCE != APP_LORA_WOR_WAKE_SOURCE_UART_RX
 #error "APP_LORA_WOR_WAKE_SOURCE must be AUX or UART_RX"

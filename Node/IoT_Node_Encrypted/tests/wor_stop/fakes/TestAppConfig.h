@@ -19,6 +19,9 @@ bool prepareSleep(); void resume();
 #endif
 #define APP_CONTROLLER_USES_STANDBY 0
 #define APP_CONTROLLER_POWER_MODE 3
+#ifndef APP_LORA_WOR_USE_APP_SCHEDULE
+#define APP_LORA_WOR_USE_APP_SCHEDULE false
+#endif
 #define APP_HAS_IP_UPLINK 0
 #define APP_HAS_LORA 1
 #define USE_SIM800
@@ -41,6 +44,7 @@ public:
   void attachInterrupt(void (*fn)(void*), int) { callback=fn; }
   void detachInterrupt(int) { callback=nullptr; }
   RTC_HandleTypeDef* getHandle();
+  uint32_t getEpoch(uint32_t* fraction);
 };
 #define HARDWARE_WATCHDOG_H
 enum class WatchdogStage { PowerTransition };

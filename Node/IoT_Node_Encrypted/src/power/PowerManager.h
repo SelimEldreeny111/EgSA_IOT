@@ -19,7 +19,8 @@ bool powerManagerAllowsSensorWork();
 
 /** @brief Keep schedule-driven remote mode active until a full snapshot finishes.
  * @param active True while the cooperative multi-sensor polling cycle is active.
- * @note No effect on legacy remote scheduling or other controller modes.
+ * @note Also guards unfinished sensor snapshots in schedule-driven LoRa WOR.
+ * No effect on other controller modes.
  */
 void notifyPowerManagerSensorCycle(bool active);
 

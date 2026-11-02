@@ -89,10 +89,13 @@ proof of a valid command. After the receive window/work finishes it returns to
 Mode 2 and Stop. A WAKE lease can postpone sleep.
 
 RTC heartbeat wakes only service foreground watchdog maintenance and re-enter
-Stop with the radio still in Mode 2. At the report deadline, the node restores
-Mode 0, samples and publishes. WOR still uses one combined sample/report cycle
-from APP_POWER_SLEEP_SECONDS; independent SRATE/STRAN Stop scheduling is outside
-this update. A watchdog expiry resets the controller; it is not a normal wake.
+Stop with the radio still in Mode 2. The default
+`APP_LORA_WOR_USE_APP_SCHEDULE=true` now restores Mode 0 for the independently
+due SRATE or STRAN task, without forcing the other task. `APP_POWER_SLEEP_SECONDS`
+controls the combined cycle only when that selector is false. See
+[WOR application scheduling](LORA_WOR_APP_SCHEDULE_GUIDE.md) for configuration
+and separate sample/send tests. A watchdog expiry resets the controller; it is
+not a normal wake.
 
 ## Read the log
 
@@ -112,6 +115,8 @@ uart_rx, stop_calls and rtc_elapsed_s. AUX is still printed as a readiness level
 | reason=WAKE_PIN_ARM_FAILED | UART-mode preservation/readback failed; active recovery |
 | RX pin is not in UART alternate-function mode | Preflight failed before changing radio mode |
 | reason=REPORT_DEADLINE | Scheduled report is due |
+| reason=APPLICATION_DEADLINE | Independent SRATE and/or STRAN work is due |
+| reason=RTC_CLOCK_DISCONTINUITY | Invalid RTC elapsed interval; active recovery |
 
 stop_calls counts HAL invocations, not measured low-power residence. Confirm
 current reduction and timed heartbeats; logging time is included in elapsed RTC
@@ -123,8 +128,9 @@ PC13/AUX symptom or guarantee lower board current without a bench test.
 1. Rebuild/flash the final-folder node sketch; keep its ID and private settings.
    Confirm wake_source=UART_RX. Keep the other node off initially.
 2. Enable the gateway, send STIME and confirm one successful report.
-3. For the first quiet test, turn the gateway off after delivery. Observe for
-   30 seconds before the next report deadline. Expect Stop requests, heartbeats
+3. For the first quiet test, set SRATE and STRAN to at least 150 seconds, then
+   turn the gateway off after delivery. Observe for 30 seconds before the next
+   application deadline. Expect Stop requests, heartbeats
    near the configured heartbeat interval, and reduced idle current. Restore the
    gateway before the next report is due.
 4. With gateway on and no commands, observe two report cycles. Verify fresh

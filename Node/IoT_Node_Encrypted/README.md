@@ -50,6 +50,12 @@ APP_POWER_SLEEP_SECONDS. See [schedule-driven remote idle](REMOTE_WAKE_APP_SCHED
 for the true/false switch and separate SRATE/STRAN tests. Explicit WAKE still
 requests an active lease; brief MQTT/tick/watchdog maintenance continues.
 
+LoRa WOR now also defaults to independent SRATE/STRAN scheduling through
+`APP_LORA_WOR_USE_APP_SCHEDULE=true`. The fixed `APP_POWER_SLEEP_SECONDS` value
+does not force a sample/report in that policy. See the [WOR scheduling and
+step-by-step bench guide](LORA_WOR_APP_SCHEDULE_GUIDE.md). Set the switch false
+only when the previous combined sleep/report cycle is wanted.
+
 The Arduino firmware has a separate, safe policy for each main device at the
 beginning of `src/config/AppConfig.h`:
 

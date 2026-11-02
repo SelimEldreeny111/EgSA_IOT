@@ -61,7 +61,11 @@ volatile bool g_worWireInterrupt = false;
 volatile bool g_worRtcInterrupt = false;
 bool g_worCommandWindow = false;
 uint32_t g_worWindowStartedMs = 0U;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+bool g_worSensorCycleActive = false;
+#else
 uint32_t g_worNextReportEpoch = 0U;
+#endif
 
 enum class WorPhase : uint32_t { Idle, RadioArming, ReceiveArmed, AlarmSetup, StopEntry, StopReturn, Heartbeat };
 volatile WorPhase g_worPhase = WorPhase::Idle;
@@ -73,6 +77,56 @@ void onWorWireInterrupt()
   g_worWireInterrupt = true;
 }
 void onWorRtcInterrupt(void*) { g_worRtcInterrupt = true; }
+
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+/** @brief Milliseconds until the first independent sample/report deadline.
+ * Unsigned subtraction retains the sketch's millis-rollover semantics. A due
+ * task returns zero and prevents Stop; neither task is forced by the other.
+ */
+uint32_t worNextWorkDelayMs()
+{
+  const AppRuntimeState& state = appState();
+  const uint32_t now = millis();
+  const uint32_t readAge = now - state.lastReadMs;
+  const uint32_t sendAge = now - state.lastSendMs;
+  const uint32_t readDelay = readAge >= state.samplingPeriodMs ? 0U : state.samplingPeriodMs - readAge;
+  const uint32_t sendDelay = sendAge >= state.transmissionPeriodMs ? 0U : state.transmissionPeriodMs - sendAge;
+  return readDelay < sendDelay ? readDelay : sendDelay;
+}
+
+/** @brief Read a coherent RTC seconds/subseconds snapshot for Stop elapsed time.
+ * STM32RTC reports the fraction in elapsed milliseconds (0..999). Only elapsed
+ * differences are used: server STIME changes while awake do not age schedules.
+ */
+uint64_t worRtcMilliseconds()
+{
+  uint32_t fraction = 0U;
+  const uint64_t seconds = static_cast<uint64_t>(rtc.getEpoch(&fraction));
+  return seconds * 1000ULL + fraction;
+}
+
+/** @brief Age application timestamps by time missing from suspended SysTick.
+ * Do not change HAL/Arduino global time or manufacture a new sample/report.
+ * Millis already accounts for foreground/restore work; subtract only the
+ * missing Stop residence. The next ordinary sketch pass consumes due work.
+ * @return False on a discontinuous/unrepresentable RTC interval; stay awake.
+ */
+bool accountWorStoppedTime(uint64_t rtcBefore, uint32_t tickBefore)
+{
+  const uint64_t rtcAfter = worRtcMilliseconds();
+  if (rtcAfter < rtcBefore || rtcAfter - rtcBefore > UINT32_MAX) return false;
+  const uint32_t rtcElapsed = static_cast<uint32_t>(rtcAfter - rtcBefore);
+  const uint32_t tickElapsed = millis() - tickBefore;
+  if (rtcElapsed > tickElapsed)
+  {
+    const uint32_t stoppedMs = rtcElapsed - tickElapsed;
+    AppRuntimeState& state = appState();
+    state.lastReadMs -= stoppedMs;
+    state.lastSendMs -= stoppedMs;
+  }
+  return true;
+}
+#endif
 
 /** @brief Name the foreground phase in which the wake callback was delivered. */
 const char* worPhaseName(WorPhase phase)
@@ -166,6 +220,9 @@ void runLoraWorStopCycle()
     SerialMon.println("Power: Stop requires trusted RTC; send STIME before sleeping");
     return;
   }
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+  if (worNextWorkDelayMs() == 0U) return;
+#else
   if (g_worNextReportEpoch <= nowEpoch ||
       g_worNextReportEpoch - nowEpoch > AppConfig::kPowerSleepSeconds + 5UL)
   {
@@ -173,6 +230,7 @@ void runLoraWorStopCycle()
     scheduleFreshSensorCycle();
     return;
   }
+#endif
   if (!reserveWorAuxGpio())
   {
     g_worCommandWindow = false;
@@ -245,9 +303,20 @@ void runLoraWorStopCycle()
   bool failed = !wakeArmed;
   uint32_t stopCalls = 0U;
   const uint32_t startedEpoch = getEpochTime();
-  const char* exitReason = wakeArmed ? "REPORT_DEADLINE" : "WAKE_PIN_ARM_FAILED";
+  const char* exitReason = wakeArmed
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+      ? "APPLICATION_DEADLINE"
+#else
+      ? "REPORT_DEADLINE"
+#endif
+      : "WAKE_PIN_ARM_FAILED";
   printWorSnapshot("armed", stopCalls, 0U);
-  while (!failed && getEpochTime() < g_worNextReportEpoch)
+  while (!failed &&
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+      worNextWorkDelayMs() != 0U)
+#else
+      getEpochTime() < g_worNextReportEpoch)
+#endif
   {
     serviceHardwareWatchdog(WatchdogStage::PowerTransition);
     const uint32_t now = getEpochTime();
@@ -257,7 +326,17 @@ void runLoraWorStopCycle()
       break;
     }
     uint32_t alarmEpoch = now + AppConfig::kLoraWorWatchdogWakeSeconds;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    const uint32_t remainingMs = worNextWorkDelayMs();
+    if (remainingMs == 0U) break;
+    // Alarm A is second-granular. Include the current fraction and round UP:
+    // a 100-s deadline entered at xx.750 must not wake 750 ms too early.
+    const uint32_t fraction = static_cast<uint32_t>(worRtcMilliseconds() % 1000ULL);
+    const uint32_t workEpoch = now + (fraction + remainingMs + 999U) / 1000U;
+    if (alarmEpoch > workEpoch) alarmEpoch = workEpoch;
+#else
     if (alarmEpoch > g_worNextReportEpoch) alarmEpoch = g_worNextReportEpoch;
+#endif
     const uint32_t storageDeadline = TelemetryArchive::expiry();
     if (storageDeadline > now && storageDeadline < alarmEpoch) alarmEpoch = storageDeadline;
     // Preserve all edges after the receive baseline, including heartbeat gaps.
@@ -289,6 +368,10 @@ void runLoraWorStopCycle()
       exitReason = "STORAGE_BUSY";
       break;
     }
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    const uint64_t rtcBeforeStop = worRtcMilliseconds();
+    const uint32_t tickBeforeStop = millis();
+#endif
     HAL_SuspendTick();
     SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
     // Close the check-to-WFI race: a pending wake/RTC IRQ must prevent a lost
@@ -315,6 +398,14 @@ void runLoraWorStopCycle()
     HAL_ResumeTick();
     __enable_irq();
     TelemetryArchive::resume();
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    if (stopCalled && !accountWorStoppedTime(rtcBeforeStop, tickBeforeStop))
+    {
+      failed = true;
+      exitReason = "RTC_CLOCK_DISCONTINUITY";
+      break;
+    }
+#endif
     if (g_worWireInterrupt || digitalRead(kWorWakePin) == LOW ||
         SerialLoRa.available() > 0)
     {
@@ -373,8 +464,14 @@ void runLoraWorStopCycle()
   else
   {
     g_worCommandWindow = false;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    // Age accounting made only the due application task(s) eligible. Preserve
+    // their phase and let the main loop service commands before normal work.
+    SerialMon.println("Power: SRATE/STRAN deadline woke STM32; run only due work");
+#else
     scheduleFreshSensorCycle();
     SerialMon.println("Power: RTC report deadline woke STM32");
+#endif
   }
 }
 #endif
@@ -937,9 +1034,13 @@ void initializePowerManagerAfterSetup()
   g_lastRemotePollMs = millis();
   scheduleFreshSensorCycle();
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+  SerialMon.print("Power: WOR follows independent SRATE/STRAN; APP_POWER_SLEEP_SECONDS ignored; IWDG RTC heartbeat=");
+#else
   SerialMon.print("Power: RTC report interval=");
   SerialMon.print(AppConfig::kPowerSleepSeconds);
   SerialMon.print(" s, IWDG RTC heartbeat=");
+#endif
   SerialMon.print(AppConfig::kLoraWorWatchdogWakeSeconds);
   SerialMon.println(" s; gateway must enable Mode-1 wake probe");
   SerialMon.print("Power: WOR wake source=");
@@ -948,6 +1049,9 @@ void initializePowerManagerAfterSetup()
   initializeRtc();
   scheduleFreshSensorCycle();
   g_worCommandWindow = false;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+  g_worSensorCycleActive = false;
+#endif
 #else
   SerialMon.println("Power mode: NORMAL (continuous operation; Standby disabled)");
   if (g_stalePeriodicRequestCleared)
@@ -961,6 +1065,8 @@ void notifyPowerManagerSensorCycle(bool active)
 {
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   g_remoteSensorCycleActive = active;
+#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR && APP_LORA_WOR_USE_APP_SCHEDULE
+  g_worSensorCycleActive = active;
 #else
   (void)active;
 #endif
@@ -980,7 +1086,12 @@ bool powerManagerAllowsSensorWork()
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
   return g_remoteWakeCycle.active();
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+  // The receive window delays Stop, never independent application deadlines.
+  return true;
+#else
   return queuedWakeActive() || !g_worCommandWindow;
+#endif
 #else
   return true;
 #endif
@@ -1020,11 +1131,21 @@ void notifyPowerManagerTelemetryResult(bool delivered)
   {
     g_worCommandWindow = true;
     g_worWindowStartedMs = millis();
+#if !APP_LORA_WOR_USE_APP_SCHEDULE
     const uint32_t now = getEpochTime();
     g_worNextReportEpoch = now + AppConfig::kPowerSleepSeconds;
+#endif
     SerialMon.println("Power: report delivered; LoRa command window opened");
   }
-  else SerialMon.println("Power: report failed; staying awake for retry");
+  else
+  {
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    g_worCommandWindow = false;
+    SerialMon.println("Power: report failed; retry at next STRAN deadline");
+#else
+    SerialMon.println("Power: report failed; staying awake for retry");
+#endif
+  }
 #else
   (void)delivered;
 #endif
@@ -1064,9 +1185,18 @@ void servicePowerManager()
   }
 #elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
   if (TelemetryArchive::blocking()) return;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+  // Uncommissioned RTC stays awake. Repeated loop passes must not spam Stop
+  // preparation/logging before a server STIME establishes trusted time.
+  if (!isRtcTrusted() || g_worSensorCycleActive || queuedWakeActive() ||
+      worNextWorkDelayMs() == 0U || !isLoraIdleForPowerDown()) return;
+  if (g_worCommandWindow &&
+      millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs) return;
+#else
   if (!g_worCommandWindow || queuedWakeActive() ||
       millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs ||
       !isLoraIdleForPowerDown()) return;
+#endif
   runLoraWorStopCycle();
 #elif APP_CONTROLLER_USES_STANDBY
 #if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED

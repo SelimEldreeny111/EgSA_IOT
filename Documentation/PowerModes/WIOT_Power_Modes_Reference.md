@@ -188,12 +188,14 @@ This profile combines STM32 Stop with a LoRa radio that periodically listens for
 
 ### Node sequence
 
-1. Acquire fresh readings and send the scheduled report through the gateway.
-2. On successful delivery, open the LoRa command window (default 5 seconds). Set the next report RTC deadline to the delivery-time epoch plus `APP_POWER_SLEEP_SECONDS`.
-3. With a trusted RTC, no active WAKE lease and an idle transport, switch LoRa to Mode 2: M0=0, M1=1. End the UART and attach the AUX falling-edge interrupt on PC13.
-4. Suspend SysTick and enter STM32 Stop with the low-power regulator. RAM is retained. RTC heartbeat alarms occur no later than every 8 seconds by default, or sooner at the report deadline.
-5. After each wake, restore board clocks and the tick before communication. A healthy RTC heartbeat services the watchdog in foreground and returns to Stop; it does not automatically acquire all sensors or upload another Status.
-6. LoRa AUX activity restores Mode 0 and opens a receive window for the following command. The scheduled report deadline instead starts a fresh sensor/report cycle. A received WAKE lease postpones further Stop entry.
+1. Acquire and report once at boot. The default `APP_LORA_WOR_USE_APP_SCHEDULE=true` then follows independent SRATE and STRAN deadlines; a sample-only wake does not force a report, and a report-only wake does not force a new sensor read.
+2. Successful delivery opens the LoRa command window (default 5 seconds). It postpones Stop, while due application work remains allowed. The legacy false policy instead sets a combined cycle deadline from `APP_POWER_SLEEP_SECONDS`.
+3. With a trusted RTC, no pending application/storage/radio work and no active WAKE lease, switch LoRa to Mode 2: M0=0, M1=1. Keep the UART enabled and attach the selected falling-edge wake input; UART RX PA12 is the current default and AUX PC13 remains readiness.
+4. Suspend SysTick and enter STM32 Stop. RAM is retained. RTC alarms choose the earliest application deadline, flash retention deadline or watchdog heartbeat (15 seconds by default).
+5. Restore board clocks and the tick after each wake. In schedule-driven WOR, age read/send timestamps by RTC time missing from SysTick; leave global Arduino time unchanged. A healthy heartbeat services the watchdog in foreground and returns to Stop without a sensor read or Status upload.
+6. Radio/UART activity restores Mode 0 and opens a receive window for the following command. An application deadline restores Mode 0 and allows only the due task(s); it does not reset both scheduling clocks. A received WAKE lease postpones further Stop entry.
+
+See the [WOR independent schedule and bench guide](../../Node/IoT_Node_Encrypted/LORA_WOR_APP_SCHEDULE_GUIDE.md). In the true policy, even `APP_POWER_SLEEP_SECONDS=20` cannot force readings/reports before SRATE/STRAN. The preceding detailed PDF is a dated reference; this source and the new guide include the scheduling update.
 
 ### Required gateway behavior
 
@@ -203,9 +205,9 @@ The gateway remains awake with its IP modem normal. Use matching LoRa channel, a
 
 ### Hardware and watchdog requirements
 
-- M0 = PB2, M1 = PB1, AUX = PC13. AUX must really reach the MCU and provide the expected interrupt edge.
-- The default heartbeat is 8 seconds. The actual guard requires the WDT timeout to be greater than heartbeat + 2 seconds (an exact 2-second margin is rejected). The default WDT is now 30 seconds.
-- AUX/RTC interrupt handlers set flags; they do not feed the watchdog. Foreground progress after a normal heartbeat does.
+- M0 = PB2, M1 = PB1, AUX = PC13. UART RX PA12 is the default wake source; AUX remains connected for readiness. AUX interrupt wake is an explicitly selectable alternative.
+- The default heartbeat is 15 seconds. The actual guard requires the WDT timeout to be greater than heartbeat + 2 seconds (an exact 2-second margin is rejected). The default WDT is 30 seconds.
+- Wake-input/RTC interrupt handlers set flags; they do not feed the watchdog. Foreground progress after a normal heartbeat does.
 - Failed Mode 2 preparation or unexpected wake/Mode 0 restoration failure aborts Stop and recovers in active mode instead of claiming that a sleeping node is reachable.
 
 **Result:** this is the implemented profile offering controller Stop plus radio-assisted early command wake. It avoids full reboot on a normal wake, but still has RF duty-cycle, wake-probe and command-delivery latency. Every deployment needs a real-radio bench test.
@@ -218,11 +220,12 @@ These are current source defaults, not forced changes to the user's configuratio
 
 | Macro | Default | Valid range | Purpose |
 | --- | --- | --- | --- |
-| APP_POWER_SLEEP_SECONDS | 300 s | 5..604800 s | Standby request interval; REMOTE_WAKE idle interval; WOR report deadline interval |
+| APP_POWER_SLEEP_SECONDS | 120 s | 5..604800 s | Standby / legacy remote interval; combined WOR cycle only when its app-schedule switch is false; user deployment overrides may differ |
 | APP_POWER_COMMAND_WINDOW_MS | 5000 ms | 0..60000 ms | RTC_PERIODIC and REMOTE_WAKE post-send window |
 | APP_QUEUED_COMMAND_WINDOW_MS | 20000 ms | 5000..60000 ms | RTC_QUEUED post-send window |
 | APP_LORA_WOR_COMMAND_WINDOW_MS | 5000 ms | 1000..60000 ms | WOR post-send / radio-wake receive window |
-| APP_LORA_WOR_WATCHDOG_WAKE_SECONDS | 8 s | 2..15 s | Stop-mode RTC watchdog heartbeat; also needs WDT margin |
+| APP_LORA_WOR_WATCHDOG_WAKE_SECONDS | 15 s | 2..15 s | Stop-mode RTC watchdog heartbeat; also needs WDT margin |
+| APP_LORA_WOR_USE_APP_SCHEDULE | true | true / false | Independent SRATE/STRAN WOR scheduling; false selects the previous fixed combined cycle |
 | APP_POWER_SLEEP_ENTRY_TIMEOUT_MS | 1000 ms | 100..5000 ms | Requested radio-idle / preparation bound; not a cap on every internal AT call |
 | APP_REMOTE_WAKE_DEFAULT_SECONDS | 60 s | 1..86400 s | Lease when WAKE data is 0 |
 | APP_REMOTE_WAKE_POLL_INTERVAL_MS | 100 ms | 10..1000 ms | Reachable-idle scheduled communication service |

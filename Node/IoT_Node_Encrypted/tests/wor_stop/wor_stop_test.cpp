@@ -14,15 +14,16 @@ STM32RTC& rtc=rtcInstance;
 AppRuntimeState state;
 std::string scenario;
 uint32_t fakeExtiPending=0U, nowMs=0U, epoch=1800000000U, alarmEpoch=0U, primask=0U;
+uint32_t rtcSubMs=0U;
 unsigned stopCalls=0U, clockRestores=0U, restores=0U, reinitializations=0U;
 bool auxHigh=true, trusted=true, alarmHealthy=true, prepareHealthy=true;
 bool restoreHealthy=true, idle=true, tickSuspended=false, injected=false;
 bool fakeRtcWritable=false;
 bool flashAsleep=false;
 namespace TelemetryArchive {
-bool blocking(){return scenario=="storage_busy"||scenario=="storage_transfer";}
+bool blocking(){return scenario=="storage_busy"||scenario=="storage_transfer"||scenario=="app_storage_busy";}
 bool transferring(){return scenario=="storage_transfer";}
-uint32_t expiry(){return scenario=="storage_deadline"?1800000020U:0U;}
+uint32_t expiry(){return scenario=="storage_deadline"||scenario=="app_storage_deadline"?1800000020U:0U;}
 bool maintenanceDue(uint32_t now){return expiry()&&now>=expiry();}
 bool prepareSleep(){if(scenario=="storage_sleep_failure")return false;flashAsleep=true;return true;}
 void resume(){flashAsleep=false;}
@@ -40,6 +41,10 @@ RTC_HandleTypeDef* STM32RTC::getHandle() {
   static RTC_HandleTypeDef handle;
   handle.Instance=RTC;
   return scenario=="rtc_handle_failure" ? nullptr : &handle;
+}
+uint32_t STM32RTC::getEpoch(uint32_t* fraction) {
+  if (fraction) *fraction=rtcSubMs;
+  return epoch;
 }
 
 void injectEdge() {
@@ -98,7 +103,13 @@ void HAL_SuspendTick() {
   tickSuspended=true;
   if (scenario=="edge_before_wfi") injectEdge();
 }
-void HAL_ResumeTick() { tickSuspended=false; }
+void HAL_ResumeTick() {
+  tickSuspended=false;
+  if (scenario=="app_active_ticks") {
+    nowMs+=10U;rtcSubMs+=10U;
+    if(rtcSubMs>=1000U){++epoch;rtcSubMs-=1000U;}
+  }
+}
 void HAL_PWR_EnableBkUpAccess() { PWR->CR |= PWR_CR_DBP; }
 void HAL_PWR_DisableBkUpAccess() { PWR->CR &= ~PWR_CR_DBP; }
 uint32_t HAL_RTCEx_BKUPRead(RTC_HandleTypeDef*, uint32_t) { return 0U; }
@@ -137,13 +148,17 @@ void HAL_PWR_EnterSTOPMode(uint32_t, uint32_t) {
   assert(tickSuspended && primask==1U);
   assert(SerialMon.flushes>stopCalls); // Drain debug TX before each Stop attempt.
   ++stopCalls;
-  if (scenario=="aux_after_stop") {
+  if (scenario=="aux_after_stop" || scenario=="app_command_wake") {
     epoch+=2U;
     assert(auxCallback); injectEdge(); // Short pulse: physical AUX is HIGH again.
   } else if (scenario=="uart_after_stop") {
     epoch+=2U; SerialLoRa.rxBytes=12;
+  } else if (scenario=="app_rtc_backward") {
+    --epoch;
+    assert(rtc.callback); rtc.callback(nullptr);
   } else if (scenario!="unexpected_wake") {
     epoch=alarmEpoch;
+    rtcSubMs=0U;
     assert(rtc.callback); rtc.callback(nullptr);
   }
 }
@@ -152,6 +167,114 @@ void requireLog(const std::string& part) {
     std::cerr << "Missing: " << part << '\n' << SerialMon.output.str(); assert(false);
   }
 }
+
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+/** @brief Advance foreground time without suspending SysTick. */
+void activeTime(uint32_t ms) {
+  nowMs+=ms;
+  const uint64_t rtcMs=uint64_t(rtcSubMs)+ms;
+  epoch+=uint32_t(rtcMs/1000U);rtcSubMs=uint32_t(rtcMs%1000U);
+}
+bool sampleDue(){return nowMs-state.lastReadMs>=state.samplingPeriodMs;}
+bool reportDue(){return nowMs-state.lastSendMs>=state.transmissionPeriodMs;}
+
+/** @brief Exercise production Stop against independent application deadlines. */
+void applicationScheduleTest() {
+  constexpr uint32_t startEpoch=1800000000U;
+  initializePowerManagerAfterSetup();
+  requireLog("WOR follows independent SRATE/STRAN");
+  // Model the ordinary sketch consuming its initial boot sample/report.
+  state.samplingPeriodMs=100000U;state.transmissionPeriodMs=300000U;
+  state.lastReadMs=state.lastSendMs=nowMs;
+  notifyPowerManagerTelemetryResult(true);
+  assert(powerManagerAllowsSensorWork()); // Receive windows never block due work.
+  activeTime(10000U); // Well beyond command window; no work is yet due.
+
+  if(scenario=="app_transmission_only" || scenario=="app_failed_report") {
+    state.samplingPeriodMs=300000U;state.transmissionPeriodMs=100000U;
+  } else if(scenario=="app_rate_increase") {
+    state.samplingPeriodMs=300000U;state.transmissionPeriodMs=400000U;
+  } else if(scenario=="app_rate_decrease") {
+    activeTime(30000U);
+    state.samplingPeriodMs=30000U; // Changing SRATE does not reset elapsed age.
+    const auto before=state.lastReadMs;
+    servicePowerManager();assert(stopCalls==0U&&sampleDue()&&!reportDue());
+    assert(state.lastReadMs==before);return;
+  } else if(scenario=="app_partial_cycle") {
+    notifyPowerManagerSensorCycle(true);servicePowerManager();assert(stopCalls==0U);
+    notifyPowerManagerSensorCycle(false); // No successful report required to sleep.
+  } else if(scenario=="app_window_deadline") {
+    state.samplingPeriodMs=11000U;
+    notifyPowerManagerTelemetryResult(true); // New window opens at t=10 s.
+    activeTime(1000U);
+    assert(powerManagerAllowsSensorWork());
+    servicePowerManager();assert(stopCalls==0U&&sampleDue()&&!reportDue());return;
+  } else if(scenario=="app_millis_wrap") {
+    nowMs=UINT32_MAX-5000U;
+    state.lastReadMs=state.lastSendMs=nowMs-10000U;
+    notifyPowerManagerTelemetryResult(true);
+    activeTime(6000U); // Core tick rolls over while awake, then Stop must age it.
+  } else if(scenario=="app_rtc_sync") {
+    epoch+=3600U; // An awake STIME update must not consume an hour of SRATE.
+  } else if(scenario=="app_rtc_sync_back") {
+    epoch-=3600U;
+  } else if(scenario=="app_fractional_stop") {
+    rtcSubMs=750U;
+  } else if(scenario=="app_untrusted") {
+    trusted=false;
+    servicePowerManager();assert(stopCalls==0U);return;
+  }
+  const uint32_t readAge=nowMs-state.lastReadMs,sendAge=nowMs-state.lastSendMs;
+  const uint32_t readBefore=state.lastReadMs,sendBefore=state.lastSendMs;
+  servicePowerManager();
+  if(scenario=="app_storage_busy") {
+    assert(stopCalls==0U&&state.lastReadMs==readBefore&&state.lastSendMs==sendBefore);return;
+  }
+  if(scenario=="app_command_wake") {
+    assert(stopCalls==1U&&!sampleDue()&&!reportDue());
+    assert(nowMs-state.lastReadMs==readAge+2000U&&nowMs-state.lastSendMs==sendAge+2000U);
+    requireLog("reason=WAKE_EDGE_AFTER_STOP");return;
+  }
+  if(scenario=="app_rtc_backward") {
+    assert(stopCalls==1U&&state.lastReadMs==readBefore&&state.lastSendMs==sendBefore);
+    requireLog("reason=RTC_CLOCK_DISCONTINUITY");return;
+  }
+  if(scenario=="app_storage_deadline") {
+    assert(epoch==startEpoch+20U&&!sampleDue()&&!reportDue());
+    assert(nowMs-state.lastReadMs==20000U);
+    requireLog("reason=STORAGE_MAINTENANCE");return;
+  }
+  requireLog("reason=APPLICATION_DEADLINE");
+  requireLog("run only due work");
+  if(scenario=="app_transmission_only" || scenario=="app_failed_report") {
+    assert(!sampleDue()&&reportDue());
+    assert(epoch==startEpoch+100U);
+    // Reporting at t=100 must not sample early or move the t=300 sample.
+    state.lastSendMs=nowMs;notifyPowerManagerTelemetryResult(scenario!="app_failed_report");
+    if(scenario!="app_failed_report")activeTime(5000U);
+    servicePowerManager();
+    assert(epoch==startEpoch+200U&&!sampleDue()&&reportDue());return;
+  }
+  assert(sampleDue()&&!reportDue());
+  if(scenario=="app_rate_increase")assert(epoch==startEpoch+300U);
+  else if(scenario=="app_rtc_sync")assert(epoch==startEpoch+3700U);
+  else if(scenario=="app_rtc_sync_back")assert(epoch==startEpoch-3500U);
+  else if(scenario=="app_fractional_stop") {
+    assert(nowMs-state.lastReadMs>=100000U&&nowMs-state.lastReadMs<101000U);
+  } else if(scenario=="app_active_ticks") {
+    assert(nowMs-state.lastReadMs>=100000U&&nowMs-state.lastReadMs<101000U);
+  } else if(scenario=="app_millis_wrap") {
+    assert(nowMs-state.lastReadMs==100000U);
+  } else assert(epoch==startEpoch+100U); // Ignores fixed kPowerSleepSeconds=60.
+  if(scenario=="app_independent") {
+    // Sample-only wakes at t=100 and t=200, both tasks due together at t=300.
+    state.lastReadMs=nowMs;servicePowerManager();
+    assert(epoch==startEpoch+200U&&sampleDue()&&!reportDue());
+    state.lastReadMs=nowMs;servicePowerManager();
+    assert(epoch==startEpoch+300U&&sampleDue()&&reportDue());
+  }
+}
+#endif
 int main(int argc, char** argv) {
   assert(argc==2); scenario=argv[1];
   fakeRxPort.MODER = (2UL << 24) | (3UL << 20);
@@ -160,6 +283,13 @@ int main(int argc, char** argv) {
   fakeRxPort.AFR[1] = 0xA00800BBU;
   if (scenario=="rx_mode_invalid") fakeRxPort.MODER &= ~(3UL << 24);
   const uint32_t originalMode=fakeRxPort.MODER;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+  assert(scenario.compare(0,4,"app_")==0);
+  applicationScheduleTest();
+  assert(fakeRxPort.MODER==originalMode&&primask==0U&&!tickSuspended&&!flashAsleep);
+  std::cout << "PASS " << (rxWake?"RX ":"AUX ") << scenario << '\n';
+  return 0;
+#endif
   initializePowerManagerAfterSetup();
   const uint32_t originalReadMs=state.lastReadMs;
   if (scenario=="untrusted") trusted=false;

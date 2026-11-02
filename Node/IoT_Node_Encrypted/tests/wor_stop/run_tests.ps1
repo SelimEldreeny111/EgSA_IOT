@@ -17,6 +17,7 @@ try {
         'rx_during_prepare','low_during_prepare','edge_after_arm','storage_busy','storage_deadline','storage_sleep_failure','storage_transfer',
         'edge_after_baseline_clear','low_after_baseline_clear','uart_during_alarm')
     $worCount = 0
+    $worScheduleCount = 0
     foreach ($worSource in @(0,1)) {
         & $worCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' `
             "-DAPP_LORA_WOR_WAKE_SOURCE=$worSource" `
@@ -31,6 +32,21 @@ try {
             if ($LASTEXITCODE -ne 0) { throw "WOR source $worSource scenario failed: $worScenario" }
             $worCount++
         }
+        & $worCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' `
+            "-DAPP_LORA_WOR_WAKE_SOURCE=$worSource" '-DAPP_LORA_WOR_USE_APP_SCHEDULE=true' `
+            '-I' $worFakes '-include' (Join-Path $worFakes 'TestAppConfig.h') `
+            (Join-Path $worNodeRoot 'src/power/PowerManager.cpp') `
+            (Join-Path $PSScriptRoot 'wor_stop_test.cpp') '-o' $worExecutable
+        if ($LASTEXITCODE -ne 0) { throw 'Schedule-driven WOR host build failed' }
+        foreach ($worScenario in @('app_independent','app_transmission_only','app_failed_report','app_rate_increase',
+            'app_rate_decrease','app_partial_cycle','app_window_deadline','app_millis_wrap',
+            'app_rtc_sync','app_rtc_sync_back','app_fractional_stop','app_active_ticks','app_command_wake','app_storage_deadline',
+            'app_storage_busy','app_rtc_backward','app_untrusted')) {
+            & $worExecutable $worScenario
+            if ($LASTEXITCODE -ne 0) { throw "WOR schedule source $worSource scenario failed: $worScenario" }
+            $worScheduleCount++
+        }
     }
     Write-Host "$worCount production WOR scenarios passed across AUX and UART_RX."
+    Write-Host "$worScheduleCount schedule-driven WOR scenarios passed across AUX and UART_RX."
 } finally { $env:PATH = $worOriginalPath }

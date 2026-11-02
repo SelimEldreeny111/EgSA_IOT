@@ -1,5 +1,11 @@
 # LoRa WOR arming and wake diagnostics
 
+**2 November 2026 scheduling update:** the default WOR policy now follows
+independent SRATE/STRAN deadlines. See the [current scheduling and bench
+guide](LORA_WOR_APP_SCHEDULE_GUIDE.md). The fixed APP_POWER_SLEEP_SECONDS timing
+in the older diagnostic examples below applies only with
+`APP_LORA_WOR_USE_APP_SCHEDULE=false`.
+
 **29 October 2026: the default WOR wake input is now UART_RX (PA12 on a sensor
 node).** Use [the RX wake guide](LORA_WOR_RX_WAKE_GUIDE.md) for the active
 configuration, new wake_source/wake_irq diagnostics and bench tests. The

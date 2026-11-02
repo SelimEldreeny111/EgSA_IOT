@@ -9,6 +9,9 @@ $wakeConfigDefaults = @{
     APP_REMOTE_WAKE_DEFAULT_SECONDS = '60UL'; APP_REMOTE_WAKE_POLL_INTERVAL_MS = '100UL'
 }
 $wakeConfigCases = @(
+    @{Name='wor-app-schedule'; Modem='USE_SIM800'; Defines=@{APP_ROLE='1';APP_UPLINK='2';APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_LORA_WOR_USE_APP_SCHEDULE='true'}; Error=$null},
+    @{Name='wor-legacy-cycle'; Modem='USE_SIM800'; Defines=@{APP_ROLE='1';APP_UPLINK='2';APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_LORA_WOR_USE_APP_SCHEDULE='false'}; Error=$null},
+    @{Name='reject-invalid-wor-schedule'; Modem='USE_SIM800'; Defines=@{APP_LORA_WOR_USE_APP_SCHEDULE='2'}; Error='APP_LORA_WOR_USE_APP_SCHEDULE must'},
     @{Name='remote-app-schedule'; Modem='USE_SIM800'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_REMOTE_WAKE_USE_APP_SCHEDULE='true'}; Error=$null},
     @{Name='remote-legacy-cycle'; Modem='USE_ESP8266'; Defines=@{APP_CONTROLLER_POWER_MODE='2';APP_REMOTE_WAKE_USE_APP_SCHEDULE='false'}; Error=$null},
     @{Name='reject-invalid-remote-schedule'; Modem='USE_SIM800'; Defines=@{APP_REMOTE_WAKE_USE_APP_SCHEDULE='2'}; Error='APP_REMOTE_WAKE_USE_APP_SCHEDULE must'},
@@ -70,10 +73,11 @@ try {
     if ($LASTEXITCODE -ne 0 -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_WATCHDOG_TIMEOUT_US 30000000UL\s*$' -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_NETWORK_RETRIES_PER_STAGE 10U\s*$' -or
+        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_LORA_WOR_USE_APP_SCHEDULE true\s*$' -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_LORA_WOR_WAKE_SOURCE APP_LORA_WOR_WAKE_SOURCE_UART_RX\s*$') {
-        throw 'Expected production defaults: 30-second watchdog, 10 retries and UART_RX WOR wake'
+        throw 'Expected production defaults: 30-second watchdog, 10 retries, UART_RX WOR wake and app scheduling'
     }
-    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10; WOR UART_RX wake'
+    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10; WOR UART_RX wake and app scheduling'
     foreach ($wakeConfigCase in $wakeConfigCases) {
         $wakeConfigDefines = $wakeConfigDefaults.Clone()
         foreach ($wakeConfigName in $wakeConfigCase.Defines.Keys) {
