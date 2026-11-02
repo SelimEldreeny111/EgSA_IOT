@@ -11,6 +11,15 @@ or internet connection. Use the [34-page printable reference](output/pdf/WIOT_Pr
 for review or printing at A3 landscape. Its index and bookmarks jump to each
 chart. Both editions contain the same **30 flowcharts**.
 
+An [editable PowerPoint edition](output/pptx/WIOT_Project_Flowcharts_Editable.pptx)
+contains all 30 flows in a 38-slide deck, with an index, symbol guide and four
+editable command/power tables. Nodes, their text and routed arrows are native
+PowerPoint objects. Detailed notes and code references are in Speaker Notes.
+Use **Shape Format > Edit Shape > Edit Points** to adjust arrow routes. After
+moving a node, adjust its incoming/outgoing arrow endpoints separately.
+See [PowerPoint build and verification](PPTX_VERIFICATION.md) for regeneration
+and the checks performed.
+
 ## Chart catalog
 
 | ID | Flow |
