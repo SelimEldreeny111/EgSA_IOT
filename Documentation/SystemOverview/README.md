@@ -1,6 +1,22 @@
 # WIOT system overview
 
-Two views of the current Arduino STM32 system, prepared on 2 November 2026.
+## Simple overview v2.0 - recommended for presentations
+
+Use this edition to explain the project to a general audience. One page contains five stages: **Sensors -> STM32 node -> Connection -> Python server -> Dashboard**. A single purple return path explains commands. Four supporting services summarize measurement/time handling, flash storage, automatic recovery and power management.
+
+- [Editable PowerPoint v2.0](output/WIOT_Software_Overview_Simple_v2.0.pptx): simple overview on slide 1 and the existing realistic system illustration on slide 2.
+- [Large simple overview PNG](output/WIOT_Software_Overview_Simple_v2.0.png): 6400 x 3600 pixels.
+- [Simple overview SVG](output/WIOT_Software_Overview_Simple_v2.0.svg): vector text, shapes and icons.
+
+Main-stage text uses plain language. Protocol details, power-mode limits, sensor-total distinctions and source references are retained in slide 1 Speaker Notes. The Connection stage groups the selected link, optional LoRa gateway and MQTT exchange. The purple line is a conceptual command route through the server and the same connection, rather than a direct physical browser-to-node link.
+
+Blocks, text, icons and arrows are native editable PowerPoint objects. Select them by name in the Selection Pane; use Edit Points for routed arrows and adjust endpoints after moving blocks. The second slide remains an embedded representative illustration.
+
+Regenerate using `build_simple_overview.mjs`, `prepare_simple_overview.py patch`, `build_simple_overview.mjs --finalize`, `prepare_simple_overview.py verify`, and `check_simple_overview.ps1 -EditSmokeTest`, with the runtime configuration described below. Set `WIOT_SIMPLE_PPTX` to a new filename for a later revision. Actual verification is recorded in [SIMPLE_OVERVIEW_VERIFICATION.md](SIMPLE_OVERVIEW_VERIFICATION.md).
+
+## Detailed architecture v1.0
+
+The earlier detailed edition remains available as an engineering reference. It is not the recommended opening view for a general audience. Both editions describe the same Arduino STM32 architecture, prepared on 2 November 2026.
 
 - [Editable PowerPoint](output/WIOT_System_Architecture_Overview_v1.0.pptx): slide 1 is one large architecture flowchart; slide 2 is the deployment illustration.
 - [Large flowchart PNG](output/WIOT_Software_Architecture.png): 6400 x 3600, suitable for zooming or insertion in a document.
