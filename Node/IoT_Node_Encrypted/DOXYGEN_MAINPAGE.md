@@ -11,6 +11,8 @@ configuration files are intentionally excluded.
 Diagnostics use the compile-time `APP_ENABLE_DEBUG` switch at the beginning of
 `AppConfig.h`. `DebugLog.h` prefixes foreground output with active ticks,
 severity and module; disabling it removes diagnostic calls and their arguments.
+With the master enabled, `APP_DEBUG_LITE=true` selects compact command/telemetry
+events and critical errors; false selects full diagnostics. Raw bytes require FULL.
 Protocol UARTs and command replies remain active. See
 [Debug logging configuration and bench checks](DEBUG_LOGGING_GUIDE.md).
 

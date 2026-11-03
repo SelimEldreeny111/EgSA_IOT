@@ -254,7 +254,7 @@ bool saveConnectedWifiAsFallback(const char* source, const char* ssid, const cha
 /** @brief Read a bounded serial-console line while keeping the watchdog alive. */
 bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool allowEmpty)
 {
-#if APP_ENABLE_DEBUG
+#if APP_DEBUG_FULL_ENABLED
     if (buffer == nullptr || bufferSize == 0)
     {
         return false;
@@ -296,7 +296,7 @@ bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool al
 /** @brief Prompt for an SSID and optional password after automatic networks fail. */
 bool promptForWifiCredentials(char* ssid, size_t ssidSize, char* password, size_t passwordSize)
 {
-#if APP_ENABLE_DEBUG
+#if APP_DEBUG_FULL_ENABLED
     APP_DEBUG_PRINTLN();
     APP_DEBUG_PRINTLN("Configured and saved fallback WiFi networks are not connected.");
     APP_DEBUG_PRINTLN("Enter new fallback WiFi credentials in the serial monitor.");
@@ -455,8 +455,9 @@ void setup_Init()
     AppRuntimeState& state = appState();
 
     APP_DEBUG_BEGIN(115200);
-    APP_LOG_INFO("boot role=SENSOR node=%u topics=%s debug=enabled raw_frames=%u command_ack=%u",
-        AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
+    APP_LOG_EVENT("boot role=SENSOR node=%u topics=%s debug=%s raw_frames=%u command_ack=%u",
+        AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_LITE ? "LITE" : "FULL",
+        APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
     watchdogDelay(1000);
     reportHardwareWatchdogStatus();
     serviceHardwareWatchdog(WatchdogStage::Setup);

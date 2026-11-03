@@ -18,7 +18,7 @@
 
 #include "../config/AppConfig.h"
 // The application master switch also suppresses optional TinyGSM tracing.
-#if !APP_ENABLE_DEBUG
+#if !APP_DEBUG_FULL_ENABLED
 #undef TINY_GSM_DEBUG
 #undef DUMP_AT_COMMANDS
 #endif

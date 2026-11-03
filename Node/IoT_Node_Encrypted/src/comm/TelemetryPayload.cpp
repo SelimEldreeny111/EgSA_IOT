@@ -46,7 +46,7 @@ bool buildEncryptedStatusPayload(uint8_t* payload, size_t payloadCapacity, size_
     return false;
   }
 
-  APP_LOG_INFO("status_ready node=%u epoch=%lu sequence=%lu source=%s time_valid=%u sensor_mask=0x%X bytes=%lu valve=%u wdt_resets=%lu power_resets=%lu",
+  APP_LOG_EVENT("status_ready node=%u epoch=%lu sequence=%lu source=%s time_valid=%u sensor_mask=0x%X bytes=%lu valve=%u wdt_resets=%lu power_resets=%lu",
       AppConfig::kNodeId, static_cast<unsigned long>(status.timestamp),
       static_cast<unsigned long>(status.sample_sequence),
       status.stored_sample ? "flash_committed" : "live", status.sample_time_valid,

@@ -32,11 +32,11 @@ bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   if (cmd.cmd_id != CMD_REMOTE_WAKE ||
       (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId))
   {
-    APP_LOG_WARN("WAKE rejected: command/node mismatch");
+    APP_LOG_EVENT_WARN("WAKE rejected: command/node mismatch");
     return false;
   }
   const bool accepted = requestRemoteWake(cmd.cmd_data, cmd.request_id);
-  APP_LOG_INFO("result request=%lu command=WAKE hold_seconds=%s outcome=%s",
+  APP_LOG_EVENT("result request=%lu command=WAKE hold_seconds=%s outcome=%s",
       static_cast<unsigned long>(cmd.request_id), WiotDebug::Decimal64(cmd.cmd_data).text,
       accepted ? "accepted" : "rejected");
   return accepted;
@@ -47,7 +47,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   AppRuntimeState& state = appState();
   bool applied = false;
 
-  APP_LOG_INFO("received request=%lu command=%s(%lu) target=%lu local=%u scope=%s data=%s",
+  APP_LOG_EVENT("received request=%lu command=%s(%lu) target=%lu local=%u scope=%s data=%s",
       static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
       static_cast<unsigned long>(cmd.cmd_id), static_cast<unsigned long>(cmd.node_id),
       AppConfig::kNodeId, isBroadcastTopic ? "broadcast" : "direct",
@@ -62,7 +62,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 
   if (TelemetryArchive::command(cmd.cmd_id)) {
     const bool accepted = TelemetryArchive::handle(cmd, isBroadcastTopic);
-    APP_LOG_INFO("result request=%lu command=%s outcome=%s",
+    APP_LOG_EVENT("result request=%lu command=%s outcome=%s",
         static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
         accepted ? "accepted" : "rejected");
     return accepted;
@@ -75,7 +75,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     APP_DEBUG_PRINTLN(match == CommandReplayCache::Duplicate
         ? "Duplicate command: reply with original result; no repeated effect"
         : "Command rejected: request ID reused for different intent");
-    APP_LOG_INFO("replay request=%lu match=%s original_result=%s",
+    APP_LOG_EVENT("replay request=%lu match=%s original_result=%s",
         static_cast<unsigned long>(cmd.request_id),
         match == CommandReplayCache::Duplicate ? "duplicate" : "conflicting_intent",
         applied ? "accepted" : "rejected");
@@ -145,7 +145,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 
       if (cmd.cmd_data > UINT32_MAX)
       {
-        APP_LOG_WARN("STIME rejected: epoch exceeds the 32-bit RTC range");
+        APP_LOG_EVENT_WARN("STIME rejected: epoch exceeds the 32-bit RTC range");
         break;
       }
       if (!syncRTCFromEpoch(static_cast<uint32_t>(cmd.cmd_data)))
@@ -179,7 +179,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     case CMD_CLEAR_WDT_RESETS:
     {
       if (isBroadcastTopic || cmd.cmd_data != 0U || cmd.request_id == 0U) {
-        APP_LOG_WARN("Counter clear rejected: direct node, data=0 and request_id required");
+        APP_LOG_EVENT_WARN("Counter clear rejected: direct node, data=0 and request_id required");
         break;
       }
       markHardwareWatchdogStage(WatchdogStage::ResetCounterStorage);
@@ -197,7 +197,7 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     }
   }
 
-  APP_LOG_INFO("result request=%lu command=%s outcome=%s srate_ms=%lu stran_ms=%lu valve=%u",
+  APP_LOG_EVENT("result request=%lu command=%s outcome=%s srate_ms=%lu stran_ms=%lu valve=%u",
       static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
       applied ? "applied" : "rejected", static_cast<unsigned long>(state.samplingPeriodMs),
       static_cast<unsigned long>(state.transmissionPeriodMs), state.nodeStatus);
@@ -246,7 +246,7 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload,
     return false;
   }
 
-  APP_LOG_INFO("reply_ready request=%lu command=%s result=%s epoch=%lu bytes=%lu sensor_mask=0x%X flash=%u history=%u",
+  APP_LOG_EVENT("reply_ready request=%lu command=%s result=%s epoch=%lu bytes=%lu sensor_mask=0x%X flash=%u history=%u",
       static_cast<unsigned long>(cmd ? cmd->request_id : 0U),
       cmd ? WiotDebug::commandName(cmd->cmd_id) : "GOSTM",
       tlm.command_ack_success ? "accepted" : "no_success_ack",

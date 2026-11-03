@@ -9,6 +9,10 @@ $wakeConfigDefaults = @{
     APP_REMOTE_WAKE_DEFAULT_SECONDS = '60UL'; APP_REMOTE_WAKE_POLL_INTERVAL_MS = '100UL'
 }
 $wakeConfigCases = @(
+    @{Name='debug-lite'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_DEBUG='true';APP_DEBUG_LITE='true'}; Error=$null},
+    @{Name='debug-full'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_DEBUG='true';APP_DEBUG_LITE='false'}; Error=$null},
+    @{Name='debug-lite-master-disabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_DEBUG='false';APP_DEBUG_LITE='true';APP_DEBUG_RAW_FRAMES='true'}; Error=$null},
+    @{Name='reject-debug-lite-switch'; Modem='USE_SIM800'; Defines=@{APP_DEBUG_LITE='2'}; Error='APP_DEBUG_LITE must'},
     @{Name='debug-enabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_DEBUG='true';APP_DEBUG_RAW_FRAMES='false'}; Error=$null},
     @{Name='debug-disabled'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_DEBUG='false'}; Error=$null},
     @{Name='debug-raw-master-disabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_DEBUG='false';APP_DEBUG_RAW_FRAMES='true'}; Error=$null},

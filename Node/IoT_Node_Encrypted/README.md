@@ -1,6 +1,8 @@
 # IoT Node Encrypted
 
-3 November update: [professional diagnostics, the launch debug switch and bench tests](DEBUG_LOGGING_GUIDE.md).
+3 November update: [OFF/LITE/FULL diagnostics and bench tests](DEBUG_LOGGING_GUIDE.md).
+`APP_ENABLE_DEBUG=true` plus `APP_DEBUG_LITE=true` selects compact command and
+telemetry logs. Set lite false for full detail, or the master false for silence.
 
 30 October update: [S25FL064L telemetry log, storage commands and 24-hour elapsed retention](SPI_FLASH_TELEMETRY_GUIDE.md), with [step-by-step acceptance tests](SPI_FLASH_TEST_PLAN.md). Update the LoRa gateway as well as nodes for larger storage replies.
 

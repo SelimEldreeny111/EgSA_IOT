@@ -5,27 +5,43 @@ for both sensor-node and LoRa-gateway roles.
 
 ## Choose testing or launch
 
+The firmware now has three choices: **OFF**, **LITE** and **FULL**. The current
+default is LITE. The original `APP_ENABLE_DEBUG` master switch is retained.
+
 The first configuration block in `src/config/AppConfig.h` contains:
 
 ```cpp
 #ifndef APP_ENABLE_DEBUG
 #define APP_ENABLE_DEBUG true
 #endif
+#ifndef APP_DEBUG_LITE
+#define APP_DEBUG_LITE true
+#endif
 #ifndef APP_DEBUG_RAW_FRAMES
 #define APP_DEBUG_RAW_FRAMES false
 #endif
 ```
 
-| Build | APP_ENABLE_DEBUG | APP_DEBUG_RAW_FRAMES | Result |
-|---|---|---|---|
-| Normal testing | `true` | `false` | Detailed events and readings; packet hex dumps omitted |
-| Radio/packet investigation | `true` | `true` | Events plus encrypted payload and radio wire hex dumps |
-| Launch | `false` | `false` | Diagnostic UART is not started; no diagnostic output or formatting |
-| Master disabled, raw selected | `false` | `true` | Still silent; the master switch takes priority |
+| Choice | APP_ENABLE_DEBUG | APP_DEBUG_LITE | APP_DEBUG_RAW_FRAMES | Result |
+|---|---|---|---|---|
+| OFF | `false` | either | either | Debug UART off; diagnostic calls/arguments removed |
+| LITE (default) | `true` | `true` | either | Compact important events and critical errors; raw dumps suppressed |
+| FULL | `true` | `false` | `false` | Detailed diagnostics, readings and transport/power activity |
+| FULL with raw bytes | `true` | `false` | `true` | Full diagnostics plus encrypted payload/radio hex dumps |
 
 Change the macro, compile and flash each affected STM32. A macro is a build-time
 setting; changing it in the editor does not change already flashed firmware.
-Both macros accept only `true`/`false` (or `1`/`0`). Defaults retain testing logs.
+All three macros accept only `true`/`false` (or `1`/`0`). Setting the master false
+always takes priority; selecting raw frames does not override OFF or LITE.
+
+LITE keeps a short startup/reset summary, command reception/results/rejections,
+telemetry preparation and send results, gateway command forwarding, flash-history
+transfer progress, and critical errors. The prefix and request IDs stay the same.
+It suppresses routine sensor readings, sample banners, LoRa fragment/ACK/retry
+detail, heartbeat counters, flash write/erase progress, power snapshots and packet
+hex. Excluded calls and arguments are compiled out, rather than formatted and
+discarded. A firmware fault or unavailable sensor can still produce error lines;
+LITE is not restricted to successful traffic.
 
 The debug port remains **PA2 TX / PA3 RX, 115200 baud, 8N1**. These are debug
 pins, separate from the LoRa, modem and RS485 protocol UARTs.
@@ -37,11 +53,11 @@ The application still services the watchdog, polls sensors, stores samples,
 accepts commands, transmits telemetry and enters its configured power mode.
 Faults and reset counters continue to be represented in normal telemetry.
 
-The serial Wi-Fi credential prompt is available only with debugging enabled.
-A silent launch uses configured Wi-Fi credentials first, then the saved flash
+The serial Wi-Fi credential prompt is available only in FULL mode.
+OFF and LITE use configured Wi-Fi credentials first, then the saved flash
 fallback, followed by the existing network recovery policy. It does not wait
 for input on an invisible serial console. The optional ESP firmware-version
-query (`AT+GMR`) is also skipped in a silent build. Actual AT communication,
+query (`AT+GMR`) is also skipped in OFF and LITE. Actual AT communication,
 LoRa configuration writes when enabled, and Modbus requests remain active.
 
 `APP_ENABLE_COMMAND_ACK_REPLIES` is independent. Setting debug false does not
@@ -64,6 +80,9 @@ measure wall time across Stop. It is not a UTC timestamp. It wraps with Arduino
 conditions, and `ERROR` identifies failed operations. Optional raw byte rows use
 `TRACE`. Related events carry identities such as node, request, message or
 sample sequence rather than relying on screen position.
+
+The following table describes FULL diagnostics; LITE keeps only the important
+events described above.
 
 | Module | Information |
 |---|---|
@@ -124,7 +143,7 @@ wire/encrypted frames; keep raw dumping off during routine timing measurements.
 
 ## Step-by-step bench check
 
-1. Build with debug true and raw frames false. Open the debug terminal before
+1. Build with debug true, lite false and raw frames false. Open the debug terminal before
    resetting the STM32. Confirm role/node/topic scope, reset counters, sensor
    addresses, power policy and watchdog configuration.
 2. Let one sample finish. Check each enabled sensor's validity and decoded
@@ -137,14 +156,20 @@ wire/encrypted frames; keep raw dumping off during routine timing measurements.
 4. For LoRa WOR, synchronize the RTC, set independent SRATE/STRAN deadlines
    with enough quiet time, and confirm Stop entry, command wake and scheduled
    work. The gateway must retain `APP_LORA_GATEWAY_WOR_TX=1` for WOR downlinks.
-5. If needed, temporarily enable raw frames, rebuild and inspect CRC/header
+5. Set debug true and lite true, then rebuild/flash. Confirm compact command,
+   telemetry and error events remain, without routine readings, heartbeats,
+   fragment traces or power snapshots. Send a command and verify its execution
+   and reply on the server. Temporarily selecting raw frames must still produce
+   no hex dumps in LITE. For packet investigation, select lite false and enable
+   raw frames, rebuild and inspect CRC/header
    errors or packet boundaries. Turn raw frames off after the investigation.
 6. Build with debug false and flash the same role/configuration. Confirm the
    debug terminal remains blank through reset, sampling, commands and wake.
    Confirm the server still receives Status, command replies, flash status and
    history. Compare actual current/timing on hardware; software builds alone
    do not establish a measured current saving.
-7. Re-enable debug true and rebuild when further troubleshooting is required.
+7. Select debug true/lite false for full troubleshooting, or debug true/lite
+   true for compact monitoring, then rebuild/flash.
 
 Do not erase flash, clear counters or actuate a valve merely to check logging.
 The read-only commands above are sufficient for basic verification.
@@ -157,11 +182,12 @@ a 256-byte stack formatting buffer and mark oversized text with `[truncated]`.
 Legacy numeric reading output uses Arduino's existing numeric formatting.
 There is no dynamically allocated log queue or logging task.
 
-Host checks in `tests/debug_logging/run_tests.py` exercise all four switch
-combinations, argument suppression, zero UART access when disabled, line framing
+Host checks in `tests/debug_logging/run_tests.py` exercise all eight switch
+combinations, argument suppression in LITE/OFF, zero UART access when disabled, line framing
 across modules, truncation, unsigned 64-bit argument formatting, absence of a
-debug string from the silent executable, output-call coverage, and identical
-LoRa fragment-ACK wire bytes with debugging on/off.
+full-debug string from LITE/OFF executables, output-call coverage, and identical
+LoRa fragment-ACK wire bytes in FULL/LITE/OFF. Thirty production MQTT tests
+exercise command priority, replies and failures in all three modes on SIM/Wi-Fi.
 
 Other regression suites cover command priority, RTC consumption, power modes,
 network retry/reset, sensors, valve control, flash journal/history and counters.

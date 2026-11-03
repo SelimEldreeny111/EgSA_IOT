@@ -116,6 +116,9 @@ void pollLoraCommands()
     }
     if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
     {
+      APP_LOG_EVENT("command_rx request=%lu command=%s target=%lu scope=%s",
+          static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+          static_cast<unsigned long>(cmd.node_id), isBroadcastCommand ? "broadcast" : "direct");
       if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
       {
         APP_DEBUG_PRINTLN("Telemetry request not for this LoRa node");
@@ -141,9 +144,8 @@ void pollLoraCommands()
               telemetryPayload,
               telemetryPayloadLength))
       {
-        APP_DEBUG_PRINT("Telemetry response sent by LoRa: ");
-        APP_DEBUG_PRINT(telemetryPayloadLength);
-        APP_DEBUG_PRINTLN(" bytes");
+        APP_LOG_EVENT("reply_tx request=%lu bytes=%lu local_acceptance=1 server_receipt=unconfirmed",
+            static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(telemetryPayloadLength));
       }
       else
       {
@@ -160,11 +162,14 @@ void pollLoraCommands()
       size_t ackLength = 0U;
       if (handleGetTelemetryCommand(&cmd, ackPayload, ackLength, applied))
       {
-        sendLoraFrame(
+        const bool sent = sendLoraFrame(
             LoraPayloadType::SystemTelemetry,
             AppConfig::kNodeId,
             ackPayload,
             ackLength);
+        APP_LOG_EVENT("reply_tx request=%lu bytes=%lu local_acceptance=%u server_receipt=unconfirmed",
+            static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(ackLength), sent);
+        (void)sent;
       }
     }
     else if (!AppConfig::kEnableCommandAckReplies)
@@ -355,7 +360,7 @@ void loop()
             payloadLength);
     if (telemetryDelivered)
     {
-      APP_LOG_INFO("status_tx node=%u bytes=%lu stage=lora_transport_accepted server_receipt=unconfirmed",
+      APP_LOG_EVENT("status_tx node=%u bytes=%lu stage=lora_transport_accepted server_receipt=unconfirmed",
           AppConfig::kNodeId, static_cast<unsigned long>(payloadLength));
     }
     else

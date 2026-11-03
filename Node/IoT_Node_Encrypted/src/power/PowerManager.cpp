@@ -1193,7 +1193,7 @@ void servicePowerManager()
 #if APP_ENABLE_DEBUG
   static bool reportedUntrustedRtc = false;
   if (!isRtcTrusted()) {
-    if (!reportedUntrustedRtc) APP_LOG_WARN("sleep_deferred reason=RTC_UNTRUSTED action=send_STIME");
+    if (!reportedUntrustedRtc) APP_LOG_EVENT_WARN("sleep_deferred reason=RTC_UNTRUSTED action=send_STIME");
     reportedUntrustedRtc = true;
   } else if (reportedUntrustedRtc) {
     APP_LOG_INFO("sleep_permitted rtc=trusted scheduler=SRATE_STRAN");
@@ -1264,7 +1264,7 @@ bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
     if (seconds != g_lastWakeRequestSeconds || !g_remoteWakeCycle.active() ||
         g_remoteWakeCycle.remainingSeconds(millis()) == 0U)
     {
-      APP_LOG_WARN("WAKE rejected: changed or expired duplicate request");
+      APP_LOG_EVENT_WARN("WAKE rejected: changed or expired duplicate request");
       return false;
     }
     APP_DEBUG_PRINTLN("Power: duplicate WAKE acknowledged; original deadline unchanged");
@@ -1272,7 +1272,7 @@ bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
   }
   if (!g_remoteWakeCycle.requestWake(millis(), seconds, AppConfig::kRemoteWakeDefaultSeconds))
   {
-    APP_LOG_WARN("WAKE rejected: duration must be 0 (default) or 1..86400 seconds");
+    APP_LOG_EVENT_WARN("WAKE rejected: duration must be 0 (default) or 1..86400 seconds");
     return false;
   }
   g_lastWakeRequestId = requestId;
@@ -1306,7 +1306,7 @@ bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
 #else
   (void)seconds;
   (void)requestId;
-  APP_LOG_WARN("WAKE rejected: select controller REMOTE_WAKE; NORMAL/RTC_PERIODIC are unchanged");
+  APP_LOG_EVENT_WARN("WAKE rejected: select controller REMOTE_WAKE; NORMAL/RTC_PERIODIC are unchanged");
   return false;
 #endif
 }

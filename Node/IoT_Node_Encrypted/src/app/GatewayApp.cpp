@@ -37,8 +37,9 @@ void gatewaySetup()
   serviceHardwareWatchdog();
 
   APP_DEBUG_PRINTLN("=============== EgSA LoRa MQTT Gateway ===============");
-  APP_LOG_INFO("boot role=GATEWAY node=%u topics=%s debug=enabled raw_frames=%u command_ack=%u",
-      AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
+  APP_LOG_EVENT("boot role=GATEWAY node=%u topics=%s debug=%s raw_frames=%u command_ack=%u",
+      AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_LITE ? "LITE" : "FULL",
+        APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
 
   initializeLoraLink();
   serviceHardwareWatchdog();
@@ -109,7 +110,7 @@ void gatewayLoop()
 
     if (publishMqttPayload(publishTopic, frame.payload, frame.payloadLength))
     {
-      APP_LOG_INFO("uplink source=%u type=%s bytes=%lu topic=%s stage=modem_write_accepted server_receipt=unconfirmed",
+      APP_LOG_EVENT("uplink source=%u type=%s bytes=%lu topic=%s stage=modem_write_accepted server_receipt=unconfirmed",
           frame.sourceNodeId, WiotDebug::frameName(static_cast<uint8_t>(frame.type)),
           static_cast<unsigned long>(frame.payloadLength), publishTopic);
     }

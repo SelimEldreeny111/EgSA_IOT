@@ -128,7 +128,7 @@ bool handle(const CMD_Message& cmd,bool broadcast){
             download.state=Transfer::Read;download.attempts=0;return true;
         }
         if(phase==3&&download.state==Transfer::WaitEnd){
-            APP_LOG_INFO("history_complete request=%lu server_ack=confirmed", static_cast<unsigned long>(cmd.request_id));
+            APP_LOG_EVENT("history_complete request=%lu server_ack=confirmed", static_cast<unsigned long>(cmd.request_id));
             download=Download();return true;
         }
         return false;
@@ -158,7 +158,7 @@ bool handle(const CMD_Message& cmd,bool broadcast){
         download.generation=journal.info().generation;download.end=journal.info().lastSequence;
         download.first=cmd.cmd_data?cursor:1;download.cursor=download.first;download.day=day.day;
         download.state=Transfer::Count;
-        APP_LOG_INFO("history_begin request=%lu generation=%lu day=%lu first=%lu end=%lu",
+        APP_LOG_EVENT("history_begin request=%lu generation=%lu day=%lu first=%lu end=%lu",
             static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.generation),
             static_cast<unsigned long>(download.day), static_cast<unsigned long>(download.first),
             static_cast<unsigned long>(download.end));
@@ -200,12 +200,12 @@ void reply(const CMD_Message& cmd,Telemetry& t,bool applied){
 }
 void step(){
     if(!initialized)return;
-#if APP_ENABLE_DEBUG
+#if APP_DEBUG_FULL_ENABLED
     const Info before=journal.info();
 #endif
     if(journal.info().state==State::Missing&&millis()-lastProbe>=5000U){lastProbe=millis();journal.begin();}
     journal.step(getEpochTime(),isRtcTrusted());
-#if APP_ENABLE_DEBUG
+#if APP_DEBUG_FULL_ENABLED
     const Info& after=journal.info();
     if(after.state!=before.state || after.generation!=before.generation || after.records!=before.records)
         APP_LOG_INFO("journal_update state=%u generation=%lu committed_records=%lu latest_sequence=%lu busy=%u clear_remaining=%lu",
@@ -259,7 +259,7 @@ bool packet(uint8_t* data,size_t capacity,size_t& length){
     return true;
 }
 void published(bool success){
-    APP_LOG_INFO("history_tx request=%lu index=%lu local_acceptance=%u server_ack=pending",
+    APP_LOG_EVENT("history_tx request=%lu index=%lu local_acceptance=%u server_ack=pending",
         static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.index), success);
     (void)success; // Local acceptance is not server persistence; only CMD14 advances the cursor.
     if(download.state==Transfer::SendRecord)download.state=Transfer::WaitRecord;

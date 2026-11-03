@@ -44,8 +44,10 @@ bool g_commandHandledThisPass = false;
 bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t length);
 
 /** @brief Print a timed operation only when publish-timing logging is enabled. */
+#if APP_DEBUG_FULL_ENABLED
 void logElapsedMs(const char* label, uint32_t elapsedMs)
 {
+  (void)label; (void)elapsedMs;
   if (!AppConfig::kEnablePublishTimingLogs) {
     return;
   }
@@ -55,6 +57,7 @@ void logElapsedMs(const char* label, uint32_t elapsedMs)
   APP_DEBUG_PRINT(elapsedMs);
   APP_DEBUG_PRINTLN(" ms");
 }
+#endif
 
 /** @brief Decode PubSubClient status codes for verbose diagnostics. */
 void logMqttStateDetails(int state)
@@ -114,7 +117,7 @@ bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool
 /** @brief Query and print the ESP-AT firmware version on ESP8266 builds. */
 void printEspFirmwareVersion()
 {
-#if defined(USE_ESP8266) && APP_ENABLE_DEBUG
+#if defined(USE_ESP8266) && APP_DEBUG_FULL_ENABLED
   APP_DEBUG_PRINTLN("\n--- Querying ESP-AT firmware version (AT+GMR) ---");
 
   // Drain any pending bytes from the modem UART.
@@ -351,6 +354,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   if (!isBroadcastTopic && cmd.node_id != topicNodeId)
   {
+    APP_LOG_EVENT_WARN("command_rejected request=%lu reason=topic_payload_mismatch topic_node=%u payload_node=%lu",
+        static_cast<unsigned long>(cmd.request_id), topicNodeId, static_cast<unsigned long>(cmd.node_id));
     APP_DEBUG_PRINT(" Gateway rejected CMD: topic node=");
     APP_DEBUG_PRINT(topicNodeId);
     APP_DEBUG_PRINT(" payload node=");
@@ -360,10 +365,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 
   const LoraPayloadType loraCommandType =
       isBroadcastTopic ? LoraPayloadType::BroadcastCommand : LoraPayloadType::Command;
+  APP_LOG_EVENT("command_rx request=%lu command=%s target=%lu scope=%s",
+      static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+      static_cast<unsigned long>(cmd.node_id), isBroadcastTopic ? "broadcast" : "direct");
   if (sendLoraWakeCommand(loraCommandType, payload, length))
   {
-    APP_DEBUG_PRINT(" Gateway forwarded MQTT CMD to LoRa ");
-    APP_DEBUG_PRINTLN(isBroadcastTopic ? "broadcast" : "node");
+    APP_LOG_EVENT("command_forwarded request=%lu target=%lu node_execution=unconfirmed",
+        static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(cmd.node_id));
   }
   else
   {
@@ -373,7 +381,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 #else
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
   {
-    APP_LOG_WARN("CMD rejected: topic/payload node mismatch");
+    APP_LOG_EVENT_WARN("CMD rejected: topic/payload node mismatch");
     return;
   }
   if (cmd.cmd_id == CMD_HISTORY_ACK) {
@@ -388,6 +396,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   }
   if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
   {
+    APP_LOG_EVENT("command_rx request=%lu command=%s target=%lu scope=%s",
+        static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+        static_cast<unsigned long>(cmd.node_id), isBroadcastTopic ? "broadcast" : "direct");
     if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
     {
       APP_DEBUG_PRINTLN("Telemetry/WAKE request not for this MQTT node");
@@ -585,11 +596,13 @@ bool checkNetworkStatus()
     return false;
   }
 
-  int signalQuality = modem.getSignalQuality();
+#if APP_DEBUG_FULL_ENABLED
+  const int signalQuality = modem.getSignalQuality();
   serviceHardwareWatchdog();
   APP_DEBUG_PRINT("Signal quality (raw CSQ): ");
   APP_DEBUG_PRINT(signalQuality);
   APP_DEBUG_PRINTLN(" (0..31; 99=unknown)");
+#endif
 
   return true;
 }
@@ -605,7 +618,7 @@ bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t le
   serviceHardwareWatchdog();
   APP_DEBUG_ONLY(logElapsedMs("MQTT driver send time", millis() - started));
   (void)started;
-  APP_LOG_INFO("tx topic=%s bytes=%lu queue_write=%u modem_write=%u elapsed_ms=%lu server_receipt=unconfirmed",
+  APP_LOG_EVENT("tx topic=%s bytes=%lu queue_write=%u modem_write=%u elapsed_ms=%lu server_receipt=unconfirmed",
       topic, static_cast<unsigned long>(length), queued, flushed,
       static_cast<unsigned long>(millis() - started));
   if (!queued || !flushed) {

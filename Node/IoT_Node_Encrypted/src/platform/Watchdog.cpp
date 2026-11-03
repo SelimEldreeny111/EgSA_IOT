@@ -165,6 +165,12 @@ void initializeHardwareWatchdog()
 
 void reportHardwareWatchdogStatus()
 {
+    APP_LOG_EVENT("boot_reset cause=%s wdt_resets=%lu power_resets=%lu watchdog_ms=%lu",
+        g_previousResetWasWatchdog ? "IWDG" : g_previousResetWasPower ? "POWER_BROWNOUT" :
+            g_resumedFromStandby ? "STANDBY" : "SOFTWARE_PIN_OTHER",
+        static_cast<unsigned long>(hardwareWatchdogResetCount()),
+        static_cast<unsigned long>(powerResetCount()),
+        static_cast<unsigned long>(g_watchdogStarted ? AppConfig::kWatchdogTimeoutUs / 1000UL : 0U));
     APP_DEBUG_PRINT("Cumulative WDT resets: ");
     APP_DEBUG_PRINTLN(hardwareWatchdogResetCount());
     APP_DEBUG_PRINT("Cumulative power-on/brownout resets: ");

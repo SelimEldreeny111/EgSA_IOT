@@ -115,13 +115,13 @@ void initializeValveController() {
 bool commandValve(bool open) {
     if (!initialized) initializeValveController();
     if (!commissioned() || busy) {
-        APP_LOG_WARN("VALVE rejected: not commissioned/available");
+        APP_LOG_EVENT_WARN("VALVE rejected: not commissioned/available");
         return false;
     }
     const ValveState target = open ? ValveState::Open : ValveState::Closed;
     if (appState().nodeStatus == static_cast<uint8_t>(target)) return true;
     if (pulsed && millis() - lastPulseEndMs < AppConfig::kValveMinIntervalMs) {
-        APP_LOG_WARN("VALVE rejected: minimum switching interval");
+        APP_LOG_EVENT_WARN("VALVE rejected: minimum switching interval");
         return false;
     }
     busy = true;

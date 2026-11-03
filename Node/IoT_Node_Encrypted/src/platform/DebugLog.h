@@ -4,6 +4,9 @@
  *
  * APP_ENABLE_DEBUG=false removes calls AND their arguments. Protocol UARTs,
  * telemetry, command acknowledgements and watchdog servicing are independent.
+ * APP_DEBUG_LITE=true keeps APP_LOG_EVENT / APP_LOG_EVENT_WARN / APP_LOG_ERROR;
+ * detailed print/write/only and APP_LOG_INFO/WARN calls/arguments are removed.
+ * UART begin/flush remain available in both LITE and FULL.
  * The timestamp is Arduino active milliseconds (it pauses in STM32 Stop).
  * Structured events use a bounded stack buffer; no heap allocation is used.
  */
@@ -14,6 +17,12 @@
 // Isolated host harnesses may replace AppConfig.h with a minimal fake.
 #ifndef APP_ENABLE_DEBUG
 #define APP_ENABLE_DEBUG true
+#endif
+#ifndef APP_DEBUG_LITE
+#define APP_DEBUG_LITE false
+#endif
+#ifndef APP_DEBUG_FULL_ENABLED
+#define APP_DEBUG_FULL_ENABLED (APP_ENABLE_DEBUG && !APP_DEBUG_LITE)
 #endif
 #ifndef APP_DEBUG_RAW_FRAMES
 #define APP_DEBUG_RAW_FRAMES false
@@ -141,30 +150,39 @@ inline void hex(const char* module, const char* label, const uint8_t* data, size
 }
 } // namespace WiotDebug
 
+#define APP_DEBUG_BEGIN(...) SerialMon.begin(__VA_ARGS__)
+#define APP_DEBUG_FLUSH() SerialMon.flush()
+#define APP_LOG_EVENT(...) ::WiotDebug::event(APP_LOG_MODULE, "INFO", __VA_ARGS__)
+#define APP_LOG_EVENT_WARN(...) ::WiotDebug::event(APP_LOG_MODULE, "WARN", __VA_ARGS__)
+#define APP_LOG_ERROR(...) ::WiotDebug::event(APP_LOG_MODULE, "ERROR", __VA_ARGS__)
+#else
+#define APP_DEBUG_BEGIN(...) do {} while (0)
+#define APP_DEBUG_FLUSH() do {} while (0)
+#define APP_LOG_EVENT(...) do {} while (0)
+#define APP_LOG_EVENT_WARN(...) do {} while (0)
+#define APP_LOG_ERROR(...) do {} while (0)
+#endif
+
+// Detailed calls AND their arguments disappear from lite and silent builds.
+#if APP_DEBUG_FULL_ENABLED
 #define APP_DEBUG_PRINT(...) ::WiotDebug::print(APP_LOG_MODULE, __VA_ARGS__)
 #define APP_DEBUG_PRINTLN(...) ::WiotDebug::NewLine{APP_LOG_MODULE}(__VA_ARGS__)
 #define APP_DEBUG_PRINTF(...) ::WiotDebug::event(APP_LOG_MODULE, "INFO", __VA_ARGS__)
 #define APP_DEBUG_WRITE(value) ::WiotDebug::print(APP_LOG_MODULE, static_cast<char>(value))
-#define APP_DEBUG_BEGIN(...) SerialMon.begin(__VA_ARGS__)
-#define APP_DEBUG_FLUSH() SerialMon.flush()
 #define APP_DEBUG_ONLY(...) do { __VA_ARGS__; } while (0)
 #define APP_LOG_INFO(...) ::WiotDebug::event(APP_LOG_MODULE, "INFO", __VA_ARGS__)
 #define APP_LOG_WARN(...) ::WiotDebug::event(APP_LOG_MODULE, "WARN", __VA_ARGS__)
-#define APP_LOG_ERROR(...) ::WiotDebug::event(APP_LOG_MODULE, "ERROR", __VA_ARGS__)
 #else
 #define APP_DEBUG_PRINT(...) do {} while (0)
 #define APP_DEBUG_PRINTLN(...) do {} while (0)
 #define APP_DEBUG_PRINTF(...) do {} while (0)
 #define APP_DEBUG_WRITE(...) do {} while (0)
-#define APP_DEBUG_BEGIN(...) do {} while (0)
-#define APP_DEBUG_FLUSH() do {} while (0)
 #define APP_DEBUG_ONLY(...) do {} while (0)
 #define APP_LOG_INFO(...) do {} while (0)
 #define APP_LOG_WARN(...) do {} while (0)
-#define APP_LOG_ERROR(...) do {} while (0)
 #endif
 
-#if APP_ENABLE_DEBUG && APP_DEBUG_RAW_FRAMES
+#if APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES
 #define APP_DEBUG_HEX(...) ::WiotDebug::hex(APP_LOG_MODULE, __VA_ARGS__)
 #else
 #define APP_DEBUG_HEX(...) do {} while (0)
