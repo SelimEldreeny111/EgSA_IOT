@@ -1,4 +1,6 @@
 /** @file Watchdog.cpp @brief Independent watchdog setup, servicing, and reset reporting. */
+#define APP_LOG_MODULE "WDT"
+#include "DebugLog.h"
 #include "Watchdog.h"
 #include "WatchdogResetCounter.h"
 #include "PowerResetCounter.h"
@@ -163,42 +165,42 @@ void initializeHardwareWatchdog()
 
 void reportHardwareWatchdogStatus()
 {
-    SerialMon.print("Cumulative WDT resets: ");
-    SerialMon.println(hardwareWatchdogResetCount());
-    SerialMon.print("Cumulative power-on/brownout resets: ");
-    SerialMon.println(powerResetCount());
+    APP_DEBUG_PRINT("Cumulative WDT resets: ");
+    APP_DEBUG_PRINTLN(hardwareWatchdogResetCount());
+    APP_DEBUG_PRINT("Cumulative power-on/brownout resets: ");
+    APP_DEBUG_PRINTLN(powerResetCount());
     if (PowerResetCounter::recoveredInvalidRecord())
-        SerialMon.println("WARNING: power counter record invalid; counting restarted at zero");
+        APP_DEBUG_PRINTLN("WARNING: power counter record invalid; counting restarted at zero");
     if (!PowerResetCounter::storageHealthy())
-        SerialMon.println("ERROR: power counter flash verification failed; current count is RAM-only");
+        APP_LOG_ERROR("ERROR: power counter flash verification failed; current count is RAM-only");
     if (WatchdogResetCounter::recoveredInvalidRecord())
-        SerialMon.println("WARNING: WDT counter record invalid; counting restarted at zero");
+        APP_DEBUG_PRINTLN("WARNING: WDT counter record invalid; counting restarted at zero");
     if (!WatchdogResetCounter::storageHealthy())
-        SerialMon.println("ERROR: WDT counter flash verification failed; current count is RAM-only");
+        APP_LOG_ERROR("ERROR: WDT counter flash verification failed; current count is RAM-only");
     if (!AppConfig::kEnableHardwareWatchdog)
     {
-        SerialMon.println("Hardware watchdog: disabled by configuration");
+        APP_DEBUG_PRINTLN("Hardware watchdog: disabled by configuration");
         return;
     }
 
     if (!g_watchdogStarted)
     {
-        SerialMon.println("ERROR: hardware watchdog did not start (check timeout range)");
+        APP_LOG_ERROR("ERROR: hardware watchdog did not start (check timeout range)");
         return;
     }
 
-    SerialMon.print("Hardware watchdog: armed, timeout=");
-    SerialMon.print(AppConfig::kWatchdogTimeoutUs / 1000UL);
-    SerialMon.println(" ms");
+    APP_DEBUG_PRINT("Hardware watchdog: armed, timeout=");
+    APP_DEBUG_PRINT(AppConfig::kWatchdogTimeoutUs / 1000UL);
+    APP_DEBUG_PRINTLN(" ms");
     if (g_previousResetWasWatchdog)
     {
-        SerialMon.println("RESET CAUSE: independent hardware watchdog timeout");
-        SerialMon.print("Last watchdog stage: ");
-        SerialMon.println(stageName(g_previousWatchdogStage));
+        APP_LOG_WARN("RESET CAUSE: independent hardware watchdog timeout");
+        APP_DEBUG_PRINT("Last watchdog stage: ");
+        APP_DEBUG_PRINTLN(stageName(g_previousWatchdogStage));
     }
     else
     {
-        SerialMon.println(g_previousResetWasPower
+        APP_DEBUG_PRINTLN(g_previousResetWasPower
             ? "RESET CAUSE: power-on/brownout"
             : (g_resumedFromStandby ? "Reset cause: Standby wake (not counted)"
                                   : "Reset cause: software/pin/other reset (not counted)"));
@@ -249,11 +251,11 @@ void watchdogDelay(uint32_t durationMs)
         IWatchdog.set(AppConfig::kWatchdogForcedResetTimeoutUs);
     }
 
-    SerialMon.println();
-    SerialMon.println("******** SYSTEM RESET REQUESTED ********");
-    SerialMon.print("Reason: ");
-    SerialMon.println(reason == nullptr ? "unspecified watchdog recovery" : reason);
-    SerialMon.flush();
+    APP_DEBUG_PRINTLN();
+    APP_DEBUG_PRINTLN("******** SYSTEM RESET REQUESTED ********");
+    APP_DEBUG_PRINT("Reason: ");
+    APP_DEBUG_PRINTLN(reason == nullptr ? "unspecified watchdog recovery" : reason);
+    APP_DEBUG_FLUSH();
 
     if (!g_watchdogStarted)
     {
@@ -279,18 +281,18 @@ void runHardwareWatchdogSelfTest(WatchdogSelfTestPoint point)
     if (g_previousResetWasWatchdog &&
         g_previousWatchdogStage == requestedStage)
     {
-        SerialMon.print("WATCHDOG SELF-TEST PASS: reset recovered from ");
-        SerialMon.println(stageName(requestedStage));
+        APP_DEBUG_PRINT("WATCHDOG SELF-TEST PASS: reset recovered from ");
+        APP_DEBUG_PRINTLN(stageName(requestedStage));
         return;
     }
 
-    SerialMon.println();
-    SerialMon.print("WATCHDOG SELF-TEST: deliberately blocking at ");
-    SerialMon.println(stageName(requestedStage));
-    SerialMon.print("Expected reset after approximately ");
-    SerialMon.print(AppConfig::kWatchdogTimeoutUs / 1000000UL);
-    SerialMon.println(" seconds");
-    SerialMon.flush();
+    APP_DEBUG_PRINTLN();
+    APP_DEBUG_PRINT("WATCHDOG SELF-TEST: deliberately blocking at ");
+    APP_DEBUG_PRINTLN(stageName(requestedStage));
+    APP_DEBUG_PRINT("Expected reset after approximately ");
+    APP_DEBUG_PRINT(AppConfig::kWatchdogTimeoutUs / 1000000UL);
+    APP_DEBUG_PRINTLN(" seconds");
+    APP_DEBUG_FLUSH();
 
     serviceHardwareWatchdog(requestedStage);
     while (true)

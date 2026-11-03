@@ -1,4 +1,6 @@
 /** @file SondasSensor.cpp @brief Sondas probe Modbus polling and measurement decoding. */
+#define APP_LOG_MODULE "SONDAS"
+#include "../platform/DebugLog.h"
 #include "SondasSensor.h"
 
 #include <Arduino.h>
@@ -34,7 +36,7 @@ void attachRs485DirectionCallbacks(ModbusMaster& sensor)
 
 void initializeSondasSensor()
 {
-    SerialMon.println("Initializing Sondas moisture/temperature/EC sensor...");
+    APP_DEBUG_PRINTLN("Initializing Sondas moisture/temperature/EC sensor...");
 
     sondasSensor.begin(
         AppConfig::kSondasModbusAddress,
@@ -47,12 +49,12 @@ void initializeSondasSensor()
 
     if (result == sondasSensor.ku8MBSuccess)
     {
-        SerialMon.println("Sondas sensor OK");
+        APP_DEBUG_PRINTLN("Sondas sensor OK");
     }
     else
     {
-        SerialMon.print("Sondas sensor not found, code=");
-        SerialMon.println(result);
+        APP_DEBUG_PRINT("Sondas sensor not found, code=");
+        APP_DEBUG_PRINTLN(result);
     }
 
     sondasSensor.clearResponseBuffer();
@@ -70,8 +72,8 @@ SondasSensorData readSondasSensor()
     if (result != sondasSensor.ku8MBSuccess)
     {
         sondasSensor.clearResponseBuffer();
-        SerialMon.print("Sondas sensor read failed, code=");
-        SerialMon.println(result);
+        APP_DEBUG_PRINT("Sondas sensor read failed, code=");
+        APP_DEBUG_PRINTLN(result);
         return data;
     }
 
@@ -94,19 +96,19 @@ void printSondasSensorData(const SondasSensorData& data)
 {
     if (!data.isValid)
     {
-        SerialMon.println("ERROR: Sondas sensor read failed");
+        APP_LOG_ERROR("ERROR: Sondas sensor read failed");
         return;
     }
 
-    SerialMon.print("Sondas temperature: ");
-    SerialMon.print(data.temperatureC);
-    SerialMon.println(" C");
+    APP_DEBUG_PRINT("Sondas temperature: ");
+    APP_DEBUG_PRINT(data.temperatureC);
+    APP_DEBUG_PRINTLN(" C");
 
-    SerialMon.print("Sondas moisture: ");
-    SerialMon.print(data.moisturePercent);
-    SerialMon.println(" %");
+    APP_DEBUG_PRINT("Sondas moisture: ");
+    APP_DEBUG_PRINT(data.moisturePercent);
+    APP_DEBUG_PRINTLN(" %");
 
-    SerialMon.print("Sondas electrical conductivity: ");
-    SerialMon.print(data.electricalConductivity);
-    SerialMon.println(" EC");
+    APP_DEBUG_PRINT("Sondas electrical conductivity: ");
+    APP_DEBUG_PRINT(data.electricalConductivity);
+    APP_DEBUG_PRINTLN(" EC");
 }

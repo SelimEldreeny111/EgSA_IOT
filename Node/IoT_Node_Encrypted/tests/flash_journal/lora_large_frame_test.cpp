@@ -46,4 +46,10 @@ int main(){
     invalid.payload[3]=32;invalid.payload[4]=33;
     assert(!handleFragmentFrame(invalid,result));
     std::cout<<"PASS production LoRa 17/22/24-fragment reassembly, duplicates, CRC and bounds\n";
+#ifdef WIOT_TEST_WIRE_TRANSCRIPT
+    // The diagnostic policy must never change fragment ACKs on the radio UART.
+    std::cout<<"wire_bytes="<<SerialLoRa.tx.size()<<'\n';
+    for(uint8_t value:SerialLoRa.tx)std::cout<<std::hex<<unsigned(value)<<' ';
+    std::cout<<'\n';
+#endif
 }

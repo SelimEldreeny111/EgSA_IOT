@@ -1,4 +1,6 @@
 /** @file ValveController.cpp @brief Fail-inhibited latching-coil control and persistence. */
+#define APP_LOG_MODULE "VALVE"
+#include "../platform/DebugLog.h"
 #include "ValveController.h"
 #include "../config/AppConfig.h"
 #include "../app/AppState.h"
@@ -105,7 +107,7 @@ void initializeValveController() {
             record.invertedState == ~record.state && record.checksum == checksum(record))
             appState().nodeStatus = static_cast<uint8_t>(record.state);
     }
-    SerialMon.println(commissioned() ?
+    APP_DEBUG_PRINTLN(commissioned() ?
         "Valve: TB6612FNG ready; state is commanded, NOT position feedback" :
         "Valve: actuation INHIBITED (disabled/pin conflict/pulse/polarity not commissioned)");
 }
@@ -113,13 +115,13 @@ void initializeValveController() {
 bool commandValve(bool open) {
     if (!initialized) initializeValveController();
     if (!commissioned() || busy) {
-        SerialMon.println("VALVE rejected: not commissioned/available");
+        APP_LOG_WARN("VALVE rejected: not commissioned/available");
         return false;
     }
     const ValveState target = open ? ValveState::Open : ValveState::Closed;
     if (appState().nodeStatus == static_cast<uint8_t>(target)) return true;
     if (pulsed && millis() - lastPulseEndMs < AppConfig::kValveMinIntervalMs) {
-        SerialMon.println("VALVE rejected: minimum switching interval");
+        APP_LOG_WARN("VALVE rejected: minimum switching interval");
         return false;
     }
     busy = true;
@@ -130,7 +132,7 @@ bool commandValve(bool open) {
     if (!persist(ValveState::Unknown)) {
         appState().nodeStatus = static_cast<uint8_t>(ValveState::Fault);
         busy = false;
-        SerialMon.println("VALVE rejected: pre-pulse storage verification failed");
+        APP_LOG_ERROR("VALVE rejected: pre-pulse storage verification failed");
         return false;
     }
     HardwareTimer& pulseTimer = timer();
@@ -167,15 +169,15 @@ bool commandValve(bool open) {
     busy = false;
     if (!pulseComplete || !energized) {
         appState().nodeStatus = static_cast<uint8_t>(ValveState::Fault);
-        SerialMon.println("VALVE failed: pulse cutoff timeout; latch state unknown");
+        APP_LOG_ERROR("VALVE failed: pulse cutoff timeout; latch state unknown");
         return false;
     }
     // Storage failure AFTER a completed pulse cannot honestly be reported as
     // an unexecuted command. Keep the completed RAM state, ACK success, and
     // log that the next reset can recover Unknown instead of this command.
     appState().nodeStatus = static_cast<uint8_t>(target);
-    if (!persist(target)) SerialMon.println("VALVE WARNING: pulse completed; state not durably saved");
-    SerialMon.println(open ? "Valve OPEN/ON command completed; bridge OFF" :
+    if (!persist(target)) APP_DEBUG_PRINTLN("VALVE WARNING: pulse completed; state not durably saved");
+    APP_DEBUG_PRINTLN(open ? "Valve OPEN/ON command completed; bridge OFF" :
         "Valve CLOSED/OFF command completed; bridge OFF");
     return true;
 }

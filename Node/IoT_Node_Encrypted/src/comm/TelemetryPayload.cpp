@@ -1,4 +1,6 @@
 /** @file TelemetryPayload.cpp @brief Status protobuf assembly and encrypted telemetry output. */
+#define APP_LOG_MODULE "TLM"
+#include "../platform/DebugLog.h"
 #include "TelemetryPayload.h"
 #include "../storage/TelemetryArchive.h"
 
@@ -40,9 +42,17 @@ bool buildEncryptedStatusPayload(uint8_t* payload, size_t payloadCapacity, size_
 
   if (!encodeEncryptedMessage(Status_Message_fields, &status, payload, payloadCapacity, payloadLength))
   {
-    SerialMon.println("Status payload encode FAILED");
+    APP_LOG_ERROR("status_encode_failed node=%u", AppConfig::kNodeId);
     return false;
   }
 
+  APP_LOG_INFO("status_ready node=%u epoch=%lu sequence=%lu source=%s time_valid=%u sensor_mask=0x%X bytes=%lu valve=%u wdt_resets=%lu power_resets=%lu",
+      AppConfig::kNodeId, static_cast<unsigned long>(status.timestamp),
+      static_cast<unsigned long>(status.sample_sequence),
+      status.stored_sample ? "flash_committed" : "live", status.sample_time_valid,
+      static_cast<unsigned>(status.sensor_mask), static_cast<unsigned long>(payloadLength),
+      status.node_status, static_cast<unsigned long>(status.wdt_reset_count),
+      static_cast<unsigned long>(status.power_reset_count));
+  APP_DEBUG_HEX("encrypted_status", payload, payloadLength);
   return true;
 }

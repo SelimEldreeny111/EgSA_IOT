@@ -1,4 +1,6 @@
 /** @file GatewayApp.cpp @brief LoRa gateway startup, receive routing, and forwarding. */
+#define APP_LOG_MODULE "GATEWAY"
+#include "../platform/DebugLog.h"
 #include "GatewayApp.h"
 
 #include "../comm/MQTT.h"
@@ -29,13 +31,14 @@ bool buildNodeMqttTopic(uint16_t nodeId, const char* suffix, char* topic, size_t
 
 void gatewaySetup()
 {
-  SerialMon.begin(115200);
+  APP_DEBUG_BEGIN(115200);
   watchdogDelay(1000);
   reportHardwareWatchdogStatus();
   serviceHardwareWatchdog();
 
-  SerialMon.println("=============== EgSA LoRa MQTT Gateway ===============");
-  SerialMon.println("Role: AS32 LoRa receiver + WiFi/SIM MQTT uplink");
+  APP_DEBUG_PRINTLN("=============== EgSA LoRa MQTT Gateway ===============");
+  APP_LOG_INFO("boot role=GATEWAY node=%u topics=%s debug=enabled raw_frames=%u command_ack=%u",
+      AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
 
   initializeLoraLink();
   serviceHardwareWatchdog();
@@ -43,12 +46,12 @@ void gatewaySetup()
   serviceHardwareWatchdog();
   if (!connectNetwork())
   {
-    SerialMon.println("Gateway network initialization failed; will retry in loop.");
+    APP_LOG_ERROR("Gateway network initialization failed; will retry in loop.");
   }
   initializeMqttClient();
   serviceHardwareWatchdog();
 
-  SerialMon.println("Gateway setup complete. Entering LoRa receive loop...");
+  APP_DEBUG_PRINTLN("Gateway setup complete. Entering LoRa receive loop...");
 }
 
 void gatewayLoop()
@@ -63,7 +66,7 @@ void gatewayLoop()
 
   if (loraPriority != previousLoraPriority)
   {
-    SerialMon.println(loraPriority
+    APP_DEBUG_PRINTLN(loraPriority
         ? "LoRa fragment transaction active; MQTT work deferred"
         : "LoRa fragment transaction complete; MQTT work resumed");
     previousLoraPriority = loraPriority;
@@ -80,7 +83,7 @@ void gatewayLoop()
   while (receiveLoraFrame(frame))
   {
     serviceHardwareWatchdog();
-    printLoraFrameSummary(frame, "LoRa RX");
+    APP_DEBUG_ONLY(printLoraFrameSummary(frame, "LoRa RX"));
 
     const char* topicSuffix = nullptr;
     if (frame.type == LoraPayloadType::StatusTelemetry)
@@ -93,25 +96,27 @@ void gatewayLoop()
     }
     else
     {
-      SerialMon.println("Gateway ignored non-uplink LoRa frame");
+      APP_DEBUG_PRINTLN("Gateway ignored non-uplink LoRa frame");
       continue;
     }
 
     char publishTopic[128];
     if (!buildNodeMqttTopic(frame.sourceNodeId, topicSuffix, publishTopic, sizeof(publishTopic)))
     {
-      SerialMon.println("Gateway MQTT topic build failed");
+      APP_LOG_ERROR("Gateway MQTT topic build failed");
       continue;
     }
 
     if (publishMqttPayload(publishTopic, frame.payload, frame.payloadLength))
     {
-      SerialMon.print("Gateway published LoRa payload to MQTT topic: ");
-      SerialMon.println(publishTopic);
+      APP_LOG_INFO("uplink source=%u type=%s bytes=%lu topic=%s stage=modem_write_accepted server_receipt=unconfirmed",
+          frame.sourceNodeId, WiotDebug::frameName(static_cast<uint8_t>(frame.type)),
+          static_cast<unsigned long>(frame.payloadLength), publishTopic);
     }
     else
     {
-      SerialMon.println("Gateway MQTT publish failed");
+      APP_LOG_ERROR("uplink_failed source=%u bytes=%lu topic=%s", frame.sourceNodeId,
+          static_cast<unsigned long>(frame.payloadLength), publishTopic);
     }
     serviceHardwareWatchdog();
   }
@@ -127,8 +132,8 @@ void gatewayLoop()
   if (AppConfig::kEnableGatewayHeartbeatLogs && millis() - lastHeartbeatMs >= 5000UL)
   {
     lastHeartbeatMs = millis();
-    SerialMon.print("Gateway alive; waiting for LoRa frames. AS32 AUX=");
-    SerialMon.println(digitalRead(AppConfig::kLoraAuxPin) == HIGH ? "HIGH" : "LOW");
-    printLoraDiagnostics();
+    APP_DEBUG_PRINT("Gateway alive; waiting for LoRa frames. AS32 AUX=");
+    APP_DEBUG_PRINTLN(digitalRead(AppConfig::kLoraAuxPin) == HIGH ? "HIGH" : "LOW");
+    APP_DEBUG_ONLY(printLoraDiagnostics());
   }
 }

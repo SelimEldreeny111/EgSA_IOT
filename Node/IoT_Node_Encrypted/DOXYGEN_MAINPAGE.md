@@ -8,6 +8,12 @@ configuration files are intentionally excluded.
 
 ## System boundaries
 
+Diagnostics use the compile-time `APP_ENABLE_DEBUG` switch at the beginning of
+`AppConfig.h`. `DebugLog.h` prefixes foreground output with active ticks,
+severity and module; disabling it removes diagnostic calls and their arguments.
+Protocol UARTs and command replies remain active. See
+[Debug logging configuration and bench checks](DEBUG_LOGGING_GUIDE.md).
+
 The build selects a sensor-node or LoRa-gateway role in `src/config/AppConfig.h`.
 The sensor node can independently enable TUF, HNDA, Supmea and Sondas (including
 all four together), prepares protobuf status/telemetry, encrypts it, and sends it by

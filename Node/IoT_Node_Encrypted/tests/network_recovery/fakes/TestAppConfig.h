@@ -1,6 +1,8 @@
 #pragma once
 #include "Arduino.h"
 #define APP_CONFIG_H
+#define APP_ENABLE_COMMAND_ACK_REPLIES true
+constexpr const char kMqttCompanyTopicPrefix[]="wiot/Test/Region";
 #if defined(TEST_ESP8266)
 #define USE_ESP8266
 #else
@@ -22,6 +24,7 @@ AppRuntimeState& appState(); void refreshEnabledSensorSummary(); void refreshBat
 #define SONDAS_SENSOR_H
 void initializeHndaSensor(); void initializeSondasSensor();
 namespace AppConfig {
+constexpr uint16_t kNodeId=2;
 constexpr uint8_t kNetworkRetriesPerStage=10;
 constexpr bool kEnableWifiCredentialStore=true, kEnableOpenCloseNodeOutput=false, kOpenCloseNodeActiveLow=false;
 constexpr bool kEnableTufSensor=false,kEnableSupmeaSensor=false,kEnableHndaSensor=false,kEnableSondasSensor=false;

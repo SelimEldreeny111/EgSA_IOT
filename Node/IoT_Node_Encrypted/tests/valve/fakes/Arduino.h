@@ -4,7 +4,10 @@
 #define LOW 0U
 #define HIGH 1U
 #define OUTPUT 1U
-struct HardwareSerial { template<class T> void println(T) {} };
+struct HardwareSerial {
+ template<class T> void print(T) {} template<class T> void print(T,int) {}
+ template<class T> void println(T) {} void println() {}
+};
 struct PinEvent { uint32_t pin, value, at; bool mode; };
 extern uint32_t testNow;
 extern std::vector<PinEvent> pinEvents;

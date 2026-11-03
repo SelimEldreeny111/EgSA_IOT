@@ -9,6 +9,11 @@ $wakeConfigDefaults = @{
     APP_REMOTE_WAKE_DEFAULT_SECONDS = '60UL'; APP_REMOTE_WAKE_POLL_INTERVAL_MS = '100UL'
 }
 $wakeConfigCases = @(
+    @{Name='debug-enabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_DEBUG='true';APP_DEBUG_RAW_FRAMES='false'}; Error=$null},
+    @{Name='debug-disabled'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_DEBUG='false'}; Error=$null},
+    @{Name='debug-raw-master-disabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_DEBUG='false';APP_DEBUG_RAW_FRAMES='true'}; Error=$null},
+    @{Name='reject-debug-switch'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_DEBUG='2'}; Error='APP_ENABLE_DEBUG and APP_DEBUG_RAW_FRAMES must'},
+    @{Name='reject-debug-raw-switch'; Modem='USE_ESP8266'; Defines=@{APP_DEBUG_RAW_FRAMES='2'}; Error='APP_ENABLE_DEBUG and APP_DEBUG_RAW_FRAMES must'},
     @{Name='wor-app-schedule'; Modem='USE_SIM800'; Defines=@{APP_ROLE='1';APP_UPLINK='2';APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_LORA_WOR_USE_APP_SCHEDULE='true'}; Error=$null},
     @{Name='wor-legacy-cycle'; Modem='USE_SIM800'; Defines=@{APP_ROLE='1';APP_UPLINK='2';APP_CONTROLLER_POWER_MODE='3';APP_LORA_POWER_MODE='2';APP_LORA_WOR_USE_APP_SCHEDULE='false'}; Error=$null},
     @{Name='reject-invalid-wor-schedule'; Modem='USE_SIM800'; Defines=@{APP_LORA_WOR_USE_APP_SCHEDULE='2'}; Error='APP_LORA_WOR_USE_APP_SCHEDULE must'},

@@ -1,4 +1,6 @@
 /** @file SupmeaSensor.cpp @brief Supmea Modbus block reads and flow-quality decoding. */
+#define APP_LOG_MODULE "SUPMEA"
+#include "../platform/DebugLog.h"
 #include "SupmeaSensor.h"
 
 #include <Arduino.h>
@@ -58,9 +60,9 @@ uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
             break;
         }
 
-        SerialMon.print("SUP-FMC240 transient Modbus error ");
-        SerialMon.print(result);
-        SerialMon.println(", retrying...");
+        APP_DEBUG_PRINT("SUP-FMC240 transient Modbus error ");
+        APP_DEBUG_PRINT(result);
+        APP_DEBUG_PRINTLN(", retrying...");
     }
 
     return result;
@@ -89,9 +91,9 @@ bool isFiniteMeasurement(float value)
 
 void initializeSupmeaSensor()
 {
-    SerialMon.println("Initializing Supmea SUP-FMC240 Modbus interface...");
-    SerialMon.print("SUP-FMC240 slave address: ");
-    SerialMon.println(AppConfig::kSupmeaSensorModbusAddress);
+    APP_DEBUG_PRINTLN("Initializing Supmea SUP-FMC240 Modbus interface...");
+    APP_DEBUG_PRINT("SUP-FMC240 slave address: ");
+    APP_DEBUG_PRINTLN(AppConfig::kSupmeaSensorModbusAddress);
 
     supmeaSensor.begin(
         AppConfig::kSupmeaSensorModbusAddress,
@@ -107,18 +109,18 @@ void initializeSupmeaSensor()
         const float flowRate = responseFloat(0U);
         if (isFiniteMeasurement(flowRate))
         {
-            SerialMon.print("SUP-FMC240 interface OK, flow rate=");
-            SerialMon.println(flowRate, 3);
+            APP_DEBUG_PRINT("SUP-FMC240 interface OK, flow rate=");
+            APP_DEBUG_PRINTLN(flowRate, 3);
         }
         else
         {
-            SerialMon.println("SUP-FMC240 replied, but flow-rate float is invalid");
+            APP_DEBUG_PRINTLN("SUP-FMC240 replied, but flow-rate float is invalid");
         }
     }
     else
     {
-        SerialMon.print("SUP-FMC240 not found, Modbus code=");
-        SerialMon.println(result);
+        APP_DEBUG_PRINT("SUP-FMC240 not found, Modbus code=");
+        APP_DEBUG_PRINTLN(result);
     }
 
     supmeaSensor.clearResponseBuffer();
@@ -185,54 +187,54 @@ const char* supmeaFlowUnitName(uint16_t unitCode)
 
 void printSupmeaSensorData(const SupmeaSensorData& data)
 {
-    SerialMon.println();
-    SerialMon.println("=========== SUP-FMC240 READINGS =============");
+    APP_DEBUG_PRINTLN();
+    APP_DEBUG_PRINTLN("=========== SUP-FMC240 READINGS =============");
 
     if (data.totalsValid)
     {
-        SerialMon.print("Forward total : ");
-        SerialMon.print(data.forwardTotalM3, 3);
-        SerialMon.println(" m3");
-        SerialMon.print("Reverse total : ");
-        SerialMon.print(data.reverseTotalM3, 3);
-        SerialMon.println(" m3");
-        SerialMon.print("Net total     : ");
-        SerialMon.print(data.netTotalM3, 3);
-        SerialMon.println(" m3");
+        APP_DEBUG_PRINT("Forward total : ");
+        APP_DEBUG_PRINT(data.forwardTotalM3, 3);
+        APP_DEBUG_PRINTLN(" m3");
+        APP_DEBUG_PRINT("Reverse total : ");
+        APP_DEBUG_PRINT(data.reverseTotalM3, 3);
+        APP_DEBUG_PRINTLN(" m3");
+        APP_DEBUG_PRINT("Net total     : ");
+        APP_DEBUG_PRINT(data.netTotalM3, 3);
+        APP_DEBUG_PRINTLN(" m3");
     }
     else
     {
-        SerialMon.print("Totals read failed/invalid, Modbus code=");
-        SerialMon.println(data.totalsResult);
+        APP_DEBUG_PRINT("Totals read failed/invalid, Modbus code=");
+        APP_DEBUG_PRINTLN(data.totalsResult);
     }
 
     if (data.liveValid)
     {
-        SerialMon.print("Flow rate     : ");
-        SerialMon.print(data.flowRate, 3);
-        SerialMon.print(' ');
-        SerialMon.println(supmeaFlowUnitName(data.flowRateUnitCode));
-        SerialMon.print("Velocity      : ");
-        SerialMon.print(data.velocityMps, 3);
-        SerialMon.println(" m/s");
-        SerialMon.print("Flow ratio    : ");
-        SerialMon.print(data.flowRatioPercent, 2);
-        SerialMon.println(" %");
-        SerialMon.print("EPD value     : ");
-        SerialMon.print(data.epdPercent);
-        SerialMon.println(" %");
-        SerialMon.print("EPD alarm     : ");
-        SerialMon.println(data.epdAlarm);
-        SerialMon.print("Excitation alarm: ");
-        SerialMon.println(data.excitationCurrentAlarm);
+        APP_DEBUG_PRINT("Flow rate     : ");
+        APP_DEBUG_PRINT(data.flowRate, 3);
+        APP_DEBUG_PRINT(' ');
+        APP_DEBUG_PRINTLN(supmeaFlowUnitName(data.flowRateUnitCode));
+        APP_DEBUG_PRINT("Velocity      : ");
+        APP_DEBUG_PRINT(data.velocityMps, 3);
+        APP_DEBUG_PRINTLN(" m/s");
+        APP_DEBUG_PRINT("Flow ratio    : ");
+        APP_DEBUG_PRINT(data.flowRatioPercent, 2);
+        APP_DEBUG_PRINTLN(" %");
+        APP_DEBUG_PRINT("EPD value     : ");
+        APP_DEBUG_PRINT(data.epdPercent);
+        APP_DEBUG_PRINTLN(" %");
+        APP_DEBUG_PRINT("EPD alarm     : ");
+        APP_DEBUG_PRINTLN(data.epdAlarm);
+        APP_DEBUG_PRINT("Excitation alarm: ");
+        APP_DEBUG_PRINTLN(data.excitationCurrentAlarm);
     }
     else
     {
-        SerialMon.print("Live-data read failed/invalid, Modbus code=");
-        SerialMon.println(data.liveResult);
+        APP_DEBUG_PRINT("Live-data read failed/invalid, Modbus code=");
+        APP_DEBUG_PRINTLN(data.liveResult);
     }
 
-    SerialMon.print("Overall result: ");
-    SerialMon.println(data.isValid ? "VALID" : "INVALID");
-    SerialMon.println("==============================================");
+    APP_DEBUG_PRINT("Overall result: ");
+    APP_DEBUG_PRINTLN(data.isValid ? "VALID" : "INVALID");
+    APP_DEBUG_PRINTLN("==============================================");
 }

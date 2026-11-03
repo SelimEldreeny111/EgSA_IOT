@@ -1,4 +1,6 @@
 /** @file BatteryMonitor.cpp @brief Battery ADC configuration and divider-scaled voltage reading. */
+#define APP_LOG_MODULE "BATTERY"
+#include "../platform/DebugLog.h"
 #include "BatteryMonitor.h"
 
 #include "../config/AppConfig.h"
@@ -25,13 +27,13 @@ void initializeBatteryMonitor()
     // previous sample-and-hold value. Discard it before normal measurements.
     (void)analogRead(AppConfig::kBatteryAdcPin);
 
-    SerialMon.print("Battery monitor ready: ADC pin=");
-    SerialMon.print(AppConfig::kBatteryAdcPin);
-    SerialMon.print(" divider=");
-    SerialMon.print(AppConfig::kBatteryDividerHighOhms, 0);
-    SerialMon.print("/");
-    SerialMon.print(AppConfig::kBatteryDividerLowOhms, 0);
-    SerialMon.println(" ohm");
+    APP_DEBUG_PRINT("Battery monitor ready: ADC pin=");
+    APP_DEBUG_PRINT(AppConfig::kBatteryAdcPin);
+    APP_DEBUG_PRINT(" divider=");
+    APP_DEBUG_PRINT(AppConfig::kBatteryDividerHighOhms, 0);
+    APP_DEBUG_PRINT("/");
+    APP_DEBUG_PRINT(AppConfig::kBatteryDividerLowOhms, 0);
+    APP_DEBUG_PRINTLN(" ohm");
 }
 
 float readBatteryVoltage()

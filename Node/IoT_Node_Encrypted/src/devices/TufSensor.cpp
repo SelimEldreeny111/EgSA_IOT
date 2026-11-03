@@ -1,4 +1,6 @@
 /** @file TufSensor.cpp @brief TUF Modbus polling, register decoding, and reading validation. */
+#define APP_LOG_MODULE "TUF"
+#include "../platform/DebugLog.h"
 #include <stdint.h>
 #include "TufSensor.h"
 
@@ -48,10 +50,10 @@ static float responseFloat(uint8_t lowWordIndex)
 /** @brief Report an optional register-read failure without invalidating core data. */
 static void logOptionalReadFailed(const char* name, uint8_t result)
 {
-    SerialMon.print("Optional TUF ");
-    SerialMon.print(name);
-    SerialMon.print(" read skipped, code=");
-    SerialMon.println(result);
+    APP_DEBUG_PRINT("Optional TUF ");
+    APP_DEBUG_PRINT(name);
+    APP_DEBUG_PRINT(" read skipped, code=");
+    APP_DEBUG_PRINTLN(result);
 }
 
 /** @brief Poll a TUF holding-register block with bounded retries. */
@@ -87,9 +89,9 @@ static uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
             break;
         }
 
-        SerialMon.print("TUF transient read error ");
-        SerialMon.print(result);
-        SerialMon.println(", retrying...");
+        APP_DEBUG_PRINT("TUF transient read error ");
+        APP_DEBUG_PRINT(result);
+        APP_DEBUG_PRINTLN(", retrying...");
     }
 
     return result;
@@ -98,7 +100,7 @@ static uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
 
 void initializeTufSensor()
 {
-    SerialMon.println("Initializing TUF RS485 Modbus sensor...");
+    APP_DEBUG_PRINTLN("Initializing TUF RS485 Modbus sensor...");
 
     tufSensor.begin(AppConfig::kTufModbusAddress, Serial1);
 
@@ -106,18 +108,18 @@ void initializeTufSensor()
     tufSensor.postTransmission(rs485PostTransmission);
     tufSensor.idle(rs485ServiceCommands);
 
-    SerialMon.print("Modbus test... ");
+    APP_DEBUG_PRINT("Modbus test... ");
     const uint8_t res = readHoldingRegistersWithRetry(kErrorCodeRegister, 1U);
 
     if (res == tufSensor.ku8MBSuccess)
     {
-        SerialMon.println("OK");
+        APP_DEBUG_PRINTLN("OK");
     }
     else
     {
-        SerialMon.print("FAIL (");
-        SerialMon.print(res);
-        SerialMon.println(") , no sensor found");
+        APP_DEBUG_PRINT("FAIL (");
+        APP_DEBUG_PRINT(res);
+        APP_DEBUG_PRINTLN(") , no sensor found");
     }
 
     tufSensor.clearResponseBuffer();
@@ -125,7 +127,7 @@ void initializeTufSensor()
 
 TufSensorData readTufSensor()
 {
-    SerialMon.println("\n================ TUF SENSOR READINGS ================");
+    APP_DEBUG_PRINTLN("\n================ TUF SENSOR READINGS ================");
     TufSensorData data{};
     data.isValid = false;
 
@@ -133,8 +135,8 @@ TufSensorData readTufSensor()
     if (res != tufSensor.ku8MBSuccess)
     {
         tufSensor.clearResponseBuffer();
-        SerialMon.print("TUF live-data read failed, code=");
-        SerialMon.println(res);
+        APP_DEBUG_PRINT("TUF live-data read failed, code=");
+        APP_DEBUG_PRINTLN(res);
         return data;
     }
 
@@ -146,7 +148,7 @@ TufSensorData readTufSensor()
     data.isValid = data.liveValid;
     if (!data.liveValid)
     {
-        SerialMon.println("TUF live-data reply contains an invalid float");
+        APP_DEBUG_PRINTLN("TUF live-data reply contains an invalid float");
         return data;
     }
 
@@ -160,7 +162,7 @@ TufSensorData readTufSensor()
             isfinite(data.flowPerDay) && isfinite(data.flowPerMonth);
         if (!data.dayMonthTotalsValid)
         {
-            SerialMon.println("TUF day/month totalizer contains an invalid float");
+            APP_DEBUG_PRINTLN("TUF day/month totalizer contains an invalid float");
         }
     }
     else
@@ -181,7 +183,7 @@ TufSensorData readTufSensor()
         data.yearTotalValid = isfinite(yearFraction) && isfinite(data.flowPerYear);
         if (!data.yearTotalValid)
         {
-            SerialMon.println("TUF year totalizer contains an invalid float");
+            APP_DEBUG_PRINTLN("TUF year totalizer contains an invalid float");
         }
     }
     else
@@ -210,54 +212,54 @@ void printTufSensorData(const TufSensorData& data)
 {
     if (!data.isValid)
     {
-        SerialMon.println("ERROR: Modbus read failed");
+        APP_LOG_ERROR("ERROR: Modbus read failed");
         return;
     }
 
-    SerialMon.print("Flow Rate : ");
-    SerialMon.print(data.flowRate);
-    SerialMon.println(" m3/h");
+    APP_DEBUG_PRINT("Flow Rate : ");
+    APP_DEBUG_PRINT(data.flowRate);
+    APP_DEBUG_PRINTLN(" m3/h");
 
-    SerialMon.print("velocity  : ");
-    SerialMon.print(data.velocity);
-    SerialMon.println(" m/s");
+    APP_DEBUG_PRINT("velocity  : ");
+    APP_DEBUG_PRINT(data.velocity);
+    APP_DEBUG_PRINTLN(" m/s");
 
     if (data.dayMonthTotalsValid)
     {
-        SerialMon.print("Volume today      : ");
-        SerialMon.print(data.flowPerDay);
-        SerialMon.println(" m3");
+        APP_DEBUG_PRINT("Volume today      : ");
+        APP_DEBUG_PRINT(data.flowPerDay);
+        APP_DEBUG_PRINTLN(" m3");
 
-        SerialMon.print("Volume this month : ");
-        SerialMon.print(data.flowPerMonth);
-        SerialMon.println(" m3");
+        APP_DEBUG_PRINT("Volume this month : ");
+        APP_DEBUG_PRINT(data.flowPerMonth);
+        APP_DEBUG_PRINTLN(" m3");
     }
     else
     {
-        SerialMon.println("Daily/monthly totals: unavailable");
+        APP_DEBUG_PRINTLN("Daily/monthly totals: unavailable");
     }
 
     if (data.yearTotalValid)
     {
-        SerialMon.print("Volume this year  : ");
-        SerialMon.print(data.flowPerYear);
-        SerialMon.println(" m3");
+        APP_DEBUG_PRINT("Volume this year  : ");
+        APP_DEBUG_PRINT(data.flowPerYear);
+        APP_DEBUG_PRINTLN(" m3");
     }
     else
     {
-        SerialMon.println("Yearly total: unavailable");
+        APP_DEBUG_PRINTLN("Yearly total: unavailable");
     }
 
-    SerialMon.print("TUF error code     : ");
+    APP_DEBUG_PRINT("TUF error code     : ");
     if (data.errorCodeValid)
     {
-        SerialMon.print("0x");
-        SerialMon.println(data.errorCode, HEX);
+        APP_DEBUG_PRINT("0x");
+        APP_DEBUG_PRINTLN(data.errorCode, HEX);
     }
     else
     {
-        SerialMon.println("unavailable");
+        APP_DEBUG_PRINTLN("unavailable");
     }
-    SerialMon.println("====================================================\n");
+    APP_DEBUG_PRINTLN("====================================================\n");
 
 }

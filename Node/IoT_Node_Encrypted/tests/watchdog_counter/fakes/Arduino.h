@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+inline uint32_t millis() { return 0; }
 struct FakeRcc { uint32_t CSR=0U; };
 extern FakeRcc* RCC;
 extern bool testStandbyWake;

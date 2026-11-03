@@ -37,6 +37,8 @@
  ******************************************************************************/
 
 /* ================== INCLUDES ================== */
+#define APP_LOG_MODULE "APP"
+#include "src/platform/DebugLog.h"
 #include "src/storage/TelemetryArchive.h"
 #include "src/app/IoT_Node.h"
 #include "src/app/GatewayApp.h"
@@ -90,20 +92,20 @@ void pollLoraCommands()
     // handled. A single blocked command/LoRa operation is intentionally not
     // serviced and will be recovered by the IWDG.
     serviceHardwareWatchdog();
-    printLoraFrameSummary(frame, "LoRa CMD RX");
+    APP_DEBUG_ONLY(printLoraFrameSummary(frame, "LoRa CMD RX"));
 
     const bool isBroadcastCommand = frame.type == LoraPayloadType::BroadcastCommand;
     const bool isDirectCommand = frame.type == LoraPayloadType::Command;
     if (!isBroadcastCommand && !isDirectCommand)
     {
-      SerialMon.println("Sensor node ignored non-command LoRa frame");
+      APP_DEBUG_PRINTLN("Sensor node ignored non-command LoRa frame");
       continue;
     }
 
     CMD_Message cmd = CMD_Message_init_zero;
     if (!decodeEncryptedCommandPayload(frame.payload, frame.payloadLength, cmd))
     {
-      SerialMon.println("Sensor node LoRa CMD decode failed");
+      APP_LOG_ERROR("Sensor node LoRa CMD decode failed");
       continue;
     }
 
@@ -116,7 +118,7 @@ void pollLoraCommands()
     {
       if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
       {
-        SerialMon.println("Telemetry request not for this LoRa node");
+        APP_DEBUG_PRINTLN("Telemetry request not for this LoRa node");
         continue;
       }
 
@@ -124,7 +126,7 @@ void pollLoraCommands()
           handleRemoteWakeCommand(cmd, isBroadcastCommand);
       if (!shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies))
       {
-        SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
+        APP_DEBUG_PRINTLN("[CMD] Automatic ACK reply disabled by configuration");
         continue;
       }
       if (!applied && cmd.request_id == 0U) continue;
@@ -139,13 +141,13 @@ void pollLoraCommands()
               telemetryPayload,
               telemetryPayloadLength))
       {
-        SerialMon.print("Telemetry response sent by LoRa: ");
-        SerialMon.print(telemetryPayloadLength);
-        SerialMon.println(" bytes");
+        APP_DEBUG_PRINT("Telemetry response sent by LoRa: ");
+        APP_DEBUG_PRINT(telemetryPayloadLength);
+        APP_DEBUG_PRINTLN(" bytes");
       }
       else
       {
-        SerialMon.println("LoRa telemetry response failed");
+        APP_LOG_ERROR("LoRa telemetry response failed");
       }
       continue;
     }
@@ -166,7 +168,7 @@ void pollLoraCommands()
       }
     }
     else if (!AppConfig::kEnableCommandAckReplies)
-      SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
+      APP_DEBUG_PRINTLN("[CMD] Automatic ACK reply disabled by configuration");
   }
 }
 #endif
@@ -274,10 +276,13 @@ void loop()
     refreshBatteryVoltage();
     if (AppConfig::kEnableBatteryMonitor)
     {
-      SerialMon.print("Battery ADC reading: ");
-      SerialMon.print(state.batteryVoltage, 2);
-      SerialMon.println(" V (encoded in Status/Telemetry)");
+      APP_DEBUG_PRINT("Battery ADC reading: ");
+      APP_DEBUG_PRINT(state.batteryVoltage, 2);
+      APP_DEBUG_PRINTLN(" V (encoded in Status/Telemetry)");
     }
+    APP_LOG_INFO("sample_begin epoch=%lu sensor_mask=0x%X srate_ms=%lu stran_ms=%lu",
+        static_cast<unsigned long>(getEpochTime()), static_cast<unsigned>(state.sensorMask),
+        static_cast<unsigned long>(state.samplingPeriodMs), static_cast<unsigned long>(state.transmissionPeriodMs));
     sensorCycle.begin();
   }
 
@@ -302,13 +307,13 @@ void loop()
       case SensorPollCycle::Sensor::Hnda: {
         serviceHardwareWatchdog(WatchdogStage::HndaRead);
         const HndaSensorData data = readHndaSensor();
-        updateHndaMetrics(data); printHndaSensorData(data);
+        updateHndaMetrics(data); APP_DEBUG_ONLY(printHndaSensorData(data));
         break;
       }
       case SensorPollCycle::Sensor::Sondas: {
         serviceHardwareWatchdog(WatchdogStage::SondasRead);
         const SondasSensorData data = readSondasSensor();
-        updateSondasMetrics(data); printSondasSensorData(data);
+        updateSondasMetrics(data); APP_DEBUG_ONLY(printSondasSensorData(data));
         break;
       }
       case SensorPollCycle::Sensor::None: break;
@@ -320,7 +325,12 @@ void loop()
   }
   // A partial multi-sensor snapshot must finish even when its start deadline
   // was already consumed. Commands still take priority between sensor reads.
-  if (samplingWasActive && !sensorCycle.active()) TelemetryArchive::capture();
+  if (samplingWasActive && !sensorCycle.active()) {
+    APP_LOG_INFO("sample_complete epoch=%lu tuf_valid=%u supmea_valid=%u rtc_trusted=%u",
+        static_cast<unsigned long>(getEpochTime()), state.tufFlow.liveDataValid,
+        state.supmeaFlow.liveDataValid, isRtcTrusted());
+    TelemetryArchive::capture();
+  }
   notifyPowerManagerSensorCycle(sensorCycle.active());
 
   commandPriority = g_loraCommandHandledThisPass;
@@ -345,13 +355,12 @@ void loop()
             payloadLength);
     if (telemetryDelivered)
     {
-      SerialMon.print("Telemetry sent by LoRa: ");
-      SerialMon.print(payloadLength);
-      SerialMon.println(" bytes");
+      APP_LOG_INFO("status_tx node=%u bytes=%lu stage=lora_transport_accepted server_receipt=unconfirmed",
+          AppConfig::kNodeId, static_cast<unsigned long>(payloadLength));
     }
     else
     {
-      SerialMon.println("LoRa telemetry send failed");
+      APP_LOG_ERROR("status_tx_failed node=%u bytes=%lu", AppConfig::kNodeId, static_cast<unsigned long>(payloadLength));
     }
     notifyPowerManagerTelemetryResult(telemetryDelivered);
     state.lastSendMs = millis();
@@ -387,7 +396,7 @@ void loop()
   if (millis() - s_lastLoraDiagnosticsMs >= AppConfig::kLoraDiagnosticsPeriodMs)
   {
     s_lastLoraDiagnosticsMs = millis();
-    printLoraDiagnostics();
+    APP_DEBUG_ONLY(printLoraDiagnostics());
   }
 #endif
   // Bulk is deliberately last: at most one packet, with server-persistence ACK.

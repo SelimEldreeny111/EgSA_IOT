@@ -48,6 +48,8 @@ constexpr size_t kCodecBufferSize=384U;
 struct Status_Message {};
 struct CMD_Message { uint32_t node_id, cmd_id; uint64_t cmd_data; uint32_t request_id; };
 struct Telemetry {
+  uint32_t sensor_mask=0U;
+  bool has_flash_log=false, has_history=false;
   uint32_t node_id=0U, timestamp=0U, sampling_rate=0U, Transmission_rate=0U;
   uint32_t power_mode=0U, power_state=0U, wake_remaining_seconds=0U;
   bool wake_command_ack=false;

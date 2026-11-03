@@ -1,4 +1,6 @@
 /** @file HndaSensor.cpp @brief HNDA probe Modbus polling and measurement decoding. */
+#define APP_LOG_MODULE "HNDA"
+#include "../platform/DebugLog.h"
 #include "HndaSensor.h"
 
 #include <Arduino.h>
@@ -34,7 +36,7 @@ void attachRs485DirectionCallbacks(ModbusMaster& sensor)
 
 void initializeHndaSensor()
 {
-    SerialMon.println("Initializing HNDA moisture/temperature sensor...");
+    APP_DEBUG_PRINTLN("Initializing HNDA moisture/temperature sensor...");
 
     hndaSensor.begin(
         AppConfig::kHndaModbusAddress,
@@ -47,12 +49,12 @@ void initializeHndaSensor()
 
     if (result == hndaSensor.ku8MBSuccess)
     {
-        SerialMon.println("HNDA sensor OK");
+        APP_DEBUG_PRINTLN("HNDA sensor OK");
     }
     else
     {
-        SerialMon.print("HNDA sensor not found, code=");
-        SerialMon.println(result);
+        APP_DEBUG_PRINT("HNDA sensor not found, code=");
+        APP_DEBUG_PRINTLN(result);
     }
 
     hndaSensor.clearResponseBuffer();
@@ -70,8 +72,8 @@ HndaSensorData readHndaSensor()
     if (result != hndaSensor.ku8MBSuccess)
     {
         hndaSensor.clearResponseBuffer();
-        SerialMon.print("HNDA sensor read failed, code=");
-        SerialMon.println(result);
+        APP_DEBUG_PRINT("HNDA sensor read failed, code=");
+        APP_DEBUG_PRINTLN(result);
         return data;
     }
 
@@ -91,15 +93,15 @@ void printHndaSensorData(const HndaSensorData& data)
 {
     if (!data.isValid)
     {
-        SerialMon.println("ERROR: HNDA sensor read failed");
+        APP_LOG_ERROR("ERROR: HNDA sensor read failed");
         return;
     }
 
-    SerialMon.print("HNDA temperature: ");
-    SerialMon.print(data.temperatureC);
-    SerialMon.println(" C");
+    APP_DEBUG_PRINT("HNDA temperature: ");
+    APP_DEBUG_PRINT(data.temperatureC);
+    APP_DEBUG_PRINTLN(" C");
 
-    SerialMon.print("HNDA moisture: ");
-    SerialMon.print(data.moisturePercent);
-    SerialMon.println(" %");
+    APP_DEBUG_PRINT("HNDA moisture: ");
+    APP_DEBUG_PRINT(data.moisturePercent);
+    APP_DEBUG_PRINTLN(" %");
 }

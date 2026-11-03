@@ -1,5 +1,7 @@
 /** @file IoT_Node.cpp @brief Sensor-node startup and configuration initialization. */
 /* ================== INCLUDES ================== */
+#define APP_LOG_MODULE "BOOT"
+#include "../platform/DebugLog.h"
 #include "../config/AppConfig.h"
 #include "IoT_Node.h"
 #include "FlowMeterManager.h"
@@ -34,7 +36,7 @@ bool recordNetworkConnectionSuccess()
 {
     if (g_networkRetryPolicy.failures() != 0U || g_networkRetryPolicy.stage() != 1U)
     {
-        SerialMon.println("[NETWORK] Connected; retry recovery cleared (stage 1, 0 failures)");
+        APP_DEBUG_PRINTLN("[NETWORK] Connected; retry recovery cleared (stage 1, 0 failures)");
     }
     g_networkRetryPolicy.connected();
     serviceHardwareWatchdog();
@@ -46,12 +48,12 @@ bool recordNetworkConnectionFailure()
 {
     // Print before advancing so a threshold is shown as stage 1 attempt 10/10,
     // not the freshly initialized stage 2 attempt 0/10.
-    SerialMon.print("[NETWORK] Failed attempt, stage ");
-    SerialMon.print(g_networkRetryPolicy.stage());
-    SerialMon.print(": ");
-    SerialMon.print(g_networkRetryPolicy.failures() + 1U);
-    SerialMon.print('/');
-    SerialMon.println(AppConfig::kNetworkRetriesPerStage);
+    APP_DEBUG_PRINT("[NETWORK] Failed attempt, stage ");
+    APP_DEBUG_PRINT(g_networkRetryPolicy.stage());
+    APP_DEBUG_PRINT(": ");
+    APP_DEBUG_PRINT(g_networkRetryPolicy.failures() + 1U);
+    APP_DEBUG_PRINT('/');
+    APP_DEBUG_PRINTLN(AppConfig::kNetworkRetriesPerStage);
     const NetworkRetryPolicy::Action action = g_networkRetryPolicy.failedAttempt();
     if (action == NetworkRetryPolicy::Action::ResetModem)
     {
@@ -154,7 +156,7 @@ bool saveWifiCredentials(const char* ssid, const char* password)
 {
     if (!AppConfig::kEnableWifiCredentialStore)
     {
-        SerialMon.println("WiFi credential storage disabled; using configured credentials for this boot.");
+        APP_DEBUG_PRINTLN("WiFi credential storage disabled; using configured credentials for this boot.");
         return false;
     }
 
@@ -193,11 +195,11 @@ bool saveWifiCredentials(const char* ssid, const char* password)
         wifiCredentialsMatch(verifiedCredentials, ssid, password);
     if (!verified)
     {
-        SerialMon.println("WiFi credential flash verification FAILED.");
+        APP_LOG_ERROR("WiFi credential flash verification FAILED.");
         return false;
     }
 
-    SerialMon.println("WiFi credentials saved and verified in flash.");
+    APP_DEBUG_PRINTLN("WiFi credentials saved and verified in flash.");
     return true;
 }
 
@@ -207,10 +209,10 @@ bool connectWifiWithCredentials(const char* source, const char* ssid, const char
     for (int retryCount = 0; retryCount < WIFI_MAX_RETRIES; ++retryCount)
     {
         serviceHardwareWatchdog(WatchdogStage::WifiJoin);
-        SerialMon.print("Connecting to ");
-        SerialMon.print(source);
-        SerialMon.print(" WiFi SSID: ");
-        SerialMon.println(ssid);
+        APP_DEBUG_PRINT("Connecting to ");
+        APP_DEBUG_PRINT(source);
+        APP_DEBUG_PRINT(" WiFi SSID: ");
+        APP_DEBUG_PRINTLN(ssid);
 
         const bool connected = modem.networkConnect(ssid, password);
         // The modem call returned normally. Refresh here so the next bounded
@@ -219,12 +221,12 @@ bool connectWifiWithCredentials(const char* source, const char* ssid, const char
         serviceHardwareWatchdog();
         if (connected)
         {
-            SerialMon.print(source);
-            SerialMon.println(" WiFi connected");
+            APP_DEBUG_PRINT(source);
+            APP_DEBUG_PRINTLN(" WiFi connected");
             return true;
         }
 
-        SerialMon.println("WiFi join failed");
+        APP_LOG_ERROR("WiFi join failed");
         recordNetworkConnectionFailure();
         watchdogDelay(WIFI_RETRY_INTERVAL);
     }
@@ -237,21 +239,22 @@ bool saveConnectedWifiAsFallback(const char* source, const char* ssid, const cha
 {
     if (saveWifiCredentials(ssid, password))
     {
-        SerialMon.print("Saved ");
-        SerialMon.print(source);
-        SerialMon.println(" WiFi as the flash fallback network.");
+        APP_DEBUG_PRINT("Saved ");
+        APP_DEBUG_PRINT(source);
+        APP_DEBUG_PRINTLN(" WiFi as the flash fallback network.");
         return true;
     }
 
-    SerialMon.print("Connected to ");
-    SerialMon.print(source);
-    SerialMon.println(" WiFi, but could not save it as the flash fallback.");
+    APP_DEBUG_PRINT("Connected to ");
+    APP_DEBUG_PRINT(source);
+    APP_DEBUG_PRINTLN(" WiFi, but could not save it as the flash fallback.");
     return false;
 }
 
 /** @brief Read a bounded serial-console line while keeping the watchdog alive. */
 bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool allowEmpty)
 {
+#if APP_ENABLE_DEBUG
     if (buffer == nullptr || bufferSize == 0)
     {
         return false;
@@ -284,44 +287,53 @@ bool readSerialLine(char* buffer, size_t bufferSize, uint32_t timeoutMs, bool al
 
     buffer[index] = '\0';
     return allowEmpty || index > 0;
+#else
+    (void)buffer; (void)bufferSize; (void)timeoutMs; (void)allowEmpty;
+    return false;
+#endif
 }
 
 /** @brief Prompt for an SSID and optional password after automatic networks fail. */
 bool promptForWifiCredentials(char* ssid, size_t ssidSize, char* password, size_t passwordSize)
 {
-    SerialMon.println();
-    SerialMon.println("Configured and saved fallback WiFi networks are not connected.");
-    SerialMon.println("Enter new fallback WiFi credentials in the serial monitor.");
-    SerialMon.println("Credentials are stored in flash only after a successful connection.");
-    SerialMon.print("SSID (max ");
-    SerialMon.print(kWifiSsidMaxLength);
-    SerialMon.println(" chars):");
+#if APP_ENABLE_DEBUG
+    APP_DEBUG_PRINTLN();
+    APP_DEBUG_PRINTLN("Configured and saved fallback WiFi networks are not connected.");
+    APP_DEBUG_PRINTLN("Enter new fallback WiFi credentials in the serial monitor.");
+    APP_DEBUG_PRINTLN("Credentials are stored in flash only after a successful connection.");
+    APP_DEBUG_PRINT("SSID (max ");
+    APP_DEBUG_PRINT(kWifiSsidMaxLength);
+    APP_DEBUG_PRINTLN(" chars):");
 
     if (!readSerialLine(ssid, ssidSize, kWifiSerialInputTimeoutMs, false))
     {
-        SerialMon.println("No SSID entered before timeout.");
+        APP_LOG_WARN("No SSID entered before timeout.");
         return false;
     }
 
     if (strlen(ssid) > kWifiSsidMaxLength)
     {
-        SerialMon.println("SSID is too long.");
+        APP_DEBUG_PRINTLN("SSID is too long.");
         return false;
     }
 
-    SerialMon.print("Password (max ");
-    SerialMon.print(kWifiPasswordMaxLength);
-    SerialMon.println(" chars, send blank line for open WiFi):");
+    APP_DEBUG_PRINT("Password (max ");
+    APP_DEBUG_PRINT(kWifiPasswordMaxLength);
+    APP_DEBUG_PRINTLN(" chars, send blank line for open WiFi):");
 
     readSerialLine(password, passwordSize, kWifiSerialInputTimeoutMs, true);
 
     if (strlen(password) > kWifiPasswordMaxLength)
     {
-        SerialMon.println("Password is too long.");
+        APP_DEBUG_PRINTLN("Password is too long.");
         return false;
     }
 
     return true;
+#else
+    (void)ssid; (void)ssidSize; (void)password; (void)passwordSize;
+    return false;
+#endif
 }
 
 }
@@ -334,37 +346,37 @@ bool connectNetwork()
     while (retryCount < GPRS_MAX_RETRIES)
     {
         serviceHardwareWatchdog(WatchdogStage::GsmRegistration);
-        SerialMon.println("Connecting to GSM network.......");
+        APP_DEBUG_PRINTLN("Connecting to GSM network.......");
         const bool networkReady = modem.waitForNetwork(10000);
         serviceHardwareWatchdog();
         if (!networkReady)
         {
-            SerialMon.println("Network FAILED, retrying......");
+            APP_LOG_ERROR("Network FAILED, retrying......");
             recordNetworkConnectionFailure();
             retryCount++;
             watchdogDelay(GPRS_RETRY_INTERVAL);
             continue;
         }
 
-        SerialMon.println("Network connected, connecting GPRS...");
+        APP_DEBUG_PRINTLN("Network connected, connecting GPRS...");
         serviceHardwareWatchdog(WatchdogStage::GprsAttach);
         const bool gprsReady =
             modem.gprsConnect(kApn, kNetworkUser, kNetworkPassword);
         serviceHardwareWatchdog();
         if (!gprsReady)
         {
-            SerialMon.println("GPRS FAILED, retrying...");
+            APP_LOG_ERROR("GPRS FAILED, retrying...");
             recordNetworkConnectionFailure();
             retryCount++;
             watchdogDelay(GPRS_RETRY_INTERVAL);
             continue;
         }
 
-        SerialMon.println("GPRS Connected");
+        APP_DEBUG_PRINTLN("GPRS Connected");
         return recordNetworkConnectionSuccess();
     }
 
-    SerialMon.println("GPRS connection failed after retries!");
+    APP_LOG_ERROR("GPRS connection failed after retries!");
     return false; // Each failed inner attempt was already counted.
 
 #elif defined(USE_ESP8266)
@@ -374,23 +386,23 @@ bool connectNetwork()
     //   3. One operator-provisioned fallback through the serial monitor.
     // A successful configured connection must not overwrite the saved
     // fallback; otherwise both choices become identical after the first boot.
-    SerialMon.println("WiFi priority: configured firmware -> saved flash fallback -> operator fallback.");
+    APP_DEBUG_PRINTLN("WiFi priority: configured firmware -> saved flash fallback -> operator fallback.");
 
     if (connectWifiWithCredentials("configured firmware", kWifiSsid, kWifiPassword))
     {
-        SerialMon.println("Configured WiFi connected; saved flash fallback remains unchanged.");
+        APP_DEBUG_PRINTLN("Configured WiFi connected; saved flash fallback remains unchanged.");
         return recordNetworkConnectionSuccess();
     }
 
-    SerialMon.println("Configured firmware WiFi is not connected.");
+    APP_DEBUG_PRINTLN("Configured firmware WiFi is not connected.");
 
     StoredWifiCredentials savedCredentials = {};
     if (loadSavedWifiCredentials(savedCredentials))
     {
-        SerialMon.println("Fallback WiFi credentials found in flash.");
+        APP_DEBUG_PRINTLN("Fallback WiFi credentials found in flash.");
         if (wifiCredentialsMatch(savedCredentials, kWifiSsid, kWifiPassword))
         {
-            SerialMon.println("Saved fallback matches configured WiFi; duplicate attempt skipped.");
+            APP_DEBUG_PRINTLN("Saved fallback matches configured WiFi; duplicate attempt skipped.");
         }
         else if (connectWifiWithCredentials(
                      "saved flash fallback",
@@ -401,26 +413,26 @@ bool connectNetwork()
         }
         else
         {
-            SerialMon.println("Saved flash fallback WiFi failed.");
+            APP_LOG_ERROR("Saved flash fallback WiFi failed.");
         }
     }
     else
     {
-        SerialMon.println("No valid fallback WiFi credentials found in flash.");
+        APP_DEBUG_PRINTLN("No valid fallback WiFi credentials found in flash.");
     }
 
     char userSsid[kWifiSsidMaxLength + 1] = {};
     char userPassword[kWifiPasswordMaxLength + 1] = {};
     if (g_wifiProvisioningPromptUsed)
     {
-        SerialMon.println("WiFi provisioning prompt already used this boot; automatic retry will continue later.");
+        APP_DEBUG_PRINTLN("WiFi provisioning prompt already used this boot; automatic retry will continue later.");
         return false; // No new physical network attempt in this branch.
     }
 
     g_wifiProvisioningPromptUsed = true;
     if (!promptForWifiCredentials(userSsid, sizeof(userSsid), userPassword, sizeof(userPassword)))
     {
-        SerialMon.println("WiFi credential entry cancelled or timed out.");
+        APP_DEBUG_PRINTLN("WiFi credential entry cancelled or timed out.");
         return false; // Operator timeout/cancellation is not a failed modem join.
     }
 
@@ -430,7 +442,7 @@ bool connectNetwork()
         return recordNetworkConnectionSuccess();
     }
 
-    SerialMon.println("WiFi connection failed after configured, saved fallback, and operator credentials.");
+    APP_LOG_ERROR("WiFi connection failed after configured, saved fallback, and operator credentials.");
     return false; // Credential attempts already counted their individual failures.
 
 #else
@@ -442,31 +454,33 @@ void setup_Init()
 {
     AppRuntimeState& state = appState();
 
-    SerialMon.begin(115200);
+    APP_DEBUG_BEGIN(115200);
+    APP_LOG_INFO("boot role=SENSOR node=%u topics=%s debug=enabled raw_frames=%u command_ack=%u",
+        AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
     watchdogDelay(1000);
     reportHardwareWatchdogStatus();
     serviceHardwareWatchdog(WatchdogStage::Setup);
 
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
-    SerialMon.println("===============      Setup Initialization     ================");
-    SerialMon.println("==============================================================");
-    SerialMon.println("\n=========== EgSA IOT Water Monitoring project  ============="); //STM32 + GSM/WiFi + MQTT + Protobuf
+    APP_DEBUG_PRINTLN("===============      Setup Initialization     ================");
+    APP_DEBUG_PRINTLN("==============================================================");
+    APP_DEBUG_PRINTLN("\n=========== EgSA IOT Water Monitoring project  ============="); //STM32 + GSM/WiFi + MQTT + Protobuf
 
     initializeValveController();
     refreshEnabledSensorSummary();
     initializeBatteryMonitor();
     refreshBatteryVoltage();
-    SerialMon.print("Battery voltage: ");
-    SerialMon.print(state.batteryVoltage, 2);
-    SerialMon.println(" V");
+    APP_DEBUG_PRINT("Battery voltage: ");
+    APP_DEBUG_PRINT(state.batteryVoltage, 2);
+    APP_DEBUG_PRINTLN(" V");
     serviceHardwareWatchdog(WatchdogStage::Setup);
 
     initializeRtc();
     if (!isRtcTimeSet())
     {
         setRtcEpoch(AppConfig::kDefaultRtcEpoch);
-        SerialMon.println("RTC initial time set to 2024-01-01 00:00:00");
+        APP_DEBUG_PRINTLN("RTC initial time set to 2024-01-01 00:00:00");
     }
     else
     {
@@ -487,7 +501,7 @@ void setup_Init()
 
     if (!connectNetwork())
     {
-        SerialMon.println("Network initialization failed, entering safe mode.");
+        APP_LOG_ERROR("Network initialization failed, entering safe mode.");
     }
 
     initializeMqttClient();
@@ -497,32 +511,32 @@ void setup_Init()
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
     
-    SerialMon.println("==============================================================");
-    SerialMon.println("=== RS485 sensors: TUF / Supmea / HNDA / Sondas =============");
-    SerialMon.println("==============================================================");
-    SerialMon.print("TUF polling: ");
-    SerialMon.println(AppConfig::kEnableTufSensor ? "ENABLED" : "DISABLED");
+    APP_DEBUG_PRINTLN("==============================================================");
+    APP_DEBUG_PRINTLN("=== RS485 sensors: TUF / Supmea / HNDA / Sondas =============");
+    APP_DEBUG_PRINTLN("==============================================================");
+    APP_DEBUG_PRINT("TUF polling: ");
+    APP_DEBUG_PRINTLN(AppConfig::kEnableTufSensor ? "ENABLED" : "DISABLED");
     if (AppConfig::kEnableTufSensor) {
-        SerialMon.print("  Modbus address: ");
-        SerialMon.println(AppConfig::kTufModbusAddress);
+        APP_DEBUG_PRINT("  Modbus address: ");
+        APP_DEBUG_PRINTLN(AppConfig::kTufModbusAddress);
     }
-    SerialMon.print("HNDA polling: ");
-    SerialMon.println(AppConfig::kEnableHndaSensor ? "ENABLED" : "DISABLED");
+    APP_DEBUG_PRINT("HNDA polling: ");
+    APP_DEBUG_PRINTLN(AppConfig::kEnableHndaSensor ? "ENABLED" : "DISABLED");
     if (AppConfig::kEnableHndaSensor) {
-        SerialMon.print("  Modbus address: ");
-        SerialMon.println(AppConfig::kHndaModbusAddress);
+        APP_DEBUG_PRINT("  Modbus address: ");
+        APP_DEBUG_PRINTLN(AppConfig::kHndaModbusAddress);
     }
-    SerialMon.print("Supmea polling: ");
-    SerialMon.println(AppConfig::kEnableSupmeaSensor ? "ENABLED" : "DISABLED");
+    APP_DEBUG_PRINT("Supmea polling: ");
+    APP_DEBUG_PRINTLN(AppConfig::kEnableSupmeaSensor ? "ENABLED" : "DISABLED");
     if (AppConfig::kEnableSupmeaSensor) {
-        SerialMon.print("  Modbus address: ");
-        SerialMon.println(AppConfig::kSupmeaSensorModbusAddress);
+        APP_DEBUG_PRINT("  Modbus address: ");
+        APP_DEBUG_PRINTLN(AppConfig::kSupmeaSensorModbusAddress);
     }
-    SerialMon.print("Sondas polling: ");
-    SerialMon.println(AppConfig::kEnableSondasSensor ? "ENABLED" : "DISABLED");
+    APP_DEBUG_PRINT("Sondas polling: ");
+    APP_DEBUG_PRINTLN(AppConfig::kEnableSondasSensor ? "ENABLED" : "DISABLED");
     if (AppConfig::kEnableSondasSensor) {
-        SerialMon.print("  Modbus address: ");
-        SerialMon.println(AppConfig::kSondasModbusAddress);
+        APP_DEBUG_PRINT("  Modbus address: ");
+        APP_DEBUG_PRINTLN(AppConfig::kSondasModbusAddress);
     }
 
     if (AppConfig::kEnableTufSensor ||

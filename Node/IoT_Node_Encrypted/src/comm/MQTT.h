@@ -17,6 +17,11 @@
 #include <stdlib.h>
 
 #include "../config/AppConfig.h"
+// The application master switch also suppresses optional TinyGSM tracing.
+#if !APP_ENABLE_DEBUG
+#undef TINY_GSM_DEBUG
+#undef DUMP_AT_COMMANDS
+#endif
 #include <PubSubClient.h>
 #include <TinyGsmClient.h>
 

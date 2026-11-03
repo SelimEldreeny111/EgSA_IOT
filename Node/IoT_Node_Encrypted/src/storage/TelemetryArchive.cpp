@@ -1,4 +1,6 @@
 /** @file TelemetryArchive.cpp @brief One bounded journal/history step per loop; command traffic has priority. */
+#define APP_LOG_MODULE "FLASH"
+#include "../platform/DebugLog.h"
 #include "TelemetryArchive.h"
 #if APP_ENABLE_SPI_FLASH && APP_ROLE == APP_ROLE_SENSOR_NODE
 #include "TelemetryJournal.h"
@@ -36,7 +38,12 @@ bool timeUsable(){return isRtcTrusted()&&(!journal.ready()||getEpochTime()>=jour
 /** @brief Permit reads only from the recovered, unexpired, trusted generation. */
 bool retained(){return journal.ready()&&timeUsable()&&getEpochTime()<journal.expiry();}
 /** @brief Preserve the transfer identity while preparing a terminal result. */
-void finish(uint32_t result){download.result=result;download.attempts=0;download.state=Transfer::SendEnd;}
+void finish(uint32_t result){
+    APP_LOG_INFO("history_terminal request=%lu index=%lu total=%lu result=%lu",
+        static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.index),
+        static_cast<unsigned long>(download.total), static_cast<unsigned long>(result));
+    download.result=result;download.attempts=0;download.state=Transfer::SendEnd;
+}
 /** @brief Decode a CRC-verified canonical sample and check its node identity. */
 bool decode(const Record& record,Telemetry& telemetry){
     telemetry=Telemetry_init_zero;
@@ -65,12 +72,19 @@ void history(Telemetry& t,uint32_t kind,uint32_t phase,uint32_t result,bool ack)
 }
 void begin(){
     initialized=true;lastProbe=millis();journal.begin();
-    SerialMon.print("SPI flash JEDEC=0x");SerialMon.print(chip.jedec(),HEX);
-    SerialMon.print(" state=");SerialMon.println(uint32_t(journal.info().state));
-    if(journal.info().state==State::Unformatted)SerialMon.println("Flash log requires direct CLEAR_FLASH after STIME; existing data is not auto-formatted");
+    APP_LOG_INFO("probe jedec=0x%06lX state=%u capacity_bytes=%lu retention_seconds=86400",
+        static_cast<unsigned long>(chip.jedec()), static_cast<unsigned>(journal.info().state),
+        static_cast<unsigned long>(journal.info().capacity));
+    if(journal.info().state==State::Unformatted)APP_DEBUG_PRINTLN("Flash log requires direct CLEAR_FLASH after STIME; existing data is not auto-formatted");
 }
 void capture(){
-    if(!initialized||!timeUsable()||!retained()){++skipped;return;}
+    if(!initialized||!timeUsable()||!retained()){
+        ++skipped;
+        APP_LOG_WARN("sample_skipped state=%u rtc_trusted=%u retention_valid=%u skipped=%lu",
+            static_cast<unsigned>(journal.info().state), isRtcTrusted(), retained(),
+            static_cast<unsigned long>(skipped));
+        return;
+    }
     Telemetry t=Telemetry_init_zero;
     AppRuntimeState& state=appState();state.lastTimestamp=getEpochTime();
     t.node_id=AppConfig::kNodeId;t.timestamp=state.lastTimestamp;
@@ -79,7 +93,11 @@ void capture(){
     CalendarPeriodKeys day={};if(!getCalendarPeriodKeys(state.lastTimestamp,day)){++skipped;return;}
     uint8_t encoded[472];pb_ostream_t out=pb_ostream_from_buffer(encoded,sizeof(encoded));
     if(!pb_encode(&out,Telemetry_fields,&t)){++skipped;return;}
-    journal.append(encoded,uint16_t(out.bytes_written),state.lastTimestamp,day.day);
+    const bool queued=journal.append(encoded,uint16_t(out.bytes_written),state.lastTimestamp,day.day);
+    APP_LOG_INFO("sample_append epoch=%lu day=%lu protobuf_bytes=%lu result=%s",
+        static_cast<unsigned long>(state.lastTimestamp), static_cast<unsigned long>(day.day),
+        static_cast<unsigned long>(out.bytes_written), queued ? "queued_not_yet_committed" : "rejected");
+    (void)queued;
 }
 bool storedStatus(Status_Message& s){
     Record record;Telemetry t;
@@ -104,13 +122,22 @@ bool handle(const CMD_Message& cmd,bool broadcast){
     if(cmd.cmd_id==Ack){
         const uint32_t phase=uint32_t(cmd.cmd_data>>32),index=uint32_t(cmd.cmd_data);
         if(cmd.request_id!=download.request||index!=download.index)return false;
-        if(phase==2&&download.state==Transfer::WaitRecord){download.state=Transfer::Read;download.attempts=0;return true;}
-        if(phase==3&&download.state==Transfer::WaitEnd){download=Download();return true;}
+        if(phase==2&&download.state==Transfer::WaitRecord){
+            APP_LOG_INFO("history_server_ack request=%lu index=%lu phase=record",
+                static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(index));
+            download.state=Transfer::Read;download.attempts=0;return true;
+        }
+        if(phase==3&&download.state==Transfer::WaitEnd){
+            APP_LOG_INFO("history_complete request=%lu server_ack=confirmed", static_cast<unsigned long>(cmd.request_id));
+            download=Download();return true;
+        }
         return false;
     }
     if(cmd.cmd_id==Clear){
         if(cmd.cmd_data!=0||cmd.request_id==0)return false;
         const bool accepted=journal.requestClear(cmd.request_id,getEpochTime(),isRtcTrusted());
+        APP_LOG_INFO("clear_request request=%lu result=%s rtc_trusted=%u",
+            static_cast<unsigned long>(cmd.request_id), accepted ? "accepted_async" : "rejected", isRtcTrusted());
         if(accepted&&download.state!=Transfer::Idle)finish(4);
         return accepted;
     }
@@ -130,7 +157,12 @@ bool handle(const CMD_Message& cmd,bool broadcast){
         download=Download();download.request=cmd.request_id;download.argument=cmd.cmd_data;
         download.generation=journal.info().generation;download.end=journal.info().lastSequence;
         download.first=cmd.cmd_data?cursor:1;download.cursor=download.first;download.day=day.day;
-        download.state=Transfer::Count;return true;
+        download.state=Transfer::Count;
+        APP_LOG_INFO("history_begin request=%lu generation=%lu day=%lu first=%lu end=%lu",
+            static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.generation),
+            static_cast<unsigned long>(download.day), static_cast<unsigned long>(download.first),
+            static_cast<unsigned long>(download.end));
+        return true;
     }
     return false;
 }
@@ -154,6 +186,11 @@ void reply(const CMD_Message& cmd,Telemetry& t,bool applied){
         }
     }
     t.has_flash_log=true;describe(t.flash_log);
+    APP_LOG_INFO("status request=%lu state=%lu generation=%lu records=%lu used_bytes=%lu free_bytes=%lu clear_remaining=%lu rtc_trusted=%u",
+        static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(t.flash_log.state),
+        static_cast<unsigned long>(t.flash_log.generation), static_cast<unsigned long>(t.flash_log.record_count),
+        static_cast<unsigned long>(t.flash_log.used_bytes), static_cast<unsigned long>(t.flash_log.free_bytes),
+        static_cast<unsigned long>(t.flash_log.clear_sectors_remaining), t.flash_log.rtc_trusted);
     if(cmd.cmd_id==Today){
         t.has_history=true;t.history=HistoryInfo_init_zero;t.history.request_id=cmd.request_id;
         t.history.generation=journal.info().generation;t.history.kind=2;t.history.phase=1;
@@ -163,8 +200,21 @@ void reply(const CMD_Message& cmd,Telemetry& t,bool applied){
 }
 void step(){
     if(!initialized)return;
+#if APP_ENABLE_DEBUG
+    const Info before=journal.info();
+#endif
     if(journal.info().state==State::Missing&&millis()-lastProbe>=5000U){lastProbe=millis();journal.begin();}
     journal.step(getEpochTime(),isRtcTrusted());
+#if APP_ENABLE_DEBUG
+    const Info& after=journal.info();
+    if(after.state!=before.state || after.generation!=before.generation || after.records!=before.records)
+        APP_LOG_INFO("journal_update state=%u generation=%lu committed_records=%lu latest_sequence=%lu busy=%u clear_remaining=%lu",
+            static_cast<unsigned>(after.state), static_cast<unsigned long>(after.generation),
+            static_cast<unsigned long>(after.records), static_cast<unsigned long>(after.lastSequence),
+            journal.busy(), static_cast<unsigned long>(after.clearRemaining));
+    if(before.clearRemaining && !after.clearRemaining)
+        APP_LOG_INFO("clear_sweep_complete generation=%lu", static_cast<unsigned long>(after.generation));
+#endif
     if(download.state==Transfer::Idle)return;
     if((download.state==Transfer::WaitEnd||download.state==Transfer::SendEnd)){
         // Terminal cancellation/error survives retention changes until delivered/timeout.
@@ -172,6 +222,9 @@ void step(){
     }else if(!retained()||journal.info().generation!=download.generation){finish(5);}
     if(download.state==Transfer::WaitRecord||download.state==Transfer::WaitEnd){
         if(millis()-download.lastAttempt>=AppConfig::kFlashHistoryAckTimeoutMs){
+            APP_LOG_WARN("history_ack_timeout request=%lu index=%lu attempts=%u limit=%u",
+                static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.index),
+                download.attempts, AppConfig::kFlashHistoryMaxAttempts);
             if(download.attempts>=AppConfig::kFlashHistoryMaxAttempts){
                 if(download.state==Transfer::WaitEnd)download=Download();else finish(6);
             }else download.state=download.state==Transfer::WaitRecord?Transfer::SendRecord:Transfer::SendEnd;
@@ -199,9 +252,15 @@ bool packet(uint8_t* data,size_t capacity,size_t& length){
         history(t,2,3,download.result,true);t.has_flash_log=true;describe(t.flash_log);
     }else return false;
     if(!encodeEncryptedMessage(Telemetry_fields,&t,data,capacity,length)){finish(7);return false;}
+    APP_LOG_INFO("history_packet_ready request=%lu index=%lu total=%lu phase=%lu bytes=%lu",
+        static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.index),
+        static_cast<unsigned long>(download.total), static_cast<unsigned long>(t.history.phase),
+        static_cast<unsigned long>(length));
     return true;
 }
 void published(bool success){
+    APP_LOG_INFO("history_tx request=%lu index=%lu local_acceptance=%u server_ack=pending",
+        static_cast<unsigned long>(download.request), static_cast<unsigned long>(download.index), success);
     (void)success; // Local acceptance is not server persistence; only CMD14 advances the cursor.
     if(download.state==Transfer::SendRecord)download.state=Transfer::WaitRecord;
     else if(download.state==Transfer::SendEnd)download.state=Transfer::WaitEnd;

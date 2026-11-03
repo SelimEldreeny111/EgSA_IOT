@@ -1,4 +1,6 @@
 /** @file Rs485Bus.cpp @brief Shared half-duplex RS485 UART and driver-enable timing. */
+#define APP_LOG_MODULE "RS485"
+#include "../platform/DebugLog.h"
 #include "Rs485Bus.h"
 
 #include <Arduino.h>
@@ -66,7 +68,7 @@ void initializeRs485Bus()
     delay(50);
     g_rs485Initialized = true;
 
-    SerialMon.print("RS485 bus ready: ");
-    SerialMon.print(AppConfig::kRs485BaudRate);
-    SerialMon.println(" baud, 8N1");
+    APP_DEBUG_PRINT("RS485 bus ready: ");
+    APP_DEBUG_PRINT(AppConfig::kRs485BaudRate);
+    APP_DEBUG_PRINTLN(" baud, 8N1");
 }

@@ -1,4 +1,6 @@
 /** @file PacketCodec.cpp @brief Protobuf encoding and AES-CBC wire-envelope processing. */
+#define APP_LOG_MODULE "CODEC"
+#include "../platform/DebugLog.h"
 #include "PacketCodec.h"
 
 #include <Arduino.h>
@@ -91,7 +93,7 @@ bool encodeEncryptedMessage(
 
     if (!pb_encode(&stream, fields, srcStruct)) 
     {
-        SerialMon.println("Encode FAILED");
+        APP_LOG_ERROR("Encode FAILED");
         return false;
     }
 
@@ -109,7 +111,7 @@ bool encodeEncryptedMessage(
 
     if (totalLength + padding > sizeof(plain)) 
     {
-        SerialMon.println("Plain buffer overflow");
+        APP_DEBUG_PRINTLN("Plain buffer overflow");
         return false;
     }
 
@@ -122,13 +124,13 @@ bool encodeEncryptedMessage(
     uint8_t encrypted[AppConfig::kCodecBufferSize];
     const int encryptedLength = encryptBuffer(plain, static_cast<int>(totalLength), encrypted, packetIv);
     if (encryptedLength <= 0) {
-        SerialMon.println("Encrypt FAILED");
+        APP_LOG_ERROR("Encrypt FAILED");
         return false;
     }
 
     if (static_cast<size_t>(encryptedLength + AppConfig::kIvLength + 1) > outputSize) 
     {
-        SerialMon.println("Output buffer too small");
+        APP_DEBUG_PRINTLN("Output buffer too small");
         return false;
     }
 
@@ -146,13 +148,13 @@ bool decodeEncryptedCommandPayload(
 {
     if (payloadLength < 2 || payloadLength > AppConfig::kCodecBufferSize) 
     {
-        SerialMon.println("Invalid payload length");
+        APP_DEBUG_PRINTLN("Invalid payload length");
         return false;
     }
 
     const uint8_t protocolVersion = payload[0];
     if (protocolVersion != AppConfig::kProtocolVersion) {
-        SerialMon.println("Unsupported protocol version");
+        APP_DEBUG_PRINTLN("Unsupported protocol version");
         return false;
     }
 
@@ -163,7 +165,7 @@ bool decodeEncryptedCommandPayload(
 
     if (protocolVersion == AppConfig::kProtocolVersion) {
         if (payloadLength < (1 + AppConfig::kIvLength + AppConfig::kAesBlockSize)) {
-            SerialMon.println("Invalid v2 payload length");
+            APP_DEBUG_PRINTLN("Invalid v2 payload length");
             return false;
         }
 
@@ -180,26 +182,26 @@ bool decodeEncryptedCommandPayload(
     uint8_t decrypted[AppConfig::kCodecBufferSize];
     const int decryptedLength = decryptBuffer(encrypted, static_cast<int>(encryptedLength), decrypted, packetIv);
     if (decryptedLength <= 0) {
-        SerialMon.println("Decrypt FAILED");
+        APP_LOG_ERROR("Decrypt FAILED");
         return false;
     }
 
     const uint8_t padding = decrypted[decryptedLength - 1];
     if (padding == 0 || padding > AppConfig::kAesBlockSize) {
-        SerialMon.println("Invalid padding");
+        APP_DEBUG_PRINTLN("Invalid padding");
         return false;
     }
 
     for (int i = decryptedLength - padding; i < decryptedLength; ++i) {
         if (decrypted[i] != padding) {
-            SerialMon.println("Corrupted padding");
+            APP_DEBUG_PRINTLN("Corrupted padding");
             return false;
         }
     }
 
     const size_t unpaddedLength = static_cast<size_t>(decryptedLength - padding);
     if (unpaddedLength <= encodedOffset) {
-        SerialMon.println("Missing message body");
+        APP_DEBUG_PRINTLN("Missing message body");
         return false;
     }
 
@@ -208,7 +210,7 @@ bool decodeEncryptedCommandPayload(
 
     command = CMD_Message_init_zero;
     if (!pb_decode(&stream, CMD_Message_fields, &command)) {
-        SerialMon.println("CMD decode FAILED");
+        APP_LOG_ERROR("CMD decode FAILED");
         return false;
     }
 

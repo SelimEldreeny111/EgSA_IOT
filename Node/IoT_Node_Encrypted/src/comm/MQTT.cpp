@@ -1,4 +1,6 @@
 /** @file MQTT.cpp @brief IP uplink, MQTT connection, command intake, and async publish FSM. */
+#define APP_LOG_MODULE "MQTT"
+#include "../platform/DebugLog.h"
 #include "../storage/TelemetryArchive.h"
 #include "MQTT.h"
 
@@ -48,10 +50,10 @@ void logElapsedMs(const char* label, uint32_t elapsedMs)
     return;
   }
 
-  SerialMon.print(label);
-  SerialMon.print(": ");
-  SerialMon.print(elapsedMs);
-  SerialMon.println(" ms");
+  APP_DEBUG_PRINT(label);
+  APP_DEBUG_PRINT(": ");
+  APP_DEBUG_PRINT(elapsedMs);
+  APP_DEBUG_PRINTLN(" ms");
 }
 
 /** @brief Decode PubSubClient status codes for verbose diagnostics. */
@@ -64,37 +66,37 @@ void logMqttStateDetails(int state)
   switch (state)
   {
     case -4:
-      SerialMon.println("  Connection Timeout");
+      APP_DEBUG_PRINTLN("  Connection Timeout");
       break;
     case -3:
-      SerialMon.println("  Connection Lost");
+      APP_DEBUG_PRINTLN("  Connection Lost");
       break;
     case -2:
-      SerialMon.println("  Connect Failed");
+      APP_DEBUG_PRINTLN("  Connect Failed");
       break;
     case -1:
-      SerialMon.println("  Disconnected");
+      APP_DEBUG_PRINTLN("  Disconnected");
       break;
     case 0:
-      SerialMon.println("  Connected");
+      APP_DEBUG_PRINTLN("  Connected");
       break;
     case 1:
-      SerialMon.println("  Connect Bad Protocol");
+      APP_DEBUG_PRINTLN("  Connect Bad Protocol");
       break;
     case 2:
-      SerialMon.println("  Connect Bad Client ID");
+      APP_DEBUG_PRINTLN("  Connect Bad Client ID");
       break;
     case 3:
-      SerialMon.println("  Connect Unavailable");
+      APP_DEBUG_PRINTLN("  Connect Unavailable");
       break;
     case 4:
-      SerialMon.println("  Connect Bad Credentials");
+      APP_DEBUG_PRINTLN("  Connect Bad Credentials");
       break;
     case 5:
-      SerialMon.println("  Connect Unauthorized");
+      APP_DEBUG_PRINTLN("  Connect Unauthorized");
       break;
     default:
-      SerialMon.println("  Unknown State");
+      APP_DEBUG_PRINTLN("  Unknown State");
       break;
   }
 }
@@ -112,8 +114,8 @@ bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool
 /** @brief Query and print the ESP-AT firmware version on ESP8266 builds. */
 void printEspFirmwareVersion()
 {
-#if defined(USE_ESP8266)
-  SerialMon.println("\n--- Querying ESP-AT firmware version (AT+GMR) ---");
+#if defined(USE_ESP8266) && APP_ENABLE_DEBUG
+  APP_DEBUG_PRINTLN("\n--- Querying ESP-AT firmware version (AT+GMR) ---");
 
   // Drain any pending bytes from the modem UART.
   while (SerialAT.available()) {
@@ -130,15 +132,15 @@ void printEspFirmwareVersion()
       if (c < 0) {
         break;
       }
-      SerialMon.write(static_cast<uint8_t>(c));
+      APP_DEBUG_WRITE(static_cast<uint8_t>(c));
       sawAnything = true;
     }
   }
 
   if (!sawAnything) {
-    SerialMon.println("(no response from ESP — check baud / wiring)");
+    APP_DEBUG_PRINTLN("(no response from ESP — check baud / wiring)");
   }
-  SerialMon.println("\n--- End AT+GMR ---");
+  APP_DEBUG_PRINTLN("\n--- End AT+GMR ---");
 #endif
 }
 
@@ -201,7 +203,7 @@ void initializeMqttTransport()
   SerialAT.begin(MODEM_BAUD);
   watchdogDelay(AppConfig::kSimBootDelayMs);
 #endif
-  printEspFirmwareVersion();
+  APP_DEBUG_ONLY(printEspFirmwareVersion());
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
   // Do not refresh from inside modem.init(). If the AT library becomes stuck,
   // the independent watchdog must be allowed to reset the STM32.
@@ -211,7 +213,7 @@ void initializeMqttTransport()
 
 void resetMqttTransportForNetworkRecovery()
 {
-  SerialMon.println("[NETWORK] First retry budget exhausted: resetting active modem RST");
+  APP_DEBUG_PRINTLN("[NETWORK] First retry budget exhausted: resetting active modem RST");
   g_modemOperationActive = true;
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
   // Use the normal transport close. If its driver hangs, the global IWDG still
@@ -228,12 +230,12 @@ void resetMqttTransportForNetworkRecovery()
   g_lastReconnectAttemptMs = 0U;
   g_mqttConnectFailureCount = 0U;
   g_modemOperationActive = false;
-  SerialMon.println("[NETWORK] Modem reset finished; starting second retry budget");
+  APP_DEBUG_PRINTLN("[NETWORK] Modem reset finished; starting second retry budget");
 }
 
 [[noreturn]] void resetModemAndControllerForNetworkFailure()
 {
-  SerialMon.println("[NETWORK] Second retry budget exhausted: resetting modem RST + STM32");
+  APP_DEBUG_PRINTLN("[NETWORK] Second retry budget exhausted: resetting modem RST + STM32");
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
   // No close/AT transaction here: guarantee the physical reset pulse before
   // requesting MCU reset even if the UART/driver is unhealthy.
@@ -254,7 +256,7 @@ bool prepareMqttTransportForPowerDown(uint32_t timeoutMs)
     return false;
   }
 
-  SerialMon.println("Power: closing MQTT/TCP before ESP8266 deep sleep");
+  APP_DEBUG_PRINTLN("Power: closing MQTT/TCP before ESP8266 deep sleep");
   // PubSubClient::disconnect() flushes its DISCONNECT frame and calls stop()
   // on BufferedClient, which in turn closes the TinyGSM socket. Do not call
   // gsmClient.stop() again: ESP-AT can otherwise wait a second close timeout.
@@ -266,17 +268,17 @@ bool prepareMqttTransportForPowerDown(uint32_t timeoutMs)
   // indefinitely until the schematic's PB8 reset line is pulsed on RTC wake.
   if (!modem.poweroff())
   {
-    SerialMon.println("Power: ESP8266 rejected AT+GSLP=0; sleep cancelled");
+    APP_LOG_WARN("Power: ESP8266 rejected AT+GSLP=0; sleep cancelled");
     return false;
   }
 
   serviceHardwareWatchdog();
   SerialAT.flush();
   SerialAT.end();
-  SerialMon.println("Power: ESP8266 entered deep sleep");
+  APP_DEBUG_PRINTLN("Power: ESP8266 entered deep sleep");
   return true;
 #else
-  SerialMon.println(
+  APP_DEBUG_PRINTLN(
       "Power: SIM800L shutdown is disabled because PWRKEY is not routed to the STM32");
   return false;
 #endif
@@ -285,11 +287,11 @@ bool prepareMqttTransportForPowerDown(uint32_t timeoutMs)
 void restoreMqttTransportAfterPowerDownAbort()
 {
 #if defined(USE_ESP8266)
-  SerialMon.println("Power: waking ESP8266 after cancelled Standby handoff");
+  APP_DEBUG_PRINTLN("Power: waking ESP8266 after cancelled Standby handoff");
   initializeMqttTransport();
   if (!connectNetwork())
   {
-    SerialMon.println("Power: ESP8266 recovery will continue in the normal retry loop");
+    APP_DEBUG_PRINTLN("Power: ESP8266 recovery will continue in the normal retry loop");
   }
   initializeMqttClient();
 #endif
@@ -310,11 +312,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   g_lastMqttActivityMs = millis();
 
   if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("\n=========== MQTT CALLBACK ===========");
-    SerialMon.print("Topic: ");
-    SerialMon.println(topic);
-    SerialMon.print("Payload length: ");
-    SerialMon.println(length);
+    APP_DEBUG_PRINTLN("\n=========== MQTT CALLBACK ===========");
+    APP_DEBUG_PRINT("Topic: ");
+    APP_DEBUG_PRINTLN(topic);
+    APP_DEBUG_PRINT("Payload length: ");
+    APP_DEBUG_PRINTLN(length);
   }
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
@@ -327,32 +329,32 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 #endif
 
   if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.print("Is Node Topic      : ");
-    SerialMon.println(isNodeTopic);
-    SerialMon.print("Is Broadcast Topic : ");
-    SerialMon.println(isBroadcastTopic);
+    APP_DEBUG_PRINT("Is Node Topic      : ");
+    APP_DEBUG_PRINTLN(isNodeTopic);
+    APP_DEBUG_PRINT("Is Broadcast Topic : ");
+    APP_DEBUG_PRINTLN(isBroadcastTopic);
   }
 
   if (!isNodeTopic && !isBroadcastTopic)
   {
-    SerialMon.println(" Unknown topic - ignoring");
+    APP_DEBUG_PRINTLN(" Unknown topic - ignoring");
     return;
   }
 
   CMD_Message cmd = CMD_Message_init_zero;
   if (!decodeEncryptedCommandPayload(payload, length, cmd))
   {
-    SerialMon.println(" CMD decode FAILED");
+    APP_LOG_ERROR(" CMD decode FAILED");
     return;
   }
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   if (!isBroadcastTopic && cmd.node_id != topicNodeId)
   {
-    SerialMon.print(" Gateway rejected CMD: topic node=");
-    SerialMon.print(topicNodeId);
-    SerialMon.print(" payload node=");
-    SerialMon.println(cmd.node_id);
+    APP_DEBUG_PRINT(" Gateway rejected CMD: topic node=");
+    APP_DEBUG_PRINT(topicNodeId);
+    APP_DEBUG_PRINT(" payload node=");
+    APP_DEBUG_PRINTLN(cmd.node_id);
     return;
   }
 
@@ -360,18 +362,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
       isBroadcastTopic ? LoraPayloadType::BroadcastCommand : LoraPayloadType::Command;
   if (sendLoraWakeCommand(loraCommandType, payload, length))
   {
-    SerialMon.print(" Gateway forwarded MQTT CMD to LoRa ");
-    SerialMon.println(isBroadcastTopic ? "broadcast" : "node");
+    APP_DEBUG_PRINT(" Gateway forwarded MQTT CMD to LoRa ");
+    APP_DEBUG_PRINTLN(isBroadcastTopic ? "broadcast" : "node");
   }
   else
   {
-    SerialMon.println(" Gateway failed to forward MQTT CMD over LoRa");
+    APP_LOG_ERROR(" Gateway failed to forward MQTT CMD over LoRa");
   }
   return;
 #else
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
   {
-    SerialMon.println("CMD rejected: topic/payload node mismatch");
+    APP_LOG_WARN("CMD rejected: topic/payload node mismatch");
     return;
   }
   if (cmd.cmd_id == CMD_HISTORY_ACK) {
@@ -388,14 +390,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   {
     if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
     {
-      SerialMon.println("Telemetry/WAKE request not for this MQTT node");
+      APP_DEBUG_PRINTLN("Telemetry/WAKE request not for this MQTT node");
       return;
     }
     const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
         handleRemoteWakeCommand(cmd, isBroadcastTopic);
     if (!shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies))
     {
-      SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
+      APP_DEBUG_PRINTLN("[CMD] Automatic ACK reply disabled by configuration");
       return;
     }
     if (!applied && cmd.request_id == 0U) return;
@@ -405,8 +407,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
                                   telemetryPayloadLength, applied))
     {
       if (!g_publishQueue.pushReply(telemetryPayload, telemetryPayloadLength))
-        SerialMon.println("ERROR: command-reply queue full; reply was NOT sent");
-      else SerialMon.println("[CMD] Telemetry reply queued with highest transmit priority");
+        APP_LOG_ERROR("ERROR: command-reply queue full; reply was NOT sent");
+      else APP_DEBUG_PRINTLN("[CMD] Telemetry reply queued with highest transmit priority");
     }
   }
   else
@@ -420,11 +422,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
       if (handleGetTelemetryCommand(&cmd, ackPayload, ackLength, applied))
       {
         if (!g_publishQueue.pushReply(ackPayload, ackLength))
-          SerialMon.println("ERROR: command-reply queue full; ACK was NOT sent");
+          APP_LOG_ERROR("ERROR: command-reply queue full; ACK was NOT sent");
       }
     }
     else if (!AppConfig::kEnableCommandAckReplies)
-      SerialMon.println("[CMD] Automatic ACK reply disabled by configuration");
+      APP_DEBUG_PRINTLN("[CMD] Automatic ACK reply disabled by configuration");
   }
 #endif
 }
@@ -456,23 +458,23 @@ bool ensureMqttConnection()
   if (!dataConnected)
   {
     if (AppConfig::kEnableVerboseMqttLogs) {
-      SerialMon.println("\n Network link is down - reconnecting transport first");
+      APP_DEBUG_PRINTLN("\n Network link is down - reconnecting transport first");
     }
 
     if (!connectNetwork())
     {
-      SerialMon.println("Network reconnection failed");
+      APP_LOG_ERROR("Network reconnection failed");
       return false;
     }
   }
 #endif
 
   if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("\n MQTT CONNECTION LOST - Attempting Reconnection");
-    SerialMon.print("MQTT State: ");
-    SerialMon.println(mqtt.state());
+    APP_DEBUG_PRINTLN("\n MQTT CONNECTION LOST - Attempting Reconnection");
+    APP_DEBUG_PRINT("MQTT State: ");
+    APP_DEBUG_PRINTLN(mqtt.state());
     logMqttStateDetails(mqtt.state());
-    SerialMon.print("Connecting to MQTT... ");
+    APP_DEBUG_PRINT("Connecting to MQTT... ");
   }
 
   serviceHardwareWatchdog(WatchdogStage::MqttConnect);
@@ -483,16 +485,16 @@ bool ensureMqttConnection()
     bufferedClient.flush();
     ++g_mqttConnectFailureCount;
     if (AppConfig::kEnableVerboseMqttLogs) {
-      SerialMon.print(" FAILED, mqtt state=");
+      APP_DEBUG_PRINT(" FAILED, mqtt state=");
       logMqttStateDetails(mqtt.state());
-      SerialMon.println(" retry scheduled");
+      APP_DEBUG_PRINTLN(" retry scheduled");
     }
 
 #if defined(USE_ESP8266)
     if (g_mqttConnectFailureCount >= 3)
     {
       g_mqttConnectFailureCount = 0;
-      SerialMon.println("MQTT failed repeatedly - refreshing ESP8266 WiFi link");
+      APP_LOG_ERROR("MQTT failed repeatedly - refreshing ESP8266 WiFi link");
       connectNetwork();
       serviceHardwareWatchdog();
     }
@@ -524,22 +526,22 @@ bool ensureMqttConnection()
 
   if (!subscriptionsSent)
   {
-    SerialMon.println("ERROR: command SUBSCRIBE send failed; reconnecting next pass");
+    APP_LOG_ERROR("ERROR: command SUBSCRIBE send failed; reconnecting next pass");
     mqtt.disconnect();
     serviceHardwareWatchdog();
     return false;
   }
 
   if (AppConfig::kEnableVerboseMqttLogs) {
-    SerialMon.println("CONNECTED");
+    APP_DEBUG_PRINTLN("CONNECTED");
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-    SerialMon.print("Command subscription sent: ");
-    SerialMon.println(kMqttGatewayCommandWildcardTopic);
+    APP_DEBUG_PRINT("Command subscription sent: ");
+    APP_DEBUG_PRINTLN(kMqttGatewayCommandWildcardTopic);
 #else
-    SerialMon.print("Command subscription sent: ");
-    SerialMon.println(kMqttCommandTopic);
-    SerialMon.print("Command subscription sent: ");
-    SerialMon.println(kMqttBroadcastTopic);
+    APP_DEBUG_PRINT("Command subscription sent: ");
+    APP_DEBUG_PRINTLN(kMqttCommandTopic);
+    APP_DEBUG_PRINT("Command subscription sent: ");
+    APP_DEBUG_PRINTLN(kMqttBroadcastTopic);
 #endif
   }
 
@@ -559,7 +561,7 @@ void mqttLoop()
   // publish/subscribe call.
   if (!bufferedClient.finishPacket())
   {
-    SerialMon.println("[MQTT] Keepalive/socket send failed; closing connection");
+    APP_LOG_ERROR("[MQTT] Keepalive/socket send failed; closing connection");
     mqtt.disconnect();
   }
   g_modemOperationActive = false;
@@ -568,26 +570,26 @@ void mqttLoop()
 
 bool checkNetworkStatus()
 {
-  SerialMon.println("\n--- Network Status Check ---");
+  APP_DEBUG_PRINTLN("\n--- Network Status Check ---");
 
-  SerialMon.print("Modem Status: ");
+  APP_DEBUG_PRINT("Modem Status: ");
   const bool networkConnected = modem.isNetworkConnected();
   serviceHardwareWatchdog();
   if (networkConnected)
   {
-    SerialMon.println(" Network Connected");
+    APP_DEBUG_PRINTLN(" Network Connected");
   }
   else
   {
-    SerialMon.println(" Network Disconnected");
+    APP_DEBUG_PRINTLN(" Network Disconnected");
     return false;
   }
 
   int signalQuality = modem.getSignalQuality();
   serviceHardwareWatchdog();
-  SerialMon.print("Signal Quality: ");
-  SerialMon.print(signalQuality);
-  SerialMon.println(" dBm");
+  APP_DEBUG_PRINT("Signal quality (raw CSQ): ");
+  APP_DEBUG_PRINT(signalQuality);
+  APP_DEBUG_PRINTLN(" (0..31; 99=unknown)");
 
   return true;
 }
@@ -601,7 +603,11 @@ bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t le
   const bool queued = mqtt.publish(topic, payload, length);
   const bool flushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
-  logElapsedMs("MQTT driver send time", millis() - started);
+  APP_DEBUG_ONLY(logElapsedMs("MQTT driver send time", millis() - started));
+  (void)started;
+  APP_LOG_INFO("tx topic=%s bytes=%lu queue_write=%u modem_write=%u elapsed_ms=%lu server_receipt=unconfirmed",
+      topic, static_cast<unsigned long>(length), queued, flushed,
+      static_cast<unsigned long>(millis() - started));
   if (!queued || !flushed) {
     // An ambiguous/partial MQTT packet must not be followed by another packet
     // on this TCP stream. TinyGSM owns recovery and receive-URC processing.
@@ -676,13 +682,13 @@ void asyncPublishStep()
   g_modemOperationActive = false;
   if (accepted) {
     g_publishQueue.pop();
-    SerialMon.println(reply ? "[MQTT] Command reply accepted by modem (server receipt not confirmed)"
+    APP_DEBUG_PRINTLN(reply ? "[MQTT] Command reply accepted by modem (server receipt not confirmed)"
                             : "[MQTT] Status accepted by modem (server receipt not confirmed)");
     if (!reply) g_asyncResult = AsyncPublishResult::Success;
   } else {
     // Keep correlated command ACKs for retry; never report a failed Status as sent.
     if (!reply) { g_publishQueue.dropStatus(); g_asyncResult = AsyncPublishResult::Failure; }
-    SerialMon.println("[MQTT] Send failed; reconnect required, command replies retained");
+    APP_LOG_ERROR("[MQTT] Send failed; reconnect required, command replies retained");
   }
 }
 

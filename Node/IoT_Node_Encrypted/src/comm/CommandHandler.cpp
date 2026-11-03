@@ -1,4 +1,6 @@
 /** @file CommandHandler.cpp @brief Remote-command validation and node-side dispatch. */
+#define APP_LOG_MODULE "CMD"
+#include "../platform/DebugLog.h"
 #include "CommandHandler.h"
 #include "SensorPayloadMapper.h"
 #include "CommandReplayCache.h"
@@ -30,10 +32,14 @@ bool handleRemoteWakeCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   if (cmd.cmd_id != CMD_REMOTE_WAKE ||
       (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId))
   {
-    SerialMon.println("WAKE rejected: command/node mismatch");
+    APP_LOG_WARN("WAKE rejected: command/node mismatch");
     return false;
   }
-  return requestRemoteWake(cmd.cmd_data, cmd.request_id);
+  const bool accepted = requestRemoteWake(cmd.cmd_data, cmd.request_id);
+  APP_LOG_INFO("result request=%lu command=WAKE hold_seconds=%s outcome=%s",
+      static_cast<unsigned long>(cmd.request_id), WiotDebug::Decimal64(cmd.cmd_data).text,
+      accepted ? "accepted" : "rejected");
+  return accepted;
 }
 
 bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
@@ -41,38 +47,48 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   AppRuntimeState& state = appState();
   bool applied = false;
 
-  SerialMon.println("\n========== CMD RECEIVED ==========");
-  SerialMon.print("Node ID : "); SerialMon.println(cmd.node_id);
-  SerialMon.print("CMD ID  : "); SerialMon.println(cmd.cmd_id);
-  SerialMon.print("DATA    : "); SerialMon.println(cmd.cmd_data);
+  APP_LOG_INFO("received request=%lu command=%s(%lu) target=%lu local=%u scope=%s data=%s",
+      static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+      static_cast<unsigned long>(cmd.cmd_id), static_cast<unsigned long>(cmd.node_id),
+      AppConfig::kNodeId, isBroadcastTopic ? "broadcast" : "direct",
+      WiotDebug::Decimal64(cmd.cmd_data).text);
 
   /* ===================== NODE FILTER ===================== */
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId) 
   {
-    SerialMon.println(" Not for this node (node topic)");
+    APP_DEBUG_PRINTLN(" Not for this node (node topic)");
     return false;
   }
 
-  if (TelemetryArchive::command(cmd.cmd_id))
-    return TelemetryArchive::handle(cmd, isBroadcastTopic);
+  if (TelemetryArchive::command(cmd.cmd_id)) {
+    const bool accepted = TelemetryArchive::handle(cmd, isBroadcastTopic);
+    APP_LOG_INFO("result request=%lu command=%s outcome=%s",
+        static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+        accepted ? "accepted" : "rejected");
+    return accepted;
+  }
 
   const auto match = ordinaryCommands.lookup(cmd.request_id, cmd.node_id, cmd.cmd_id,
                                             cmd.cmd_data, isBroadcastTopic, applied);
   if (match != CommandReplayCache::Missing)
   {
-    SerialMon.println(match == CommandReplayCache::Duplicate
+    APP_DEBUG_PRINTLN(match == CommandReplayCache::Duplicate
         ? "Duplicate command: reply with original result; no repeated effect"
         : "Command rejected: request ID reused for different intent");
+    APP_LOG_INFO("replay request=%lu match=%s original_result=%s",
+        static_cast<unsigned long>(cmd.request_id),
+        match == CommandReplayCache::Duplicate ? "duplicate" : "conflicting_intent",
+        applied ? "accepted" : "rejected");
     return match == CommandReplayCache::Duplicate && applied;
   }
 
   if (isBroadcastTopic) 
   {
-    SerialMon.println(" Broadcast command accepted");
+    APP_DEBUG_PRINTLN(" Broadcast command accepted");
   } 
   else 
   {
-    SerialMon.println(" Direct node command accepted");
+    APP_DEBUG_PRINTLN(" Direct node command accepted");
   }
 
   /* ===================== COMMAND HANDLING ===================== */
@@ -81,77 +97,77 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 
     case CMD_SET_SAMPLING_PERIOD: 
     {
-      SerialMon.println("CMD: SET_SAMPLING_PERIOD");
+      APP_DEBUG_PRINTLN("CMD: SET_SAMPLING_PERIOD");
 
       if (cmd.cmd_data < AppConfig::kMinimumRateSeconds ||
           cmd.cmd_data > kMaximumRateSeconds)
       {
-        SerialMon.print(" Invalid sampling period. Minimum is ");
-        SerialMon.print(AppConfig::kMinimumRateSeconds);
-        SerialMon.println(" seconds; maximum is 86400 seconds");
+        APP_DEBUG_PRINT(" Invalid sampling period. Minimum is ");
+        APP_DEBUG_PRINT(AppConfig::kMinimumRateSeconds);
+        APP_DEBUG_PRINTLN(" seconds; maximum is 86400 seconds");
         break;
       }
 
       state.samplingPeriodMs = static_cast<uint32_t>(cmd.cmd_data) * 1000UL;
       applied = true;
 
-      SerialMon.print("New Sampling Period: ");
-      SerialMon.print(cmd.cmd_data);
-      SerialMon.println(" sec");
+      APP_DEBUG_PRINT("New Sampling Period: ");
+      APP_DEBUG_PRINT(cmd.cmd_data);
+      APP_DEBUG_PRINTLN(" sec");
       break;
     }
 
     case CMD_SET_TRANSMISSION_PERIOD: 
     {
-      SerialMon.println("CMD: SET_TRANSMISSION_PERIOD");
+      APP_DEBUG_PRINTLN("CMD: SET_TRANSMISSION_PERIOD");
 
       if (cmd.cmd_data < AppConfig::kMinimumRateSeconds ||
           cmd.cmd_data > kMaximumRateSeconds)
       {
-        SerialMon.print(" Invalid transmission period. Minimum is ");
-        SerialMon.print(AppConfig::kMinimumRateSeconds);
-        SerialMon.println(" seconds; maximum is 86400 seconds");
+        APP_DEBUG_PRINT(" Invalid transmission period. Minimum is ");
+        APP_DEBUG_PRINT(AppConfig::kMinimumRateSeconds);
+        APP_DEBUG_PRINTLN(" seconds; maximum is 86400 seconds");
         break;
       }
 
       state.transmissionPeriodMs = static_cast<uint32_t>(cmd.cmd_data) * 1000UL;
       applied = true;
 
-      SerialMon.print("New Transmission Period: ");
-      SerialMon.print(cmd.cmd_data);
-      SerialMon.println(" sec");
+      APP_DEBUG_PRINT("New Transmission Period: ");
+      APP_DEBUG_PRINT(cmd.cmd_data);
+      APP_DEBUG_PRINTLN(" sec");
       break;
     }
 
     case CMD_SYNC_RTC: 
     {
-      SerialMon.println("CMD: SYNC_RTC");
+      APP_DEBUG_PRINTLN("CMD: SYNC_RTC");
 
       if (cmd.cmd_data > UINT32_MAX)
       {
-        SerialMon.println("STIME rejected: epoch exceeds the 32-bit RTC range");
+        APP_LOG_WARN("STIME rejected: epoch exceeds the 32-bit RTC range");
         break;
       }
       if (!syncRTCFromEpoch(static_cast<uint32_t>(cmd.cmd_data)))
       {
-        SerialMon.println("STIME failed; clock was not marked trusted");
+        APP_LOG_ERROR("STIME failed; clock was not marked trusted");
         break;
       }
 
       state.lastTimestamp = getEpochTime();
       applied = true;
-      SerialMon.print("RTC synced to epoch: ");
-      SerialMon.println(state.lastTimestamp);
+      APP_DEBUG_PRINT("RTC synced to epoch: ");
+      APP_DEBUG_PRINTLN(state.lastTimestamp);
       break;
     }
 
     case CMD_OPEN_CLOSE_NODE:
     {
-      SerialMon.println("CMD: OPEN_CLOSE_NODE");
+      APP_DEBUG_PRINTLN("CMD: OPEN_CLOSE_NODE");
 
       if (cmd.cmd_data != 0 && cmd.cmd_data != 1)
       {
-        SerialMon.println(" Invalid node status! Use 0=close/off, 1=open/on");
+        APP_DEBUG_PRINTLN(" Invalid node status! Use 0=close/off, 1=open/on");
         break;
       }
 
@@ -163,25 +179,28 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
     case CMD_CLEAR_WDT_RESETS:
     {
       if (isBroadcastTopic || cmd.cmd_data != 0U || cmd.request_id == 0U) {
-        SerialMon.println("Counter clear rejected: direct node, data=0 and request_id required");
+        APP_LOG_WARN("Counter clear rejected: direct node, data=0 and request_id required");
         break;
       }
       markHardwareWatchdogStage(WatchdogStage::ResetCounterStorage);
       applied = cmd.cmd_id == CMD_CLEAR_POWER_RESETS
           ? PowerResetCounter::clear() : WatchdogResetCounter::clear();
-      SerialMon.println(applied ? "Reset counter cleared and verified"
+      APP_DEBUG_PRINTLN(applied ? "Reset counter cleared and verified"
                                 : "Counter clear FAILED; previous RAM count retained");
       break;
     }
 
     default: 
     {
-      SerialMon.println(" Unknown CMD ID");
+      APP_DEBUG_PRINTLN(" Unknown CMD ID");
       break;
     }
   }
 
-  SerialMon.println("=====================================\n");
+  APP_LOG_INFO("result request=%lu command=%s outcome=%s srate_ms=%lu stran_ms=%lu valve=%u",
+      static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+      applied ? "applied" : "rejected", static_cast<unsigned long>(state.samplingPeriodMs),
+      static_cast<unsigned long>(state.transmissionPeriodMs), state.nodeStatus);
   ordinaryCommands.remember(cmd.request_id, cmd.node_id, cmd.cmd_id, cmd.cmd_data,
                             isBroadcastTopic, applied);
   return applied;
@@ -190,15 +209,12 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
 bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload,
                                size_t& payloadLength, bool commandApplied)
 {
-  SerialMon.println("\n============= HANDLE GET TELEMETRY CMD =============");
 
   (void)cmd;
   AppRuntimeState& state = appState();
 
   state.lastTimestamp = getEpochTime();
   refreshBatteryVoltage();
-  SerialMon.print("Timestamp: ");
-  SerialMon.println(state.lastTimestamp);
 
   Telemetry tlm = Telemetry_init_zero;
   tlm.node_id = AppConfig::kNodeId;
@@ -222,29 +238,21 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload,
   }
 
   if (cmd != nullptr) TelemetryArchive::reply(*cmd, tlm, commandApplied);
-  SerialMon.println("Telemetry struct filled");
 
   /* ===================== ENCODE ===================== */
   if (!encodeEncryptedMessage(Telemetry_fields, &tlm, payload, AppConfig::kCodecBufferSize, payloadLength)) 
   {
-    SerialMon.println(" Telemetry encode FAILED");
+    APP_LOG_ERROR(" Telemetry encode FAILED");
     return false;
   }
 
-  SerialMon.print(" Encoded bytes: ");
-  SerialMon.println(payloadLength);
+  APP_LOG_INFO("reply_ready request=%lu command=%s result=%s epoch=%lu bytes=%lu sensor_mask=0x%X flash=%u history=%u",
+      static_cast<unsigned long>(cmd ? cmd->request_id : 0U),
+      cmd ? WiotDebug::commandName(cmd->cmd_id) : "GOSTM",
+      tlm.command_ack_success ? "accepted" : "no_success_ack",
+      static_cast<unsigned long>(tlm.timestamp), static_cast<unsigned long>(payloadLength),
+      static_cast<unsigned>(tlm.sensor_mask), tlm.has_flash_log, tlm.has_history);
+  APP_DEBUG_HEX("encrypted_command_reply", payload, payloadLength);
 
-  SerialMon.println("Encoded Payload (HEX):");
-  for (size_t i = 0; i < payloadLength; i++)
-  {
-    if (payload[i] < 0x10) SerialMon.print("0");
-    SerialMon.print(payload[i], HEX);
-    SerialMon.print(" ");
-  }
-  SerialMon.println();
-
-  SerialMon.println(" Telemetry response ready for publishing");
-  SerialMon.println("====================================================\n");
-  
   return true;
 }

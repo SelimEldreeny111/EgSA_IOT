@@ -12,11 +12,14 @@
  * The AS32 only accepts configuration commands in sleep/config mode:
  * MD0=HIGH and MD1=HIGH. Normal transparent mode is MD0=LOW and MD1=LOW.
  * RSSI commands below are AS32 V3-specific and are not E32-TTL-100 commands.
+ * Diagnostic Print parameters remain for source compatibility; output is routed
+ * through DebugLog.h to the application's debug UART and obeys its master switch.
  */
 
 #ifndef AS32_CONFIG_H
 #define AS32_CONFIG_H
 
+#include "../platform/DebugLog.h"
 #include <Arduino.h>
 #include <string.h>
 
@@ -268,36 +271,37 @@ constexpr bool kAutoApplyConfig = AS32_AUTO_APPLY_CONFIG != 0;
 /** @brief Print one byte as two hexadecimal digits. @param out Destination diagnostic stream. @param value Byte to format. */
 inline void printHexByte(Print& out, uint8_t value)
 {
+  (void)out;
   if (value < 0x10)
   {
-    out.print('0');
+    APP_DEBUG_PRINT('0');
   }
-  out.print(value, HEX);
+  APP_DEBUG_PRINT(value, HEX);
 }
 
 /** @brief Print selected frequency, UART, option, and command bytes. @param out Destination diagnostic stream. */
 inline void printConfigSummary(Print& out)
 {
-  out.print("AS32 config: freq=");
-  out.print(kFrequencyMhz);
-  out.print("MHz channel=0x");
+  APP_DEBUG_PRINT("AS32 config: freq=");
+  APP_DEBUG_PRINT(kFrequencyMhz);
+  APP_DEBUG_PRINT("MHz channel=0x");
   printHexByte(out, kChannel);
-  out.print(" uart=");
-  out.print(kUartBaudRate);
-  out.print(" speed=0x");
+  APP_DEBUG_PRINT(" uart=");
+  APP_DEBUG_PRINT(kUartBaudRate);
+  APP_DEBUG_PRINT(" speed=0x");
   printHexByte(out, kSpeedByte);
-  out.print(" option=0x");
+  APP_DEBUG_PRINT(" option=0x");
   printHexByte(out, kOptionByte);
-  out.print(" command=");
+  APP_DEBUG_PRINT(" command=");
   for (size_t i = 0; i < sizeof(kConfigCommand); ++i)
   {
     if (i > 0)
     {
-      out.print(' ');
+      APP_DEBUG_PRINT(' ');
     }
     printHexByte(out, kConfigCommand[i]);
   }
-  out.println();
+  APP_DEBUG_PRINTLN();
 }
 
 /** @brief Wait until the module AUX pin reports idle/ready. @param auxPin Configured AUX input pin. @param timeoutMs Maximum wait in milliseconds. @return True after AUX becomes HIGH. */
@@ -488,13 +492,13 @@ inline void printResponse(Print& debug, const uint8_t* response, size_t response
 {
   if (responseLength == 0)
   {
-    debug.print(" none");
+    APP_DEBUG_PRINT(" none");
     return;
   }
 
   for (size_t i = 0; i < responseLength; ++i)
   {
-    debug.print(' ');
+    APP_DEBUG_PRINT(' ');
     printHexByte(debug, response[i]);
   }
 }
@@ -554,9 +558,9 @@ inline bool writeConfigAtBaud(
   delay(30);
   drainSerial(radioSerial);
 
-  debug.print("AS32 config try at UART ");
-  debug.print(baudRate);
-  debug.print(" response:");
+  APP_DEBUG_PRINT("AS32 config try at UART ");
+  APP_DEBUG_PRINT(baudRate);
+  APP_DEBUG_PRINT(" response:");
 
   radioSerial.write(kConfigCommand, sizeof(kConfigCommand));
   radioSerial.flush();
@@ -569,9 +573,9 @@ inline bool writeConfigAtBaud(
   printResponse(debug, response, responseLength);
   if (isAtModemTextResponse(response, responseLength))
   {
-    debug.print("  <-- AT modem response, not AS32");
+    APP_DEBUG_PRINT("  <-- AT modem response, not AS32");
   }
-  debug.println();
+  APP_DEBUG_PRINTLN();
 
   return isValidAs32ConfigResponse(response, responseLength);
 }
@@ -599,11 +603,11 @@ inline bool readConfigAtBaud(
   delay(30);
   drainSerial(radioSerial);
 
-  debug.print("AS32 ");
-  debug.print(label);
-  debug.print(" readback at UART ");
-  debug.print(baudRate);
-  debug.print(":");
+  APP_DEBUG_PRINT("AS32 ");
+  APP_DEBUG_PRINT(label);
+  APP_DEBUG_PRINT(" readback at UART ");
+  APP_DEBUG_PRINT(baudRate);
+  APP_DEBUG_PRINT(":");
 
   radioSerial.write(kReadConfigCommand, sizeof(kReadConfigCommand));
   radioSerial.flush();
@@ -616,9 +620,9 @@ inline bool readConfigAtBaud(
   printResponse(debug, response, responseLength);
   if (isAtModemTextResponse(response, responseLength))
   {
-    debug.print("  <-- AT modem response, not AS32");
+    APP_DEBUG_PRINT("  <-- AT modem response, not AS32");
   }
-  debug.println();
+  APP_DEBUG_PRINTLN();
 
   return isValidAs32ConfigResponse(response, responseLength);
 }
@@ -642,18 +646,18 @@ inline bool applyConfigurationIfEnabled(
 {
   if (!kAutoApplyConfig)
   {
-    debug.println("AS32 auto-config disabled; using preconfigured module settings.");
+    APP_DEBUG_PRINTLN("AS32 auto-config disabled; using preconfigured module settings.");
     return true;
   }
 
-  debug.println("AS32 auto-config enabled.");
+  APP_DEBUG_PRINTLN("AS32 auto-config enabled.");
   digitalWrite(md0Pin, HIGH);
   digitalWrite(md1Pin, HIGH);
   delay(10);
 
   if (!waitForAuxHigh(auxPin, 1000))
   {
-    debug.println("AS32 auto-config warning: AUX did not become HIGH before command.");
+    APP_DEBUG_PRINTLN("AS32 auto-config warning: AUX did not become HIGH before command.");
   }
 
   bool configured = writeConfigAtBaud(
@@ -664,7 +668,7 @@ inline bool applyConfigurationIfEnabled(
 
   if (!configured && kCurrentConfigBaudRate != kUartBaudRate)
   {
-    debug.println("AS32 did not answer at saved-config UART; trying runtime UART as fallback.");
+    APP_DEBUG_PRINTLN("AS32 did not answer at saved-config UART; trying runtime UART as fallback.");
     configured = writeConfigAtBaud(
         radioSerial,
         debug,
@@ -674,7 +678,7 @@ inline bool applyConfigurationIfEnabled(
 
   if (!configured)
   {
-    debug.println("AS32 WARNING: no config response. Check TX/RX pins, MD0/MD1 pins, common GND, and AS32 power.");
+    APP_DEBUG_PRINTLN("AS32 WARNING: no config response. Check TX/RX pins, MD0/MD1 pins, common GND, and AS32 power.");
   }
 
   readConfigAtBaud(

@@ -2,6 +2,7 @@
 #define TEST_AVAILABILITY_ARDUINO_H
 #include <cstddef>
 #include <cstdint>
+inline uint32_t millis() { return 0; }
 class HardwareSerial {
 public:
     template<class T> void print(const T&) {}

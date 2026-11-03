@@ -10,6 +10,23 @@
 #ifndef APP_CONFIG_H
 #define APP_CONFIG_H
 
+/**************** DEBUG CONFIGURATION - START HERE ****************/
+// true: detailed, timestamped diagnostics on PA2/TX at 115200 baud.
+// false: compile out diagnostic calls/arguments and leave the debug UART off.
+// Radio/modem UARTs, command ACKs and telemetry continue normally.
+#ifndef APP_ENABLE_DEBUG
+#define APP_ENABLE_DEBUG true
+#endif
+// Optional encrypted packet/wire hex dumps; event summaries remain available.
+#ifndef APP_DEBUG_RAW_FRAMES
+#define APP_DEBUG_RAW_FRAMES false
+#endif
+#if (APP_ENABLE_DEBUG != 0 && APP_ENABLE_DEBUG != 1) || \
+    (APP_DEBUG_RAW_FRAMES != 0 && APP_DEBUG_RAW_FRAMES != 1)
+#error "APP_ENABLE_DEBUG and APP_DEBUG_RAW_FRAMES must be true or false"
+#endif
+/*****************************************************************/
+
 #include <stddef.h>
 #include <stdint.h>
 #include <Arduino.h>
@@ -751,9 +768,9 @@ constexpr uint32_t kMinimumRateSeconds = 10UL;
 // fallback. The SSID/password compiled in AppConfig.cpp are always attempted
 // first and do not overwrite this saved fallback when they connect.
 constexpr bool kEnableWifiCredentialStore = true;
-constexpr bool kEnableGatewayHeartbeatLogs = true;
-constexpr bool kEnableVerboseMqttLogs = true;//false  or  true 
-constexpr bool kEnablePublishTimingLogs = true;//false  or  true 
+constexpr bool kEnableGatewayHeartbeatLogs = APP_ENABLE_DEBUG;
+constexpr bool kEnableVerboseMqttLogs = APP_ENABLE_DEBUG;
+constexpr bool kEnablePublishTimingLogs = APP_ENABLE_DEBUG;
 
 // STM32F401 independent hardware watchdog. This is a GLOBAL controller safety
 // deadline, not only a GSM/WiFi retry timer. The timeout is in microseconds as
@@ -815,8 +832,8 @@ static_assert(
 // Keep these enabled during LoRa commissioning. Every transmitted/accepted
 // application frame is printed in full, while rejected or incomplete streams
 // get their own dump so the two ends can be compared byte-for-byte.
-constexpr bool kEnableLoraFrameHexLogs = true;
-constexpr bool kEnableLoraErrorHexLogs = true;
+constexpr bool kEnableLoraFrameHexLogs = APP_ENABLE_DEBUG && APP_DEBUG_RAW_FRAMES;
+constexpr bool kEnableLoraErrorHexLogs = APP_ENABLE_DEBUG && APP_DEBUG_RAW_FRAMES;
 // The installed E32-TTL-100 does not expose RSSI over its UART interface
 // (datasheet electrical-parameter table: "RSSI - No support"). The
 // 0xAF/0x73 and 0xAF/0x74 diagnostic commands below belong to a different

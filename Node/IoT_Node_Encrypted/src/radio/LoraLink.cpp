@@ -1,4 +1,6 @@
 /** @file LoraLink.cpp @brief LoRa UART framing, addressing, receive, transmit, and link diagnostics. */
+#define APP_LOG_MODULE "LORA"
+#include "../platform/DebugLog.h"
 #include "LoraLink.h"
 #include "../config/AppConfig.h"
 #include "../platform/Watchdog.h"
@@ -129,9 +131,9 @@ void printHexByte(uint8_t value)
 {
   if (value < 0x10U)
   {
-    SerialMon.print('0');
+    APP_DEBUG_PRINT('0');
   }
-  SerialMon.print(value, HEX);
+  APP_DEBUG_PRINT(value, HEX);
 }
 
 /** @brief Print a 16-bit word as four hexadecimal digits. */
@@ -146,42 +148,43 @@ void printHexOffset(size_t value)
 {
   if (value < 0x1000U)
   {
-    SerialMon.print('0');
+    APP_DEBUG_PRINT('0');
   }
   if (value < 0x0100U)
   {
-    SerialMon.print('0');
+    APP_DEBUG_PRINT('0');
   }
   if (value < 0x0010U)
   {
-    SerialMon.print('0');
+    APP_DEBUG_PRINT('0');
   }
-  SerialMon.print(static_cast<unsigned long>(value), HEX);
+  APP_DEBUG_PRINT(static_cast<unsigned long>(value), HEX);
 }
 
 /** @brief Dump a labeled byte buffer in 16-byte rows for diagnostics. */
 void printRawBytes(const char* label, const uint8_t* data, size_t length)
 {
-  SerialMon.print(label);
-  SerialMon.print(" (");
-  SerialMon.print(length);
-  SerialMon.println(" bytes):");
+  (void)label;
+  APP_DEBUG_PRINT(label);
+  APP_DEBUG_PRINT(" (");
+  APP_DEBUG_PRINT(length);
+  APP_DEBUG_PRINTLN(" bytes):");
 
   for (size_t i = 0; i < length; ++i)
   {
     if ((i % 16U) == 0U)
     {
-      SerialMon.print("  ");
+      APP_DEBUG_PRINT("  ");
       printHexOffset(i);
-      SerialMon.print(':');
+      APP_DEBUG_PRINT(':');
     }
 
-    SerialMon.print(' ');
+    APP_DEBUG_PRINT(' ');
     printHexByte(data[i]);
 
     if ((i % 16U) == 15U || i + 1U == length)
     {
-      SerialMon.println();
+      APP_DEBUG_PRINTLN();
     }
   }
 }
@@ -197,37 +200,39 @@ void printDecodedHeader(
     size_t totalLength,
     uint16_t crc)
 {
-  SerialMon.print(label);
-  SerialMon.print(": version=");
-  SerialMon.print(version);
-  SerialMon.print(" network=0x");
+  (void)label; (void)version; (void)type; (void)sourceNodeId;
+  (void)payloadLength; (void)totalLength;
+  APP_DEBUG_PRINT(label);
+  APP_DEBUG_PRINT(": version=");
+  APP_DEBUG_PRINT(version);
+  APP_DEBUG_PRINT(" network=0x");
   printHexWord(networkId);
-  SerialMon.print(" type=");
-  SerialMon.print(static_cast<uint8_t>(type));
-  SerialMon.print(" source=");
-  SerialMon.print(sourceNodeId);
-  SerialMon.print(" payload=");
-  SerialMon.print(payloadLength);
-  SerialMon.print(" total=");
-  SerialMon.print(totalLength);
-  SerialMon.print(" crc=0x");
+  APP_DEBUG_PRINT(" type=");
+  APP_DEBUG_PRINT(static_cast<uint8_t>(type));
+  APP_DEBUG_PRINT(" source=");
+  APP_DEBUG_PRINT(sourceNodeId);
+  APP_DEBUG_PRINT(" payload=");
+  APP_DEBUG_PRINT(payloadLength);
+  APP_DEBUG_PRINT(" total=");
+  APP_DEBUG_PRINT(totalLength);
+  APP_DEBUG_PRINT(" crc=0x");
   printHexWord(crc);
-  SerialMon.println();
+  APP_DEBUG_PRINTLN();
 }
 
 /** @brief Print the first buffered RX bytes to help diagnose framing errors. */
 void printRxPrefix()
 {
-  SerialMon.print("LoRa RX prefix:");
+  APP_DEBUG_PRINT("LoRa RX prefix:");
   const size_t count = g_rxLength < kDiagnosticPrefixLength
       ? g_rxLength
       : kDiagnosticPrefixLength;
   for (size_t i = 0; i < count; ++i)
   {
-    SerialMon.print(' ');
+    APP_DEBUG_PRINT(' ');
     printHexByte(g_rxBuffer[i]);
   }
-  SerialMon.println();
+  APP_DEBUG_PRINTLN();
 }
 
 /** @brief Distinguish application frames from internal fragment transport types. */
@@ -300,16 +305,16 @@ void expireIncompleteRxStream()
     return;
   }
 
-  SerialMon.print("LoRa RX wire timeout: buffered=");
-  SerialMon.print(g_rxLength);
+  APP_DEBUG_PRINT("LoRa RX wire timeout: buffered=");
+  APP_DEBUG_PRINT(g_rxLength);
   const size_t expectedLength = expectedBufferedFrameLength();
   if (expectedLength > 0U)
   {
-    SerialMon.print(" expected=");
-    SerialMon.print(expectedLength);
+    APP_DEBUG_PRINT(" expected=");
+    APP_DEBUG_PRINT(expectedLength);
   }
-  SerialMon.print(" idle_ms=");
-  SerialMon.println(idleMs);
+  APP_DEBUG_PRINT(" idle_ms=");
+  APP_DEBUG_PRINTLN(idleMs);
   if (AppConfig::kEnableLoraErrorHexLogs)
   {
     printRawBytes("LoRa RX incomplete wire data", g_rxBuffer, g_rxLength);
@@ -335,7 +340,7 @@ void drainLoraUart()
     ++g_totalRawBytes;
     if (g_rxLength >= sizeof(g_rxBuffer))
     {
-      SerialMon.println("LoRa software RX buffer overflow; resyncing");
+      APP_DEBUG_PRINTLN("LoRa software RX buffer overflow; resyncing");
       if (AppConfig::kEnableLoraErrorHexLogs)
       {
         printRawBytes("LoRa RX overflow data", g_rxBuffer, g_rxLength);
@@ -367,11 +372,11 @@ bool writeLoraUartReliably(const uint8_t* data, size_t length)
     {
       if (millis() - startMs >= AppConfig::kLoraUartWriteTimeoutMs)
       {
-        SerialMon.print("LoRa send failed: UART TX timeout after ");
-        SerialMon.print(i);
-        SerialMon.print('/');
-        SerialMon.print(length);
-        SerialMon.println(" bytes");
+        APP_DEBUG_PRINT("LoRa send failed: UART TX timeout after ");
+        APP_DEBUG_PRINT(i);
+        APP_DEBUG_PRINT('/');
+        APP_DEBUG_PRINT(length);
+        APP_DEBUG_PRINTLN(" bytes");
         return false;
       }
       yield();
@@ -379,8 +384,8 @@ bool writeLoraUartReliably(const uint8_t* data, size_t length)
 
     if (SerialLoRa.write(data[i]) != 1U)
     {
-      SerialMon.print("LoRa send failed: UART rejected byte index ");
-      SerialMon.println(i);
+      APP_DEBUG_PRINT("LoRa send failed: UART rejected byte index ");
+      APP_DEBUG_PRINTLN(i);
       return false;
     }
   }
@@ -409,13 +414,13 @@ bool waitForAs32PacketComplete(uint32_t guardMs)
           AppConfig::kLoraAuxPin,
           AppConfig::kLoraTxCompleteTimeoutMs))
   {
-    SerialMon.println("LoRa send failed: AS32 AUX remained busy");
+    APP_LOG_ERROR("LoRa send failed: AS32 AUX remained busy");
     return false;
   }
 
   if (!sawBusy)
   {
-    SerialMon.println("LoRa TX AUX busy pulse not observed; safety guard applied");
+    APP_DEBUG_PRINTLN("LoRa TX AUX busy pulse not observed; safety guard applied");
   }
 
   delay(guardMs);
@@ -434,7 +439,7 @@ bool transmitWireFrame(
   if ((payload == nullptr && payloadLength > 0U) ||
       payloadLength > kMaxWirePayloadLength)
   {
-    SerialMon.println("LoRa wire send failed: invalid payload length");
+    APP_LOG_ERROR("LoRa wire send failed: invalid payload length");
     return false;
   }
 
@@ -464,7 +469,7 @@ bool transmitWireFrame(
 
   if (offset > kMaxWireFrameLength)
   {
-    SerialMon.println("LoRa wire send failed: frame exceeds safe AS32 limit");
+    APP_LOG_ERROR("LoRa wire send failed: frame exceeds safe AS32 limit");
     return false;
   }
 
@@ -486,7 +491,7 @@ bool transmitWireFrame(
           AppConfig::kLoraAuxPin,
           AppConfig::kLoraTxCompleteTimeoutMs))
   {
-    SerialMon.println("LoRa wire send failed: AS32 AUX was not ready");
+    APP_LOG_ERROR("LoRa wire send failed: AS32 AUX was not ready");
     return false;
   }
   // AUX became ready: this is verified radio progress. Start a fresh IWDG
@@ -528,8 +533,8 @@ bool extractWireFrame(LoraFrame& frame)
 
   if (g_rxBuffer[2] != kFrameVersion)
   {
-    SerialMon.print("LoRa wire dropped: unsupported version received=");
-    SerialMon.println(g_rxBuffer[2]);
+    APP_DEBUG_PRINT("LoRa wire dropped: unsupported version received=");
+    APP_DEBUG_PRINTLN(g_rxBuffer[2]);
     printRxPrefix();
     ++g_versionDrops;
     discardBytes(1U);
@@ -541,11 +546,11 @@ bool extractWireFrame(LoraFrame& frame)
       g_rxBuffer[4];
   if (networkId != AppConfig::kLoraNetworkId)
   {
-    SerialMon.print("LoRa wire dropped: wrong network ID received=0x");
+    APP_DEBUG_PRINT("LoRa wire dropped: wrong network ID received=0x");
     printHexWord(networkId);
-    SerialMon.print(" expected=0x");
+    APP_DEBUG_PRINT(" expected=0x");
     printHexWord(AppConfig::kLoraNetworkId);
-    SerialMon.println();
+    APP_DEBUG_PRINTLN();
     printRxPrefix();
     ++g_networkDrops;
     discardBytes(1U);
@@ -557,8 +562,8 @@ bool extractWireFrame(LoraFrame& frame)
       g_rxBuffer[9];
   if (payloadLength > kMaxWirePayloadLength)
   {
-    SerialMon.print("LoRa wire dropped: payload exceeds safe limit length=");
-    SerialMon.println(payloadLength);
+    APP_DEBUG_PRINT("LoRa wire dropped: payload exceeds safe limit length=");
+    APP_DEBUG_PRINTLN(payloadLength);
     printRxPrefix();
     ++g_lengthDrops;
     discardBytes(1U);
@@ -578,11 +583,11 @@ bool extractWireFrame(LoraFrame& frame)
       crc16Ccitt(g_rxBuffer, totalLength - kCrcLength);
   if (receivedCrc != calculatedCrc)
   {
-    SerialMon.print("LoRa wire dropped: CRC mismatch received=0x");
+    APP_DEBUG_PRINT("LoRa wire dropped: CRC mismatch received=0x");
     printHexWord(receivedCrc);
-    SerialMon.print(" calculated=0x");
+    APP_DEBUG_PRINT(" calculated=0x");
     printHexWord(calculatedCrc);
-    SerialMon.println();
+    APP_DEBUG_PRINTLN();
     printRxPrefix();
     if (AppConfig::kEnableLoraErrorHexLogs)
     {
@@ -628,7 +633,7 @@ bool enqueuePendingFrame(const LoraFrame& frame)
 {
   if (g_pendingCount >= AppConfig::kLoraPendingFrameCount)
   {
-    SerialMon.println("LoRa pending application queue full; frame dropped");
+    APP_DEBUG_PRINTLN("LoRa pending application queue full; frame dropped");
     ++g_pendingDrops;
     return false;
   }
@@ -694,15 +699,15 @@ ReassemblyContext* acquireReassemblyContext(
         // session; later fragments may never replace an existing message.
         if (fragmentIndex != 0U)
         {
-          SerialMon.println("LoRa fragment metadata changed inside one message; dropped");
+          APP_DEBUG_PRINTLN("LoRa fragment metadata changed inside one message; dropped");
           ++g_fragmentDrops;
           return nullptr;
         }
 
-        SerialMon.print("LoRa reassembly restarted after node reset: source=");
-        SerialMon.print(sourceNodeId);
-        SerialMon.print(" message=");
-        SerialMon.println(messageId);
+        APP_DEBUG_PRINT("LoRa reassembly restarted after node reset: source=");
+        APP_DEBUG_PRINT(sourceNodeId);
+        APP_DEBUG_PRINT(" message=");
+        APP_DEBUG_PRINTLN(messageId);
         resetReassemblyContext(context);
         context.active = true;
         context.sourceNodeId = sourceNodeId;
@@ -739,10 +744,10 @@ ReassemblyContext* acquireReassemblyContext(
       : (sameSource != nullptr ? sameSource : oldest);
   if (selected->active)
   {
-    SerialMon.print("LoRa reassembly context replaced: source=");
-    SerialMon.print(selected->sourceNodeId);
-    SerialMon.print(" message=");
-    SerialMon.println(selected->messageId);
+    APP_DEBUG_PRINT("LoRa reassembly context replaced: source=");
+    APP_DEBUG_PRINT(selected->sourceNodeId);
+    APP_DEBUG_PRINT(" message=");
+    APP_DEBUG_PRINTLN(selected->messageId);
     ++g_fragmentDrops;
   }
 
@@ -771,13 +776,13 @@ void expireReassemblyContexts()
       continue;
     }
 
-    SerialMon.print("LoRa fragment assembly timeout: source=");
-    SerialMon.print(context.sourceNodeId);
-    SerialMon.print(" message=");
-    SerialMon.print(context.messageId);
-    SerialMon.print(" mask=0x");
-    SerialMon.print(context.receivedMask, HEX);
-    SerialMon.println();
+    APP_DEBUG_PRINT("LoRa fragment assembly timeout: source=");
+    APP_DEBUG_PRINT(context.sourceNodeId);
+    APP_DEBUG_PRINT(" message=");
+    APP_DEBUG_PRINT(context.messageId);
+    APP_DEBUG_PRINT(" mask=0x");
+    APP_DEBUG_PRINT(context.receivedMask, HEX);
+    APP_DEBUG_PRINTLN();
     ++g_fragmentTimeoutDrops;
     resetReassemblyContext(context);
   }
@@ -796,12 +801,12 @@ bool sendFragmentAck(
   payload[3] = static_cast<uint8_t>(messageId & 0xFFU);
   payload[4] = fragmentIndex;
 
-  SerialMon.print("LoRa TX fragment ACK: target=");
-  SerialMon.print(targetNodeId);
-  SerialMon.print(" message=");
-  SerialMon.print(messageId);
-  SerialMon.print(" part=");
-  SerialMon.println(fragmentIndex + 1U);
+  APP_DEBUG_PRINT("LoRa TX fragment ACK: target=");
+  APP_DEBUG_PRINT(targetNodeId);
+  APP_DEBUG_PRINT(" message=");
+  APP_DEBUG_PRINT(messageId);
+  APP_DEBUG_PRINT(" part=");
+  APP_DEBUG_PRINTLN(fragmentIndex + 1U);
 
   if (!transmitWireFrame(
           LoraPayloadType::TransportFragmentAck,
@@ -823,7 +828,7 @@ void handleFragmentAck(const LoraFrame& wireFrame)
 {
   if (wireFrame.payloadLength != kAckPayloadLength)
   {
-    SerialMon.println("LoRa fragment ACK dropped: invalid length");
+    APP_DEBUG_PRINTLN("LoRa fragment ACK dropped: invalid length");
     ++g_fragmentDrops;
     return;
   }
@@ -839,14 +844,14 @@ void handleFragmentAck(const LoraFrame& wireFrame)
   g_lastAck.fragmentIndex = wireFrame.payload[4];
   ++g_fragmentAcksRx;
 
-  SerialMon.print("LoRa RX fragment ACK: from=");
-  SerialMon.print(g_lastAck.ackSourceNodeId);
-  SerialMon.print(" target=");
-  SerialMon.print(g_lastAck.targetNodeId);
-  SerialMon.print(" message=");
-  SerialMon.print(g_lastAck.messageId);
-  SerialMon.print(" part=");
-  SerialMon.println(g_lastAck.fragmentIndex + 1U);
+  APP_DEBUG_PRINT("LoRa RX fragment ACK: from=");
+  APP_DEBUG_PRINT(g_lastAck.ackSourceNodeId);
+  APP_DEBUG_PRINT(" target=");
+  APP_DEBUG_PRINT(g_lastAck.targetNodeId);
+  APP_DEBUG_PRINT(" message=");
+  APP_DEBUG_PRINT(g_lastAck.messageId);
+  APP_DEBUG_PRINT(" part=");
+  APP_DEBUG_PRINTLN(g_lastAck.fragmentIndex + 1U);
 }
 
 /** @brief Validate, store, and reassemble fragments into an application frame. */
@@ -854,7 +859,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
 {
   if (wireFrame.payloadLength < kFragmentHeaderLength)
   {
-    SerialMon.println("LoRa fragment dropped: metadata is incomplete");
+    APP_DEBUG_PRINTLN("LoRa fragment dropped: metadata is incomplete");
     ++g_fragmentDrops;
     return false;
   }
@@ -895,14 +900,14 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
       fragmentIndex >= fragmentCount ||
       chunkLength != expectedChunkLength)
   {
-    SerialMon.print("LoRa fragment dropped: invalid metadata source=");
-    SerialMon.print(wireFrame.sourceNodeId);
-    SerialMon.print(" message=");
-    SerialMon.print(messageId);
-    SerialMon.print(" part=");
-    SerialMon.print(fragmentIndex + 1U);
-    SerialMon.print('/');
-    SerialMon.println(fragmentCount);
+    APP_DEBUG_PRINT("LoRa fragment dropped: invalid metadata source=");
+    APP_DEBUG_PRINT(wireFrame.sourceNodeId);
+    APP_DEBUG_PRINT(" message=");
+    APP_DEBUG_PRINT(messageId);
+    APP_DEBUG_PRINT(" part=");
+    APP_DEBUG_PRINT(fragmentIndex + 1U);
+    APP_DEBUG_PRINT('/');
+    APP_DEBUG_PRINTLN(fragmentCount);
     ++g_fragmentDrops;
     return false;
   }
@@ -936,20 +941,20 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   }
   context->lastUpdateMs = millis();
 
-  SerialMon.print(duplicate ? "LoRa RX duplicate fragment: source="
+  APP_DEBUG_PRINT(duplicate ? "LoRa RX duplicate fragment: source="
                             : "LoRa RX fragment: source=");
-  SerialMon.print(wireFrame.sourceNodeId);
-  SerialMon.print(" message=");
-  SerialMon.print(messageId);
-  SerialMon.print(" part=");
-  SerialMon.print(fragmentIndex + 1U);
-  SerialMon.print('/');
-  SerialMon.print(fragmentCount);
-  SerialMon.print(" data=");
-  SerialMon.print(chunkLength);
-  SerialMon.print(" mask=0x");
-  SerialMon.print(context->receivedMask, HEX);
-  SerialMon.println();
+  APP_DEBUG_PRINT(wireFrame.sourceNodeId);
+  APP_DEBUG_PRINT(" message=");
+  APP_DEBUG_PRINT(messageId);
+  APP_DEBUG_PRINT(" part=");
+  APP_DEBUG_PRINT(fragmentIndex + 1U);
+  APP_DEBUG_PRINT('/');
+  APP_DEBUG_PRINT(fragmentCount);
+  APP_DEBUG_PRINT(" data=");
+  APP_DEBUG_PRINT(chunkLength);
+  APP_DEBUG_PRINT(" mask=0x");
+  APP_DEBUG_PRINT(context->receivedMask, HEX);
+  APP_DEBUG_PRINTLN();
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   if (wireFrame.sourceNodeId != AppConfig::kGatewayNodeId)
@@ -970,15 +975,15 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
       crc16Ccitt(context->payload, context->totalLength);
   if (calculatedLogicalCrc != context->logicalCrc)
   {
-    SerialMon.print("LoRa logical message dropped: CRC mismatch source=");
-    SerialMon.print(context->sourceNodeId);
-    SerialMon.print(" message=");
-    SerialMon.print(context->messageId);
-    SerialMon.print(" received=0x");
+    APP_DEBUG_PRINT("LoRa logical message dropped: CRC mismatch source=");
+    APP_DEBUG_PRINT(context->sourceNodeId);
+    APP_DEBUG_PRINT(" message=");
+    APP_DEBUG_PRINT(context->messageId);
+    APP_DEBUG_PRINT(" received=0x");
     printHexWord(context->logicalCrc);
-    SerialMon.print(" calculated=0x");
+    APP_DEBUG_PRINT(" calculated=0x");
     printHexWord(calculatedLogicalCrc);
-    SerialMon.println();
+    APP_DEBUG_PRINTLN();
     ++g_fragmentDrops;
     resetReassemblyContext(*context);
     return false;
@@ -995,14 +1000,10 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
         context->totalLength);
   }
 
-  SerialMon.print("LoRa logical message complete: source=");
-  SerialMon.print(context->sourceNodeId);
-  SerialMon.print(" message=");
-  SerialMon.print(context->messageId);
-  SerialMon.print(" fragments=");
-  SerialMon.print(context->fragmentCount);
-  SerialMon.print(" payload=");
-  SerialMon.println(context->totalLength);
+  APP_LOG_INFO("rx_complete source=%u message=%u type=%s fragments=%u bytes=%u logical_crc=verified",
+      context->sourceNodeId, context->messageId,
+      WiotDebug::frameName(static_cast<uint8_t>(context->originalType)),
+      context->fragmentCount, context->totalLength);
 
   resetReassemblyContext(*context);
   return true;
@@ -1029,8 +1030,8 @@ void processWireFrame(const LoraFrame& wireFrame)
   {
     if (!isApplicationType(wireFrame.type))
     {
-      SerialMon.print("LoRa wire dropped: unknown payload type=");
-      SerialMon.println(static_cast<uint8_t>(wireFrame.type));
+      APP_DEBUG_PRINT("LoRa wire dropped: unknown payload type=");
+      APP_DEBUG_PRINTLN(static_cast<uint8_t>(wireFrame.type));
       ++g_fragmentDrops;
       return;
     }
@@ -1177,7 +1178,7 @@ void initializeLoraLink()
   pinMode(AppConfig::kLoraMd1Pin, OUTPUT);
   pinMode(AppConfig::kLoraAuxPin, INPUT);
 
-  AS32Config::printConfigSummary(SerialMon);
+  APP_DEBUG_ONLY(AS32Config::printConfigSummary(SerialMon));
   AS32Config::applyConfigurationIfEnabled(
       SerialLoRa,
       SerialMon,
@@ -1192,27 +1193,27 @@ void initializeLoraLink()
   SerialLoRa.begin(AS32Config::kUartBaudRate, AS32Config::kSerialMode);
   delay(100);
 
-  SerialMon.print("AS32 LoRa V1 reliable transport ready: network=0x");
+  APP_DEBUG_PRINT("AS32 LoRa V1 reliable transport ready: network=0x");
   printHexWord(AppConfig::kLoraNetworkId);
-  SerialMon.print(" RX=");
-  SerialMon.print(AppConfig::kLoraRxPin);
-  SerialMon.print(" TX=");
-  SerialMon.print(AppConfig::kLoraTxPin);
-  SerialMon.print(" baud=");
-  SerialMon.println(AS32Config::kUartBaudRate);
-  SerialMon.print("LoRa transport: wire_max=");
-  SerialMon.print(kMaxWireFrameLength);
-  SerialMon.print(" direct_payload=");
-  SerialMon.print(kMaxWirePayloadLength);
-  SerialMon.print(" fragment_data=");
-  SerialMon.print(kFragmentDataLength);
-  SerialMon.print(" UART_RX=");
-  SerialMon.print(SERIAL_RX_BUFFER_SIZE);
-  SerialMon.print(" UART_TX=");
-  SerialMon.println(SERIAL_TX_BUFFER_SIZE);
+  APP_DEBUG_PRINT(" RX=");
+  APP_DEBUG_PRINT(AppConfig::kLoraRxPin);
+  APP_DEBUG_PRINT(" TX=");
+  APP_DEBUG_PRINT(AppConfig::kLoraTxPin);
+  APP_DEBUG_PRINT(" baud=");
+  APP_DEBUG_PRINTLN(AS32Config::kUartBaudRate);
+  APP_DEBUG_PRINT("LoRa transport: wire_max=");
+  APP_DEBUG_PRINT(kMaxWireFrameLength);
+  APP_DEBUG_PRINT(" direct_payload=");
+  APP_DEBUG_PRINT(kMaxWirePayloadLength);
+  APP_DEBUG_PRINT(" fragment_data=");
+  APP_DEBUG_PRINT(kFragmentDataLength);
+  APP_DEBUG_PRINT(" UART_RX=");
+  APP_DEBUG_PRINT(SERIAL_RX_BUFFER_SIZE);
+  APP_DEBUG_PRINT(" UART_TX=");
+  APP_DEBUG_PRINTLN(SERIAL_TX_BUFFER_SIZE);
   if (!AppConfig::kLoraModuleSupportsRssi)
   {
-    SerialMon.println(
+    APP_DEBUG_PRINTLN(
         "RSSI: unsupported by E32-TTL-100 UART firmware; dBm queries disabled");
   }
   serviceHardwareWatchdog();
@@ -1349,6 +1350,7 @@ bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* payload, size_t le
   digitalWrite(AppConfig::kLoraMd0Pin, HIGH);
   digitalWrite(AppConfig::kLoraMd1Pin, LOW);
   delay(5);
+  APP_LOG_INFO("downlink_wake_begin mode=1 probe_then_command bytes=%lu", static_cast<unsigned long>(length));
   const bool probeSent = sendLoraFrame(LoraPayloadType::WakeProbe,
                                       AppConfig::kGatewayNodeId, nullptr, 0U);
   if (probeSent)
@@ -1362,6 +1364,7 @@ bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* payload, size_t le
                              AppConfig::kLoraTxCompleteTimeoutMs);
   digitalWrite(AppConfig::kLoraMd0Pin, LOW);
   delay(5);
+  APP_LOG_INFO("downlink_wake_complete probe=%u command=%u mode_restored=0 node_execution=unconfirmed", probeSent, sent);
   return sent;
 #else
   return sendLoraFrame(type, AppConfig::kGatewayNodeId, payload, length);
@@ -1388,7 +1391,7 @@ bool sendLoraFrame(
       payloadLength > sizeof(LoraFrame::payload) ||
       !isApplicationType(type))
   {
-    SerialMon.println("LoRa send failed: invalid logical payload");
+    APP_LOG_ERROR("LoRa send failed: invalid logical payload");
     return false;
   }
 
@@ -1410,8 +1413,8 @@ bool sendLoraFrame(
     }
 
     ++g_totalTxFrames;
-    SerialMon.print("LoRa V1 logical message sent: fragments=1 payload=");
-    SerialMon.println(payloadLength);
+    APP_LOG_INFO("tx_complete source=%u type=%s fragments=1 bytes=%lu stage=radio_write_accepted peer_receipt=unconfirmed",
+        sourceNodeId, WiotDebug::frameName(static_cast<uint8_t>(type)), static_cast<unsigned long>(payloadLength));
     return true;
   }
 
@@ -1421,19 +1424,9 @@ bool sendLoraFrame(
       ? 1U
       : (payloadLength + kFragmentDataLength - 1U) / kFragmentDataLength);
 
-  SerialMon.print("LoRa TX logical message: source=");
-  SerialMon.print(sourceNodeId);
-  SerialMon.print(" message=");
-  SerialMon.print(messageId);
-  SerialMon.print(" type=");
-  SerialMon.print(static_cast<uint8_t>(type));
-  SerialMon.print(" payload=");
-  SerialMon.print(payloadLength);
-  SerialMon.print(" fragments=");
-  SerialMon.print(fragmentCount);
-  SerialMon.print(" crc=0x");
-  printHexWord(logicalCrc);
-  SerialMon.println();
+  APP_LOG_INFO("tx_begin source=%u message=%u type=%s bytes=%lu fragments=%u ack_required=%u crc=0x%04X",
+      sourceNodeId, messageId, WiotDebug::frameName(static_cast<uint8_t>(type)),
+      static_cast<unsigned long>(payloadLength), fragmentCount, requireAck, logicalCrc);
 
   for (uint8_t fragmentIndex = 0U;
        fragmentIndex < fragmentCount;
@@ -1478,18 +1471,9 @@ bool sendLoraFrame(
       // Each ACK wait is bounded to 12 seconds, below the 30-second IWDG
       // deadline. Refresh only between attempts, never inside the wait loop.
       serviceHardwareWatchdog();
-      SerialMon.print("LoRa TX fragment: message=");
-      SerialMon.print(messageId);
-      SerialMon.print(" part=");
-      SerialMon.print(fragmentIndex + 1U);
-      SerialMon.print('/');
-      SerialMon.print(fragmentCount);
-      SerialMon.print(" data=");
-      SerialMon.print(chunkLength);
-      SerialMon.print(" attempt=");
-      SerialMon.print(attempt);
-      SerialMon.print('/');
-      SerialMon.println(attempts);
+      APP_LOG_INFO("tx_fragment message=%u part=%u/%u bytes=%lu attempt=%u/%u",
+          messageId, fragmentIndex + 1U, fragmentCount,
+          static_cast<unsigned long>(chunkLength), attempt, attempts);
 
       g_lastAck.valid = false;
       const bool hasNextFragment = fragmentIndex + 1U < fragmentCount;
@@ -1536,9 +1520,8 @@ bool sendLoraFrame(
              fragmentIndex * 53U + attempt * 97U) % 251U);
         const uint32_t backoffMs =
             AppConfig::kLoraFragmentRetryBackoffMs + jitter;
-        SerialMon.print("LoRa fragment ACK timeout; retrying after ");
-        SerialMon.print(backoffMs);
-        SerialMon.println(" ms");
+        APP_LOG_WARN("tx_retry message=%u part=%u reason=fragment_ack_timeout backoff_ms=%lu",
+            messageId, fragmentIndex + 1U, static_cast<unsigned long>(backoffMs));
         delay(backoffMs);
         serviceHardwareWatchdog();
       }
@@ -1546,21 +1529,16 @@ bool sendLoraFrame(
 
     if (!fragmentDelivered)
     {
-      SerialMon.print("LoRa logical send failed: message=");
-      SerialMon.print(messageId);
-      SerialMon.print(" part=");
-      SerialMon.println(fragmentIndex + 1U);
+      APP_LOG_ERROR("tx_failed source=%u message=%u part=%u/%u reason=fragment_attempts_exhausted",
+          sourceNodeId, messageId, fragmentIndex + 1U, fragmentCount);
       return false;
     }
   }
 
   ++g_totalTxFrames;
-  SerialMon.print("LoRa V1 logical message sent: message=");
-  SerialMon.print(messageId);
-  SerialMon.print(" fragments=");
-  SerialMon.print(fragmentCount);
-  SerialMon.print(" payload=");
-  SerialMon.println(payloadLength);
+  APP_LOG_INFO("tx_complete source=%u message=%u type=%s fragments=%u bytes=%lu stage=transport_acknowledged server_receipt=unconfirmed",
+      sourceNodeId, messageId, WiotDebug::frameName(static_cast<uint8_t>(type)),
+      fragmentCount, static_cast<unsigned long>(payloadLength));
   serviceHardwareWatchdog();
   return true;
 }
@@ -1575,93 +1553,89 @@ void printLoraDiagnostics()
 {
   refreshRssiDiagnosticsIfSafe();
 
-  SerialMon.print("LoRa diag: raw=");
-  SerialMon.print(g_totalRawBytes);
-  SerialMon.print(" buffer=");
-  SerialMon.print(g_rxLength);
-  SerialMon.print(" noise=");
-  SerialMon.print(g_noiseDrops);
-  SerialMon.print(" version=");
-  SerialMon.print(g_versionDrops);
-  SerialMon.print(" network=");
-  SerialMon.print(g_networkDrops);
-  SerialMon.print(" length=");
-  SerialMon.print(g_lengthDrops);
-  SerialMon.print(" crc=");
-  SerialMon.print(g_crcDrops);
-  SerialMon.print(" overflow=");
-  SerialMon.print(g_overflowDrops);
-  SerialMon.print(" timeout=");
-  SerialMon.print(g_timeoutDrops);
-  SerialMon.print(" frag_drop=");
-  SerialMon.print(g_fragmentDrops);
-  SerialMon.print(" frag_timeout=");
-  SerialMon.print(g_fragmentTimeoutDrops);
-  SerialMon.print(" queue_drop=");
-  SerialMon.print(g_pendingDrops);
-  SerialMon.print(" rx_frames=");
-  SerialMon.print(g_totalRxFrames);
-  SerialMon.print(" tx_frames=");
-  SerialMon.print(g_totalTxFrames);
-  SerialMon.print(" wire_rx=");
-  SerialMon.print(g_totalRxWireFrames);
-  SerialMon.print(" wire_tx=");
-  SerialMon.print(g_totalTxWireFrames);
-  SerialMon.print(" ack_rx=");
-  SerialMon.print(g_fragmentAcksRx);
-  SerialMon.print(" ack_tx=");
-  SerialMon.print(g_fragmentAcksTx);
-  SerialMon.print(" retries=");
-  SerialMon.print(g_fragmentRetries);
-  SerialMon.print(" ack_timeout=");
-  SerialMon.print(g_fragmentAckTimeouts);
-  SerialMon.print(" tx_bytes=");
-  SerialMon.print(g_totalTxBytes);
+  APP_DEBUG_PRINT("LoRa diag: raw=");
+  APP_DEBUG_PRINT(g_totalRawBytes);
+  APP_DEBUG_PRINT(" buffer=");
+  APP_DEBUG_PRINT(g_rxLength);
+  APP_DEBUG_PRINT(" noise=");
+  APP_DEBUG_PRINT(g_noiseDrops);
+  APP_DEBUG_PRINT(" version=");
+  APP_DEBUG_PRINT(g_versionDrops);
+  APP_DEBUG_PRINT(" network=");
+  APP_DEBUG_PRINT(g_networkDrops);
+  APP_DEBUG_PRINT(" length=");
+  APP_DEBUG_PRINT(g_lengthDrops);
+  APP_DEBUG_PRINT(" crc=");
+  APP_DEBUG_PRINT(g_crcDrops);
+  APP_DEBUG_PRINT(" overflow=");
+  APP_DEBUG_PRINT(g_overflowDrops);
+  APP_DEBUG_PRINT(" timeout=");
+  APP_DEBUG_PRINT(g_timeoutDrops);
+  APP_DEBUG_PRINT(" frag_drop=");
+  APP_DEBUG_PRINT(g_fragmentDrops);
+  APP_DEBUG_PRINT(" frag_timeout=");
+  APP_DEBUG_PRINT(g_fragmentTimeoutDrops);
+  APP_DEBUG_PRINT(" queue_drop=");
+  APP_DEBUG_PRINT(g_pendingDrops);
+  APP_DEBUG_PRINT(" rx_frames=");
+  APP_DEBUG_PRINT(g_totalRxFrames);
+  APP_DEBUG_PRINT(" tx_frames=");
+  APP_DEBUG_PRINT(g_totalTxFrames);
+  APP_DEBUG_PRINT(" wire_rx=");
+  APP_DEBUG_PRINT(g_totalRxWireFrames);
+  APP_DEBUG_PRINT(" wire_tx=");
+  APP_DEBUG_PRINT(g_totalTxWireFrames);
+  APP_DEBUG_PRINT(" ack_rx=");
+  APP_DEBUG_PRINT(g_fragmentAcksRx);
+  APP_DEBUG_PRINT(" ack_tx=");
+  APP_DEBUG_PRINT(g_fragmentAcksTx);
+  APP_DEBUG_PRINT(" retries=");
+  APP_DEBUG_PRINT(g_fragmentRetries);
+  APP_DEBUG_PRINT(" ack_timeout=");
+  APP_DEBUG_PRINT(g_fragmentAckTimeouts);
+  APP_DEBUG_PRINT(" tx_bytes=");
+  APP_DEBUG_PRINT(g_totalTxBytes);
   if (!AppConfig::kLoraModuleSupportsRssi)
   {
-    SerialMon.println(
+    APP_DEBUG_PRINTLN(
         " last_rx_rssi=UNSUPPORTED ambient_rssi=UNSUPPORTED"
         " rssi_note=E32-TTL-100_has_no_UART_RSSI");
     return;
   }
-  SerialMon.print(" last_rx_rssi=");
+  APP_DEBUG_PRINT(" last_rx_rssi=");
   if (g_lastDataRssiValid)
   {
-    SerialMon.print(g_lastDataRssiDbm);
-    SerialMon.print(" dBm(raw=");
-    SerialMon.print(g_lastDataRssiRaw);
-    SerialMon.print(')');
+    APP_DEBUG_PRINT(g_lastDataRssiDbm);
+    APP_DEBUG_PRINT(" dBm(raw=");
+    APP_DEBUG_PRINT(g_lastDataRssiRaw);
+    APP_DEBUG_PRINT(')');
   }
   else
   {
-    SerialMon.print("N/A dBm");
+    APP_DEBUG_PRINT("N/A dBm");
   }
-  SerialMon.print(" ambient_rssi=");
+  APP_DEBUG_PRINT(" ambient_rssi=");
   if (g_lastEnvironmentRssiValid)
   {
-    SerialMon.print(g_lastEnvironmentRssiDbm);
-    SerialMon.print(" dBm(raw=");
-    SerialMon.print(g_lastEnvironmentRssiRaw);
-    SerialMon.print(')');
+    APP_DEBUG_PRINT(g_lastEnvironmentRssiDbm);
+    APP_DEBUG_PRINT(" dBm(raw=");
+    APP_DEBUG_PRINT(g_lastEnvironmentRssiRaw);
+    APP_DEBUG_PRINT(')');
   }
   else
   {
-    SerialMon.print("N/A dBm");
+    APP_DEBUG_PRINT("N/A dBm");
   }
-  SerialMon.print(" rssi_ok=");
-  SerialMon.print(g_rssiQuerySuccesses);
-  SerialMon.print(" rssi_fail=");
-  SerialMon.println(g_rssiQueryFailures);
+  APP_DEBUG_PRINT(" rssi_ok=");
+  APP_DEBUG_PRINT(g_rssiQuerySuccesses);
+  APP_DEBUG_PRINT(" rssi_fail=");
+  APP_DEBUG_PRINTLN(g_rssiQueryFailures);
 }
 
 void printLoraFrameSummary(const LoraFrame& frame, const char* prefix)
 {
-  SerialMon.print(prefix);
-  SerialMon.print(" type=");
-  SerialMon.print(static_cast<uint8_t>(frame.type));
-  SerialMon.print(" source=");
-  SerialMon.print(frame.sourceNodeId);
-  SerialMon.print(" payload=");
-  SerialMon.print(frame.payloadLength);
-  SerialMon.println(" bytes");
+  (void)frame; (void)prefix;
+  APP_LOG_INFO("%s source=%u type=%s(%u) bytes=%lu",
+      prefix, frame.sourceNodeId, WiotDebug::frameName(static_cast<uint8_t>(frame.type)),
+      static_cast<unsigned>(frame.type), static_cast<unsigned long>(frame.payloadLength));
 }

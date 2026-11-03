@@ -1,4 +1,6 @@
 /** @file SupmeaPeriodAccumulator.cpp @brief RTC-bucketed Supmea totals and persistence. */
+#define APP_LOG_MODULE "VOLUME"
+#include "../platform/DebugLog.h"
 #include "SupmeaPeriodAccumulator.h"
 
 #include "../config/AppConfig.h"
@@ -295,21 +297,21 @@ void persistWorkingState()
 void persistDurableState(const char* reason)
 {
     serviceHardwareWatchdog(WatchdogStage::SupmeaFlashStorage);
-    SerialMon.print("Supmea flash checkpoint starting: ");
-    SerialMon.println(reason);
+    APP_DEBUG_PRINT("Supmea flash checkpoint starting: ");
+    APP_DEBUG_PRINTLN(reason);
     const uint32_t startedMs = millis();
     if (writeFlashState(g_state))
     {
         g_lastFlashSaveEpoch = g_state.lastEpoch;
-        SerialMon.print("Supmea period state saved to EEPROM: ");
-        SerialMon.print(reason);
-        SerialMon.print(" (");
-        SerialMon.print(millis() - startedMs);
-        SerialMon.println(" ms)");
+        APP_DEBUG_PRINT("Supmea period state saved to EEPROM: ");
+        APP_DEBUG_PRINT(reason);
+        APP_DEBUG_PRINT(" (");
+        APP_DEBUG_PRINT(millis() - startedMs);
+        APP_DEBUG_PRINTLN(" ms)");
     }
     else
     {
-        SerialMon.println("ERROR: Supmea period state EEPROM verification failed");
+        APP_LOG_ERROR("ERROR: Supmea period state EEPROM verification failed");
     }
     serviceHardwareWatchdog(WatchdogStage::SupmeaPeriodCalculation);
 }
@@ -467,7 +469,7 @@ void initializeSupmeaPeriodAccumulator()
     {
         const bool cleared = clearStoredState();
         g_state = {};
-        SerialMon.println(cleared
+        APP_DEBUG_PRINTLN(cleared
             ? "Supmea period state RESET; set APP_RESET_SUPMEA_PERIOD_STATE back to 0"
             : "ERROR: Supmea period state EEPROM reset verification failed");
         return;
@@ -482,19 +484,19 @@ void initializeSupmeaPeriodAccumulator()
     {
         g_state = backupState;
         g_lastFlashSaveEpoch = flashValid ? flashState.lastEpoch : 0U;
-        SerialMon.println("Supmea period state restored from RTC backup domain");
+        APP_DEBUG_PRINTLN("Supmea period state restored from RTC backup domain");
     }
     else if (flashValid)
     {
         g_state = flashState;
         g_lastFlashSaveEpoch = flashState.lastEpoch;
         persistWorkingState();
-        SerialMon.println("Supmea period state restored from EEPROM");
+        APP_DEBUG_PRINTLN("Supmea period state restored from EEPROM");
     }
     else
     {
         g_state = {};
-        SerialMon.println("Supmea period state has no valid snapshot; waiting for baseline");
+        APP_DEBUG_PRINTLN("Supmea period state has no valid snapshot; waiting for baseline");
     }
 }
 

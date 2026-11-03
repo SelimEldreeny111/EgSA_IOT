@@ -1,4 +1,6 @@
 /** @file RTC.cpp @brief RTC initialization, trust state, time conversion, and backup registers. */
+#define APP_LOG_MODULE "RTC"
+#include "../platform/DebugLog.h"
 #include "RTC.h"
 #include "BackupDomainAccess.h"
 
@@ -181,8 +183,7 @@ void setRtcEpoch(uint32_t epoch)
 
 void printRtcDateTime()
 {
-  SerialMon.print("Current RTC time is : ");
-  SerialMon.printf("%04d-%02d-%02d %02d:%02d:%02d\n",
+  APP_LOG_INFO("Current RTC time is : %04d-%02d-%02d %02d:%02d:%02d",
                    2000 + rtc.getYear(),
                    rtc.getMonth(),
                    rtc.getDay(),
@@ -274,7 +275,7 @@ bool syncRTCFromEpoch(uint32_t epoch)
   if (epoch < AppConfig::kPowerMinimumValidRtcEpoch ||
       epoch >= kFirstUnsupportedEpoch)
   {
-    SerialMon.println("ERROR: STIME epoch outside supported RTC range");
+    APP_LOG_ERROR("ERROR: STIME epoch outside supported RTC range");
     return false;
   }
 
@@ -300,7 +301,7 @@ bool syncRTCFromEpoch(uint32_t epoch)
   if (readBackupRegister(kRtcTrustedBackupRegister) != 0U)
   {
     // Do not partially replace an already trusted clock if invalidation failed.
-    SerialMon.println("ERROR: RTC trust marker could not be cleared");
+    APP_LOG_ERROR("ERROR: RTC trust marker could not be cleared");
     serviceHardwareWatchdog();
     return false;
   }
@@ -313,10 +314,10 @@ bool syncRTCFromEpoch(uint32_t epoch)
   const uint32_t actualEpoch = getEpochTime();
   if (!rtc.isTimeSet() || actualEpoch < epoch || actualEpoch - epoch > 2U)
   {
-    SerialMon.print("ERROR: RTC sync verification failed; requested=");
-    SerialMon.print(epoch);
-    SerialMon.print(" actual=");
-    SerialMon.println(actualEpoch);
+    APP_DEBUG_PRINT("ERROR: RTC sync verification failed; requested=");
+    APP_DEBUG_PRINT(epoch);
+    APP_DEBUG_PRINT(" actual=");
+    APP_DEBUG_PRINTLN(actualEpoch);
     serviceHardwareWatchdog();
     return false;
   }
@@ -324,12 +325,12 @@ bool syncRTCFromEpoch(uint32_t epoch)
   writeBackupRegister(kRtcTrustedBackupRegister, kRtcTrustedMagic);
   if (readBackupRegister(kRtcTrustedBackupRegister) != kRtcTrustedMagic)
   {
-    SerialMon.println("ERROR: RTC trust marker write failed");
+    APP_LOG_ERROR("ERROR: RTC trust marker write failed");
     serviceHardwareWatchdog();
     return false;
   }
 
-  SerialMon.println("RTC synced from epoch (verified)");
+  APP_DEBUG_PRINTLN("RTC synced from epoch (verified)");
   printRtcDateTime();
   serviceHardwareWatchdog();
   return true;
