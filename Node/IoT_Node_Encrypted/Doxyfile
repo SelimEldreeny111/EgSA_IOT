@@ -2,7 +2,7 @@
 # Run from this directory: doxygen Doxyfile
 PROJECT_NAME           = "WIOT STM32F401 Arduino Node"
 PROJECT_BRIEF          = "Firmware architecture and API reference"
-PROJECT_NUMBER         = "2026-10-30 SPI flash telemetry archive"
+PROJECT_NUMBER         = "2026-11-04 system review"
 OUTPUT_DIRECTORY       = Documentation/Doxygen
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
@@ -88,3 +88,5 @@ INPUT += ../../Documentation/Validation/LORA_WOR_RX_WAKE_VERIFICATION_20261029.m
 
 INPUT += SPI_FLASH_TELEMETRY_GUIDE.md
 INPUT += SPI_FLASH_TEST_PLAN.md
+INPUT += DEBUG_LOGGING_GUIDE.md LORA_WOR_APP_SCHEDULE_GUIDE.md
+INPUT += ../../Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md

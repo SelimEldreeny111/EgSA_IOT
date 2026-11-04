@@ -30,6 +30,11 @@ attempts uses the latest completed poll. Values are not cleared just because
 another report was sent. Changing this would incorrectly mark good slow-polled
 sensors unavailable on every faster transmission.
 
+If a Modbus timeout makes the sampling deadline overdue, the finished cycle
+can leave a sample queued for flash. An overdue Status now gets its turn after
+that write clears, before the node starts another poll. If flash cannot provide
+a retained record, Status uses the live fallback.
+
 ## Bench test
 
 1. Flash the updated node and restart the updated server. Hard-refresh the
@@ -39,9 +44,13 @@ sensors unavailable on every faster transmission.
 3. Disable replies for TUF only (or disconnect it). Wait for the next completed
    polling attempt and Status. TUF readings must be zero and validity false;
    Supmea/HNDA/Sondas must remain valid. Repeat for every sensor individually.
-4. Disable all replies. The next report after polling must have all sensor
-   numeric readings zero, with false validity. Battery voltage, node ID and
-   other non-sensor metadata must remain unaffected.
+4. Keep the sensor enables set and disable all simulator replies. Use a
+   10-second sampling period and a ready SPI log to exercise the overrun path
+   with Supmea and Sondas. Wait for a completed poll and `status_tx` or the MQTT
+   send result, then confirm Status arrives with zero readings and false
+   validity. The configured sensor mask still identifies the enabled devices.
+   To test a node with no polls configured, disable all four enables and verify
+   a zero sensor mask, zero validity flags and continued Status delivery.
 5. Re-enable each device. Fresh readings must return without rebooting. For
    Supmea, increase its cumulative counter during the outage and confirm the
    accumulated consumption resumes without an artificial reset-to-zero.

@@ -1,4 +1,10 @@
-# Complete WIOT STM32 release — updated 25 October 2026
+# WIOT STM32 release guide
+
+**4 November 2026.** The [current system review](Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md)
+describes the node, gateway, server, simulators, two-node bench setup and checks.
+The gateway subscribes to direct and regional broadcast commands. A due
+Status takes its turn after an acquisition completes, even when sensor
+timeouts run past the sampling interval.
 
 New: separate retained power/WDT counters; direct-node clear commands 7/8;
 server reporting/migration/CSV; independent SUPMEA D/M/Y reference in both
@@ -47,8 +53,9 @@ physical acceptance tests.
 The 4 October latching-valve addition uses TB6612FNG channel A: PB9/PB15
 direction and original PC13 as STBY. Read
 [Valve commissioning and tests](Node/IoT_Node_Encrypted/LATCHING_VALVE_USER_GUIDE.md)
-before connecting or enabling the coil. Zero pulse-time defaults and unconfirmed
-polarity inhibit actuation. Valve telemetry reports commanded, not measured,
+before connecting or enabling the coil. Zero pulse times and unconfirmed
+polarity inhibit actuation. This branch carries the earlier commissioned 50 ms
+values. Valve telemetry reports commanded, not measured,
 position; missing/interrupted records report Unknown. Earlier static-PC13 and
 RAM-only valve descriptions are superseded. All sensor/RTC/WDT/power policies
 and the separate ESP32/CubeIDE projects remain unchanged.
@@ -109,8 +116,8 @@ the current feature guides and code below take precedence over older claims.
    This machine was verified with core 2.12.0, STM32RTC 1.9.0, TinyGSM 0.12.0,
    PubSubClient 2.8, AESLib 2.3.6 and IWatchdog from the core. Re-test upgrades.
 
-The topic example now uses the server's case-sensitive `Status`, `Telemetry`,
-`CMD` and `BroadCast/CMD` suffixes. The node rejects rate values above 86400
+The current routes use case-sensitive lowercase `status`, `data`, `cmd` and
+`broadcast` under `wiot/{company}/{region}`. The node rejects rate values above 86400
 seconds before converting them to milliseconds, and rejects STIME values wider
 than its 32-bit RTC epoch instead of silently truncating them. Its production
 minimum rate remains 10 seconds; although the server accepts 5..86400 seconds,
@@ -126,18 +133,20 @@ needed for the default checks. Simulator GUI tests create withdrawn Tk windows.
 From this package root in PowerShell:
 
 ```powershell
-./Validate-Release.ps1 -Python 'C:/Python314/python.exe'
+./Validate-Release.ps1 -Python 'C:/Python314/python.exe' -UseFactoryConfigurationFixture
 ```
 
 Optional, after local firmware configuration and tools are ready:
 
 ```powershell
-./Validate-Release.ps1 -Python 'C:/Python314/python.exe' -BuildFirmware -BuildDocumentation -BuildSimulators -ArduinoCli 'C:/Program Files/Arduino PLC IDE Tools/arduino-cli.exe'
+./Validate-Release.ps1 -Python 'C:/Python314/python.exe' -UseFactoryConfigurationFixture -BuildFirmware -BuildDocumentation -BuildSimulators -ArduinoCli 'C:/Program Files/Arduino PLC IDE Tools/arduino-cli.exe'
 ```
 
 The checks fail on a failed native command instead of continuing to package a
 failed build. A timestamp-independent temporary `verification.log` path is
-printed. Firmware checks compile all 11 profiles, all four sensor drivers and
+printed. The factory fixture verifies inhibited valve configuration with
+compile-only overrides because this branch carries commissioned valve settings.
+Firmware checks compile the selected profiles with all four sensor drivers and
 verify no load section overlaps EEPROM emulation. They do not flash hardware.
 Simulator packaging uses installed dependencies without changing them; run an
 individual `build_exe.ps1` without `-SkipDependencyInstall` when dependencies
@@ -206,12 +215,10 @@ and adds direct commands 9–13 plus internal persistence ACK 14. Historical rep
 are isolated from live charts/consumption. Install the matching server and gateway
 before updated nodes; larger frames need the widened LoRa reassembly buffer.
 
-The final bench configuration remains node 2, Company_1/Region_1, UART_RX WOR,
-all four sensors; this is not a generic factory configuration. The existing
-50 ms valve commissioning values are retained, with output inhibited on this
-LoRa profile because of the PC13 AUX/STBY conflict. SPI logging defaults enabled;
-first commissioning requires STIME and explicit CLEAR_FLASH. Private files and
-server runtime databases are not release artifacts.
+Read `FINAL_COPY_INFO.md` in the working folder for the current bench profile.
+The LoRa profile reserves PC13 for AUX, which inhibits the valve output.
+SPI logging defaults enabled. First commissioning of a blank chip requires
+STIME and explicit CLEAR_FLASH.
 
 `regenerate_protocol.py --protoc <path-to-protoc>` regenerates checked-in schemas
 using nanopb 0.4.9.1 / protoc 33.5. Validate-Release.ps1 includes native flash,

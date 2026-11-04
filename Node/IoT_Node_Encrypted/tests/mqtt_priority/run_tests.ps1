@@ -21,6 +21,16 @@ try {
         & $mqttTestExe $scenario
         if($LASTEXITCODE -ne 0) { throw "MQTT test failed: $scenario" }
     }
+    $mqttGatewayExe=Join-Path $mqttTestBuild 'mqtt_gateway_test.exe'
+    & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' '-DAPP_ROLE=2' `
+        '-I' $mqttTestFakes '-include' (Join-Path $mqttTestFakes 'TestAppConfig.h') `
+        (Join-Path $mqttTestNode 'src/comm/MQTT.cpp') `
+        (Join-Path $PSScriptRoot 'mqtt_priority_test.cpp') '-o' $mqttGatewayExe
+    if($LASTEXITCODE -ne 0) { throw 'MQTT gateway host build failed' }
+    foreach($scenario in @('gateway_broadcast','gateway_broadcast_subscribe_failure')) {
+        & $mqttGatewayExe $scenario
+        if($LASTEXITCODE -ne 0) { throw "MQTT gateway test failed: $scenario" }
+    }
     $mqttWifiExe=Join-Path $mqttTestBuild 'mqtt_priority_wifi_test.exe'
     & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' '-DTEST_ESP8266' `
         '-I' $mqttTestFakes '-include' (Join-Path $mqttTestFakes 'TestAppConfig.h') `

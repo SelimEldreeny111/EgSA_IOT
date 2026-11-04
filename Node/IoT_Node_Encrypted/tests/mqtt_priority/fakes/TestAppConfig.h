@@ -9,7 +9,9 @@
 #define MODEM_BAUD 9600
 #define APP_ROLE_SENSOR_NODE 1
 #define APP_ROLE_LORA_GATEWAY 2
-#define APP_ROLE 1
+#ifndef APP_ROLE
+#define APP_ROLE APP_ROLE_SENSOR_NODE
+#endif
 #define APP_HAS_IP_UPLINK 1
 #define HARDWARE_WATCHDOG_H
 enum class WatchdogStage { ModemInitialization, MqttStatus, MqttConnect, MqttService, MqttPublish, PowerTransition };
@@ -41,3 +43,4 @@ constexpr bool kEspEnableActiveHigh=true, kEspResetActiveLow=true;
 }
 extern const char kMqttServer[],kMqttClientId[],kMqttCommandTopic[],kMqttBroadcastTopic[];
 extern const char kMqttPublishTopicStatus[],kMqttPublishTopicTlm[];
+extern const char kMqttCompanyTopicPrefix[],kMqttGatewayCommandWildcardTopic[];

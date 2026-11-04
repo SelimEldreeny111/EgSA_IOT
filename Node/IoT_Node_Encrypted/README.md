@@ -1,5 +1,8 @@
 # IoT Node Encrypted
 
+For the current node, gateway and server paths, start with the
+[4 November system review and two-node test](../../Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md).
+
 3 November update: [OFF/LITE/FULL diagnostics and bench tests](DEBUG_LOGGING_GUIDE.md).
 `APP_ENABLE_DEBUG=true` plus `APP_DEBUG_LITE=true` selects compact command and
 telemetry logs. Set lite false for full detail, or the master false for silence.
@@ -114,14 +117,19 @@ Sondas RS485 sensors and transmits encrypted telemetry over LoRa or MQTT.
 |----------|-----|----------|
 | Debug TX | PA2 | Serial debug output |
 | Debug RX | PA3 | Serial debug input |
-| STM32 modem RX | PA11 | Connect to SIM800/ESP8266 TX |
-| STM32 modem TX | PA12 | Connect to SIM800/ESP8266 RX |
+| IP modem RX / TX | PA12 / PA11 | STM32 `SerialAT`, connect RX to modem TX and TX to modem RX |
+| Sensor node LoRa RX / TX | PA12 / PA11 | Selected in the LoRa node build |
+| Gateway LoRa RX / TX | PA10 / PA9 | Separate from the IP modem UART |
+| LoRa M0 / M1 / AUX | PB2 / PB1 / PC13 | Radio mode control and readiness |
+| RS485 | `Serial1`, DE on PA8 | Modbus RTU at 9600 baud, 8N1 |
+| SPI NOR CS / SCK / MISO / MOSI | PA4 / PA5 / PA6 / PA7 | S25FL064L archive, 4 MHz SPI Mode 0 |
+| Battery sense | PA0 | Divider input |
 
 ## Architecture
 
 ### Core Components
 
-1. **IoT_Node.h**: Main application framework and state management
+1. **IoT_Node_Encrypted.ino** and **AppState.h** manage startup, scheduling and runtime state.
 2. **TufSensor.h**: TUF flow-meter driver and data acquisition
 3. **SupmeaSensor.h**: Supmea FMC240 production Modbus driver
 4. **HndaSensor.h**: HNDA moisture/temperature driver
@@ -134,13 +142,14 @@ Sondas RS485 sensors and transmits encrypted telemetry over LoRa or MQTT.
 Setup Phase:
   → Initialize hardware serial interfaces
   → Configure IoT node state
-  → Establish MQTT connection
+  → Initialize the selected LoRa or IP route, archive and power policy
 
 Main Loop:
   → Receive commands / maintain MQTT → Send priority replies
   → Check sampling period → Read one enabled sensor per pass
   → Service commands in Modbus receive gaps (without feeding WDT)
-  → Complete sensor cycle → Queue/send periodic Status
+  → Complete sensor cycle → Queue snapshot for the SPI archive
+  → Give due Status a turn before another poll can delay it
   → Advance power policy and verified watchdog checkpoints
 ```
 
@@ -170,8 +179,8 @@ of `src/config/AppConfig.h`:
 it, excludes it from `active_sensor_count`, and clears its sensor-mask bit.
 Set the four `APP_*_SENSOR_MODBUS_ADDRESS` macros to match the addresses
 programmed in your meters. Defaults are TUF 1, Supmea 2, HNDA 3, Sondas 4.
-The compiler rejects duplicate enabled-device addresses. At startup, the
-serial monitor prints `ENABLED` or `DISABLED` for all four sensors so the
+The compiler rejects duplicate enabled-device addresses. At startup, FULL
+debug prints `ENABLED` or `DISABLED` for all four sensors so the
 flashed configuration can be confirmed immediately.
 
 The original flow protobuf fields report TUF when both flow meters are enabled
@@ -188,14 +197,15 @@ checked but does not confirm server delivery. See
 
 - **MQTT Protocol**: Connection management via `ensureMqttConnection()`;
   application payloads use the existing AES envelope, not authenticated TLS.
-- **Telemetry**: Periodic data publishing via `publishTelemetry()`
+- **Telemetry**: Periodic Status is scheduled in `loop()`. GOSTM and command
+  replies use the Telemetry message on the data route.
 - **Debug Interface**: Real-time monitoring through hardware serial
 
 ### Wi-Fi credential priority
 
 For ESP8266 builds, the node always tries the SSID and password compiled in
 `src/config/AppConfig.cpp` first. If that network is unavailable, it tries the
-fallback credentials retained in STM32 EEPROM/flash. If both fail, the serial
+fallback credentials retained in STM32 EEPROM/flash. In FULL debug, if both fail, the serial
 monitor offers one operator-provisioning attempt for that boot; credentials
 entered there are saved only after a successful connection.
 
@@ -222,27 +232,18 @@ The system maintains runtime state including:
 
 ## Usage
 
-### Setup
-
-1. Connect TUF2000B sensor to designated analog/digital pins
-2. Connect SIM800 modem to hardware serial interface (PA11/PA12)
-3. Configure MQTT broker settings in IoT_Node.h
-4. Set sampling and transmission periods according to requirements
-
-### Configuration
-
-Modify the following parameters in your application configuration:
-
-```cpp
-// Timing intervals (milliseconds)
-state.samplingPeriodMs = 1000;      // Sensor sampling rate
-state.transmissionPeriodMs = 5000;  // Data transmission rate
-
-// MQTT configuration (in IoT_Node.h)
-mqtt_server = "your.mqtt.broker";
-mqtt_port = 1883;
-mqtt_topic = "iot/telemetry";
-```
+1. Open `IoT_Node_Encrypted.ino` with the STM32 Arduino core and keep
+   `build_opt.h` alongside it for the UART buffers.
+2. Set role, identity, enabled sensor addresses, transport and power policy in
+   `src/config/AppConfig.h`. Connect the selected meters to the shared RS485 bus.
+3. Populate the ignored `src/config/AppConfig.cpp` and `AppSecrets.h` using
+   their examples. The gateway and server must agree on the broker, company,
+   region and key. The nodes and gateway must agree on LoRa settings.
+4. After upload, confirm `boot role=SENSOR node=<id>` or the gateway role.
+   Use SRATE and STRAN to set independent rates in seconds (10–86,400), and
+   send STIME to establish RTC trust. The scheduler stores milliseconds.
+5. Check a direct GOSTM and a routine Status. For a blank archive, follow the
+   deliberate initialization steps in the [flash guide](SPI_FLASH_TELEMETRY_GUIDE.md).
 
 ### Monitoring
 
@@ -254,16 +255,16 @@ Use the debug serial interface (SerialMon) to monitor system status:
 
 ## Dependencies
 
-- Arduino core framework
-- HardwareSerial library (built-in)
-- MQTT client library
-- TUF2000B sensor driver
+- STM32 Arduino core with HardwareSerial, SPI and IWatchdog
+- STM32duino RTC, TinyGSM, PubSubClient and AESLib
+- Bundled ModbusMaster and nanopb code
 
-## Security Features
+## Wire protection
 
-- Encrypted communication support via MQTT TLS/SSL
-- Hardware serial isolation for debug and cellular modem
-- Secure state management with timestamp validation
+The node encodes application messages with nanopb and wraps them in AES-CBC
+before LoRa or MQTT transport. The existing packet format has no authentication
+tag, and the modem MQTT path uses ordinary TCP. Treat broker access control,
+topic scoping, command correlation and application encryption as separate layers.
 
 ## Troubleshooting
 

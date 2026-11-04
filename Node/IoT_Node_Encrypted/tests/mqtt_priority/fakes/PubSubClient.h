@@ -14,8 +14,10 @@ public:
     bool connect(const char*) { state_=client_->connect("test",1883)?0:-2; return state_==0; }
     bool connected() { return state_==0 && client_->connected(); }
     int state() const { return state_; }
-    bool subscribe(const char*) {
-        const uint8_t b=0x82; return !failSubscribe && client_->write(&b,1)==1;
+    bool subscribe(const char* topic) {
+        subscribedTopics.emplace_back(topic);
+        const uint8_t b=0x82;
+        return !failSubscribe && failSubscriptionTopic != topic && client_->write(&b,1)==1;
     }
     void disconnect() { state_=-1; client_->stop(); }
     bool publish(const char* topic,const uint8_t* payload,size_t size) {
@@ -28,6 +30,8 @@ public:
     struct Incoming { std::string topic; std::vector<uint8_t> payload; };
     std::deque<Incoming> incoming;
     std::vector<std::string> attemptedTopics;
+    std::vector<std::string> subscribedTopics;
+    std::string failSubscriptionTopic;
     bool failSubscribe=false, inCallback=false;
     int loopCalls=0;
     void loop() {

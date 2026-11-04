@@ -36,6 +36,12 @@ in files excluded from this reference.
 4. MQTT or LoRa publishes the result; the delivery outcome informs the power
    manager and the next publish interval.
 
+An overdue Status gets its turn after the current acquisition and pending
+flash write finish, before another acquisition can start. Gateway MQTT setup
+subscribes to both the direct command wildcard and the regional broadcast.
+The [system review](../../Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md)
+connects these paths to server ingestion and the two-node bench procedure.
+
 ### Main module groups
 
 | Directory | Responsibility |

@@ -1,5 +1,9 @@
 # STM32 node software design documentation
 
+The [4 November system review](../Validation/WIOT_SYSTEM_REVIEW_20261104.md)
+records the current firmware behavior, configuration and verification results.
+Use it with the dated design editions below.
+
 [Open the updated Word design](WIOT_STM32_Node_Software_Design_V1.0.docx).
 
 The requested legacy filename is retained. The cover, identifier and revision

@@ -1,4 +1,4 @@
-# WIOT server flow-schema v2 guide
+# WIOT server measurements and archive guide
 
 This server version accepts any combination of the four STM32 RS485 sensors:
 TUF, Supmea, HNDA, and Sondas. When both flow meters are enabled, the legacy
@@ -6,6 +6,19 @@ flow fields report TUF and the optional `secondary_flow_meter` reports Supmea.
 
 It also continues to decode previously deployed protobuf payloads because no
 old field number was changed or reused.
+
+The server identifies a device by `(company, region, node)` and validates the
+node ID in the MQTT route and decoded payload. Periodic Status arrives on
+`.../{node}/status`. GOSTM, command replies and flash archive data arrive on
+`.../{node}/data`. A flash history reply is stored in the scoped archive.
+The server sends HISTORY_ACK after persistence. Use the request ID to trace a
+command from the dashboard through the gateway and back.
+
+An invalid sensor group can arrive in an otherwise valid Status. Read the
+validity flags to distinguish unavailable readings from a measured zero.
+Check the Status receipt timestamp to distinguish either case from an offline
+node. See the [current system review](../../Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md)
+for an end-to-end test.
 
 ## Deployment
 

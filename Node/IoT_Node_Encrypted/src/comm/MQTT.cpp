@@ -520,12 +520,11 @@ bool ensureMqttConnection()
   g_mqttConnectFailureCount = 0;
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  const bool nodeSubscribed = mqtt.subscribe(kMqttGatewayCommandWildcardTopic);
-  const bool nodeFlushed = bufferedClient.finishPacket();
-  serviceHardwareWatchdog();
-  const bool subscriptionsSent = nodeSubscribed && nodeFlushed;
+  const char* const commandTopic = kMqttGatewayCommandWildcardTopic;
 #else
-  const bool nodeSubscribed = mqtt.subscribe(kMqttCommandTopic);
+  const char* const commandTopic = kMqttCommandTopic;
+#endif
+  const bool nodeSubscribed = mqtt.subscribe(commandTopic);
   const bool nodeFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
   const bool broadcastSubscribed = mqtt.subscribe(kMqttBroadcastTopic);
@@ -533,8 +532,6 @@ bool ensureMqttConnection()
   serviceHardwareWatchdog();
   const bool subscriptionsSent = nodeSubscribed && nodeFlushed &&
       broadcastSubscribed && broadcastFlushed;
-#endif
-
   if (!subscriptionsSent)
   {
     APP_LOG_ERROR("ERROR: command SUBSCRIBE send failed; reconnecting next pass");
@@ -545,15 +542,10 @@ bool ensureMqttConnection()
 
   if (AppConfig::kEnableVerboseMqttLogs) {
     APP_DEBUG_PRINTLN("CONNECTED");
-#if APP_ROLE == APP_ROLE_LORA_GATEWAY
     APP_DEBUG_PRINT("Command subscription sent: ");
-    APP_DEBUG_PRINTLN(kMqttGatewayCommandWildcardTopic);
-#else
-    APP_DEBUG_PRINT("Command subscription sent: ");
-    APP_DEBUG_PRINTLN(kMqttCommandTopic);
+    APP_DEBUG_PRINTLN(commandTopic);
     APP_DEBUG_PRINT("Command subscription sent: ");
     APP_DEBUG_PRINTLN(kMqttBroadcastTopic);
-#endif
   }
 
   return true;

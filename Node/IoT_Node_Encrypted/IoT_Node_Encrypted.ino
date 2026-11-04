@@ -17,7 +17,7 @@
  *
  * @section HARDWARE_SETUP
  *   - Debug Interface:  PA3 (RX), PA2 (TX) - SerialMon
- *   - Cellular Modem:   PA12 (TX), PA11 (RX) - SerialAT (SIM800)
+ *   - IP modem UART:    PA12 (RX), PA11 (TX) - SerialAT
  *   - RS485 Sensors:    TUF / Supmea / HNDA / Sondas on Serial1
  *
  * @section SYSTEM_ARCHITECTURE

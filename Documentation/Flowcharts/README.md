@@ -1,5 +1,10 @@
 # WIOT software flowcharts
 
+Use the [4 November system review](../Validation/WIOT_SYSTEM_REVIEW_20261104.md)
+alongside these charts for the current gateway subscriptions, overdue Status
+priority and two-node bench checks. WOR follows independent SRATE/STRAN
+deadlines when application scheduling is enabled.
+
 For a single large architecture chart and realistic deployment illustration,
 see the [system overview](../SystemOverview/README.md), also available in editable PowerPoint.
 

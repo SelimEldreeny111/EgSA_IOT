@@ -16,6 +16,16 @@ extern CachedTinyGsmClient gsmClient;
 const char kMqttServer[]="test",kMqttClientId[]="test-client";
 const char kMqttCommandTopic[]="wiot/Test/Region_1/1/cmd",kMqttBroadcastTopic[]="wiot/Test/Region_1/broadcast";
 const char kMqttPublishTopicStatus[]="wiot/Test/Region_1/1/status",kMqttPublishTopicTlm[]="wiot/Test/Region_1/1/data";
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+#include "../../src/radio/LoraLink.h"
+const char kMqttCompanyTopicPrefix[]="wiot/Test/Region_1";
+const char kMqttGatewayCommandWildcardTopic[]="wiot/Test/Region_1/+/cmd";
+static std::vector<LoraPayloadType> forwardedCommands;
+bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t*, size_t) {
+    forwardedCommands.push_back(type);
+    return true;
+}
+#endif
 static int applied=0;
 static bool applyResult=true;
 static int networkConnectCalls=0;
@@ -41,6 +51,31 @@ int main(int argc,char** argv) {
     const std::string scenario=argv[1];
     gsmClient.pendingInput=[] { return int(mqtt.incoming.size()); };
     initializeMqttClient();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    if (scenario == "gateway_broadcast") {
+        assert(ensureMqttConnection());
+        const std::vector<std::string> expected = {
+            kMqttGatewayCommandWildcardTopic, kMqttBroadcastTopic
+        };
+        assert(mqtt.subscribedTopics == expected);
+        mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_GET_TELEMETRY,41}});
+        mqtt.incoming.push_back({kMqttBroadcastTopic,{0,CMD_REMOTE_WAKE,42}});
+        mqtt.incoming.push_back({kMqttCommandTopic,{2,CMD_GET_TELEMETRY,43}});
+        mqtt.incoming.push_back({"wiot/Test/Region_2/broadcast",{0,CMD_REMOTE_WAKE,44}});
+        for (unsigned i = 0; i < 4; ++i) mqttLoop();
+        const std::vector<LoraPayloadType> expectedForwarded = {
+            LoraPayloadType::Command, LoraPayloadType::BroadcastCommand
+        };
+        assert(forwardedCommands == expectedForwarded);
+    } else {
+        assert(scenario == "gateway_broadcast_subscribe_failure");
+        mqtt.failSubscriptionTopic = kMqttBroadcastTopic;
+        assert(!ensureMqttConnection());
+        assert(mqtt.state() != 0);
+    }
+    std::cout << "PASS " << scenario << '\n';
+    return 0;
+#endif
     if(scenario=="subscribe_failure") {
         mqtt.failSubscribe=true; assert(!ensureMqttConnection()); assert(mqtt.state()!=0);
     } else {

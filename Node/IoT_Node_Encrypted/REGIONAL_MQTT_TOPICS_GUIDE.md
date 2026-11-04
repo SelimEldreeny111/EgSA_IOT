@@ -1,9 +1,9 @@
 # Regional MQTT topics — STM32 node and web server
 
-Release: 26 October 2026. Active Arduino STM32 node and Python web server.
-The existing ESP32/CubeIDE ports and RS485 sensor simulators are unchanged.
+Current contract for the Arduino STM32 node, gateway and Python web server.
+Updated 4 November 2026.
 
-## Configured bench identity
+## Node 3 example
 
 Company: `Company_1`; region: `Region_1`; node: `3`.
 Identifiers are case-sensitive. The MQTT root and suffixes are lowercase.
@@ -40,8 +40,9 @@ Firmware company and region identifiers each support 1..24 ASCII letters,
 digits, `_` or `-`. Empty strings, spaces, `/`, `+` and `#` fail compilation.
 The server permits region identifiers up to 40 characters, but use the firmware
 limit for deployed STM32 devices. Node IDs are canonical decimal 1..65535.
-These bounds leave room for the 401-byte maximum encrypted telemetry frame
-inside the existing 512-byte MQTT packet buffer.
+The firmware uses a 640-byte codec buffer and a 1,024-byte MQTT packet buffer.
+The latter also holds the topic and MQTT header. See the flash guide for the
+current generated protobuf and encrypted frame bounds.
 
 ## Server behavior
 
@@ -112,6 +113,17 @@ A gateway belongs to one configured company/region. It forwards node status to
 `.../{source_node}/status` and telemetry/replies to `.../{source_node}/data`.
 It subscribes to `wiot/{company}/{region}/+/cmd` and the regional broadcast.
 Its strict parser rejects other company/region prefixes and node-ID aliases.
+
+For two LoRa sensor nodes, flash a distinct `APP_NODE_ID` into each. A direct
+command can be heard by both radios. The board whose ID differs from the
+payload target ignores it. Identify each serial console by
+`boot role=SENSOR node=<id>`, then correlate `command_rx`, `reply_tx` and the
+server reply with the same request ID. The gateway's LoRa source ID is 0.
+Give each active MQTT client a unique broker client ID.
+
+For regional broadcast, correlate replies per source node. A LoRa fragment
+ACK, a gateway forward and a server application reply confirm different
+stages. A fragment timeout carries its own source and message number.
 
 The LoRa wire header has a network ID and node ID, not a region string. For
 co-located regions, assign a distinct `APP_LORA_NETWORK_ID` to each region's
