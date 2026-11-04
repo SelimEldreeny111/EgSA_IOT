@@ -184,5 +184,22 @@ int main(int argc,char** argv) {
     cycle.begin(); assert(cycle.next(false,false,false,true)==SensorPollCycle::Sensor::Sondas);
     cycle.completed(); assert(cycle.next(false,false,false,true)==SensorPollCycle::Sensor::None);
     cycle.begin(); assert(cycle.next(false,false,false,false)==SensorPollCycle::Sensor::None);
+
+    // Supmea and Sondas timeouts can make both timers due while the completed
+    // snapshot is still queued for flash. Keep polling paused until the report
+    // gets its turn, then allow the next acquisition.
+    SensorPollCycle offlineCycle;
+    assert(offlineCycle.shouldBegin(true, true)); // startup still samples first
+    offlineCycle.begin();
+    assert(offlineCycle.next(false, true, false, true) == SensorPollCycle::Sensor::Supmea);
+    offlineCycle.completed();
+    assert(offlineCycle.next(false, true, false, true) == SensorPollCycle::Sensor::Sondas);
+    assert(!offlineCycle.shouldBegin(true, true)); // partial snapshot
+    offlineCycle.completed();
+    assert(offlineCycle.next(false, true, false, true) == SensorPollCycle::Sensor::None);
+    assert(!offlineCycle.shouldBegin(true, true)); // due report waiting for flash
+    assert(offlineCycle.shouldBegin(true, false)); // sampling alone remains independent
+    offlineCycle.reportAttempted();
+    assert(offlineCycle.shouldBegin(true, true));
     std::cout<<"PASS "<<scenario<<'\n';
 }

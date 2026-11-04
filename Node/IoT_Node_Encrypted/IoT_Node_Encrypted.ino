@@ -274,8 +274,10 @@ void loop()
   commandPriority = commandPriority || mqttCommandWorkPending();
 #endif
   static SensorPollCycle sensorCycle;
-  if (allowSensorWork && !commandPriority && !sensorCycle.active() &&
-      millis() - state.lastReadMs >= state.samplingPeriodMs)
+  const uint32_t scheduleNowMs = millis();
+  if (allowSensorWork && !commandPriority &&
+      sensorCycle.shouldBegin(scheduleNowMs - state.lastReadMs >= state.samplingPeriodMs,
+                             scheduleNowMs - state.lastSendMs >= state.transmissionPeriodMs))
   {
     state.lastReadMs = millis();
     refreshBatteryVoltage();
@@ -381,6 +383,7 @@ void loop()
       state.lastSendMs = millis();
     }
 #endif
+    sensorCycle.reportAttempted();
     serviceHardwareWatchdog();
   }
 
