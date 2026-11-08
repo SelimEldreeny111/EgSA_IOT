@@ -39,7 +39,7 @@ def patch():
 
 
 def verify():
-    final = HERE / 'output/WIOT_Software_Overview_Simple_v2.0.pptx'
+    final = HERE / 'output/WIOT_Software_Overview_Simple_v2.1.pptx'
     data = json.loads((TMP / 'manifest.json').read_text())
     assert (data['stages'], data['services'], len(data['arrows'])) == (5, 4, 5)
     with ZipFile(final) as package:
@@ -57,7 +57,7 @@ def verify():
             assert shapes[name].find('p:spPr/a:custGeom/a:pathLst/a:path', NS) is not None
             assert shapes[name].find('p:spPr/a:ln/a:tailEnd', NS).get('type') == 'triangle'
         assert len(ET.fromstring(package.read('ppt/slides/slide2.xml')).findall('.//p:pic', NS)) == 1
-    ET.parse(HERE / 'output/WIOT_Software_Overview_Simple_v2.0.svg')
+    ET.parse(HERE / 'output/WIOT_Software_Overview_Simple_v2.1.svg')
     print(json.dumps({'sha256': hashlib.sha256(final.read_bytes()).hexdigest(),
                       'stages': 5, 'support_services': 4, 'arrows': 5, 'native_texts': len(data['texts'])}))
 

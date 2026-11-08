@@ -6,13 +6,13 @@ edge [fontname="Arial", fontsize=14, color="#587083", fontcolor="#405C70", arrow
 "a" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Gateway loop\nDrain LoRa UART first"];
 "b" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Fragment transaction active?"];
 "c" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Defer MQTT work\nMaintain fragment turnaround"];
-"d" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Service network / MQTT\nReceive command topics"];
+"d" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Service subscribed MQTT routes\nDirect + regional broadcast"];
 "e" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Complete uplink frame available?"];
 "f" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Status -> /status\nSystem telemetry -> /data"];
 "g" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Build company / region / source\nPublish encrypted body unchanged"];
 "h" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Parse direct / broadcast topic\nForward radio command [F16]"];
 "i" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="WOR configured at gateway?\nMode-1 probe before command"];
-"j" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Send command, restore Mode 0\nThen resume bridge / heartbeat"];
+"j" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Finish bridge work\nRestore Mode 0 after command"];
 {rank=same; "a";}
 {rank=same; "b";}
 {rank=same; "c"; "d";}

@@ -52,7 +52,7 @@ chart(2,'Choose the compiled product','System',
   ('d','f','IP uplink + LoRa'),('f','i'),('g','i'),('h','i'),('i','j','Valid'),('i','k','Invalid')],
  [(N+'src/config/AppConfig.h','#define APP_HAS_SENSORS'),(N+'src/config/AppConfig.h','APP_ENABLE_TUF_SENSOR')],
  ['All four sensors can be enabled together. There is no longer a mandatory exclusive two-sensor project selection.',
-  'Current public snapshot: node 2, Company_1 / Region_1, LoRa WOR with UART RX wake, all four sensors and SPI logging enabled.'])
+  'Public defaults select node 2, Company_1 / Region_1, LoRa WOR with UART RX wake, all four sensors, SPI logging and LITE debug. The 4 November bench copy selects node 3, disables all four sensor polls and uses FULL debug. Verify the header for each flashed image.'])
 
 chart(3,'Boot and reset initialization','Node',
  'Safety and the Standby handoff run before the IWDG; normal active initialization then selects the node or gateway path.',[
@@ -76,7 +76,7 @@ chart(4,'Sensor node cooperative main loop','Node',
  ('a','Loop progress checkpoint\nRemote idle gate if selected','term',0),
  ('b','Pump commands and replies\nMQTT or LoRa [F11 / F16]','proc',1),
  ('c','Advance flash state machine\nCheck power / command priority','proc',2),
- ('d','Sample due or cycle active?','dec',3),
+ ('d','Continue cycle or start sample?\nNew cycle yields to overdue Status','dec',3),
  ('e','Poll one enabled sensor\nFinish all groups [F05-F09]','proc',4),
  ('f','Complete snapshot?','dec',5),
  ('g','Queue canonical flash sample\nNo half-finished sensor cycle','proc',6),
@@ -87,7 +87,8 @@ chart(4,'Sensor node cooperative main loop','Node',
   ('d','h','No'),('g','h'),('h','i','Yes'),('h','j','No'),('i','j'),('j','a','Next pass')],
  [(N+'IoT_Node_Encrypted.ino','void loop()'),(N+'src/app/SensorPollCycle.h','class SensorPollCycle')],
  ['Priority is cooperative: an in-flight modem, sensor or logical LoRa send cannot be preempted instantly.',
-  'Remote-wake schedule mode uses separate sample/send deadlines. WOR and timed Standby use their existing report-cycle policies [F20-F22].'])
+  'NORMAL, scheduled REMOTE_WAKE and default LORA_WOR use independent SRATE and STRAN deadlines. Legacy WOR and timed Standby retain combined-cycle policies [F20-F22].',
+  'SensorPollCycle finishes an active cycle, then gives an overdue Status an opportunity before another cycle starts. Failed or disabled sensors can still produce zero/invalid samples and reports. Pending command or flash write work can defer the report.'])
 
 chart(5,'RS485 request response and failure path','Acquisition',
  'All four drivers share one half-duplex bus. Each request is bounded and every returned group carries its own validity.',[
@@ -250,18 +251,19 @@ chart(14,'Gateway bridge and downlink forwarding','Communications',
  ('a','Gateway loop\nDrain LoRa UART first','term',0),
  ('b','Fragment transaction active?','dec',1),
  ('c','Defer MQTT work\nMaintain fragment turnaround','proc',2),
- ('d','Service network / MQTT\nReceive command topics','proc',2),
+ ('d','Service subscribed MQTT routes\nDirect + regional broadcast','proc',2),
  ('e','Complete uplink frame available?','dec',3),
  ('f','Status -> /status\nSystem telemetry -> /data','proc',4),
  ('g','Build company / region / source\nPublish encrypted body unchanged','proc',5),
  ('h','Parse direct / broadcast topic\nForward radio command [F16]','proc',3),
  ('i','WOR configured at gateway?\nMode-1 probe before command','dec',4),
- ('j','Send command, restore Mode 0\nThen resume bridge / heartbeat','term',6)],
+ ('j','Finish bridge work\nRestore Mode 0 after command','term',6)],
  [('a','b'),('b','c','Yes'),('b','d','No'),('c','e'),('d','e'),('e','f','Supported uplink'),
   ('f','g'),('d','h','Downlink callback'),('h','i'),('i','j','Probe or normal TX'),('g','j'),('e','j','No frame'),('j','a','Next pass')],
  [(N+'src/app/GatewayApp.cpp','void gatewayLoop()'),(N+'src/comm/MQTT.cpp','sendLoraWakeCommand')],
  ['Gateway role remains controller NORMAL. It does not poll the sensor bus or keep the leaf node SPI telemetry log.',
-  'The new larger storage replies require an updated gateway as well as updated nodes. Delivery to MQTT is not a substitute for server application ACK.'])
+  'The gateway subscribes to wiot/{company}/{region}/+/cmd and wiot/{company}/{region}/broadcast. A failed write for either subscription disconnects MQTT and schedules reconnect.',
+  'Larger storage replies require an updated gateway as well as updated nodes. Server history persistence is confirmed by HISTORY_ACK.'])
 
 chart(15,'Server command intent and delivery lifecycle','Commands',
  'Commands are durable, scoped operator intents. Broker receipt and matching node execution replies are separate events.',[
@@ -391,8 +393,8 @@ chart(21,'Periodic and queued RTC Standby','Power',
   'Queued server commands wait for the next Status; this does not make a fully sleeping modem instantly reachable. Flash write/recovery/transfer work defers Standby.'])
 
 chart(22,'LoRa wake on radio with STM32 Stop','Power',
- 'The leaf radio listens in Mode 2 while STM32 RAM is retained in Stop. UART RX is the default wake interrupt; RTC handles heartbeat/report/retention deadlines.',[
- ('a','Report sent, command window elapsed\nNo lease / busy transfer / write','term',0),
+ 'The leaf listens in Mode 2 while STM32 retains RAM in Stop. UART RX wakes for radio traffic and RTC alarms schedule due work.',[
+ ('a','Work done, receive window elapsed\nNo lease / busy transfer / write','term',0),
  ('b','Enter radio Mode 2\nM0 LOW, M1 HIGH; verify readiness','proc',1),
  ('c','Arm UART RX falling-edge wake\nSet nearest RTC alarm; flash sleeps','proc',2),
  ('d','Safe to enter Stop?\nCheck pending edge / UART / RTC','dec',3),
@@ -400,13 +402,14 @@ chart(22,'LoRa wake on radio with STM32 Stop','Power',
  ('f','Wake source?\nRestore clocks before UART work','dec',5),
  ('g','UART activity: return Mode 0\nReceive command; data not yet proven','proc',6),
  ('h','RTC heartbeat: service WDT\nIf no deadline, return to Stop','proc',6),
- ('i','Report / flash expiry due\nReturn for scheduled work','term',6),
+ ('i','SRATE / STRAN / flash expiry due\nRun only the due work','term',6),
  ('j','Activity or setup failure\nStay active / preserve received bytes','bad',4)],
  [('a','b'),('b','c'),('c','d'),('d','e','Yes'),('d','j','No'),('e','f'),('f','g','RX'),
   ('f','h','Heartbeat'),('f','i','Deadline'),('h','c','Still waiting'),('g','a','After work / window')],
  [(N+'src/power/PowerManager.cpp','void runLoraWorStopCycle()'),(N+'src/power/WorWakeInput.h','inline bool attachUartRx('),(N+'src/radio/LoraLink.cpp','bool sendLoraWakeCommand(')],
  ['Gateway WOR TX sends a Mode-1 probe before the command. AUX remains a readiness signal; the optional legacy AUX wake selector is separate from the default UART RX path.',
-  'Default heartbeat is 15 s under the nominal 30 s IWDG. APP_POWER_SLEEP_SECONDS sets the WOR report deadline; heartbeat alone does not force a new sample. WDT expiry resets rather than scheduling wake.'])
+  'APP_LORA_WOR_USE_APP_SCHEDULE=true selects independent sampling and transmission deadlines. APP_POWER_SLEEP_SECONDS controls the legacy combined WOR cycle only when that switch is false. STIME must establish trusted RTC before Stop.',
+  'The default 15 s RTC heartbeat services the nominal 30 s IWDG in foreground. It does not force a sensor read or routine Status. Stop residence ages the application deadlines using coherent RTC time because millis pauses. WDT expiry resets the controller.'])
 
 chart(23,'Capture and commit a flash sample','Storage',
  'The external S25FL064L stores one canonical complete sample per accepted acquisition, with CRC and commit-last recovery.',[
@@ -527,7 +530,8 @@ chart(29,'Verify document and release the project','Tools',
  [('a','b'),('b','c'),('c','d'),('d','e'),('e','f','Yes'),('e','i','No'),('i','c','Recheck'),('f','g'),('g','h')],
  [('Validate-Release.ps1','param('),('regenerate_protocol.py','def main()'),(N+'SPI_FLASH_TEST_PLAN.md','# SPI flash acceptance plan')],
  ['Internal firmware flash load is kept below the reserved EEPROM sector at 0x08020000. Source/docs delivery does not flash the board or prove physical operation.',
-  'ESP32 and STM32CubeIDE do not automatically receive Arduino STM32 updates. Keep .env, AppSecrets, private AppConfig.cpp and runtime databases out of Git.'])
+  'Run Validate-Release.ps1 with installed tools. Commissioned bench values require the existing -UseFactoryConfigurationFixture for valve guard tests. This fixture does not edit the deployment header.',
+  'Keep .env, AppSecrets, private AppConfig.cpp and runtime databases out of Git. Separate firmware ports have their own release history.'])
 
 chart(30,'Active release and separate firmware ports','System',
  'The repository contains three firmware implementations. The detailed current flowcharts describe the Arduino STM32 release; alternate ports retain their own snapshots.',[

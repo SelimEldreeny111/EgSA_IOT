@@ -3,7 +3,7 @@ param([switch]$Candidate, [switch]$EditSmokeTest)
 $ErrorActionPreference = 'Stop'
 $simpleTemp = Join-Path $PSScriptRoot 'tmp/simple'
 $simplePath = if ($Candidate) { Join-Path $simpleTemp 'candidate.pptx' } else {
-    Join-Path $PSScriptRoot 'output/WIOT_Software_Overview_Simple_v2.0.pptx'
+    Join-Path $PSScriptRoot 'output/WIOT_Software_Overview_Simple_v2.1.pptx'
 }
 $simpleWasRunning = $null -ne (Get-Process -Name POWERPNT -ErrorAction SilentlyContinue)
 $simpleApp = $null
@@ -15,7 +15,7 @@ try {
     $simpleDeck.Slides.Item(1).Export((Join-Path $simpleTemp 'overview-preview.png'), 'PNG', 3200, 1800)
     $simpleDeck.Slides.Item(2).Export((Join-Path $simpleTemp 'illustration-preview.png'), 'PNG', 1920, 1080)
     if (-not $Candidate) {
-        $simpleDeck.Slides.Item(1).Export((Join-Path $PSScriptRoot 'output/WIOT_Software_Overview_Simple_v2.0.png'), 'PNG', 6400, 3600)
+        $simpleDeck.Slides.Item(1).Export((Join-Path $PSScriptRoot 'output/WIOT_Software_Overview_Simple_v2.1.png'), 'PNG', 6400, 3600)
     }
     $simpleDeck.Close()
     $simpleDeck = $null

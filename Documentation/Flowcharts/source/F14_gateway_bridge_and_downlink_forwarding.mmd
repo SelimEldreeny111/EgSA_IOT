@@ -2,13 +2,13 @@ flowchart TD
   a(["Gateway loop<br/>Drain LoRa UART first"]):::term
   b{"Fragment transaction active?"}:::dec
   c["Defer MQTT work<br/>Maintain fragment turnaround"]:::proc
-  d["Service network / MQTT<br/>Receive command topics"]:::proc
+  d["Service subscribed MQTT routes<br/>Direct + regional broadcast"]:::proc
   e{"Complete uplink frame available?"}:::dec
   f["Status -&gt; /status<br/>System telemetry -&gt; /data"]:::proc
   g["Build company / region / source<br/>Publish encrypted body unchanged"]:::proc
   h["Parse direct / broadcast topic<br/>Forward radio command [F16]"]:::proc
   i{"WOR configured at gateway?<br/>Mode-1 probe before command"}:::dec
-  j(["Send command, restore Mode 0<br/>Then resume bridge / heartbeat"]):::term
+  j(["Finish bridge work<br/>Restore Mode 0 after command"]):::term
   a --> b
   b -->|Yes| c
   b -->|No| d

@@ -29,11 +29,11 @@
   {
     "id": "F04",
     "direction": "TB",
-    "width": 953.0,
-    "height": 698.0,
-    "node_font_pt": 12.01,
-    "edge_font_pt": 9.89,
-    "scale": 0.7063
+    "width": 960.0,
+    "height": 737.0,
+    "node_font_pt": 11.37,
+    "edge_font_pt": 9.36,
+    "scale": 0.6689
   },
   {
     "id": "F05",
@@ -119,7 +119,7 @@
   {
     "id": "F14",
     "direction": "TB",
-    "width": 1080.0,
+    "width": 1082.0,
     "height": 713.0,
     "node_font_pt": 11.75,
     "edge_font_pt": 9.68,

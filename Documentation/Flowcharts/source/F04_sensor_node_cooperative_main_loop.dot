@@ -6,7 +6,7 @@ edge [fontname="Arial", fontsize=14, color="#587083", fontcolor="#405C70", arrow
 "a" [shape="box", style="rounded,filled", fillcolor="#173E5B", fontcolor="white", color="#173E5B", label="Loop progress checkpoint\nRemote idle gate if selected"];
 "b" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Pump commands and replies\nMQTT or LoRa [F11 / F16]"];
 "c" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Advance flash state machine\nCheck power / command priority"];
-"d" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Sample due or cycle active?"];
+"d" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Continue cycle or start sample?\nNew cycle yields to overdue Status"];
 "e" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Poll one enabled sensor\nFinish all groups [F05-F09]"];
 "f" [shape="diamond", style="filled", fillcolor="#FFF1D2", fontcolor="#513F12", color="#C4A35E", label="Complete snapshot?"];
 "g" [shape="box", style="rounded,filled", fillcolor="#EAF2F8", fontcolor="#163B55", color="#91A9BC", label="Queue canonical flash sample\nNo half-finished sensor cycle"];

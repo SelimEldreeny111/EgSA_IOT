@@ -8,8 +8,8 @@ deadlines when application scheduling is enabled.
 For a single large architecture chart and realistic deployment illustration,
 see the [system overview](../SystemOverview/README.md), also available in editable PowerPoint.
 
-Reviewed on **1 November 2026** against the active Arduino STM32 release,
-commit `f478b47ecedb108328b9befe762b24b85320c225`. The diagrams describe the
+Reviewed on **7 November 2026** against the active Arduino STM32 release,
+commit `c604aa6a5a49c61f86bada826a329dc600dac9f6`. The diagrams describe the
 implemented behavior in that release. Source file hashes and verified function
 locations are recorded in [source_manifest.json](source_manifest.json).
 
@@ -19,7 +19,7 @@ or internet connection. Use the [34-page printable reference](output/pdf/WIOT_Pr
 for review or printing at A3 landscape. Its index and bookmarks jump to each
 chart. Both editions contain the same **30 flowcharts**.
 
-An [editable PowerPoint edition](output/pptx/WIOT_Project_Flowcharts_Editable.pptx)
+An [editable PowerPoint edition](output/pptx/WIOT_Project_Flowcharts_Editable_20261107.pptx)
 contains all 30 flows in a 38-slide deck, with an index, symbol guide and four
 editable command/power tables. Nodes, their text and routed arrows are native
 PowerPoint objects. Detailed notes and code references are in Speaker Notes.
@@ -71,6 +71,12 @@ to misread, including these points:
   provides its own period totals.
 - The RTC schedules wakeups. The watchdog resets a stalled controller; it is
   not the normal wake timer.
+- Default WOR uses independent SRATE and STRAN deadlines. A heartbeat services
+  the watchdog and returns to Stop when no application work is due.
+- A completed sensor cycle gives an overdue Status a turn before another
+  acquisition starts. Failed and disabled sensor groups still permit reports.
+- The gateway subscribes to both the regional direct-command wildcard and
+  regional broadcast route.
 - LoRa WOR uses UART RX as the controller wake input in the current default
   configuration. AUX remains the radio readiness signal.
 - The flash log clears after **24 elapsed hours**, rather than at midnight.

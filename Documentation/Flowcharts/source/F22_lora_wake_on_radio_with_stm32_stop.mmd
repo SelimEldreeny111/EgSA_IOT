@@ -1,5 +1,5 @@
 flowchart TD
-  a(["Report sent, command window elapsed<br/>No lease / busy transfer / write"]):::term
+  a(["Work done, receive window elapsed<br/>No lease / busy transfer / write"]):::term
   b["Enter radio Mode 2<br/>M0 LOW, M1 HIGH; verify readiness"]:::proc
   c["Arm UART RX falling-edge wake<br/>Set nearest RTC alarm; flash sleeps"]:::proc
   d{"Safe to enter Stop?<br/>Check pending edge / UART / RTC"}:::dec
@@ -7,7 +7,7 @@ flowchart TD
   f{"Wake source?<br/>Restore clocks before UART work"}:::dec
   g["UART activity: return Mode 0<br/>Receive command; data not yet proven"]:::proc
   h["RTC heartbeat: service WDT<br/>If no deadline, return to Stop"]:::proc
-  i(["Report / flash expiry due<br/>Return for scheduled work"]):::term
+  i(["SRATE / STRAN / flash expiry due<br/>Run only the due work"]):::term
   j["Activity or setup failure<br/>Stay active / preserve received bytes"]:::bad
   a --> b
   b --> c

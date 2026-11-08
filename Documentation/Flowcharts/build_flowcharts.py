@@ -29,8 +29,8 @@ from reportlab.lib.styles import ParagraphStyle
 from charts import CHARTS, N, S, M, E, C
 
 HERE=Path(__file__).resolve().parent
-BASELINE='f478b47ecedb108328b9befe762b24b85320c225'
-DATE='1 November 2026'
+BASELINE='c604aa6a5a49c61f86bada826a329dc600dac9f6'
+DATE='7 November 2026'
 W,H=landscape(A3)
 MARGIN=43
 PLOT=(43,211,W-86,493)
@@ -345,7 +345,7 @@ def write_reader(output,charts,manifest,reports,dot):
         md.extend([f'## {chart["id"]} {chart["title"]}','',chart['purpose'],'','```mermaid',mermaid_source(chart).rstrip(),'```',''])
         md.extend('- '+note for note in chart['notes']);md+=['','Sources: '+ '; '.join(short_ref(ref) for ref in chart['sources']), '']
     data=json.dumps(export,ensure_ascii=True).replace('</',r'<\/')
-    viewer=(HERE/'viewer_template.html').read_text(encoding='utf-8').replace('__CHART_DATA__',data)
+    viewer=(HERE/'viewer_template.html').read_text(encoding='utf-8').replace('__CHART_DATA__',data).replace('__EDITION_DATE__',DATE)
     (output/'WIOT_Project_Flowcharts.html').write_text(viewer,encoding='utf-8')
     (output/'WIOT_Project_Flowcharts.md').write_text('\n'.join(md),encoding='utf-8')
     (output/'source_manifest.json').write_text(json.dumps(dict(date=DATE,baseline=BASELINE,files=manifest,

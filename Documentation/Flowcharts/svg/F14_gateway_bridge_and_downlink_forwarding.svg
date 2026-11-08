@@ -1,26 +1,26 @@
-<svg width="1008pt" height="641pt"
- viewBox="0.00 0.00 1008.00 641.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="1010pt" height="641pt"
+ viewBox="0.00 0.00 1010.00 641.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(12.96 627.56)">
 <title>F14</title>
 <!-- a&#45;&gt;b -->
 <g id="edge1" class="edge">
 <title>a&#45;&gt;b</title>
-<path fill="none" stroke="#587083" stroke-width="1.15" d="M395.97,-562.5C395.97,-559.36 395.97,-556.08 395.97,-552.78"/>
-<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="398.49,-552.98 395.97,-545.78 393.45,-552.98 398.49,-552.98"/>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M409.97,-562.5C409.97,-559.36 409.97,-556.08 409.97,-552.78"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="412.49,-552.98 409.97,-545.78 407.45,-552.98 412.49,-552.98"/>
 </g>
 <!-- b&#45;&gt;c -->
 <g id="edge2" class="edge">
 <title>b&#45;&gt;c</title>
-<path fill="none" stroke="#587083" stroke-width="1.15" d="M359.4,-483.36C345.28,-473.01 329.05,-461.11 314.5,-450.44"/>
-<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="316.2,-448.57 308.91,-446.34 313.22,-452.63 316.2,-448.57"/>
-<text xml:space="preserve" text-anchor="middle" x="349.41" y="-456.42" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M369.98,-483.85C353.95,-473.3 335.39,-461.08 318.82,-450.17"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="320.22,-448.08 312.82,-446.22 317.45,-452.29 320.22,-448.08"/>
+<text xml:space="preserve" text-anchor="middle" x="356.83" y="-456.42" font-family="Arial" font-size="14.00" fill="#405c70">Yes</text>
 </g>
 <!-- b&#45;&gt;d -->
 <g id="edge3" class="edge">
 <title>b&#45;&gt;d</title>
-<path fill="none" stroke="#587083" stroke-width="1.15" d="M432.54,-483.36C446.66,-473.01 462.89,-461.11 477.44,-450.44"/>
-<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="478.72,-452.63 483.03,-446.34 475.74,-448.57 478.72,-452.63"/>
-<text xml:space="preserve" text-anchor="middle" x="480.73" y="-456.42" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M450.26,-483.85C466.55,-473.21 485.43,-460.86 502.24,-449.88"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="503.19,-452.27 507.84,-446.22 500.43,-448.05 503.19,-452.27"/>
+<text xml:space="preserve" text-anchor="middle" x="504.01" y="-456.42" font-family="Arial" font-size="14.00" fill="#405c70">No</text>
 </g>
 <!-- c&#45;&gt;e -->
 <g id="edge4" class="edge">
@@ -31,15 +31,15 @@
 <!-- d&#45;&gt;e -->
 <g id="edge5" class="edge">
 <title>d&#45;&gt;e</title>
-<path fill="none" stroke="#587083" stroke-width="1.15" d="M449.46,-392.51C417.37,-380.74 379.25,-366.76 346.66,-354.82"/>
-<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="347.76,-352.54 340.14,-352.42 346.03,-357.27 347.76,-352.54"/>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M470.27,-392.51C433.5,-380.45 389.65,-366.07 352.63,-353.93"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="353.64,-351.6 346.01,-351.76 352.07,-356.39 353.64,-351.6"/>
 </g>
 <!-- d&#45;&gt;h -->
 <g id="edge8" class="edge">
 <title>d&#45;&gt;h</title>
-<path fill="none" stroke="#587083" stroke-width="1.15" d="M523.45,-392.54C525.6,-380.31 527.72,-368.26 527.72,-368.26 527.72,-368.26 550.62,-362.51 579.16,-355.35"/>
-<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="579.71,-357.81 586.08,-353.62 578.48,-352.93 579.71,-357.81"/>
-<text xml:space="preserve" text-anchor="middle" x="581.35" y="-370.71" font-family="Arial" font-size="14.00" fill="#405c70">Downlink callback</text>
+<path fill="none" stroke="#587083" stroke-width="1.15" d="M563.71,-392.54C571.27,-380.31 578.72,-368.26 578.72,-368.26 578.72,-368.26 593.19,-362.95 611.65,-356.18"/>
+<polygon fill="#587083" stroke="#587083" stroke-width="1.15" points="612.25,-358.64 618.14,-353.79 610.51,-353.91 612.25,-358.64"/>
+<text xml:space="preserve" text-anchor="middle" x="632.35" y="-370.71" font-family="Arial" font-size="14.00" fill="#405c70">Downlink callback</text>
 </g>
 <!-- e&#45;&gt;f -->
 <g id="edge6" class="edge">
@@ -83,22 +83,22 @@
 <!-- j&#45;&gt;a -->
 <g id="edge13" class="edge">
 <title>j&#45;&gt;a</title>
-<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M531.78,-48.45C600.83,-59.62 670.97,-70.96 670.97,-70.96 670.97,-70.96 959.97,-156.67 959.97,-156.67 959.97,-156.67 959.97,-260.59 959.97,-260.59 959.97,-260.59 644.97,-543.64 644.97,-543.64 644.97,-543.64 567.14,-557.39 498.5,-569.51"/>
-<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="498.12,-567.02 491.47,-570.75 498.99,-571.98 498.12,-567.02"/>
-<text xml:space="preserve" text-anchor="middle" x="952.23" y="-321.38" font-family="Arial" font-size="14.00" fill="#405c70">Next pass</text>
+<path fill="none" stroke="#8195a4" stroke-width="1.15" stroke-dasharray="5,2" d="M529.39,-48.07C599.2,-59.36 670.97,-70.96 670.97,-70.96 670.97,-70.96 959.97,-156.67 959.97,-156.67 959.97,-156.67 959.97,-260.59 959.97,-260.59 959.97,-260.59 658.97,-543.64 658.97,-543.64 658.97,-543.64 581.14,-557.39 512.5,-569.51"/>
+<polygon fill="#8195a4" stroke="#8195a4" stroke-width="1.15" points="512.12,-567.02 505.47,-570.75 512.99,-571.98 512.12,-567.02"/>
+<text xml:space="preserve" text-anchor="middle" x="953.91" y="-321.38" font-family="Arial" font-size="14.00" fill="#405c70">Next pass</text>
 </g>
 <!-- a -->
 <g id="node1" class="node">
 <title>a</title>
-<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M477.33,-614.6C477.33,-614.6 314.61,-614.6 314.61,-614.6 308.61,-614.6 302.61,-608.6 302.61,-602.6 302.61,-602.6 302.61,-574.64 302.61,-574.64 302.61,-568.64 308.61,-562.64 314.61,-562.64 314.61,-562.64 477.33,-562.64 477.33,-562.64 483.33,-562.64 489.33,-568.64 489.33,-574.64 489.33,-574.64 489.33,-602.6 489.33,-602.6 489.33,-608.6 483.33,-614.6 477.33,-614.6"/>
-<text xml:space="preserve" text-anchor="middle" x="395.97" y="-591.97" font-family="Arial" font-size="17.00" fill="white">Gateway loop</text>
-<text xml:space="preserve" text-anchor="middle" x="395.97" y="-572.47" font-family="Arial" font-size="17.00" fill="white">Drain LoRa UART first</text>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M491.33,-614.6C491.33,-614.6 328.61,-614.6 328.61,-614.6 322.61,-614.6 316.61,-608.6 316.61,-602.6 316.61,-602.6 316.61,-574.64 316.61,-574.64 316.61,-568.64 322.61,-562.64 328.61,-562.64 328.61,-562.64 491.33,-562.64 491.33,-562.64 497.33,-562.64 503.33,-568.64 503.33,-574.64 503.33,-574.64 503.33,-602.6 503.33,-602.6 503.33,-608.6 497.33,-614.6 491.33,-614.6"/>
+<text xml:space="preserve" text-anchor="middle" x="409.97" y="-591.97" font-family="Arial" font-size="17.00" fill="white">Gateway loop</text>
+<text xml:space="preserve" text-anchor="middle" x="409.97" y="-572.47" font-family="Arial" font-size="17.00" fill="white">Drain LoRa UART first</text>
 </g>
 <!-- b -->
 <g id="node2" class="node">
 <title>b</title>
-<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="395.97,-543.64 156,-511.18 395.97,-478.72 635.94,-511.18 395.97,-543.64"/>
-<text xml:space="preserve" text-anchor="middle" x="395.97" y="-504.78" font-family="Arial" font-size="17.00" fill="#513f12">Fragment transaction active?</text>
+<polygon fill="#fff1d2" stroke="#c4a35e" stroke-width="1.05" points="409.97,-543.64 170,-511.18 409.97,-478.72 649.94,-511.18 409.97,-543.64"/>
+<text xml:space="preserve" text-anchor="middle" x="409.97" y="-504.78" font-family="Arial" font-size="17.00" fill="#513f12">Fragment transaction active?</text>
 </g>
 <!-- c -->
 <g id="node3" class="node">
@@ -110,9 +110,9 @@
 <!-- d -->
 <g id="node4" class="node">
 <title>d</title>
-<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M611.58,-444.97C611.58,-444.97 426.36,-444.97 426.36,-444.97 420.36,-444.97 414.36,-438.97 414.36,-432.97 414.36,-432.97 414.36,-405.01 414.36,-405.01 414.36,-399.01 420.36,-393.01 426.36,-393.01 426.36,-393.01 611.58,-393.01 611.58,-393.01 617.58,-393.01 623.58,-399.01 623.58,-405.01 623.58,-405.01 623.58,-432.97 623.58,-432.97 623.58,-438.97 617.58,-444.97 611.58,-444.97"/>
-<text xml:space="preserve" text-anchor="middle" x="518.97" y="-422.34" font-family="Arial" font-size="17.00" fill="#163b55">Service network / MQTT</text>
-<text xml:space="preserve" text-anchor="middle" x="518.97" y="-402.84" font-family="Arial" font-size="17.00" fill="#163b55">Receive command topics</text>
+<path fill="#eaf2f8" stroke="#91a9bc" stroke-width="1.05" d="M670.21,-444.97C670.21,-444.97 425.74,-444.97 425.74,-444.97 419.74,-444.97 413.74,-438.97 413.74,-432.97 413.74,-432.97 413.74,-405.01 413.74,-405.01 413.74,-399.01 419.74,-393.01 425.74,-393.01 425.74,-393.01 670.21,-393.01 670.21,-393.01 676.21,-393.01 682.21,-399.01 682.21,-405.01 682.21,-405.01 682.21,-432.97 682.21,-432.97 682.21,-438.97 676.21,-444.97 670.21,-444.97"/>
+<text xml:space="preserve" text-anchor="middle" x="547.97" y="-422.34" font-family="Arial" font-size="17.00" fill="#163b55">Service subscribed MQTT routes</text>
+<text xml:space="preserve" text-anchor="middle" x="547.97" y="-402.84" font-family="Arial" font-size="17.00" fill="#163b55">Direct + regional broadcast</text>
 </g>
 <!-- e -->
 <g id="node5" class="node">
@@ -151,9 +151,9 @@
 <!-- j -->
 <g id="node10" class="node">
 <title>j</title>
-<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M519.33,-51.96C519.33,-51.96 278.61,-51.96 278.61,-51.96 272.61,-51.96 266.61,-45.96 266.61,-39.96 266.61,-39.96 266.61,-12 266.61,-12 266.61,-6 272.61,0 278.61,0 278.61,0 519.33,0 519.33,0 525.33,0 531.33,-6 531.33,-12 531.33,-12 531.33,-39.96 531.33,-39.96 531.33,-45.96 525.33,-51.96 519.33,-51.96"/>
-<text xml:space="preserve" text-anchor="middle" x="398.97" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Send command, restore Mode 0</text>
-<text xml:space="preserve" text-anchor="middle" x="398.97" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Then resume bridge / heartbeat</text>
+<path fill="#173e5b" stroke="#173e5b" stroke-width="1.05" d="M517.08,-51.96C517.08,-51.96 280.86,-51.96 280.86,-51.96 274.86,-51.96 268.86,-45.96 268.86,-39.96 268.86,-39.96 268.86,-12 268.86,-12 268.86,-6 274.86,0 280.86,0 280.86,0 517.08,0 517.08,0 523.08,0 529.08,-6 529.08,-12 529.08,-12 529.08,-39.96 529.08,-39.96 529.08,-45.96 523.08,-51.96 517.08,-51.96"/>
+<text xml:space="preserve" text-anchor="middle" x="398.97" y="-29.33" font-family="Arial" font-size="17.00" fill="white">Finish bridge work</text>
+<text xml:space="preserve" text-anchor="middle" x="398.97" y="-9.83" font-family="Arial" font-size="17.00" fill="white">Restore Mode 0 after command</text>
 </g>
 </g>
 </svg>

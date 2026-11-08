@@ -1,8 +1,8 @@
-"""Revise the retained EgSA design template against the 30 October code release.
+"""Revise the retained EgSA design template against the reviewed STM32 release.
 
 Run with bundled Python. Microsoft Word refreshes fields and exports a QA PDF
 after this edit. The requested legacy filename is retained; internal revision
-1.1 supersedes the 7 October 1.0 edition. No runtime configuration is opened.
+1.2 supersedes the 1 November 1.1 edition. No private configuration is opened.
 """
 from pathlib import Path
 from copy import deepcopy
@@ -20,7 +20,7 @@ ROOT=Path(__file__).resolve().parents[2]
 HERE=Path(__file__).resolve().parent
 PATH=HERE/'WIOT_STM32_Node_Software_Design_V1.0.docx'
 BASE='104cf15cea0a90166538d8c3fa1af61be2580e4b'
-CODE='f478b47ecedb108328b9befe762b24b85320c225'
+CODE='c604aa6a5a49c61f86bada826a329dc600dac9f6'
 raw=subprocess.check_output(['git','show',BASE+':Documentation/NodeSoftwareDesign/'+PATH.name],cwd=ROOT)
 doc=Document(BytesIO(raw))
 paras=list(doc.paragraphs); tables=list(doc.tables)
@@ -58,25 +58,25 @@ def newtable(anchor,caption,headers,rows,template):
     return t
 
 updates={
-17:'Engineering review edition, revised 1 November 2026 against the 30 October active Arduino STM32 release. Revision 1.1 updates the retained 7 October design. Review/approval fields remain unassigned; physical acceptance evidence is identified separately from software verification.',
+17:'Engineering review edition, revised 7 November 2026 against the reviewed Arduino STM32 source. Revision 1.2 incorporates independent WOR scheduling, reporting with unavailable sensors, regional gateway subscriptions and selectable diagnostics. The acceptance procedures identify the remaining physical tests.',
 21:'Use Section 5 for implementation/configuration, Section 13 and Appendix A for acceptance steps, Appendix B for interfaces and Appendix D for key flowcharts. Source paths are node-relative unless a release-root prefix is stated. The full thirty-chart package covers the gateway, server and simulators in greater detail. Snapshot configuration values must be checked against the actual flashed image.',
 12:'WIOT STM32 Node Software',
-13:'Tracking No.: WIOT-NOD-DDS-07-001-V1.1',
+13:'Tracking No.: WIOT-NOD-DDS-07-001-V1.2',
 117:'The WIOT node acquires water-flow and soil measurements, stores complete samples on external SPI flash, publishes the latest retained snapshot, accepts remote operating commands, controls a commissioned latching valve and recovers from network failures or software stalls. This revision defines the current implementation, its operating limits and the procedures needed to verify it.',
 133:'N01-N12 are local design labels for navigation and test allocation. This revision adds the elapsed 24-hour external sample journal, independent power/WDT counters and acknowledged history download. Authenticated encryption, measured valve position and binary OTA firmware update remain outside the implemented capability set.',
-135:'The reviewed public configuration selects sensor node 2, sensor ID 1, Company_1 / Region_1 and LoRa-to-gateway uplink. Controller LORA_WOR and radio WAKE_ON_RADIO use UART RX wake; SPI logging and all four sensors are enabled at TUF 1, SUPMEA 2, HNDA 3 and Sondas 4. Boot SRATE/STRAN are 10,000/15,000 ms; WOR uses its 120-s report-cycle policy, 15-s RTC watchdog heartbeat and 5-s command window. The gateway is built separately in NORMAL with WOR TX enabled. Each flashed device must have its own identity and matching scoped topics.',
+135:'Public defaults select node 2, sensor ID 1 and Company_1 / Region_1, with LoRa uplink, UART RX WOR wake, SPI logging, all four sensors and LITE debug. Addresses are TUF 1, SUPMEA 2, HNDA 3 and Sondas 4. Boot SRATE/STRAN are 10,000/15,000 ms. Default WOR schedules them independently and uses a 15-s RTC watchdog heartbeat. The final bench header inspected on 7 November selects node 3, sensor ID 3, all sensor polls disabled and FULL debug. Build the gateway separately in NORMAL and enable APP_LORA_GATEWAY_WOR_TX=1 to wake WOR nodes. Match each device identity and topic scope.',
 141:'1. Apply valve safety pins only when available. Capture RCC/PWR reset flags before early power handling clears them. A valid pending Standby handoff enters Standby before IWDG arming; an invalid or expired request resumes normal startup.',
 142:'2. Classify the captured cause, load/increment the independent WDT and power counters as appropriate, and arm the global hardware watchdog. Select sensor-node or gateway setup at compile time.',
 144:'4. Initialize RS485 and the enabled drivers, restore SUPMEA accumulator state, then initialize the external telemetry archive and power policy. Journal recovery advances cooperatively; a missing or unformatted chip does not stop existing live reporting.',
-145:'5. Service commands first, advance one archive step and start/continue one sensor group when allowed. Modbus idle callbacks can service commands without watchdog feeding. Capture one canonical archive sample only after the full sensor cycle completes.',
+145:'5. Service commands first and advance one archive step. SensorPollCycle continues one enabled sensor per pass and completes the cycle even after failures. After a completed snapshot, it defers a new acquisition while an overdue Status needs service. Modbus idle callbacks service commands without feeding the watchdog. Capture a canonical archive sample after the full cycle completes.',
 146:'6. When STRAN/report policy permits and no higher-priority work or pending archive write intervenes, build routine Status from the latest committed sample. Keep original acquisition time/sequence, refresh operational fields and mark explicit live fallback if a stored sample cannot be read. GOSTM uses current runtime measurements.',
 147:'7. Drain priority replies before routine work. Send at most one ready history packet after commands and routine service, then update power/watchdog state. Flash writes, recovery and active history transfers defer inappropriate sleep; active transfers still permit scheduled sensing.',
-150:'NORMAL and schedule-driven REMOTE_WAKE use independent elapsed-millis SRATE and STRAN deadlines. Sampling is measured from cycle start and transmission from its attempt; unsigned subtraction supports rollover. Timed Standby and LORA_WOR retain report-cycle scheduling rather than independently waking for every SRATE deadline. Command period changes are RAM settings that revert to compiled defaults after restart.',
+150:'NORMAL, scheduled REMOTE_WAKE and default LORA_WOR use independent SRATE and STRAN deadlines. Sampling counts from the previous cycle start and transmission from the previous routine attempt. Stop pauses millis(), so the WOR manager adds elapsed RTC residence to the application task ages. Rate changes preserve each task age. Timed Standby and explicitly selected legacy WOR retain their combined-cycle policies. Runtime rate settings return to compiled defaults after restart.',
 158:'The reviewed source constructs SerialAT(PA12, PA11), using controller RX then TX. The current LoRa UART-RX wake path reuses LoRa TXD to controller PA12. Verify fitted PCB labels and variant mappings against the compiled role; old documentation with reversed RX/TX descriptions is superseded by the source-level allocation here.',
 166:'Company, region, node ID, topic identity and server target must agree. The current topic builder derives scoped strings from public identity configuration; private files hold deployment connection strings and keys. Use distinct MQTT client IDs. Node, gateway and server require matching schemas and the same locally provisioned 16-byte key.',
 202:'Battery voltage maps to Status tag 19 and Telemetry tag 5. An archived routine Status retains the voltage from that acquisition; GOSTM refreshes runtime voltage. Disabled measurement reports zero. Compare against a calibrated meter at several safe voltages. Divider tolerance, reference variation, noise and grounding determine practical accuracy; voltage alone does not measure modem current or remaining battery capacity.',
 209:'The public test configuration uses TCP MQTT on port 1883 without TLS. Keepalive is 45 s, socket timeout 8 s and reconnect backoff 3 s. Direct nodes subscribe to their exact regional cmd and regional broadcast topics; gateways subscribe to the configured regional node-command wildcard and broadcast route.',
-211:'Topics are lowercase and case-sensitive. The node checks subscription packet writes; the server separately waits for successful SUBACK before declaring its own receive readiness. Company/region/node and decoded payload identity are validated. A topic/payload mismatch is a routing configuration error, not a byte-order problem.',
+211:'Topics are lowercase and case-sensitive. The gateway subscribes to both wiot/{company}/{region}/+/cmd and wiot/{company}/{region}/broadcast. A failed subscription write disconnects MQTT and schedules reconnect. The server waits for successful SUBACK before marking its own subscription ready. Company, region, topic node and decoded payload identity must agree.',
 215:'The same command-priority correction serves SIM and ESP8266. mqtt.loop guards prevent reentrant modem calls, and Modbus command servicing cannot feed a stalled outer operation indefinitely. QoS-0 write acceptance is not server persistence. The external sample journal now retains measurements, but it is separate from the volatile MQTT packet/reply queue and does not guarantee gap-free sampling during network startup.',
 223:'E32-TTL-100 UART RSSI is unsupported; diagnostics report that explicitly. Enable an optional V3 query only on a confirmed compatible module. The 29 October UART-RX WOR bench report records approximately 9 mA for the tested assembly after earlier unsuccessful sleep attempts around 42 mA. It is an initial user-reported current result, not a complete RF/wake or energy qualification.',
 229:'Codec payload buffers are 640 bytes and MQTT packet allocation is 1024 bytes. Generated maximum Status and Telemetry sizes are 333 and 546 plaintext bytes. A maximum Telemetry encrypts to 577 bytes including version/IV/padding. Canonical archive samples have a separate 472-byte payload bound; command/archive metadata is excluded before storing the sample.',
@@ -85,28 +85,36 @@ updates={
 258:'The existing 20-byte WDT record occupies EEPROM offsets 192..211. A separate 20-byte power record occupies 232..251; the valve record remains 212..231. Both use version/magic/checksum/inverted-count validation, saturate at UINT32_MAX and verify buffered commits. Only the classified cause increments once per boot. A failed commit can leave a RAM count with an unhealthy-storage warning.',
 259:'IWDG resets, including deliberate network-recovery IWDG resets, increment WDT count. Genuine POR/BOR increments power count. NRST-only, software reset, planned Standby handoff/wake, Stop and light Sleep wake increment neither. Mixed flags honor Standby/warm-reset exclusions; POR+PIN may be a genuine power event. Status tags 35/36 and Telemetry tags 44/45 carry WDT/power counts. Direct CMD7/CMD8 clear and verify only the selected counter; they do not reset the MCU or meter totals.',
 281:'LORA_WOR requires trusted RTC, a NORMAL gateway with APP_LORA_GATEWAY_WOR_TX=1 and matching radio timing. The leaf enters E32 Mode 2 with M0 LOW/M1 HIGH and STM32 Stop. The default falling-edge wake input is LoRa TXD to controller UART RX PA12, selected by APP_LORA_WOR_WAKE_SOURCE_UART_RX. AUX PC13 remains a readiness input; the older AUX wake option is explicitly selectable. A gateway Mode-1 probe precedes the actual command.',
-282:'RTC Alarm A selects the earliest heartbeat, report deadline or retained-log expiry. The current 15-s heartbeat services IWDG in foreground, then returns to Stop if no work is due; it does not itself force a sample. The nominal WDT remains 30 s and resets hangs rather than scheduling normal wakeups. Interrupts set flags only. Stop exit restores clocks before UART/flash work, preserves received bytes and opens the command window. Pending UART/RTC activity or failed setup prevents Stop rather than discarding input.',
-279:'APP_POWER_SLEEP_SECONDS is 120 s in this snapshot. It sets the periodic/queued sleep interval and WOR report cycle; sensing, reconnection and command windows add active time. Invalid requests fail open to awake scheduling. RTC_QUEUED requires trusted time. Flash busy/transfer guards defer sleep, while the retained-log expiry can request an earlier maintenance wake. Queued delivery waits for the next connected window.',
+282:'RTC Alarm A selects the earliest sample, send, watchdog heartbeat or retained-log expiry deadline. The 15-s heartbeat services IWDG in foreground and returns to Stop when no application work is due. A sample-only wake captures data, and a send-only wake uses the stored snapshot. The 30-s IWDG resets stalled execution. Stop exit restores clocks before UART and flash work, preserves received bytes and opens a command window for radio activity. Pending activity or failed setup keeps the controller awake.',
+279:'APP_POWER_SLEEP_SECONDS defaults to 120 s publicly and is 20 s in the inspected bench header. It controls periodic and queued Standby, legacy remote cycles, and WOR only when APP_LORA_WOR_USE_APP_SCHEDULE=false. Default WOR uses SRATE and STRAN instead. Trusted STIME is required for WOR and queued Standby. Flash work, history transfer and active leases can defer sleep. Retention expiry can request an earlier maintenance wake.',
 287:'The external S25FL064L now holds complete canonical samples in a commit-last journal. Internal EEPROM records, external sample storage and the transient MQTT queue have different failure/retention properties. Ordinary replay cache and changed sample/transmit periods remain volatile. The node does not persist every outgoing MQTT packet, and unchanged connection loops may still delay acquisition.',
 296:'The Wi-Fi deep-sleep entry written as 7 retains an unresolved microamp/milliamp interpretation. SIM deep sleep remains unsupported on the present wiring. LoRa now has an initial 29 October observation around 9 mA with UART-RX WOR wake, compared with about 42 mA during an earlier failed sleep attempt; the measurement point, supply and averaging method were not fully recorded. A calibrated whole-node duty-cycle and command-wake study remains open.',
 324:'RTC backup offers retained low-wear working state, while internal flash checkpoints survive backup loss within their checkpoint limits. Those records still share an erase sector. The separate 8-MiB external journal provides commit-last sample/metadata recovery and rotating 24-hour generations; it does not remove internal EEPROM wear or power-fail risks, nor does it provide encryption at rest.',
-330:'The latest cited verification is SPI_FLASH_SOFTWARE_VERIFICATION_20261030.md: full release validation, 53 configuration cases, 65 production WOR scenarios, 16 RTC/SUPMEA cases, 10 cross-component contracts, 124 Python server tests and 65 simulator tests. It also records journal recovery/full/failure tests, 13 mutating power-cut transitions, nine SPI/archive scenarios and 17/22/24-fragment LoRa reassembly cases.',
-331:'That report records eight successful ARM profiles with four sensors and core 2.12.0 / GCC 14.2.1. Maximum recorded flash load end is 0x08019908 and initialized data+BSS is 36,036 bytes; all loads stay below EEPROM sector 0x08020000. Doxygen completed with zero warnings. These are retained 30 October results; the present documentation update performs source/schema/layout checks rather than claiming a new firmware or hardware validation run.',
+330:'WIOT_SYSTEM_REVIEW_20261104.md records the current integrated evidence. All ten node host suites, Python server and three simulator suites, eight dashboard scripts and ten cross-component contracts passed in the development checkout and final bench folder. Gateway tests exercise both subscriptions, direct and broadcast routing, invalid scope and reconnect after a subscription failure. The commissioned valve settings require -UseFactoryConfigurationFixture for the factory guard cases.',
+331:'The 4 November matrix compiled gateway WOR, node WOR, direct SIM and direct Wi-Fi, with load sections below EEPROM sector 0x08020000. The node 3 bench profile also compiled. Doxygen generated with zero warnings. Earlier SPI verification retains journal recovery, 13 interrupted-write cases, storage-driver scenarios and 17/22/24-fragment tests. Section 6 labels historical resource measurements by date. This document refresh checks source, schema and layout. Physical acceptance uses Appendix A.',
 344:'Minimum acceptance covers identity/topic scope, four-sensor values and validity, RTC totals, Status/GOSTM, rate/time commands, valve commissioning, reset cause and both counters, 10+10 recovery, intended power wakes and ADC calibration. With SPI enabled also verify JEDEC, explicit format, sample commit/readback, elapsed retention, recovery from real power cuts and a complete acknowledged history download. Broker receipt alone cannot close these tests.',
-355:'Use the current UART-RX WOR, reset-counter, regional topic and SPI guides with this edition. Dated AUX-only, single-reset-counter, old-topic and no-sample-log descriptions are superseded. This document retains the requested legacy filename, while internal revision 1.1 identifies the updated design. Vendor electrical ratings and controlled hardware acceptance remain applicable.',
+355:'Use the current WOR application-schedule, debug, unavailable-sensor, reset-counter, regional-topic and SPI guides with this edition. Internal revision 1.2 identifies the updated contents under the requested V1.0 filename. Vendor electrical ratings and controlled hardware acceptance remain applicable.',
 651:'Common mapping for primary/secondary flow, independent soil data, battery, both reset counters, power and sample provenance; failed groups remain zero/invalid.',
 510:'2. Verify default UART RX falling-edge wake, clock restore, Mode 0 and matching command reply. AUX remains the ready/busy signal.',
-511:'3. Observe RTC report/retention deadline and 15-s WDT-maintenance heartbeat; inject pending UART/IRQ activity and a radio restoration failure.',
+511:'3. Set SRATE=100 and STRAN=300 with the legacy sleep value at 20 s. Verify separate acquisitions and routine reports while 15-s RTC heartbeats continue. Then swap the rates, send GOSTM during Stop and inject pending UART activity and a radio restoration failure.',
 517:'3. Measure normal/remote/deep phases with instrument range, input voltage and powered components. Retest LoRa heartbeat/report/command wakes and extended current traces beyond the initial 9-mA observation.',
 718:'End of node software design reference. The matching flowchart package provides the complete system workflows and editable sources. Approval and configuration-specific hardware acceptance remain controlled project activities.',
 }
 for i,value in updates.items():text(paras[i],value)
+for paragraph in paras:
+    if paragraph.text.startswith((
+        'When historical notes conflict with executable source',
+        'The complete thirty-chart index is in Documentation/Flowcharts/README.md',
+        'End of node software design reference.',
+    )):
+        paragraph._p.getparent().remove(paragraph._p)
 
 # Revision and source tables retain the supplied cover/header layout.
-cell(tables[0].rows[4].cells[1],'V1.1 - 1 November 2026')
+cell(tables[0].rows[4].cells[1],'V1.2 - 7 November 2026')
 row(tables[1],['01/11/2026','1.1','Current topics; two counters; UART-RX WOR; SPI sample journal/history commands; expanded schema, tests and flowcharts.'])
-setrow(2,1,['Document identifier','WIOT-NOD-DDS-07-001-V1.1; legacy V1.0 filename retained for existing references'])
-setrow(2,3,['Software baseline',CODE+'; 30 October runtime release. Flowchart reference: '+BASE[:7]+', 1 November 2026.'])
+row(tables[1],['07/11/2026','1.2','Independent WOR scheduling. Offline report priority. Gateway direct and broadcast subscriptions. OFF, LITE and FULL debug. Updated source evidence and diagrams.'])
+setrow(2,1,['Document identifier','WIOT-NOD-DDS-07-001-V1.2. Legacy V1.0 filename retained for existing references.'])
+setrow(2,3,['Software baseline',CODE+'. Reviewed Arduino STM32 release, 4 November 2026. Diagram definitions refreshed 7 November 2026.'])
 row(tables[4],['R11','SPI_FLASH_TELEMETRY_GUIDE.md; SPI_FLASH_TEST_PLAN.md; src/storage/','Journal geometry, recovery, commands and physical acceptance'])
 row(tables[4],['R12','Release Documentation/Flowcharts/README.md; source_manifest.json','30 source-verified system flows; offline viewer, vector PDF and editable sources'])
 cell(tables[4].rows[9].cells[2],'Integrated release and historical remote-scheduler verification')
@@ -122,17 +130,18 @@ row(tables[10],['storage/','SPI NOR adapter, commit-last journal and paced archi
 setrow(11,1,['USE_SIM800 / USE_ESP8266','ESP8266 fallback selection in header; inactive in LoRa leaf','Select one for direct/gateway IP images; no automatic failover'])
 setrow(11,3,['APP_UPLINK','APP_UPLINK_LORA_TO_GATEWAY','LoRa leaf uses no direct IP modem; gateway selects its own uplink'])
 setrow(11,4,['APP_NODE_ID / APP_SENSOR_ID','2 / 1','Assign unique node identity; topic builder and payload must agree'])
-setrow(11,8,['kDefaultSamplingPeriodMs / kDefaultTransmissionPeriodMs','10000 / 15000','Independent in NORMAL/scheduled REMOTE_WAKE; WOR uses report cycle'])
+setrow(11,8,['kDefaultSamplingPeriodMs / kDefaultTransmissionPeriodMs','10000 / 15000','Independent in NORMAL, scheduled REMOTE_WAKE and default WOR'])
 row(tables[11],['APP_MQTT_COMPANY / APP_MQTT_REGION','Company_1 / Region_1','Topic path scope; rebuild for a deployment change'])
 topics=[['Routine Status','wiot/{company}/{region}/{node}/status'],['Telemetry / command reply','wiot/{company}/{region}/{node}/data'],['Direct command','wiot/{company}/{region}/{node}/cmd'],['Regional broadcast','wiot/{company}/{region}/broadcast'],['Gateway command wildcard','wiot/{company}/{region}/+/cmd']]
 cell(tables[24].rows[2].cells[3],'Command identifier, 1..14; ID14 is internal persistence ACK')
 for j,r in enumerate(topics,1):setrow(18,j,r)
 row(tables[20],['Application payload / fragment data','640 / 27 bytes','At most 24 fragments; 32-bit received mask'])
-setrow(28,5,['LORA_WOR_STOP / 5','STM32 Stop + E32 Mode 2','Default UART RX falling-edge wake; RTC report/expiry/heartbeat; RAM retained'])
+setrow(28,5,['LORA_WOR_STOP / 5','STM32 Stop + E32 Mode 2','UART RX falling edge. Independent sample/send, expiry and heartbeat alarms. RAM retained.'])
 setrow(30,6,['LORA_WOR with SIM/ESP route or LoRa NORMAL','Stop wake policy requires the matching LoRa WOR hardware/protocol pairing'])
-setrow(31,1,['APP_POWER_SLEEP_SECONDS','120 s','Timed Standby interval / WOR report-cycle deadline; legacy remote interval'])
+setrow(31,1,['APP_POWER_SLEEP_SECONDS','120 s public / 20 s local','Standby and legacy cycles. Default WOR uses SRATE and STRAN.'])
 setrow(31,7,['APP_LORA_WOR_WATCHDOG_WAKE_SECONDS','15 s; accepted range 2..15','Foreground WDT maintenance; compile guard also requires timeout margin'])
 row(tables[31],['APP_LORA_WOR_WAKE_SOURCE','UART_RX','AUX remains readiness input; legacy AUX is an explicit alternative'])
+row(tables[31],['APP_LORA_WOR_USE_APP_SCHEDULE','true','Independent WOR sample/send deadlines. false selects the legacy combined cycle.'])
 row(tables[32],['Offset 232..251','Power-on/brownout counter, 20 bytes','Verified clear/count commits; distinct from WDT and valve records'])
 row(tables[32],['External SPI flash','2 metadata sectors + 2,046 data sectors','8 MiB; 14,322 slots; elapsed 24-hour retained batches'])
 setrow(33,1,['Codec / MQTT / TinyGSM RX','640 / 1024 / 1024 bytes','Maximum Telemetry 546 plaintext / 577 encrypted bytes'])
@@ -142,7 +151,7 @@ setrow(33,5,['Largest recorded static RAM','36,036 bytes; nominal 29,500 bytes r
 setrow(33,6,['Recorded compilation','8 current SPI-release ARM profiles','Prior 16-profile remote report remains historical evidence'])
 row(tables[33],['External log capacity','14,322 samples; 472-byte canonical payload per slot','Full stops append/drop count; no overwrite of unexpired data'])
 setrow(34,2,['First-party source','src/app, devices, comm, power, platform, radio, storage, config'])
-setrow(34,11,['Latest software verification','Release Documentation/Validation/SPI_FLASH_SOFTWARE_VERIFICATION_20261030.md'])
+setrow(34,11,['Current software review','Release Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md'])
 row(tables[34],['Whole-project flowcharts','Release Documentation/Flowcharts/; offline HTML, 34-page PDF, editable DOT/Mermaid/SVG'])
 setrow(35,2,['One state mapper','Consistent fields plus sample sequence/time provenance across routes','No independent acquisition timestamp for each individual sensor'])
 row(tables[35],['External commit-last journal','Retain samples across resets and recover torn writes','Finite RAM queue, no at-rest encryption and possible network-startup sampling gaps'])
@@ -162,6 +171,8 @@ row(tables[39],['Regional MQTT routes','REGIONAL_MQTT_TOPICS_GUIDE.md'])
 row(tables[39],['UART-RX WOR wake','LORA_WOR_RX_WAKE_GUIDE.md; release Documentation/Validation/LORA_WOR_9MA_BENCH_RESULT_20261029.md'])
 row(tables[39],['External journal and acceptance','SPI_FLASH_TELEMETRY_GUIDE.md; SPI_FLASH_TEST_PLAN.md'])
 row(tables[39],['Complete system flows','Release Documentation/Flowcharts/README.md'])
+row(tables[39],['Independent WOR schedule','LORA_WOR_APP_SCHEDULE_GUIDE.md'])
+row(tables[39],['Diagnostics and offline reporting','DEBUG_LOGGING_GUIDE.md. SENSOR_UNAVAILABLE_ZERO_GUIDE.md'])
 row(tables[40],['Repeated AUX wake before Stop','Selected wake source, pending IRQs, UART RX idle HIGH and correct pin','Use current UART_RX path; AUX remains ready/busy. Retest commands and RTC separately'])
 row(tables[40],['Power count unchanged after RESET','Captured RCC/PWR flags and actual reset method','NRST/ST-Link/software reset is not power-on; remove/reapply supply for a power-count test'])
 row(tables[40],['Flash empty or no stored sample','JEDEC, trusted STIME, explicit CLEAR_FLASH, Ready and full-cycle capture','Check drops/queue and stored_sample/live_fallback; do not assume accepted append is durable'])
@@ -229,17 +240,36 @@ newtable(anchor,'Table 44. SPI logging controls',['Macro','Current value','Bound
  ['APP_FLASH_HISTORY_MAX_ATTEMPTS','3','1..5 total attempts, including first send'],
 ],31)
 
+before(anchor,'5.16  Diagnostic logging','Heading 2')
+before(anchor,'APP_ENABLE_DEBUG is the master build switch. With it enabled, APP_DEBUG_LITE selects compact boot, command, telemetry and critical-error events. FULL adds sensor, radio-fragment, power and storage details. APP_DEBUG_RAW_FRAMES adds byte dumps in FULL. OFF removes diagnostic calls and their argument evaluation. Compile and flash after changing the macros.')
+before(anchor,'The debug UART uses PA2 TX and PA3 RX at 115200 baud, 8N1. LITE and OFF skip the interactive Wi-Fi credential prompt and optional AT+GMR query. Configured Wi-Fi takes priority over the saved fallback. Protocol UART traffic continues in every debug mode. APP_ENABLE_COMMAND_ACK_REPLIES independently controls automatic action replies.')
+before(anchor,'Each line carries active tick_ms, severity and module. Match node and request IDs across command_rx, command_forwarded and reply_tx events. Use explicit RTC epoch fields across Stop because tick_ms pauses. FULL is useful for locating RF fragment or sleep-entry failures. Routine launch monitoring can use LITE.')
+debug_table=newtable(anchor,'Table 45. Diagnostic build choices',['Choice','Macros','Output'],[
+ ['OFF','APP_ENABLE_DEBUG=false','No diagnostic UART output'],
+ ['LITE','APP_ENABLE_DEBUG=true, APP_DEBUG_LITE=true','Boot identity, commands, report outcomes and critical errors'],
+ ['FULL','APP_ENABLE_DEBUG=true, APP_DEBUG_LITE=false','Detailed sensor, power, flash and link diagnostics'],
+ ['Raw bytes','FULL plus APP_DEBUG_RAW_FRAMES=true','Detailed packet byte dumps'],
+],20)
+debug_table.autofit=False
+debug_widths=[Inches(0.65),Inches(3.0),Inches(2.65)]
+for column,width in zip(debug_table.columns,debug_widths):
+    column.width=width
+for debug_row in debug_table.rows:
+    for debug_cell,width in zip(debug_row.cells,debug_widths):
+        debug_cell.width=width
+
 # Add independent acceptance procedures before the API appendix.
 anchor=paras[519]
 tests=[
  ('A27  Power and watchdog counters','Record both counts and cause. Press NRST or use software reset: neither increments. Remove/reapply power: only power increments. Inject a controlled IWDG stall: only WDT increments. Send direct CMD7 then CMD8 with data 0 and fresh IDs; verify durable zero and the unaffected other count. Repeat rejected broadcast/nonzero-data/duplicate cases. Expected: verified selected clear, no MCU reset and no change to meter or valve records.'),
  ('A28  Independent SUPMEA reference','Use NORMAL first, auto-totalizers enabled, volumetric unit 3 and real-time x1. Synchronize node UTC and the simulator calendar/session, establish the node baseline, then compare deltas after a known interval. At 36 m3/h, 60 s corresponds to 0.600 m3 before display/float rounding. The simulator integrates flow independently; the node subtracts cumulative forward totals. Export reference and node results. No new day/month/year registers may appear on the bus.'),
- ('A29  Regional MQTT identity','Use Company_1 / Region_1 and the actual selected node. Observe lowercase status/data/cmd plus regional broadcast. Send direct GOSTM and verify matching node/region. Try a mismatched payload ID and a command from another region. Expected: matched scope succeeds; invalid scope/identity is rejected; histories and command receipts stay isolated.'),
- ('A30  UART RX LoRa WOR','Build leaf LORA_WOR plus radio WAKE_ON_RADIO and UART_RX wake; gateway NORMAL with WOR TX=1. Match channel, network and IDs. Capture idle RX HIGH, no pending IRQ and Stop request. Observe low current, multiple 15-s maintenance heartbeats, two report cycles and a gateway GOSTM wake/reply. Expected: clock restore precedes work; AUX-only activity does not claim a command; normal Stop wakes do not increment reset counters. Log command latency and a two-node shared-channel run.'),
+ ('A29  Regional MQTT identity','Use Company_1 / Region_1 with nodes 2 and 3. Send direct GOSTM to each node and match command and reply request IDs. Send a regional GOSTM broadcast and verify each node separately. Try a mismatched payload ID and another region. Expected results are scoped replies, rejection of invalid identity and isolated history records. Inspect the gateway subscriptions if direct commands succeed while broadcasts do not.'),
+ ('A30  UART RX LoRa WOR','Build the leaf with LORA_WOR, radio WAKE_ON_RADIO, UART_RX wake and application schedule true. Use gateway NORMAL with WOR TX=1 and matching RF settings. Establish trusted STIME. Set SRATE=100, STRAN=300 and the legacy sleep value to 20 s. Verify sample-only wakes, send-only wakes after swapping rates, 15-s maintenance heartbeats and a GOSTM wake during Stop. Record low idle current, command latency and reset counters. Clock restoration precedes UART work.'),
  ('A31  SPI probe and explicit initialization','Fit the documented 3.3-V S25FL064L. Check JEDEC 01 60 17 and FLASH_STATUS. Blank media is Unformatted without silent erase. Set trusted STIME, send direct CLEAR_FLASH data 0, then wait for Ready and completed clear progress. Repeat with wrong ID/missing/protected media in controlled fixtures. Expected: no unknown-device writes and explicit live fallback when storage cannot be used.'),
  ('A32  Sample commit and retention','Run distinct samples and verify record count/sequence and FLASH_LAST acquisition time. Compare routine Status stored_sample to the last committed record while current operational counters remain fresh. Exercise queue/full/time-untrusted and elapsed 24-hour expiry, including reboot and backward-time cases. Keep old-batch allocation/reclamation interleaved. Expected: drops exposed, no premature midnight clear or new-sector erasure, retained valid commits recovered after real bench power cuts.'),
  ('A33  History download and server ACK','Download TODAY using a fresh request ID; compare frozen total and every indexed scoped server row. Add new samples during transfer, drop/delay one ACK, duplicate a row and confirm bounded resend/dedup. Cancel and separately expire the batch. Expected: no missing/duplicate stored rows, later samples excluded from that job, explicit terminal result and no injection into live charts/consumption.'),
  ('A34  Storage with each transport and power policy','Repeat STATUS/LAST/TODAY over SIM, Wi-Fi and updated LoRa gateway, then normal/remote/periodic/queued/WOR supported combinations. Test automatic action ACK disabled: explicit storage data queries still respond and ACK14 never loops. Expected: commands precede bulk traffic, sampling remains possible during export, pending archive work prevents premature sleep and retention maintenance does not reset sensor totals.'),
+ ('A35  Debug choices and unavailable sensors','Compare OFF, LITE and FULL using the same acquisition and GOSTM sequence. Expect identical protocol values and fewer diagnostic lines in LITE, with no diagnostic output in OFF. Enable Supmea and Sondas, then stop their simulator replies. Wait for a completed poll, any pending flash commit and an overdue Status. Verify zero values with invalid quality and continuing reports. Repeat with all four polling flags disabled and expect a zero sensor mask. Commands and archive queries must still respond.'),
 ]
 for heading,body in tests:before(anchor,heading,'Heading 2');before(anchor,body)
 
@@ -282,7 +312,8 @@ for i,key in enumerate(selected):
     doc.add_paragraph(chart['purpose'])
     png=tmp/(key+'.png')
     subprocess.run(['C:/Program Files/Graphviz/bin/dot.exe','-Tpng','-Gdpi=200',str(chart_folder/'source'/f'{chart["slug"]}.dot'),'-o',str(png)],check=True)
-    scale=min((14.3*72)/layout['width'],(6.8*72)/layout['height'],1.35)
+    figure_height=6.0 if len(chart['notes'])>2 else 6.8
+    scale=min((14.3*72)/layout['width'],(figure_height*72)/layout['height'],1.35)
     p=doc.add_paragraph();p.alignment=WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_before=Pt(3);p.paragraph_format.space_after=Pt(5)
     p.add_run().add_picture(str(png),width=Inches(layout['width']*scale/72))
@@ -311,15 +342,15 @@ for p in doc.paragraphs:
 for section in doc.sections:
     for part in (section.header,section.footer,section.first_page_header,section.first_page_footer):
         for node in part._element.iter(qn('w:t')):
-            if node.text:node.text=node.text.replace('WIOT-NOD-DDS-07-001-V1.0','WIOT-NOD-DDS-07-001-V1.1')
+            if node.text:node.text=node.text.replace('WIOT-NOD-DDS-07-001-V1.0','WIOT-NOD-DDS-07-001-V1.2')
 for name in ('Title','Subtitle','Heading 1','Heading 2','Heading 3'):
     if name in doc.styles:doc.styles[name].font.color.rgb=RGBColor(0,0,0)
 settings=doc.settings.element
 update=settings.find(qn('w:updateFields'))
 if update is None:update=OxmlElement('w:updateFields');settings.append(update)
 update.set(qn('w:val'),'true')
-doc.core_properties.version='1.1'
+doc.core_properties.version='1.2'
 doc.core_properties.title='WIOT STM32 Node Software Design'
-doc.core_properties.subject='Revision 1.1 - current Arduino STM32 design and verification'
+doc.core_properties.subject='Revision 1.2 - reviewed Arduino STM32 design and verification'
 doc.save(PATH)
 print('Updated',PATH,'tables',counter,'embedded flows',len(selected))

@@ -1,6 +1,6 @@
 # WIOT software flowcharts
 
-Reviewed 1 November 2026. Active source baseline `f478b47ecedb108328b9befe762b24b85320c225`.
+Reviewed 7 November 2026. Active source baseline `c604aa6a5a49c61f86bada826a329dc600dac9f6`.
 
 The HTML viewer and printable PDF contain the same thirty graphs. Source locations are verified against the code.
 
@@ -47,7 +47,7 @@ flowchart TD
 - The gateway forwards the encrypted node payload; the server decodes it. LoRa-only nodes do not use their IP-modem path.
 - Solid arrows show functional data/control direction. All subsequent charts describe software behavior, not a new hardware wiring diagram.
 
-Sources: Node/IoT_Node_Encrypted.ino:189; Node/src/app/GatewayApp.cpp:54; Server/server_web.py:987
+Sources: Node/IoT_Node_Encrypted.ino:196; Node/src/app/GatewayApp.cpp:58; Server/server_web.py:987
 
 ## F02 Choose the compiled product
 
@@ -88,9 +88,9 @@ flowchart TD
 ```
 
 - All four sensors can be enabled together. There is no longer a mandatory exclusive two-sensor project selection.
-- Current public snapshot: node 2, Company_1 / Region_1, LoRa WOR with UART RX wake, all four sensors and SPI logging enabled.
+- Public defaults select node 2, Company_1 / Region_1, LoRa WOR with UART RX wake, all four sensors, SPI logging and LITE debug. The 4 November bench copy selects node 3, disables all four sensor polls and uses FULL debug. Verify the header for each flashed image.
 
-Sources: Node/src/config/AppConfig.h:185; Node/src/config/AppConfig.h:426
+Sources: Node/src/config/AppConfig.h:218; Node/src/config/AppConfig.h:464
 
 ## F03 Boot and reset initialization
 
@@ -128,7 +128,7 @@ flowchart TD
 - The default RTC date is not proof of trusted time. STIME establishes validated UTC time for calendar totals and flash retention.
 - The IWDG protects active startup calls as well as loop execution. A valid long Standby handoff deliberately occurs before it starts.
 
-Sources: Node/IoT_Node_Encrypted.ino:189; Node/src/app/IoT_Node.cpp:441; Node/src/power/PowerManager.cpp:759
+Sources: Node/IoT_Node_Encrypted.ino:196; Node/src/app/IoT_Node.cpp:453; Node/src/power/PowerManager.cpp:858
 
 ## F04 Sensor node cooperative main loop
 
@@ -139,7 +139,7 @@ flowchart TD
   a(["Loop progress checkpoint<br/>Remote idle gate if selected"]):::term
   b["Pump commands and replies<br/>MQTT or LoRa [F11 / F16]"]:::proc
   c["Advance flash state machine<br/>Check power / command priority"]:::proc
-  d{"Sample due or cycle active?"}:::dec
+  d{"Continue cycle or start sample?<br/>New cycle yields to overdue Status"}:::dec
   e["Poll one enabled sensor<br/>Finish all groups [F05-F09]"]:::proc
   f{"Complete snapshot?"}:::dec
   g["Queue canonical flash sample<br/>No half-finished sensor cycle"]:::proc
@@ -168,9 +168,10 @@ flowchart TD
 ```
 
 - Priority is cooperative: an in-flight modem, sensor or logical LoRa send cannot be preempted instantly.
-- Remote-wake schedule mode uses separate sample/send deadlines. WOR and timed Standby use their existing report-cycle policies [F20-F22].
+- NORMAL, scheduled REMOTE_WAKE and default LORA_WOR use independent SRATE and STRAN deadlines. Legacy WOR and timed Standby retain combined-cycle policies [F20-F22].
+- SensorPollCycle finishes an active cycle, then gives an overdue Status an opportunity before another cycle starts. Failed or disabled sensors can still produce zero/invalid samples and reports. Pending command or flash write work can defer the report.
 
-Sources: Node/IoT_Node_Encrypted.ino:222; Node/src/app/SensorPollCycle.h:7
+Sources: Node/IoT_Node_Encrypted.ino:229; Node/src/app/SensorPollCycle.h:7
 
 ## F05 RS485 request response and failure path
 
@@ -208,7 +209,7 @@ flowchart TD
 - Bus setting is 9600 baud, 8N1. TUF/Supmea retry transport errors; a valid Modbus exception is not retried. HNDA/Sondas reads use their current single-call path.
 - The command idle hook pauses watchdog feeding so an endless Modbus wait cannot keep the controller alive forever.
 
-Sources: Node/src/devices/Rs485Bus.cpp:36; Node/src/devices/Rs485Bus.cpp:26; Node/src/devices/TufSensor.cpp:58
+Sources: Node/src/devices/Rs485Bus.cpp:38; Node/src/devices/Rs485Bus.cpp:28; Node/src/devices/TufSensor.cpp:60
 
 ## F06 TUF flow and native period totals
 
@@ -243,7 +244,7 @@ flowchart TD
 - Modbus bytes within each 16-bit register retain standard bus order. The TUF driver combines the low register word first; it does not blindly reverse every byte.
 - Day/month are float values. Year is signed integer part plus float fraction. Optional totalizer failures do not invalidate an otherwise good live group.
 
-Sources: Node/src/devices/TufSensor.cpp:126; Node/src/app/FlowMeterManager.cpp:106
+Sources: Node/src/devices/TufSensor.cpp:128; Node/src/app/FlowMeterManager.cpp:108
 
 ## F07 Supmea live data and cumulative totals
 
@@ -278,7 +279,7 @@ flowchart TD
 - Alarm bits include EPD and excitation-current alarm. A valid Modbus response does not by itself mean alarm-free physical measurement.
 - L/h, L/min, L/s, m3/h, m3/min and m3/s are supported. Mass-flow units are not silently treated as volumetric flow.
 
-Sources: Node/src/devices/SupmeaSensor.cpp:127; Node/src/app/FlowMeterManager.cpp:159
+Sources: Node/src/devices/SupmeaSensor.cpp:129; Node/src/app/FlowMeterManager.cpp:161
 
 ## F08 HNDA and Sondas soil measurements
 
@@ -317,7 +318,7 @@ flowchart TD
 - HNDA is the Honde sensor called Honda in earlier project discussions. It is named HNDA in the current code.
 - The Sondas register layout is configurable; the supplied family document did not establish a complete purchased-probe map. Confirm it on the actual probe.
 
-Sources: Node/src/devices/HndaSensor.cpp:61; Node/src/devices/SondasSensor.cpp:61; Node/src/comm/SensorPayloadMapper.h:50
+Sources: Node/src/devices/HndaSensor.cpp:63; Node/src/devices/SondasSensor.cpp:63; Node/src/comm/SensorPayloadMapper.h:50
 
 ## F09 Supmea RTC day month and year consumption
 
@@ -361,7 +362,7 @@ flowchart TD
 - UTC RTC is converted using the configured UTC, fixed-offset or Africa/Cairo calendar policy. Cross-boundary allocation is an estimate, not a meter-provided daily register.
 - The first partial period cannot recover water consumed before its baseline. Backup state and durable checkpoints reduce loss but do not invent missing history.
 
-Sources: Node/src/app/SupmeaPeriodAccumulator.cpp:501; Node/src/devices/RTC.cpp:351
+Sources: Node/src/app/SupmeaPeriodAccumulator.cpp:503; Node/src/devices/RTC.cpp:352
 
 ## F10 Build a truthful telemetry payload
 
@@ -399,7 +400,7 @@ flowchart TD
 - Stored Status retains acquisition time/sequence, while commanded valve state and reset/power fields are current. HNDA and Sondas keep independent soil fields.
 - The existing AES-CBC envelope has no authentication tag, and its runtime IV source is not cryptographically secure. No secret key is printed in this documentation.
 
-Sources: Node/src/devices/BatteryMonitor.cpp:37; Node/src/comm/TelemetryPayload.cpp:18; Node/src/comm/PacketCodec.cpp:82
+Sources: Node/src/devices/BatteryMonitor.cpp:39; Node/src/comm/TelemetryPayload.cpp:20; Node/src/comm/PacketCodec.cpp:84
 
 ## F11 Direct MQTT receive and send priorities
 
@@ -439,7 +440,7 @@ flowchart TD
 - The application queue is bounded; this is not an unlimited offline mailbox. Returned write success is checked, including partial modem writes.
 - Modem SEND OK or MQTT QoS 0 acceptance is not server execution or persistence. History uses its additional application ACK [F25].
 
-Sources: Node/src/comm/MQTT.cpp:308; Node/src/comm/MQTT.cpp:666; Node/src/comm/PriorityPublishQueue.h:11
+Sources: Node/src/comm/MQTT.cpp:313; Node/src/comm/MQTT.cpp:677; Node/src/comm/PriorityPublishQueue.h:11
 
 ## F12 WiFi SIM connection and retry recovery
 
@@ -482,7 +483,7 @@ flowchart TD
 - A call that never returns is handled by the 30 s IWDG, not the returned-failure counter. With IWDG armed, the deliberate controller reset is itself watchdog-driven.
 - WiFi tries compiled settings first; saved flash credentials are fallback. A lengthy network outage can prevent sampling during startup/retries; continuous offline acquisition is not guaranteed.
 
-Sources: Node/src/app/IoT_Node.cpp:330; Node/src/app/NetworkRetryPolicy.h:10; Node/src/comm/MQTT.cpp:234
+Sources: Node/src/app/IoT_Node.cpp:342; Node/src/app/NetworkRetryPolicy.h:10; Node/src/comm/MQTT.cpp:239
 
 ## F13 LoRa wire transport and reassembly
 
@@ -524,7 +525,7 @@ flowchart TD
 - Physical wire maximum is 48 bytes; the current 640-byte capacity needs at most 24 fragments. Fragment ACKs confirm radio transport, not server record persistence.
 - Use matched radio settings and unique node IDs on a shared channel. Traffic can collide. E32-TTL-100 UART RSSI is unsupported, so no invented fixed dBm is used.
 
-Sources: Node/src/radio/LoraLink.cpp:1380; Node/src/radio/LoraLink.cpp:853; Node/src/radio/AS32_Config.h:78
+Sources: Node/src/radio/LoraLink.cpp:1383; Node/src/radio/LoraLink.cpp:858; Node/src/radio/AS32_Config.h:81
 
 ## F14 Gateway bridge and downlink forwarding
 
@@ -535,13 +536,13 @@ flowchart TD
   a(["Gateway loop<br/>Drain LoRa UART first"]):::term
   b{"Fragment transaction active?"}:::dec
   c["Defer MQTT work<br/>Maintain fragment turnaround"]:::proc
-  d["Service network / MQTT<br/>Receive command topics"]:::proc
+  d["Service subscribed MQTT routes<br/>Direct + regional broadcast"]:::proc
   e{"Complete uplink frame available?"}:::dec
   f["Status -&gt; /status<br/>System telemetry -&gt; /data"]:::proc
   g["Build company / region / source<br/>Publish encrypted body unchanged"]:::proc
   h["Parse direct / broadcast topic<br/>Forward radio command [F16]"]:::proc
   i{"WOR configured at gateway?<br/>Mode-1 probe before command"}:::dec
-  j(["Send command, restore Mode 0<br/>Then resume bridge / heartbeat"]):::term
+  j(["Finish bridge work<br/>Restore Mode 0 after command"]):::term
   a --> b
   b -->|Yes| c
   b -->|No| d
@@ -564,9 +565,10 @@ flowchart TD
 ```
 
 - Gateway role remains controller NORMAL. It does not poll the sensor bus or keep the leaf node SPI telemetry log.
-- The new larger storage replies require an updated gateway as well as updated nodes. Delivery to MQTT is not a substitute for server application ACK.
+- The gateway subscribes to wiot/{company}/{region}/+/cmd and wiot/{company}/{region}/broadcast. A failed write for either subscription disconnects MQTT and schedules reconnect.
+- Larger storage replies require an updated gateway as well as updated nodes. Server history persistence is confirmed by HISTORY_ACK.
 
-Sources: Node/src/app/GatewayApp.cpp:54; Node/src/comm/MQTT.cpp:361
+Sources: Node/src/app/GatewayApp.cpp:58; Node/src/comm/MQTT.cpp:371
 
 ## F15 Server command intent and delivery lifecycle
 
@@ -651,7 +653,7 @@ flowchart TD
 - GOSTM plus FLASH_STATUS / LAST / TODAY explicitly request replies even when automatic action ACKs are off. CMD14 never creates a telemetry reply.
 - Ordinary replay tracking is bounded RAM. Flash clear separately persists its most recent manual request ID; it is not an unlimited ledger of every past intent.
 
-Sources: Node/src/comm/CommandHandler.cpp:39; Node/src/comm/CommandHandler.h:35; Node/src/comm/CommandReplayCache.h:11
+Sources: Node/src/comm/CommandHandler.cpp:45; Node/src/comm/CommandHandler.h:35; Node/src/comm/CommandReplayCache.h:11
 
 ## F17 Commissioned latching valve pulse
 
@@ -691,7 +693,7 @@ flowchart TD
 - LoRa uses PC13 for AUX, so the current profile inhibits the PC13 valve output. A new pin assignment needs an explicit wiring/configuration change.
 - A completed pulse with a failed final durable save is still acknowledged as executed; RAM holds the target and reboot can recover Unknown. No WDT feeding is added inside the pulse wait.
 
-Sources: Node/src/devices/ValveController.cpp:113; Node/src/devices/ValveController.cpp:96; Node/src/config/AppConfig.h:702
+Sources: Node/src/devices/ValveController.cpp:115; Node/src/devices/ValveController.cpp:98; Node/src/config/AppConfig.h:740
 
 ## F18 Watchdog reset causes and two counters
 
@@ -732,7 +734,7 @@ flowchart TD
 - RESET-button / ST-Link software reset / planned Standby wake do not count as power resets. Deliberate WDT-based network recovery still counts as an IWDG reset.
 - Direct CMD7 clears the power count; CMD8 clears the WDT count. Readback verification, duplicate checks and ACK result expose storage failure. RTC alarms, not the WDT, schedule normal wakeups.
 
-Sources: Node/src/platform/Watchdog.cpp:124; Node/src/platform/ResetCause.h:11; Node/src/platform/WatchdogResetCounter.cpp:77
+Sources: Node/src/platform/Watchdog.cpp:126; Node/src/platform/ResetCause.h:11; Node/src/platform/WatchdogResetCounter.cpp:77
 
 ## F19 Select a supported power policy
 
@@ -774,7 +776,7 @@ flowchart TD
 - Direct SIM800 deep/queued Standby is rejected on this PCB: PWRKEY/DTR/RI are not routed. SIM may remain NORMAL while the controller uses REMOTE_WAKE.
 - STM32 Stop reception is implemented through LoRa WOR Mode 2. This does not make an arbitrary normal modem able to wake the MCU from Standby. See the combination appendix.
 
-Sources: Node/src/config/AppConfig.h:216; Node/src/power/PowerManager.cpp:1033
+Sources: Node/src/config/AppConfig.h:249; Node/src/power/PowerManager.cpp:1156
 
 ## F20 Remote wake with normal connected modem
 
@@ -811,7 +813,7 @@ flowchart TD
 - Default APP_REMOTE_WAKE_USE_APP_SCHEDULE=true uses SRATE and STRAN separately. false retains the older fixed-cycle remote policy.
 - WAKE requests an active lease of 1..86400 s; data 0 uses the configured default. Flash work/transfer guards prevent inappropriate idling; this is not RTC Standby or a modem DTR sleep implementation.
 
-Sources: Node/src/power/PowerManager.cpp:1172; Node/src/power/RemoteWakeCycle.h:72; Node/src/config/AppConfig.h:105
+Sources: Node/src/power/PowerManager.cpp:1314; Node/src/power/RemoteWakeCycle.h:72; Node/src/config/AppConfig.h:138
 
 ## F21 Periodic and queued RTC Standby
 
@@ -849,15 +851,15 @@ flowchart TD
 - ESP8266 or LoRa periodic/queued profiles require the matching radio POWER_DOWN policy. The present direct SIM800 hardware rejects this mode.
 - Queued server commands wait for the next Status; this does not make a fully sleeping modem instantly reachable. Flash write/recovery/transfer work defers Standby.
 
-Sources: Node/src/power/PowerManager.cpp:655; Node/src/power/PowerManager.cpp:759
+Sources: Node/src/power/PowerManager.cpp:754; Node/src/power/PowerManager.cpp:858
 
 ## F22 LoRa wake on radio with STM32 Stop
 
-The leaf radio listens in Mode 2 while STM32 RAM is retained in Stop. UART RX is the default wake interrupt; RTC handles heartbeat/report/retention deadlines.
+The leaf listens in Mode 2 while STM32 retains RAM in Stop. UART RX wakes for radio traffic and RTC alarms schedule due work.
 
 ```mermaid
 flowchart TD
-  a(["Report sent, command window elapsed<br/>No lease / busy transfer / write"]):::term
+  a(["Work done, receive window elapsed<br/>No lease / busy transfer / write"]):::term
   b["Enter radio Mode 2<br/>M0 LOW, M1 HIGH; verify readiness"]:::proc
   c["Arm UART RX falling-edge wake<br/>Set nearest RTC alarm; flash sleeps"]:::proc
   d{"Safe to enter Stop?<br/>Check pending edge / UART / RTC"}:::dec
@@ -865,7 +867,7 @@ flowchart TD
   f{"Wake source?<br/>Restore clocks before UART work"}:::dec
   g["UART activity: return Mode 0<br/>Receive command; data not yet proven"]:::proc
   h["RTC heartbeat: service WDT<br/>If no deadline, return to Stop"]:::proc
-  i(["Report / flash expiry due<br/>Return for scheduled work"]):::term
+  i(["SRATE / STRAN / flash expiry due<br/>Run only the due work"]):::term
   j["Activity or setup failure<br/>Stay active / preserve received bytes"]:::bad
   a --> b
   b --> c
@@ -887,9 +889,10 @@ flowchart TD
 ```
 
 - Gateway WOR TX sends a Mode-1 probe before the command. AUX remains a readiness signal; the optional legacy AUX wake selector is separate from the default UART RX path.
-- Default heartbeat is 15 s under the nominal 30 s IWDG. APP_POWER_SLEEP_SECONDS sets the WOR report deadline; heartbeat alone does not force a new sample. WDT expiry resets rather than scheduling wake.
+- APP_LORA_WOR_USE_APP_SCHEDULE=true selects independent sampling and transmission deadlines. APP_POWER_SLEEP_SECONDS controls the legacy combined WOR cycle only when that switch is false. STIME must establish trusted RTC before Stop.
+- The default 15 s RTC heartbeat services the nominal 30 s IWDG in foreground. It does not force a sensor read or routine Status. Stop residence ages the application deadlines using coherent RTC time because millis pauses. WDT expiry resets the controller.
 
-Sources: Node/src/power/PowerManager.cpp:160; Node/src/power/WorWakeInput.h:30; Node/src/radio/LoraLink.cpp:1340
+Sources: Node/src/power/PowerManager.cpp:216; Node/src/power/WorWakeInput.h:30; Node/src/radio/LoraLink.cpp:1341
 
 ## F23 Capture and commit a flash sample
 
@@ -926,7 +929,7 @@ flowchart TD
 - JEDEC 01 60 17 identifies the configured 8 MiB chip. Four RAM queue entries feed 512-byte slots with at most 472 canonical protobuf bytes each.
 - Capacity is 14,322 records. Full means stop appending and count drops, not overwrite unexpired records. A return from append means queued, not yet durable.
 
-Sources: Node/src/storage/TelemetryArchive.cpp:72; Node/src/storage/TelemetryJournal.cpp:100; Node/src/storage/S25Fl064l.cpp:40
+Sources: Node/src/storage/TelemetryArchive.cpp:80; Node/src/storage/TelemetryJournal.cpp:100; Node/src/storage/S25Fl064l.cpp:40
 
 ## F24 Flash recovery retention and clearing
 
@@ -1011,7 +1014,7 @@ flowchart TD
 - FLASH_LAST is a single original sample, not a new sensor poll. TODAY covers only the retained batch portion of the current node calendar day, not necessarily a complete day.
 - New acquisition remains allowed while download keeps the controller awake; later records are excluded from the frozen job. Server history does not feed live charts or consumption.
 
-Sources: Node/src/storage/TelemetryArchive.cpp:164; Server/flash_archive.py:74; Server/server_web.py:134
+Sources: Node/src/storage/TelemetryArchive.cpp:201; Server/flash_archive.py:74; Server/server_web.py:134
 
 ## F26 Server receive validate and store
 
@@ -1163,7 +1166,8 @@ flowchart TD
 ```
 
 - Internal firmware flash load is kept below the reserved EEPROM sector at 0x08020000. Source/docs delivery does not flash the board or prove physical operation.
-- ESP32 and STM32CubeIDE do not automatically receive Arduino STM32 updates. Keep .env, AppSecrets, private AppConfig.cpp and runtime databases out of Git.
+- Run Validate-Release.ps1 with installed tools. Commissioned bench values require the existing -UseFactoryConfigurationFixture for valve guard tests. This fixture does not edit the deployment header.
+- Keep .env, AppSecrets, private AppConfig.cpp and runtime databases out of Git. Separate firmware ports have their own release history.
 
 Sources: Validate-Release.ps1:14; regenerate_protocol.py:15; Node/SPI_FLASH_TEST_PLAN.md:1
 

@@ -2,7 +2,7 @@ flowchart TD
   a(["Loop progress checkpoint<br/>Remote idle gate if selected"]):::term
   b["Pump commands and replies<br/>MQTT or LoRa [F11 / F16]"]:::proc
   c["Advance flash state machine<br/>Check power / command priority"]:::proc
-  d{"Sample due or cycle active?"}:::dec
+  d{"Continue cycle or start sample?<br/>New cycle yields to overdue Status"}:::dec
   e["Poll one enabled sensor<br/>Finish all groups [F05-F09]"]:::proc
   f{"Complete snapshot?"}:::dec
   g["Queue canonical flash sample<br/>No half-finished sensor cycle"]:::proc

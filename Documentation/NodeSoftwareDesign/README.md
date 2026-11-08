@@ -7,23 +7,24 @@ Use it with the dated design editions below.
 [Open the updated Word design](WIOT_STM32_Node_Software_Design_V1.0.docx).
 
 The requested legacy filename is retained. The cover, identifier and revision
-history identify this edition as **V1.1, 1 November 2026**. It supersedes the
-7 October V1.0 contents and incorporates runtime release
-`f478b47ecedb108328b9befe762b24b85320c225` plus the system flowchart reference
-published in `104cf15`.
+history identify this edition as **V1.2, 7 November 2026**. It incorporates
+the reviewed runtime source at `c604aa6a5a49c61f86bada826a329dc600dac9f6`
+and the refreshed system flowchart definitions.
 
 Scope: the active Arduino STM32F401 node, its selectable LoRa gateway role, and the node/server protocol boundary. ESP32, STM32CubeIDE and server internal implementation are outside this document's scope.
 
 The document preserves the supplied EgSA organization, cover, logo and header.
-The identifier is WIOT-NOD-DDS-07-001-V1.1; reviewer/approval fields remain unassigned.
+The identifier is WIOT-NOD-DDS-07-001-V1.2. Reviewer and approval fields are unassigned.
 
-It contains **78 physical pages, 44 numbered design tables, 34 acceptance
-procedures and ten embedded flowcharts**. The diagram appendix uses A3 landscape
+It contains **45 numbered design tables, 35 acceptance procedures and ten
+embedded flowcharts**. The diagram appendix uses A3 landscape
 pages for readability; the main design remains portrait.
 
-Updated material includes regional MQTT routes, separate power/WDT counters and
-clear commands, UART RX LoRa WOR wake, RTC heartbeat/report scheduling, and the
-initial reported 9-mA assembly observation. It adds S25FL064L wiring, capacity,
+Updated material includes independent WOR sampling and transmission deadlines,
+continued Status reporting when sensors fail, direct and regional broadcast
+gateway subscriptions, and OFF, LITE and FULL diagnostics. The design covers
+separate power/WDT counters and clear commands, UART RX LoRa WOR wake, and the
+initial reported 9-mA assembly observation. It describes S25FL064L wiring, capacity,
 commit-last sample recovery, elapsed 24-hour retention, memory queries and
 acknowledged history export. All six protobuf message tables and command IDs
 1-14 match the current protocol. Packet/build budgets, module ownership and test
@@ -32,8 +33,9 @@ to the [complete thirty-chart system package](../Flowcharts/README.md).
 
 [VERIFICATION.md](VERIFICATION.md) records schema checks, Word field refresh,
 continuous numbering, retained-template layout and page-image review.
-Prior runtime regression/build results are cited as existing evidence; this
-documentation update does not claim a new hardware test run.
+The 4 November integrated regression and firmware builds supply software
+evidence. The acceptance procedures identify physical tests to perform on
+the deployed boards.
 
 ## Regeneration
 
