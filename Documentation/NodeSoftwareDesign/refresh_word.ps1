@@ -1,6 +1,6 @@
 param(
-    [string]$DocumentPath = (Join-Path $PSScriptRoot 'WIOT_STM32_Node_Software_Design_V1.0.docx'),
-    [string]$QaPdfPath = (Join-Path $PSScriptRoot 'tmp/design/word-export.pdf')
+    [string]$DocumentPath = (Join-Path $PSScriptRoot 'WIOT_STM32_Node_Software_Design_V1.2.docx'),
+    [string]$QaPdfPath = (Join-Path $PSScriptRoot 'tmp/design/word-export-v1.2.pdf')
 )
 $ErrorActionPreference = 'Stop'
 $designFile = (Resolve-Path -LiteralPath $DocumentPath).Path

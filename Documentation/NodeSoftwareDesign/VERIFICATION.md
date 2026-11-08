@@ -1,6 +1,7 @@
 # Design document verification
 
-Edition **V1.2, 7 November 2026** retains the requested V1.0 filename.
+Edition **V1.2, 7 November 2026** uses a separate file to preserve local edits
+in the earlier V1.0 filename.
 Reviewed runtime source is `c604aa6a5a49c61f86bada826a329dc600dac9f6`.
 
 | Check | Result |

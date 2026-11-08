@@ -1,7 +1,7 @@
 """Revise the retained EgSA design template against the reviewed STM32 release.
 
 Run with bundled Python. Microsoft Word refreshes fields and exports a QA PDF
-after this edit. The requested legacy filename is retained; internal revision
+after this edit. A separate filename preserves local edits in earlier editions. Revision
 1.2 supersedes the 1 November 1.1 edition. No private configuration is opened.
 """
 from pathlib import Path
@@ -18,10 +18,10 @@ from docx.oxml.ns import qn
 
 ROOT=Path(__file__).resolve().parents[2]
 HERE=Path(__file__).resolve().parent
-PATH=HERE/'WIOT_STM32_Node_Software_Design_V1.0.docx'
+PATH=HERE/'WIOT_STM32_Node_Software_Design_V1.2.docx'
 BASE='104cf15cea0a90166538d8c3fa1af61be2580e4b'
 CODE='c604aa6a5a49c61f86bada826a329dc600dac9f6'
-raw=subprocess.check_output(['git','show',BASE+':Documentation/NodeSoftwareDesign/'+PATH.name],cwd=ROOT)
+raw=subprocess.check_output(['git','show',BASE+':Documentation/NodeSoftwareDesign/WIOT_STM32_Node_Software_Design_V1.0.docx'],cwd=ROOT)
 doc=Document(BytesIO(raw))
 paras=list(doc.paragraphs); tables=list(doc.tables)
 assert len(tables)==41 and len(paras)==719
@@ -93,7 +93,7 @@ updates={
 330:'WIOT_SYSTEM_REVIEW_20261104.md records the current integrated evidence. All ten node host suites, Python server and three simulator suites, eight dashboard scripts and ten cross-component contracts passed in the development checkout and final bench folder. Gateway tests exercise both subscriptions, direct and broadcast routing, invalid scope and reconnect after a subscription failure. The commissioned valve settings require -UseFactoryConfigurationFixture for the factory guard cases.',
 331:'The 4 November matrix compiled gateway WOR, node WOR, direct SIM and direct Wi-Fi, with load sections below EEPROM sector 0x08020000. The node 3 bench profile also compiled. Doxygen generated with zero warnings. Earlier SPI verification retains journal recovery, 13 interrupted-write cases, storage-driver scenarios and 17/22/24-fragment tests. Section 6 labels historical resource measurements by date. This document refresh checks source, schema and layout. Physical acceptance uses Appendix A.',
 344:'Minimum acceptance covers identity/topic scope, four-sensor values and validity, RTC totals, Status/GOSTM, rate/time commands, valve commissioning, reset cause and both counters, 10+10 recovery, intended power wakes and ADC calibration. With SPI enabled also verify JEDEC, explicit format, sample commit/readback, elapsed retention, recovery from real power cuts and a complete acknowledged history download. Broker receipt alone cannot close these tests.',
-355:'Use the current WOR application-schedule, debug, unavailable-sensor, reset-counter, regional-topic and SPI guides with this edition. Internal revision 1.2 identifies the updated contents under the requested V1.0 filename. Vendor electrical ratings and controlled hardware acceptance remain applicable.',
+355:'Use the current WOR application-schedule, debug, unavailable-sensor, reset-counter, regional-topic and SPI guides with this edition. Revision 1.2 uses a separate filename to preserve locally edited earlier editions. Vendor electrical ratings and controlled hardware acceptance remain applicable.',
 651:'Common mapping for primary/secondary flow, independent soil data, battery, both reset counters, power and sample provenance; failed groups remain zero/invalid.',
 510:'2. Verify default UART RX falling-edge wake, clock restore, Mode 0 and matching command reply. AUX remains the ready/busy signal.',
 511:'3. Set SRATE=100 and STRAN=300 with the legacy sleep value at 20 s. Verify separate acquisitions and routine reports while 15-s RTC heartbeats continue. Then swap the rates, send GOSTM during Stop and inject pending UART activity and a radio restoration failure.',
@@ -113,7 +113,7 @@ for paragraph in paras:
 cell(tables[0].rows[4].cells[1],'V1.2 - 7 November 2026')
 row(tables[1],['01/11/2026','1.1','Current topics; two counters; UART-RX WOR; SPI sample journal/history commands; expanded schema, tests and flowcharts.'])
 row(tables[1],['07/11/2026','1.2','Independent WOR scheduling. Offline report priority. Gateway direct and broadcast subscriptions. OFF, LITE and FULL debug. Updated source evidence and diagrams.'])
-setrow(2,1,['Document identifier','WIOT-NOD-DDS-07-001-V1.2. Legacy V1.0 filename retained for existing references.'])
+setrow(2,1,['Document identifier','WIOT-NOD-DDS-07-001-V1.2. A separate V1.2 filename preserves earlier local editions.'])
 setrow(2,3,['Software baseline',CODE+'. Reviewed Arduino STM32 release, 4 November 2026. Diagram definitions refreshed 7 November 2026.'])
 row(tables[4],['R11','SPI_FLASH_TELEMETRY_GUIDE.md; SPI_FLASH_TEST_PLAN.md; src/storage/','Journal geometry, recovery, commands and physical acceptance'])
 row(tables[4],['R12','Release Documentation/Flowcharts/README.md; source_manifest.json','30 source-verified system flows; offline viewer, vector PDF and editable sources'])

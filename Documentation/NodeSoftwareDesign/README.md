@@ -4,10 +4,10 @@ The [4 November system review](../Validation/WIOT_SYSTEM_REVIEW_20261104.md)
 records the current firmware behavior, configuration and verification results.
 Use it with the dated design editions below.
 
-[Open the updated Word design](WIOT_STM32_Node_Software_Design_V1.0.docx).
+[Open the updated Word design](WIOT_STM32_Node_Software_Design_V1.2.docx).
 
-The requested legacy filename is retained. The cover, identifier and revision
-history identify this edition as **V1.2, 7 November 2026**. It incorporates
+The earlier local edition is preserved. The cover, identifier and revision
+history identify the new file as **V1.2, 7 November 2026**. It incorporates
 the reviewed runtime source at `c604aa6a5a49c61f86bada826a329dc600dac9f6`
 and the refreshed system flowchart definitions.
 

@@ -5,7 +5,7 @@ Reviewed on **7 November 2026** against runtime commit
 
 ## Current deliverables
 
-- [Word software design V1.2](../NodeSoftwareDesign/WIOT_STM32_Node_Software_Design_V1.0.docx) retains the requested legacy filename and EgSA template.
+- [Word software design V1.2](../NodeSoftwareDesign/WIOT_STM32_Node_Software_Design_V1.2.docx) preserves the EgSA template and uses a separate filename alongside the locally edited earlier edition.
 - [Editable detailed flowcharts](../Flowcharts/output/pptx/WIOT_Project_Flowcharts_Editable_20261107.pptx) contain thirty flows and command and power tables in 38 slides.
 - [Simple editable overview V2.1](../SystemOverview/output/WIOT_Software_Overview_Simple_v2.1.pptx) provides the opening architecture view and representative deployment illustration.
 - [Offline flowchart viewer](../Flowcharts/WIOT_Project_Flowcharts.html) and [printable reference](../Flowcharts/output/pdf/WIOT_Project_Flowcharts.pdf) use the same chart definitions.
