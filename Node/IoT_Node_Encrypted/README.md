@@ -1,5 +1,8 @@
 # IoT Node Encrypted
 
+For profile selection, Arduino/ST-Link flashing, recovery and twenty bench test
+groups, use the [STM32 flashing and test manual](../../Documentation/FlashingAndTesting/README.md).
+
 For the current node, gateway and server paths, start with the
 [4 November system review and two-node test](../../Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md).
 

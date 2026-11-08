@@ -3,6 +3,8 @@
 For the complete current STM32 release, package contents, retained features,
 fresh-clone setup and repeatable verification, start with [Release Guide](RELEASE_GUIDE.md).
 For the 4 November review, follow the [current system and two-node bench guide](Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md).
+For board configuration, Arduino/ST-Link flashing and step-by-step bench tests,
+use the [STM32 operator manual](Documentation/FlashingAndTesting/README.md).
 
 EgSA WIOT is an industrial IoT platform for flow and soil sensing. This
 repository contains the production STM32 Arduino node, its native
