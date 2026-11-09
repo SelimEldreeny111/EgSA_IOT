@@ -1,0 +1,21 @@
+# systemd unit (Linux server). Install the package in /opt/wiot/.venv first.
+[Unit]
+Description=WIOT Platform v2
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wiot
+WorkingDirectory=/opt/wiot
+EnvironmentFile=/opt/wiot/.env
+ExecStart=/opt/wiot/.venv/bin/python -m wiot serve
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/wiot/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

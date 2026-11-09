@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WIOT Sign In</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="/assets/theme.js"></script>
+  <link rel="stylesheet" href="/assets/vendor/leaflet.css">
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="stylesheet" href="/assets/farm.css">
+  <link rel="stylesheet" href="/assets/global.css">
+  <script src="/assets/vendor/leaflet.js"></script>
+  <script type="module" src="/assets/login.js"></script>
+</head>
+<body>
+  <div class="login-bg" id="login-bg" aria-hidden="true"></div>
+  <div class="login-attr" id="login-attr"></div>
+  <div class="login-tools"><div id="login-lang"></div><div class="login-theme" id="login-theme"></div></div>
+  <div class="login-page">
+    <form class="login-card" id="login" autocomplete="on">
+      <img src="/favicon.svg" alt="" width="52" height="52">
+      <h1>WIOT Control Center</h1>
+      <p class="dim" style="margin:0 0 20px;font-size:13px">Smart agriculture &amp; irrigation · water-IoT operations</p>
+      <div class="field"><label for="u">Username</label><input class="input" id="u" name="username" autocomplete="username" required maxlength="80"></div>
+      <div class="field"><label for="p">Password</label><input class="input" id="p" name="password" type="password" autocomplete="current-password" required maxlength="512"></div>
+      <div class="err" id="err" role="alert"></div>
+      <button class="btn primary" style="width:100%;justify-content:center;padding:10px" type="submit">Sign in</button>
+      <p class="note" style="text-align:center">Sessions are signed tokens · repeated failures are rate-limited</p>
+    </form>
+  </div>
+</body>
+</html>

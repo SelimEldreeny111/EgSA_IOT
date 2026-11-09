@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wiot-platform"
+version = "2.0.0"
+description = "EgSA WIOT water-IoT ingestion, control and analytics server"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "pyjwt>=2.8",
+  "werkzeug>=3.0",
+  "paho-mqtt>=1.6,<3",
+  "cryptography>=42",
+  "protobuf>=6.33.5,<7",
+  "tzdata",
+  "prometheus-client>=0.20",
+]
+
+[project.optional-dependencies]
+analytics = ["pandas>=2.2", "numpy>=2.0", "scikit-learn>=1.5", "xgboost>=2.1", "lightgbm>=4.5",
+             "shap>=0.46", "joblib", "matplotlib", "scipy"]
+dev = ["pytest>=8", "httpx>=0.27", "amqtt>=0.11"]
+
+[project.scripts]
+wiot = "wiot.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["wiot*"]
+
+[tool.setuptools.package-data]
+wiot = ["web/*.html", "web/assets/*", "web/assets/pages/*", "web/assets/vendor/*", "data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]

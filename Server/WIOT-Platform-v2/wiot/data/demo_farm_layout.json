@@ -1,0 +1,179 @@
+{
+ "site": {
+  "name": "East Owainat Pivot Block A",
+  "location": "East Owainat, New Valley, Egypt",
+  "center": [
+   22.25586,
+   28.719758
+  ],
+  "zoom": 14,
+  "timezone": "Africa/Cairo"
+ },
+ "agronomy": {
+  "root_zone_mm": 300,
+  "application_rate_mm_h": 6.5,
+  "pivot_flow_m3_h": 180
+ },
+ "gateways": [
+  {
+   "id": "GW-01",
+   "name": "Pump station gateway",
+   "lat": 22.248866,
+   "lon": 28.71161,
+   "backhaul": [
+    "lora",
+    "cellular",
+    "satellite"
+   ],
+   "primary": "cellular"
+  }
+ ],
+ "zones": [
+  {
+   "id": "P-08",
+   "name": "Pivot P-08",
+   "crop": "Wheat",
+   "shape": "circle",
+   "center": [
+    22.263582,
+    28.719839
+   ],
+   "radius_m": 380,
+   "node_id": 1,
+   "region": "Region_1",
+   "moisture_min": 26,
+   "moisture_max": 38,
+   "auto_irrigation": false
+  },
+  {
+   "id": "P-10",
+   "name": "Pivot P-10",
+   "crop": "Alfalfa",
+   "shape": "circle",
+   "center": [
+    22.261402,
+    28.712241
+   ],
+   "radius_m": 390,
+   "node_id": 2,
+   "region": "Region_1",
+   "moisture_min": 28,
+   "moisture_max": 40,
+   "auto_irrigation": true
+  },
+  {
+   "id": "P-12",
+   "name": "Pivot P-12",
+   "crop": "Wheat",
+   "shape": "circle",
+   "center": [
+    22.258887,
+    28.729854
+   ],
+   "radius_m": 385,
+   "node_id": 3,
+   "region": "Region_1",
+   "moisture_min": 26,
+   "moisture_max": 38,
+   "auto_irrigation": false
+  },
+  {
+   "id": "P-15",
+   "name": "Pivot P-15",
+   "crop": "Potato",
+   "shape": "circle",
+   "center": [
+    22.254363,
+    28.714779
+   ],
+   "radius_m": 387,
+   "node_id": 4,
+   "region": "Region_1",
+   "moisture_min": 30,
+   "moisture_max": 42,
+   "auto_irrigation": true
+  },
+  {
+   "id": "P-19",
+   "name": "Pivot P-19",
+   "crop": "Alfalfa",
+   "shape": "circle",
+   "center": [
+    22.249591,
+    28.724742
+   ],
+   "radius_m": 392,
+   "node_id": 5,
+   "region": "Region_1",
+   "moisture_min": 28,
+   "moisture_max": 40,
+   "auto_irrigation": false
+  },
+  {
+   "id": "P-20",
+   "name": "Pivot P-20",
+   "crop": "Wheat",
+   "shape": "circle",
+   "center": [
+    22.247335,
+    28.717093
+   ],
+   "radius_m": 384,
+   "node_id": 6,
+   "region": "Region_1",
+   "moisture_min": 26,
+   "moisture_max": 38,
+   "auto_irrigation": false
+  }
+ ],
+ "devices": [
+  {
+   "node_id": 1,
+   "region": "Region_1",
+   "lat": 22.262254,
+   "lon": 28.721274,
+   "label": "Soil probe + valve P-08",
+   "gateway": "GW-01"
+  },
+  {
+   "node_id": 2,
+   "region": "Region_1",
+   "lat": 22.260039,
+   "lon": 28.713713,
+   "label": "Soil probe + valve P-10",
+   "gateway": "GW-01"
+  },
+  {
+   "node_id": 3,
+   "region": "Region_1",
+   "lat": 22.257542,
+   "lon": 28.731307,
+   "label": "Soil probe + valve P-12",
+   "gateway": "GW-01"
+  },
+  {
+   "node_id": 4,
+   "region": "Region_1",
+   "lat": 22.253011,
+   "lon": 28.71624,
+   "label": "Soil probe + valve P-15",
+   "gateway": "GW-01"
+  },
+  {
+   "node_id": 5,
+   "region": "Region_1",
+   "lat": 22.248222,
+   "lon": 28.726222,
+   "label": "Soil probe + valve P-19",
+   "gateway": "GW-01"
+  },
+  {
+   "node_id": 6,
+   "region": "Region_1",
+   "lat": 22.245993,
+   "lon": 28.718542,
+   "label": "Soil probe + valve P-20",
+   "gateway": "GW-01"
+  }
+ ]
+}

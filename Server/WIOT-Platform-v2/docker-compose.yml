@@ -1,0 +1,26 @@
+# Local/production stack: Mosquitto broker + WIOT Platform.
+# 1) cp .env.example .env and fill secrets   2) docker compose up -d --build
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: unless-stopped
+    ports: ["1883:1883"]
+    volumes:
+      - ./deploy/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+  wiot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      WIOT_HOST: 0.0.0.0
+      WIOT_DATA_DIR: /data
+      WIOT_MQTT_HOST: mosquitto
+      WIOT_MQTT_AUTOCONNECT: "true"
+    volumes:
+      - wiot-data:/data
+    ports: ["8000:8000"]
+    depends_on: [mosquitto]
+volumes:
+  wiot-data: {}
+  mosquitto-data: {}

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+data/*
+!data/.gitkeep
+*.log
+
+# Screenshot bundle (the PNGs themselves are versioned)
+docs/*.zip
