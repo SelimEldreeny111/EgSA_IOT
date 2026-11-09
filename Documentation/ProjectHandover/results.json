@@ -1,0 +1,89 @@
+{
+  "date": "2026-11-09",
+  "runtime": "c604aa6a5a49c61f86bada826a329dc600dac9f6",
+  "documentation_base": "e508c6f99175f3d14823e44dd336cdadb9e1b8c6",
+  "node_suites": 10,
+  "python_suites": {
+    "Multi-sensor simulator": 34,
+    "TUF simulator": 20,
+    "Supmea simulator": 11,
+    "Server": 124,
+    "Cross-component contract": 10
+  },
+  "python_total": 199,
+  "dashboard_suites": 8,
+  "firmware": [
+    {
+      "profile": "normal-sim",
+      "flash_end": "0x080164F4"
+    },
+    {
+      "profile": "remote-sim",
+      "flash_end": "0x08016844"
+    },
+    {
+      "profile": "remote-wifi",
+      "flash_end": "0x080159B8"
+    },
+    {
+      "profile": "remote-lora",
+      "flash_end": "0x08014D64"
+    },
+    {
+      "profile": "rtc-wifi",
+      "flash_end": "0x0801603C"
+    },
+    {
+      "profile": "rtc-lora",
+      "flash_end": "0x08015424"
+    },
+    {
+      "profile": "queued-wifi",
+      "flash_end": "0x080160CC"
+    },
+    {
+      "profile": "queued-lora",
+      "flash_end": "0x080154B8"
+    },
+    {
+      "profile": "wor-lora",
+      "flash_end": "0x08017288"
+    },
+    {
+      "profile": "wor-lora-aux",
+      "flash_end": "0x08017154"
+    },
+    {
+      "profile": "gateway-wifi",
+      "flash_end": "0x0800BDB8"
+    },
+    {
+      "profile": "gateway-wor",
+      "flash_end": "0x0800BE28"
+    },
+    {
+      "profile": "valve-test-sim",
+      "flash_end": "0x080164FC"
+    },
+    {
+      "profile": "valve-test-wifi",
+      "flash_end": "0x08015670"
+    },
+    {
+      "profile": "normal-wifi",
+      "flash_end": "0x08015668"
+    },
+    {
+      "profile": "flash-disabled-wifi",
+      "flash_end": "0x08012F24"
+    },
+    {
+      "profile": "gateway-sim-wor",
+      "flash_end": "0x0800CCB8"
+    },
+    {
+      "profile": "final-node-3",
+      "flash_end": "0x08018C14"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WIOT project handover</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: light; --ink:#12243a; --muted:#42576c; --accent:#075e73; --line:#d6e2ee; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef4f9; color:var(--ink); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:1120px; margin:auto; padding:34px 24px 58px; }
+  header { background:#12243a; color:#f5f9ff; padding:34px; border-radius:20px; }
+  h1,h2,h3,p { margin:0 0 .6em; }
+  h1 { font-size:clamp(2rem,5vw,3.3rem); line-height:1.05; letter-spacing:-.04em; }
+  h2 { font-size:1.55rem; }
+  h3 { font-size:1.06rem; }
+  .eyebrow { color:#8beacb; font-size:.8rem; font-weight:750; letter-spacing:.12em; }
+  header p:last-of-type { color:#cedcec; max-width:72ch; }
+  nav { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+  nav a { color:#f2f9ff; background:#26435e; padding:6px 12px; border-radius:8px; }
+  section { margin-top:26px; padding:25px; background:white; border:1px solid var(--line); border-radius:17px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(245px,100%),1fr)); gap:14px; }
+  article { padding:16px; background:#f5f9fc; border:1px solid var(--line); border-radius:12px; }
+  article p, .small { color:var(--muted); font-size:.95rem; }
+  a { color:var(--accent); font-weight:650; text-underline-offset:3px; }
+  a:focus-visible { outline:3px solid #1691a8; outline-offset:4px; }
+  video, img { width:100%; display:block; border-radius:12px; }
+  video { background:#0f1b2d; aspect-ratio:16/9; }
+  figure { margin:14px 0; }
+  figcaption { margin-top:8px; color:var(--muted); }
+  .links { display:flex; gap:10px 20px; flex-wrap:wrap; margin-top:12px; }
+  footer { margin-top:24px; color:var(--muted); }
+  code { overflow-wrap:anywhere; }
+</style>
+<main>
+  <header>
+    <p class="eyebrow">EgSA WIOT · PROJECT HANDOVER · V1.0</p>
+    <h1>WIOT from field to dashboard</h1>
+    <p>System design, implementation, software verification and operator procedures for the STM32 nodes, LoRa gateway, Python server and RS485 simulators.</p>
+    <nav aria-label="Handover sections">
+      <a href="#watch">Watch</a><a href="#design">Design</a><a href="#operate">Flash and test</a><a href="#source">Implementation</a>
+    </nav>
+  </header>
+
+  <section id="watch">
+    <h2>Narrated walkthrough</h2>
+    <p>Follow a sensor reading and a server command, then see how to flash a board and collect bench evidence.</p>
+    <video controls preload="metadata" poster="../SystemOverview/output/WIOT_Software_Overview_Simple_v2.1.png" aria-label="WIOT system walkthrough">
+      <source src="WIOT_System_Walkthrough.mp4" type="video/mp4">
+      <track kind="captions" src="WIOT_System_Walkthrough.vtt" srclang="en" label="English">
+      <track kind="chapters" src="WIOT_System_Walkthrough_Chapters.vtt" srclang="en" label="Chapters">
+    </video>
+    <p class="links"><a href="WIOT_System_Walkthrough.mp4">Open video file</a><a href="WIOT_System_Walkthrough_Transcript.md">Read the chapter transcript</a></p>
+  </section>
+
+  <section id="design">
+    <h2>System design and flowcharts</h2>
+    <figure>
+      <img src="../SystemOverview/output/WIOT_Software_Overview_Simple_v2.1.png" alt="Sensors feed an STM32 node, which connects to the Python server and dashboard. Commands return through the same connection.">
+      <figcaption>Measurements travel to the dashboard. Operator commands return through the server and the selected link.</figcaption>
+    </figure>
+    <div class="grid">
+      <article><h3>System report</h3><p>Requirements, interfaces, implementation map, system analysis and acceptance evidence.</p><a href="WIOT_System_Design_Implementation_and_Test_Report.docx">Open editable Word report</a></article>
+      <article><h3>Firmware design</h3><p>Detailed STM32 module descriptions and acceptance procedures.</p><a href="../NodeSoftwareDesign/WIOT_STM32_Node_Software_Design_V1.2.docx">Open design V1.2</a></article>
+      <article><h3>Architecture overview</h3><p>Editable overview and representative deployment illustration.</p><a href="../SystemOverview/output/WIOT_Software_Overview_Simple_v2.1.pptx">Open overview PowerPoint</a></article>
+      <article><h3>Thirty detailed flows</h3><p>Search, zoom or print the full data, command, recovery, storage and power paths.</p><div class="links"><a href="../Flowcharts/WIOT_Project_Flowcharts.html">Interactive viewer</a><a href="../Flowcharts/output/pptx/WIOT_Project_Flowcharts_Editable_20261107.pptx">Editable PowerPoint</a><a href="../Flowcharts/output/pdf/WIOT_Project_Flowcharts.pdf">Printable PDF</a></div></article>
+    </div>
+  </section>
+
+  <section id="operate">
+    <h2>Flash and test</h2>
+    <div class="grid">
+      <article><h3>Operator manual</h3><p>Six board profiles, SWD wiring, Arduino settings, recovery, twenty bench test groups and a reusable test record.</p><a href="../FlashingAndTesting/WIOT_STM32_Flashing_and_Test_Manual_V1.0.docx">Open flashing and test manual</a></article>
+      <article><h3>Verification evidence</h3><p>Software test results and the boundary between host checks, firmware builds and physical acceptance.</p><a href="VERIFICATION.md">Read verification</a></article>
+      <article><h3>Bench integration</h3><p>Two LoRa nodes, one gateway, request correlation, reporting and wake checks.</p><a href="../Validation/WIOT_SYSTEM_REVIEW_20261104.md">Open two-node bench guide</a></article>
+      <article><h3>Simulator and power</h3><p>Load the four-sensor fixture and choose a supported operating policy.</p><div class="links"><a href="../../SENSORS/Multi%20Sensor%20RS485%20Simulator/README.md">RS485 simulator guide</a><a href="../PowerModes/WIOT_Power_Modes_Reference.md">Power modes reference</a></div></article>
+    </div>
+  </section>
+
+  <section id="source">
+    <h2>Implementation entry points</h2>
+    <div class="grid">
+      <article><h3>STM32 firmware and gateway</h3><p>Both roles build from the Arduino sketch. Set the role and transport in the profile header.</p><div class="links"><a href="../../Node/IoT_Node_Encrypted/IoT_Node_Encrypted.ino">Arduino sketch</a><a href="../../Node/IoT_Node_Encrypted/src/config/AppConfig.h">Profile header</a><a href="../../Node/IoT_Node_Encrypted/DOXYGEN_MAINPAGE.md">API documentation guide</a></div></article>
+      <article><h3>Server and simulator</h3><p>Python web/MQTT service and a simulated RS485 fleet.</p><div class="links"><a href="../../Server/WIOT-Server-Web%20v1.31%20-%20Fixed%20Sensor%20Readings%20in%20Dashboard/server_web.py">Server entry point</a><a href="../../SENSORS/Multi%20Sensor%20RS485%20Simulator/multi_sensor_simulator.py">Simulator entry point</a></div></article>
+      <article><h3>Release and alternate ports</h3><p>The active runtime is Arduino STM32. The separate port guides describe their own configuration and build procedures.</p><div class="links"><a href="../../RELEASE_GUIDE.md">Release guide</a><a href="../../Validate-Release.ps1">Validation script</a><a href="../../esp32/README.md">ESP32 port</a><a href="../../WIOT_STM32CubeIDE/README.md">CubeIDE port</a></div></article>
+    </div>
+  </section>
+  <footer class="small">9 November 2026 · Runtime c604aa6 · Documentation baseline e508c6f</footer>
+</main>
+</html>

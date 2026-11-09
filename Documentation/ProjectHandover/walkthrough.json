@@ -1,0 +1,120 @@
+[
+  {
+    "title": "WIOT from field to dashboard",
+    "kicker": "SYSTEM WALKTHROUGH",
+    "mode": "cover",
+    "summary": "Field measurements, remote commands and bench verification",
+    "steps": [
+      ["Overview", "WIOT brings water and soil measurements from the field to a web dashboard. This illustrated walkthrough follows the active S T M thirty-two release, from a sensor reading to a verified operator command."]
+    ]
+  },
+  {
+    "title": "Two routes to the server",
+    "kicker": "SYSTEM DESIGN",
+    "mode": "routes",
+    "steps": [
+      ["Direct MQTT", "A sensor node polls its enabled instruments on a shared R S four eighty-five bus. A direct build sends its status and data through Wi-Fi or a SIM eight hundred modem."],
+      ["LoRa gateway", "A LoRa build sends radio frames to the gateway. The gateway reassembles the message and publishes it to the same scoped M Q T T routes."],
+      ["Server and dashboard", "The Python server validates company, region and node scope, stores the reading, and shows it on the dashboard."]
+    ]
+  },
+  {
+    "title": "From sample to stored record",
+    "kicker": "FIRMWARE IMPLEMENTATION",
+    "mode": "cards",
+    "cards": [
+      ["Acquire", "Poll TUF, Supmea, HNDA and Sondas as enabled."],
+      ["Validate", "Keep quality flags with each measurement group."],
+      ["Commit", "Write completed samples to the SPI flash journal."],
+      ["Report", "Publish on the independent transmission schedule."]
+    ],
+    "steps": [
+      ["Acquire", "The sampling deadline starts a polling cycle. The node also reads battery voltage. Supmea consumption uses changes in cumulative volume and trusted clock time."],
+      ["Validate", "A failed sensor group carries zero values and invalid quality. The other groups remain usable, and the node continues reporting."],
+      ["Commit", "When the external archive is enabled, the node commits completed samples to S P I flash. The retention generation lasts twenty-four elapsed hours."],
+      ["Report", "The transmission deadline sends status, normally using the latest committed sample. Keep its acquisition time separate from the server's receipt time."]
+    ]
+  },
+  {
+    "title": "Trace a command to its outcome",
+    "kicker": "CONTROL PATH",
+    "mode": "cards",
+    "cards": [
+      ["Select target", "Use the correct company, region and node."],
+      ["Forward", "MQTT to the gateway or directly to the node."],
+      ["Execute", "The addressed node validates the request."],
+      ["Match reply", "Correlate the application reply by request ID."]
+    ],
+    "steps": [
+      ["Select target", "In the dashboard, choose the company, region and node. Send a get status telemetry request and keep the request identifier."],
+      ["Forward", "A direct node receives the broker command. On the LoRa route, the gateway listens to scoped direct commands and regional broadcasts."],
+      ["Execute", "The intended node handles the request and returns its cached measurement snapshot. Radio acknowledgements cover the individual fragments."],
+      ["Match reply", "Match the application reply on the server to the same request identifier. That reply is the evidence of node handling."]
+    ]
+  },
+  {
+    "title": "Wake for work and recover from stalls",
+    "kicker": "POWER AND RECOVERY",
+    "mode": "cards",
+    "cards": [
+      ["Commission", "Use NORMAL mode to prove the link first."],
+      ["Wake on radio", "Gateway wake probe, then UART RX wake on the leaf."],
+      ["Schedule", "RTC tracks sampling, reports and watchdog service."],
+      ["Recover", "The independent watchdog resets a stalled controller."]
+    ],
+    "steps": [
+      ["Commission", "Start with normal power mode. Confirm communications before selecting remote idle, wake on radio, or a supported standby profile."],
+      ["Wake on radio", "In wake on radio mode, the normal gateway sends a wake probe. The leaf wakes on its U A R T receive pin and processes the addressed command."],
+      ["Schedule", "The real-time clock tracks sampling and reporting deadlines separately. It also schedules watchdog service during long idle periods."],
+      ["Recover", "If foreground progress stalls, the watchdog can reset the controller. Record watchdog and power reset counters separately."]
+    ]
+  },
+  {
+    "title": "Flash the board you intend to test",
+    "kicker": "OPERATOR PROCEDURE",
+    "mode": "cards",
+    "cards": [
+      ["Choose profile", "Direct Wi-Fi, direct SIM, LoRa leaf or gateway."],
+      ["Verify", "Check the board options and export the image."],
+      ["Program", "Connect ST-Link over SWD and verify the write."],
+      ["Check boot", "Match the serial identity to the board label."]
+    ],
+    "steps": [
+      ["Choose profile", "Open the flashing manual and pick a profile. Check the node identity, role, transport, enabled sensors and power mode before compiling."],
+      ["Verify", "Verify the sketch in Arduino and export the image for the selected board."],
+      ["Program", "Use S T Link and the S W D wiring in the manual. Wait for programming and verification to complete."],
+      ["Check boot", "Open the serial log and reset the board. Match the reported role and node identifier to your label before testing the link."]
+    ]
+  },
+  {
+    "title": "Build evidence at the bench",
+    "kicker": "INTEGRATION AND ACCEPTANCE",
+    "mode": "cards",
+    "cards": [
+      ["Prove the link", "Receive Status and match a command reply."],
+      ["Exercise sensors", "Test each simulator device, then faults and recovery."],
+      ["Test storage and power", "Check RTC, history, wake and reset behavior."],
+      ["Record results", "Keep request IDs, timings, logs and measurements."]
+    ],
+    "steps": [
+      ["Prove the link", "Start with one node. Check a status and a correlated command reply. For LoRa, add the second leaf after the first path works."],
+      ["Exercise sensors", "Load the four-sensor simulator fixture. Compare values, then mute devices and verify continued reports with invalid quality."],
+      ["Test storage and power", "Synchronize the clock, check stored history, and test the selected sleep and recovery behavior on the board."],
+      ["Record results", "Capture the image, node identity, request identifiers and measured timing and current. The manual gives expected results for each test group."]
+    ]
+  },
+  {
+    "title": "Open the project handover",
+    "kicker": "PROJECT DOCUMENTATION",
+    "mode": "cards",
+    "cards": [
+      ["System report", "Design, implementation, analysis and verification."],
+      ["Operator manual", "Six build profiles and twenty bench test groups."],
+      ["Flowcharts", "Thirty detailed flows and editable PowerPoint."],
+      ["Source and evidence", "Firmware, server, simulator and release checks."]
+    ],
+    "steps": [
+      ["System report", "Use the handover index to open the system report, operator manual, editable flowcharts and source entry points. Record hardware acceptance against the deployed boards and test setup."]
+    ]
+  }
+]

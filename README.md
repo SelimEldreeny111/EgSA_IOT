@@ -1,5 +1,9 @@
 # EgSA WIOT
 
+The [project handover](Documentation/ProjectHandover/README.md) brings together
+the system report, implementation map, verification, flashing manual, editable
+flowcharts and narrated walkthrough.
+
 For the complete current STM32 release, package contents, retained features,
 fresh-clone setup and repeatable verification, start with [Release Guide](RELEASE_GUIDE.md).
 For the 4 November review, follow the [current system and two-node bench guide](Documentation/Validation/WIOT_SYSTEM_REVIEW_20261104.md).
