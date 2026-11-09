@@ -1,0 +1,65 @@
+# Runs the WIOT Platform v2 test suite whenever the server changes.
+# Linux/3.12 matches the production Docker image; Windows/3.14 matches the
+# development PC. Tests that need the live databases skip themselves here,
+# because data/ is never committed.
+name: Server v2 tests
+
+on:
+  push:
+    paths:
+      - "Server/WIOT-Platform-v2/**"
+      - ".github/workflows/server-v2-tests.yml"
+  pull_request:
+    paths:
+      - "Server/WIOT-Platform-v2/**"
+      - ".github/workflows/server-v2-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-v2-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: windows-latest
+            python: "3.14"
+    defaults:
+      run:
+        working-directory: Server/WIOT-Platform-v2
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: Server/WIOT-Platform-v2/pyproject.toml
+
+      - name: Install server with test and analytics extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,analytics]"
+
+      - name: Run tests
+        run: python -m pytest -q -rs --junitxml=pytest-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.os }}-${{ matrix.python }}
+          path: Server/WIOT-Platform-v2/pytest-results.xml
