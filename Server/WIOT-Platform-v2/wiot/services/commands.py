@@ -11,8 +11,8 @@ import threading
 import time
 from dataclasses import dataclass
 
-from ..domain.command_queue import CommandQueue
-from ..domain.flash_archive import FLASH_COMMANDS
+from ..domain.command_queue import CommandConflict, CommandQueue
+from ..domain.flash_archive import FLASH_COMMANDS, TRANSFER_IDLE_S
 from ..protocol import messages_pb2
 from ..protocol.power import WAKE_COMMAND_ID, validate_wake_seconds
 from ..protocol.topics import DEFAULT_REGION, command_topic, region_id
@@ -86,6 +86,7 @@ class CommandService:
         self.logs = logs
         self.history_writer = history_writer
         self.node_type = None  # (company, region, node) -> 'monitoring' | 'control' | None, set by the runtime
+        self.flash_transfer = None  # (company, region, node, now) -> running history download | None
         self._lock = threading.RLock()
 
     @property
@@ -153,9 +154,19 @@ class CommandService:
             raise CommandError("Broker is not connected", status=503)
         with self._lock:
             journal = self.journal
-            result = journal.enqueue(req.company, req.node_id, cmd_id, req.cmd_type, cmd_data,
-                                     ttl_seconds=req.ttl_seconds, actor=actor, delivery=req.delivery,
-                                     broadcast=req.broadcast, region=req.region)
+            exclusive = req.cmd_type in FLASH_COMMANDS and req.cmd_type != "FLASH_CANCEL"
+            if exclusive:
+                # One flash conversation per node: extra downlinks during a download collide
+                # with its per-row ACKs on the LoRa link and stall it (OI-04).
+                lock = self._transfer_lock(req.company, req.region, req.node_id, int(time.time()))
+                if lock:
+                    raise CommandError(lock["message"], status=409, lock=lock)
+            try:
+                result = journal.enqueue(req.company, req.node_id, cmd_id, req.cmd_type, cmd_data,
+                                         ttl_seconds=req.ttl_seconds, actor=actor, delivery=req.delivery,
+                                         broadcast=req.broadcast, region=req.region)
+            except CommandConflict as exc:
+                raise CommandError(str(exc), status=409, lock=self._command_lock(exc.blocking)) from exc
             request_id = result["request_id"]
             COMMANDS_SUBMITTED.labels(req.cmd_type, req.delivery).inc()
             if req.delivery == "now":
@@ -228,6 +239,38 @@ class CommandService:
 
     def _notify(self, company: str, request_id: int) -> None:
         self.hub.publish("command", {"request_id": request_id}, company=company)
+
+    # ------------------------------------------------------------ flash lock
+    def flash_lock(self, company: str, region: str, node_id: int, now: int | None = None) -> dict | None:
+        """Why a new flash command for this node would be refused right now (Cancel never is)."""
+        now = int(time.time() if now is None else now)
+        lock = self._transfer_lock(company, region, node_id, now)
+        if lock:
+            return lock
+        busy = self.journal.active_flash(company, node_id, now, region=region)
+        return self._command_lock(busy) if busy else None
+
+    def _transfer_lock(self, company: str, region: str, node_id: int, now: int) -> dict | None:
+        t = self.flash_transfer(company, region, node_id, now) if self.flash_transfer else None
+        if not t:
+            return None
+        rows = f"{t['received']}/{t['total']} rows" if t.get("total") else "preparing"
+        return {"kind": "download", "request_id": t["request"], "cmd_type": "FLASH_TODAY",
+                "received": t["received"], "total": t["total"], "since": t["updated"],
+                "until": t["updated"] + TRANSFER_IDLE_S,
+                "message": f"History download #{t['request']} is still running ({rows}); "
+                           "wait for it to finish or cancel it first"}
+
+    @staticmethod
+    def _command_lock(busy: dict) -> dict:
+        queued = busy["state"] == "pending" and busy["delivery"] == "next_wake"
+        waiting = "queued for the next wake" if queued else "waiting for the node's reply"
+        return {"kind": "queued" if queued else "command", "request_id": busy["request_id"],
+                "cmd_type": busy["cmd_type"], "state": busy["state"],
+                "since": busy.get("submitted_at") or busy["created_at"],
+                "until": busy["expires_at"] if queued else (busy.get("ack_deadline") or busy["expires_at"]),
+                "message": f"{busy['cmd_type']} #{busy['request_id']} is still {waiting}; "
+                           "send the next flash command when it finishes (Cancel is always allowed)"}
 
     # ------------------------------------------------------------------ reads
     def list(self, company: str, region: str = DEFAULT_REGION, node_id: int | None = None,

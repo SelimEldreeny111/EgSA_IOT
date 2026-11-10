@@ -50,6 +50,7 @@ function meter(segs, { marker, height = 12 } = {}) {
 export async function render(root) {
   const canSend = state.user.permissions.command;
   let node = null, metric = null, xMode = null, offset = 0, data = null, timer = null, nodes = [];
+  let lock = null, lockTimer = null, cmdTimer = null;
 
   root.innerHTML = `
     <section class="panel fl-toolbar">
@@ -68,6 +69,7 @@ export async function render(root) {
         </div>
       </div>
     </section>
+    <div class="fl-lock" id="fl-lock" role="status" aria-live="polite" hidden></div>
     <div class="tiles fl-kpis" id="fl-kpis"></div>
     <div class="grid fl-g2">
       <section class="panel"><header><h2><span class="ico">${ICONS.chip}</span>Capacity &amp; 24-hour log window</h2><span class="meta" id="fl-cap-meta"></span></header><div class="body" id="fl-cap"></div></section>
@@ -109,9 +111,38 @@ export async function render(root) {
       try {
         const r = await api("/commands", { method: "POST", body });
         toast(`${type} #${r.request_id} sent to ${nodeName(node)} — results appear here as the node replies`, "ok");
-      } catch (err) { toast(err.message, "error"); } finally { b.disabled = !canSend; }
+      } catch (err) { toast(err.message, "error"); }
+      await refreshLock();
     });
   });
+
+  // One flash conversation per node: while a download runs or a flash command awaits the
+  // node's reply, the server refuses every other flash command except Cancel.
+  function lockText(l) {
+    if (l.kind === "download") {
+      return l.total ? `History download #${l.request_id} is running — ${fmtNum(l.received, 0)}/${fmtNum(l.total, 0)} rows received. Other flash commands are paused until it finishes, stops or is cancelled.`
+        : `History download #${l.request_id} is preparing on the node. Other flash commands are paused until it finishes, stops or is cancelled.`;
+    }
+    return l.kind === "queued" ? `${l.cmd_type} #${l.request_id} is queued for the node's next wake. Other flash commands are paused until it has been answered.`
+      : `${l.cmd_type} #${l.request_id} is waiting for the node's reply. Other flash commands are paused until it answers or times out.`;
+  }
+  function paintLock() {
+    $$("[data-cmd]", root).forEach((b) => { b.disabled = !canSend || (!!lock && b.dataset.cmd !== "FLASH_CANCEL"); });
+    const el = $("#fl-lock", root);
+    clearTimeout(lockTimer);
+    if (!lock) { el.hidden = true; el.innerHTML = ""; return; }
+    const meta = lock.kind === "download" ? `Last row ${ago(lock.since)}` : lock.kind === "queued" ? `Queued ${ago(lock.since)}` : `Sent ${ago(lock.since)}`;
+    el.innerHTML = `<span class="ico">${ICONS.clock}</span><div class="txt"><b>Node busy</b><span>${esc(lockText(lock))}</span></div><span class="meta">${esc(meta)}</span>`;
+    el.hidden = false;
+    lockTimer = setTimeout(refreshLock, 5000);   // timeouts end a lock without any event
+  }
+  async function refreshLock() {
+    if (node === null) return;
+    const was = lock;
+    try { lock = (await api("/flash/lock", { params: scoped({ node_id: node }) })).lock; } catch { /* keep the last known state */ }
+    paintLock();
+    if (was && !lock) load();                    // the conversation ended: show what it produced
+  }
   if (!canSend) $(".fl-actions", root).insertAdjacentHTML("afterbegin", `<span class="badge warning">Read-only role</span>`);
 
   // ------------------------------------------------------------------ render
@@ -277,12 +308,14 @@ export async function render(root) {
     if (node === null) { $("#fl-kpis", root).innerHTML = ""; $("#fl-cap", root).innerHTML = `<div class="empty">No nodes in ${esc(state.region)} for ${esc(state.company)}</div>`; return; }
     $("#fl-csv", root).href = `/api/v2/flash/records?${new URLSearchParams({ ...scoped(), node_id: node, format: "csv" })}`;
     data = await api("/flash/analysis", { params: scoped({ node_id: node }) });
-    paintKpis(); paintCapacity(); paintQuality(); paintSeries(); paintGenerations(); paintTransfers();
+    lock = data.lock || null;
+    paintLock(); paintKpis(); paintCapacity(); paintQuality(); paintSeries(); paintGenerations(); paintTransfers();
     loadRecords();
   }
 
   // Live: every persisted flash reply (status, history row, end-of-transfer) refreshes the view.
   const off = onEvent((m) => {
+    if (m.type === "command" && m.company === state.company) { clearTimeout(cmdTimer); cmdTimer = setTimeout(refreshLock, 400); return; }
     if (m.type !== "flash" || m.company !== state.company) return;
     const ev = m.data || {};
     if (ev.Region && ev.Region !== state.region) return;
@@ -294,5 +327,5 @@ export async function render(root) {
 
   await loadNodes();
   await load();
-  return () => { off(); clearTimeout(timer); clearInterval(tick); };
+  return () => { off(); clearTimeout(timer); clearTimeout(lockTimer); clearTimeout(cmdTimer); clearInterval(tick); };
 }

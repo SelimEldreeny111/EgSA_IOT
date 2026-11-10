@@ -110,12 +110,13 @@ class FlashArchiveTests(unittest.TestCase):
 
     def test_flash_commands_are_direct_and_not_automatically_retried(self):
         queue=CommandQueue(Path(self.temp.name)/'cmd.db')
-        for cmd_id,cmd_type in [(9,'CLEAR_FLASH'),(10,'FLASH_STATUS'),(11,'FLASH_LAST'),(12,'FLASH_TODAY'),(13,'FLASH_CANCEL')]:
+        for step,(cmd_id,cmd_type) in enumerate([(9,'CLEAR_FLASH'),(10,'FLASH_STATUS'),(11,'FLASH_LAST'),(12,'FLASH_TODAY'),(13,'FLASH_CANCEL')]):
+            t=1000+100*step  # after the previous command's ACK timeout: one flash command in flight per node
             with self.assertRaises(ValueError):
-                queue.enqueue('Company_1',2,cmd_id,cmd_type,0,cmd_id,now=1000,broadcast=True)
-            queue.enqueue('Company_1',2,cmd_id,cmd_type,0,cmd_id,now=1000,delivery='now')
-            self.assertIsNotNone(queue.claim_immediate(cmd_id,now=1001))
-            self.assertIsNone(queue.claim_immediate(cmd_id,now=1017))
+                queue.enqueue('Company_1',2,cmd_id,cmd_type,0,cmd_id,now=t,broadcast=True)
+            queue.enqueue('Company_1',2,cmd_id,cmd_type,0,cmd_id,now=t,delivery='now')
+            self.assertIsNotNone(queue.claim_immediate(cmd_id,now=t+1))
+            self.assertIsNone(queue.claim_immediate(cmd_id,now=t+17))
 
 
 if __name__ == '__main__': unittest.main()

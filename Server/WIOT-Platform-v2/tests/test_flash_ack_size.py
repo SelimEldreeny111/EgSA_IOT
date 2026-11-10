@@ -24,10 +24,9 @@ def test_worst_case_ack_is_one_block(node_id):
 def test_queue_allocates_small_ids_for_flash_commands_only(tmp_path):
     q = CommandQueue(tmp_path / "c.db")
     for i in range(40):
-        r = q.enqueue("Company_1", 2, 12, "FLASH_TODAY", 0, delivery="now", now=1_800_000_000 + i)
-        assert 1 <= r["request_id"] < flash_request_limit(2)
-        q.enqueue("Company_1", 2, 13, "FLASH_CANCEL", 0, delivery="now", now=1_800_000_000 + i)
-        if i % 8 == 7:                                     # keep the per-node window from filling
-            q = CommandQueue(tmp_path / f"c{i}.db")
+        node = 2 + i                                       # one flash command in flight per node
+        r = q.enqueue("Company_1", node, 12, "FLASH_TODAY", 0, delivery="now", now=1_800_000_000 + i)
+        assert 1 <= r["request_id"] < flash_request_limit(node)
+        q.enqueue("Company_1", node, 13, "FLASH_CANCEL", 0, delivery="now", now=1_800_000_000 + i)
     other = CommandQueue(tmp_path / "v.db").enqueue("Company_1", 2, 4, "GOSTM", 0, delivery="now")["request_id"]
     assert 1 <= other <= 0xFFFFFFFF                        # non-flash commands keep the full 32-bit range

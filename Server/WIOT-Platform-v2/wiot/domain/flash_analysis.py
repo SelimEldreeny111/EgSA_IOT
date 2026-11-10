@@ -20,7 +20,7 @@ from __future__ import annotations
 import bisect
 import statistics
 
-from .flash_archive import MAX_RECORDS, RESULT_NAMES, STATE_NAMES
+from .flash_archive import MAX_RECORDS, RESULT_NAMES, STATE_NAMES, TRANSFER_IDLE_S
 
 RECORD_BYTES = 512                 # one journal slot per sample (TelemetryJournal)
 RETENTION_S = 86_400               # the node clears its log every 24 elapsed hours
@@ -60,7 +60,7 @@ def _median_gap(epochs: list[int]) -> float | None:
     return float(statistics.median(gaps)) if gaps else None
 
 
-STALL_S = 600                      # no new row for 10 min: the node gave up (ACK timeout, reboot, link)
+STALL_S = TRANSFER_IDLE_S          # no message for 6 min: the node gave up (ACK timeout, reboot, link)
 
 
 def transfer_state(t: dict, now: int | None = None) -> tuple[str, str]:

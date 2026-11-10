@@ -47,7 +47,7 @@ flowchart LR
 | Analytics | none | analysis pipeline, delivery-risk ML model, what-if scoring, pre-send risk in the command form |
 | Dashboard | single dark page | five-page control center with a **Night / Day view** toggle (header and sign-in page); follows the OS light/dark setting until chosen, remembered per browser, charts switch to a validated light palette |
 | Deployment | `python server_web.py` | `python -m wiot serve`, Docker image, docker-compose with Mosquitto, systemd unit, nginx TLS proxy |
-| Tests | per-module scripts | 90+ pytest tests incl. the ported v1 journal/flash regression suites |
+| Tests | per-module scripts | 130+ pytest checks incl. the ported v1 journal/flash regression suites; GitHub Actions CI (Ubuntu + Windows) |
 
 ## Quick start (Windows, local demo)
 
@@ -155,8 +155,9 @@ Server flowcharts F31 onward are part of `Documentation/Flowcharts/WIOT_Project_
 | GET | `/api/v2/analytics/{summary,link,power,sensors,commands,model,firmware,project}` | analysis artifacts |
 | POST | `/api/v2/analytics/predict` | what-if scoring on edited model inputs |
 | GET/POST | `/api/v2/broker`, `/broker/connect`, `/broker/disconnect` | ingestion control |
-| GET | `/api/v2/flash/status`, `/flash/records` (`format=csv`), `/flash/nodes`, `/flash/analysis` | node flash log: memory, downloaded samples, analysis |
-| WS | `/api/v2/ws` | `telemetry`, `command`, `flash`, `log`, `broker` events |
+| GET | `/api/v2/flash/status`, `/flash/records` (`format=csv`), `/flash/nodes`, `/flash/analysis`, `/flash/lock` | node flash log: memory, downloaded samples, analysis, what blocks a new flash command |
+| GET · POST | `/api/v2/alerts?status=open\|all`, `/alerts/{id}/acknowledge` | persistent fleet alerts and their summary |
+| WS | `/api/v2/ws` | `telemetry`, `command`, `flash`, `alert`, `log`, `broker` events |
 | GET | `/healthz`, `/readyz`, `/metrics` | probes and Prometheus metrics |
 
 ## Flash data (node SPI-flash log)
@@ -179,6 +180,13 @@ the log clears and starts a new *generation* every 24 elapsed hours). The **Flas
 - **Coverage per generation** (sequence gaps, completeness, spacing, how many records on the node
   are not yet downloaded), download progress and outcome (complete / stopped / stalled), valid-only
   statistics and charts per measurement, the paged record table, and a CSV export.
+- **One flash conversation per node.** While a history download is running, or a flash command is
+  still waiting for the node's reply (or queued for its next wake), the server refuses every other
+  flash command for that node with **409** and says what it is waiting for; **Cancel download** is
+  always accepted. Extra downlinks during a download collide with its per-row ACKs on the LoRa link.
+  A download counts as running until it ends, or until 6 minutes pass without a message from it
+  (the node retries a record 3 × 60 s, then its end message 3 × 60 s, before going idle). The page
+  shows a *Node busy* strip and disables the other buttons until the lock clears.
 
 ## Smart agriculture & irrigation
 
@@ -257,10 +265,11 @@ stored as SHA-256 hashes. A token can never manage users, tokens or webhooks.
 
 **Webhooks** — HTTPS POST of `{id, event, company, ts, data}` for `telemetry`, `command`,
 `automation`, `alert` and `flash` events, retried up to 3 times on worker threads. Verify each
-delivery: `X-WIOT-Signature == "sha256=" + HMAC_SHA256(secret, raw_body)`. Alerts are raised for
-node offline / back online and low battery (`WIOT_ALERT_MONITOR`, default on). Private and
-loopback destinations are refused unless `WIOT_WEBHOOK_ALLOW_PRIVATE=true` (default: allowed only
-in development).
+delivery: `X-WIOT-Signature == "sha256=" + HMAC_SHA256(secret, raw_body)`. `alert` events are
+sent once when an alert opens (`node_offline`, `low_battery`, `flow_unstable`) and once when it
+clears (`node_online`, `low_battery_resolved`, `flow_unstable_resolved`); see *Alerts* below.
+Private and loopback destinations are refused unless `WIOT_WEBHOOK_ALLOW_PRIVATE=true` (default:
+allowed only in development).
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -272,6 +281,26 @@ in development).
 | GET/POST/DELETE | `/api/v2/org/tokens[/{id}]` | API tokens |
 | GET/POST/PATCH/DELETE | `/api/v2/org/webhooks[/{id}]`, `…/{id}/test`, `…/{id}/rotate`, `…/{id}/deliveries` | webhooks |
 | GET | `/api/v2/org/world` | world view data |
+
+## Alerts
+
+The fleet monitor (`WIOT_ALERT_MONITOR`, default on) checks every node of every company once a
+minute and keeps **persistent alerts** in `iot_data.db`: at most one open alert per node and kind.
+An alert opens when its condition is first seen and resolves when it clears, so a condition that
+lasts for days, or survives a server restart, is reported once, and a node that is already silent
+when the server starts is reported too.
+
+| Kind | Severity | Opens when | Clears when |
+|---|---|---|---|
+| `node_offline` | critical | no uplink for 6 × the node's usual report interval | the node reports again |
+| `low_battery` | warning | battery below 3.3 V while reporting | battery ≥ 3.4 V |
+| `flow_unstable` | warning | within one hour, the flow reading jumps ×5 or more (both readings ≥ 1) at least 3 times and changes direction at least twice | a full hour of readings with no such jump |
+
+Pump starts and stops are one-way steps and do not trigger `flow_unstable`; real pipe flow does not
+oscillate by ×8 between uplinks, so the cause is the meter, its wiring or Modbus settings, or a
+simulator on the RS-485 port. The **Alerts** page (Operations → Alerts) lists open alerts and the
+last 7 days, and the sidebar shows the number of open alerts nobody has acknowledged yet.
+Operators (command privilege) can acknowledge an alert; it stays open until its condition clears.
 
 ## Analytics
 
@@ -294,3 +323,8 @@ pipeline from the UI. See `data/analytics/REPORT.md` for the full write-up.
 ```powershell
 .\.venv\Scripts\python -m pytest
 ```
+
+In the EgSA_IOT repository, `.github/workflows/server-v2-tests.yml` runs the same suite on every
+push or pull request that touches `Server/WIOT-Platform-v2/`: Ubuntu with Python 3.12 (the Docker
+image) and Windows with Python 3.14 (the development PC). Tests that need the live databases skip
+themselves there, because `data/` is never committed.

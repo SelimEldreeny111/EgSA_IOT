@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import admin, auth, commands, farm, operations, org, stream, telemetry
+from .api import admin, alerts, auth, commands, farm, operations, org, stream, telemetry
 from .config import Settings, get_settings
 from .logging_setup import configure_logging, request_id_var
 from .security import SESSION_COOKIE
@@ -129,7 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return _error(500, "Internal server error", request_id=request_id_var.get())
 
     # --------------------------------------------------------------- routers
-    for module in (auth, admin, telemetry, commands, farm, operations, org):
+    for module in (auth, admin, telemetry, commands, farm, operations, org, alerts):
         app.include_router(module.router, prefix=API_PREFIX)
     app.include_router(farm.public_router)
     app.include_router(stream.router, prefix=API_PREFIX)

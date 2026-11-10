@@ -206,6 +206,21 @@ const AR = {
   // ---- flash data
   "Flash data": "بيانات ذاكرة الفلاش", "Node": "العقدة", "Read status": "قراءة الحالة", "Download today": "تنزيل سجل اليوم",
   "Latest sample": "آخر عينة", "Previous": "السابق", "Cancel download": "إلغاء التنزيل", "Erase log": "مسح السجل", "Read-only role": "دور للقراءة فقط",
+  "Node busy": "العقدة مشغولة",
+  // ---- alerts
+  "Alerts": "التنبيهات", "Fleet alerts": "تنبيهات الأسطول", "Critical": "حرج", "Warning": "تحذير", "Warnings": "تحذيرات",
+  "Info": "معلومة", "Resolved": "انتهى", "Acknowledge": "إقرار", "Severity": "الخطورة", "Alert": "التنبيه", "Opened": "فُتح",
+  "Last 7 days": "آخر 7 أيام", "Open alerts": "التنبيهات المفتوحة", "Resolved in 24 h": "انتهت خلال 24 ساعة",
+  "Node silent": "العقدة صامتة", "Low battery": "بطارية منخفضة", "Flow reading unstable": "قراءة التدفق غير مستقرة",
+  "silent nodes": "عقد صامتة", "battery and flow readings": "قراءات البطارية والتدفق", "conditions that cleared": "حالات زالت",
+  "all acknowledged": "تم الإقرار بالكل", "all nodes reporting normally": "جميع العقد ترسل بشكل طبيعي",
+  "No open alerts — every node is reporting normally.": "لا توجد تنبيهات مفتوحة — جميع العقد ترسل بشكل طبيعي.",
+  "No alerts in the last 7 days.": "لا توجد تنبيهات خلال آخر 7 أيام.", "Alert acknowledged": "تم الإقرار بالتنبيه",
+  "No uplink received yet": "لم يُستلم أي إرسال بعد",
+  "Real pipe flow does not oscillate like this: check the meter, its wiring and Modbus settings":
+    "التدفق الحقيقي في الأنابيب لا يتذبذب بهذا الشكل: افحص العداد وأسلاكه وإعدادات Modbus",
+  "The server checks every node once a minute. A node is silent after six times its usual report interval without an uplink; low battery means below 3.3 V; an unstable flow reading jumps by ×5 or more, repeatedly and in both directions, within an hour. Each alert is sent to webhooks once when it opens and once when it clears. Acknowledging only records that it has been seen.":
+    "يفحص الخادم كل عقدة مرة كل دقيقة. تُعد العقدة صامتة إذا لم ترسل خلال ستة أضعاف فترة إرسالها المعتادة؛ والبطارية منخفضة إذا قلّت عن 3.3 فولت؛ وقراءة التدفق غير مستقرة إذا قفزت ×5 أو أكثر بشكل متكرر وفي الاتجاهين خلال ساعة. يُرسل كل تنبيه إلى الـ Webhooks مرة عند فتحه ومرة عند انتهائه. الإقرار يسجّل فقط أنه قد شوهد.",
   "Flash chip": "شريحة الفلاش", "Records in log": "السجلات في الذاكرة", "Storage used": "المساحة المستخدمة",
   "Samples not logged": "عينات لم تُسجَّل", "Log clears in": "يُمسح السجل بعد", "Archived on server": "المؤرشف على الخادم", "samples": "عينة",
   "Capacity & 24-hour log window": "السعة ونافذة السجل لمدة 24 ساعة", "Logging quality & gap recovery": "جودة التسجيل واستعادة الفجوات",
@@ -300,6 +315,34 @@ const PATTERNS = [
   [/^(.+) \(not used for sample records\)$/, (m) => `${m[1]} (لا تُستخدم لسجلات العينات)`],
   [/^([\d,]+) × (\d+) B slots$/, (m) => `${m[1]} خانة × ${m[2]} بايت`],
   [/^(\d+) d (\d+) h$/, (m) => `${m[1]} ي ${m[2]} س`], [/^(\d+) h (\d+) min$/, (m) => `${m[1]} س ${m[2]} د`], [/^(\d+) min$/, (m) => `${m[1]} د`],
+  // flash lock (one flash conversation per node)
+  [/^History download #(\d+) is running — ([\d,]+)\/([\d,]+) rows received\. Other flash commands are paused until it finishes, stops or is cancelled\.$/,
+    (m) => `تنزيل السجل #${m[1]} قيد التشغيل — استُلم ${m[2]}/${m[3]} صف. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى يكتمل أو يتوقف أو يُلغى.`],
+  [/^History download #(\d+) is preparing on the node\. Other flash commands are paused until it finishes, stops or is cancelled\.$/,
+    (m) => `تنزيل السجل #${m[1]} قيد التحضير على العقدة. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى يكتمل أو يتوقف أو يُلغى.`],
+  [/^(\w+) #(\d+) is waiting for the node's reply\. Other flash commands are paused until it answers or times out\.$/,
+    (m) => `${m[1]} #${m[2]} بانتظار رد العقدة. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى ترد العقدة أو تنتهي المهلة.`],
+  [/^(\w+) #(\d+) is queued for the node's next wake\. Other flash commands are paused until it has been answered\.$/,
+    (m) => `${m[1]} #${m[2]} في الانتظار حتى الاستيقاظ التالي للعقدة. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى يُرد عليه.`],
+  [/^History download #(\d+) is still running \((\d+)\/(\d+) rows\); wait for it to finish or cancel it first$/,
+    (m) => `تنزيل السجل #${m[1]} ما زال قيد التشغيل (${m[2]}/${m[3]} صف)؛ انتظر حتى يكتمل أو ألغِه أولًا`],
+  [/^History download #(\d+) is still running \(preparing\); wait for it to finish or cancel it first$/,
+    (m) => `تنزيل السجل #${m[1]} ما زال قيد التحضير؛ انتظر حتى يكتمل أو ألغِه أولًا`],
+  [/^(\w+) #(\d+) is still (waiting for the node's reply|queued for the next wake); send the next flash command when it finishes \(Cancel is always allowed\)$/,
+    (m) => `${m[1]} #${m[2]} ${m[3].startsWith("waiting") ? "ما زال بانتظار رد العقدة" : "ما زال في الانتظار حتى الاستيقاظ التالي"}؛ أرسل أمر الفلاش التالي عند انتهائه (الإلغاء متاح دائمًا)`],
+  [/^Last row (.+ ago|never)$/, (m) => `آخر صف ${translate(m[1])}`], [/^Sent (.+ ago)$/, (m) => `أُرسل ${translate(m[1])}`],
+  [/^Queued (.+ ago)$/, (m) => `أُدرج ${translate(m[1])}`],
+  // alerts
+  [/^(\d+) s$/, (m) => `${m[1]} ث`],
+  [/^(\d+) not acknowledged$/, (m) => `${m[1]} دون إقرار`],
+  [/^(\d+) open alerts? not acknowledged$/, (m) => `${m[1]} تنبيه مفتوح دون إقرار`],
+  [/^No uplink since (.+)$/, (m) => `لا إرسال منذ ${m[1]}`],
+  [/^Silent for (.+)$/, (m) => `صامتة منذ ${translate(m[1])}`], [/^Was silent for (.+)$/, (m) => `كانت صامتة لمدة ${translate(m[1])}`],
+  [/^Usually reports every (.+)$/, (m) => `ترسل عادةً كل ${translate(m[1])}`],
+  [/^Battery ([\d.]+) V — below ([\d.]+) V$/, (m) => `البطارية ${m[1]} فولت — أقل من ${m[2]} فولت`],
+  [/^Last uplink (.+)$/, (m) => `آخر إرسال ${translate(m[1])}`],
+  [/^(\d+) jumps of ×(\d+) or more in one hour \((\d+) readings\)$/, (m) => `${m[1]} قفزات بمقدار ×${m[2]} أو أكثر خلال ساعة واحدة (${m[3]} قراءة)`],
+  [/^e\.g\. (.+) → (.+)$/, (m) => `مثلًا من ${m[1]} إلى ${m[2]}`],
 ];
 
 function translate(s) {

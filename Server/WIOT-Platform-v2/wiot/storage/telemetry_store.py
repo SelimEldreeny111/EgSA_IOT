@@ -315,6 +315,17 @@ class TelemetryStore:
                 "SELECT timestamp FROM messages WHERE region=? AND node_id=? AND type IN ('Status','Telemetry') "
                 "AND timestamp BETWEEN ? AND ? ORDER BY timestamp", (region_id(region), int(node_id), int(start), int(end)))]
 
+    def flow_readings(self, company: str, region: str, node_id: int, since: int) -> dict[str, list[tuple[int, float]]]:
+        """Live flow readings since ``since``, per sensor, in arrival order: {sensor: [(t, flow)]}."""
+        out: dict[str, list[tuple[int, float]]] = {}
+        with self.connect(company) as db:
+            for t, sensor, flow in db.execute(
+                    "SELECT timestamp, sensor_id, flow FROM messages WHERE region=? AND node_id=? "
+                    "AND type IN ('Status','Telemetry') AND timestamp>=? AND flow IS NOT NULL ORDER BY id",
+                    (region_id(region), int(node_id), int(since))):
+                out.setdefault(str(sensor), []).append((int(t), float(flow)))
+        return out
+
     def regions(self, company: str) -> list[str]:
         with self.connect(company) as db:
             found = {r[0] for r in db.execute("SELECT DISTINCT region FROM messages")}

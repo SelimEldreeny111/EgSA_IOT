@@ -24,7 +24,15 @@ MAX_PENDING_PER_NODE = 32
 RETRYABLE = ('SRATE', 'STRAN')
 DESIRED_VALUES = ('SRATE', 'STRAN', 'STIME', 'VALVE')
 FLASH_CMD_IDS = range(9, 14)          # CLEAR_FLASH .. FLASH_CANCEL
+FLASH_CANCEL_ID = 13                  # always accepted: it is how an operator stops a download
 AES_BLOCK = 16
+
+
+class CommandConflict(ValueError):
+    """The node is busy with another command of the same family; nothing was queued."""
+    def __init__(self, message, blocking):
+        super().__init__(message)
+        self.blocking = blocking
 
 
 def _varint_len(value: int) -> int:
@@ -238,6 +246,14 @@ class CommandQueue:
             request_id = integer(request_id, 1, 0xFFFFFFFF, 'Request ID')
             if db.execute("SELECT 1 FROM pending_commands WHERE request_id=?", (request_id,)).fetchone():
                 raise ValueError('Request ID already exists')
+            if cmd_id in FLASH_CMD_IDS and cmd_id != FLASH_CANCEL_ID:
+                busy = self._active_flash(db, company, region, node_id)
+                if busy:
+                    waiting = ('queued for the next wake' if busy['state'] == 'pending' and busy['delivery'] == 'next_wake'
+                               else "waiting for the node's reply")
+                    raise CommandConflict(f"{busy['cmd_type']} #{busy['request_id']} is still {waiting}; "
+                                          "send the next flash command when it finishes (Cancel is always allowed)",
+                                          busy)
             if cmd_type in DESIRED_VALUES:
                 scope = "" if broadcast else " AND node_id=?"
                 params = [company, region, cmd_id] + ([] if broadcast else [node_id])
@@ -261,6 +277,25 @@ class CommandQueue:
                  int(broadcast), now, now + ttl_seconds, now))
             self._event(db, request_id, 'accepted', now, delivery)
         return {'request_id': request_id, 'expires_at': now + ttl_seconds, 'node_id': target, 'region': region}
+
+    @staticmethod
+    def _active_flash(db, company, region, node_id):
+        row = db.execute("""SELECT request_id,cmd_type,state,delivery,created_at,submitted_at,ack_deadline,expires_at
+            FROM pending_commands WHERE company=? AND region=? AND node_id=? AND cmd_id BETWEEN 9 AND 13
+            AND state IN ('pending','dispatched','waiting_retry','broadcast_partial')
+            ORDER BY id DESC LIMIT 1""", (company, region, node_id)).fetchone()
+        return dict(row) if row else None
+
+    def active_flash(self, company, node_id, now=None, *, region=DEFAULT_REGION):
+        """The newest flash command for this node that has not finished yet, or None."""
+        company_id(company)
+        region_id(region)
+        node_id = integer(node_id, 1, 65535, 'Node ID')
+        now = int(time.time() if now is None else now)
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self._refresh(db, now)
+            return self._active_flash(db, company, region, node_id)
 
     def _claim(self, db, row, now):
         attempt = row['attempts'] + 1

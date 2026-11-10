@@ -109,8 +109,25 @@ def flash_analysis(node_id: int = Query(1, ge=1, le=65535), company: str | None 
     if records:
         pad = 3600
         live = runtime.telemetry.receive_times(tenant, reg, node_id, records[0]["epoch"] - pad, records[-1]["epoch"] + pad)
-    result = analyse_flash(archive.summary(tenant, reg, node_id), records, live, int(time.time()))
-    return {"company": tenant, "region": reg, "node_id": node_id, **result}
+    now = int(time.time())
+    result = analyse_flash(archive.summary(tenant, reg, node_id), records, live, now)
+    return {"company": tenant, "region": reg, "node_id": node_id, **result,
+            "lock": runtime.commands.flash_lock(tenant, reg, node_id, now)}
+
+
+@router.get("/flash/lock", tags=["flash"])
+def flash_lock(node_id: int = Query(1, ge=1, le=65535), company: str | None = None,
+               region: str | None = None, principal: Principal = Depends(authenticate),
+               runtime: Runtime = Depends(get_runtime)):
+    """Whether a new flash command for this node would be refused now, and why.
+
+    Only one flash conversation runs per node: a running history download or a flash
+    command still waiting for the node's reply blocks every flash command except Cancel.
+    """
+    tenant = resolve_company(principal, company, runtime)
+    reg = resolve_region(region)
+    return {"company": tenant, "region": reg, "node_id": node_id,
+            "lock": runtime.commands.flash_lock(tenant, reg, node_id)}
 
 
 @router.get("/flash/records", tags=["flash"])

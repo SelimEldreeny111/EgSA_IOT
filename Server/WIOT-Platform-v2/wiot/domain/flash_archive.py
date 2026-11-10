@@ -18,6 +18,10 @@ MAX_RECORDS = 14322
 STATE_NAMES = ['Disabled', 'Missing', 'Unformatted', 'Recovering', 'Ready', 'Full', 'Fault']
 RESULT_NAMES = ['OK', 'Empty', 'Not ready', 'Time untrusted', 'Cancelled',
                 'Retention changed', 'ACK timeout', 'Read/encode failure', 'Busy']
+# The node retries an unacknowledged record 3 x 60 s, then its end message 3 x 60 s
+# (APP_FLASH_HISTORY_MAX_ATTEMPTS x APP_FLASH_HISTORY_ACK_TIMEOUT_MS) before going idle.
+# A download with no new message for longer than this is over even if its end was lost.
+TRANSFER_IDLE_S = 2 * 3 * 60
 
 
 class FlashArchive:
@@ -155,6 +159,20 @@ class FlashArchive:
         return {'memory': json.loads(status['info']) if status else None,
                 'received_at': status['received'] if status else None,
                 'transfers': [dict(row) for row in transfers]}
+
+    def active_transfer(self, company, region, node, now=None):
+        """The history download still running on this node, or None.
+
+        Running = announced or receiving (phase 1-2), not rejected, and heard from
+        within TRANSFER_IDLE_S. Finished, cancelled and abandoned downloads are not.
+        """
+        scope = self.scope(company, region, node)
+        now = int(time.time() if now is None else now)
+        with closing(self._db()) as db:
+            row = db.execute('SELECT * FROM flash_transfers WHERE company=? AND region=? AND node=? '
+                             'AND complete=0 AND phase<3 AND result=0 AND updated>=? '
+                             'ORDER BY updated DESC LIMIT 1', (*scope, now - TRANSFER_IDLE_S)).fetchone()
+        return dict(row) if row else None
 
     def records(self, company, region, node, limit=200, offset=0):
         scope = self.scope(company, region, node)

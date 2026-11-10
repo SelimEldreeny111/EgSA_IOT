@@ -1,11 +1,10 @@
-"""Outbound webhooks and fleet alerts.
+"""Outbound webhooks.
 
-* :class:`WebhookService` listens to the realtime hub and POSTs matching events to each
-  company's webhooks. Bodies are JSON and signed: ``X-WIOT-Signature: sha256=<hex HMAC of the
-  raw body with the webhook secret>``. Deliveries run on worker threads with retries, so
-  MQTT ingestion is never blocked by a slow receiver.
-* :class:`AlertMonitor` checks every fleet once a minute and publishes ``alert`` events when a
-  node goes offline, comes back, or reports a low battery.
+:class:`WebhookService` listens to the realtime hub and POSTs matching events to each
+company's webhooks. Bodies are JSON and signed: ``X-WIOT-Signature: sha256=<hex HMAC of the
+raw body with the webhook secret>``. Deliveries run on worker threads with retries, so
+MQTT ingestion is never blocked by a slow receiver. Fleet alerts (``alert`` events) come
+from :mod:`wiot.services.alerts`.
 """
 from __future__ import annotations
 
@@ -30,7 +29,6 @@ log = logging.getLogger(__name__)
 HUB_TO_WEBHOOK = {"telemetry": "telemetry", "command": "command", "automation": "automation",
                   "alert": "alert", "flash": "flash"}
 RETRY_DELAYS = (0, 2, 8)
-LOW_BATTERY_V = 3.3
 
 
 def sign(secret: str, body: bytes) -> str:
@@ -142,61 +140,3 @@ class WebhookService:
         with self._lock:
             return list(self.recent.get(hook_id, ()))
 
-
-class AlertMonitor:
-    """Publishes ``alert`` hub events on node link-state transitions and low battery."""
-
-    def __init__(self, telemetry, org: OrgStore, hub, companies, interval: float = 60.0):
-        self.telemetry, self.org, self.hub, self.companies = telemetry, org, hub, companies
-        self.interval = interval
-        self.state: dict[tuple, str] = {}
-        self.low_battery_at: dict[tuple, float] = {}
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-
-    def start(self) -> None:
-        self._thread = threading.Thread(target=self._loop, name="alert-monitor", daemon=True)
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stop.set()
-
-    def _loop(self) -> None:
-        while not self._stop.wait(self.interval if self.state else 5):
-            try:
-                self.check()
-            except Exception:  # pragma: no cover
-                log.exception("Alert monitor failed")
-
-    def check(self) -> list[dict]:
-        fired = []
-        first = not self.state
-        for company in self.companies():
-            regions = sorted(set(self.telemetry.regions(company)) | set(self.org.region_ids(company)))
-            for region in regions:
-                for node in self.telemetry.fleet(company, region):
-                    key = (company, region, node["node_id"])
-                    link = node.get("link_state", "offline")
-                    before = self.state.get(key)
-                    self.state[key] = link
-                    alert = None
-                    if not first and before and before != link:
-                        if link == "offline":
-                            alert = {"kind": "node_offline", "severity": "critical"}
-                        elif before == "offline":
-                            alert = {"kind": "node_online", "severity": "info"}
-                    battery = node.get("battery_voltage")
-                    if link != "offline" and battery and 0 < battery < LOW_BATTERY_V and \
-                            time.time() - self.low_battery_at.get(key, 0) > 86400:
-                        self.low_battery_at[key] = time.time()
-                        if not first:
-                            fired.append(self._fire(company, region, node, {"kind": "low_battery", "severity": "warning",
-                                                                            "battery_v": battery}))
-                    if alert:
-                        fired.append(self._fire(company, region, node, alert))
-        return fired
-
-    def _fire(self, company: str, region: str, node: dict, alert: dict) -> dict:
-        data = {**alert, "region": region, "node_id": node["node_id"], "last_seen": node.get("timestamp")}
-        self.hub.publish("alert", data, company=company)
-        return data

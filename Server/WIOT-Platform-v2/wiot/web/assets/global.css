@@ -145,6 +145,19 @@ table.data td.wrap .chip { margin: 1px 0; }
 .fl-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .fl-actions .btn { display: inline-flex; align-items: center; gap: 7px; height: 34px; }
 .fl-actions .btn svg { width: 15px; height: 15px; }
+.fl-actions .btn:disabled { cursor: not-allowed; }
+/* "Node busy" strip: one flash conversation per node (Cancel stays available). */
+.fl-lock { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 11px 16px; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); background: var(--warn-bg); }
+.fl-lock[hidden] { display: none; }
+.fl-lock > .ico { width: 30px; height: 30px; padding: 6px; border-radius: 8px; flex: none; color: var(--warn-ink);
+  background: color-mix(in srgb, var(--warning) 16%, transparent); }
+.fl-lock > .ico svg { width: 100%; height: 100%; }
+.fl-lock .txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 13px; line-height: 1.45; }
+.fl-lock .txt b { color: var(--warn-ink); font-weight: 600; }
+.fl-lock .txt span { color: var(--text-2); }
+.fl-lock .meta { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .fl-lock { flex-wrap: wrap; } .fl-lock .meta { width: 100%; padding-inline-start: 42px; } }
 .fl-kpis { margin-bottom: 16px; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); }
 .tile.warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: var(--warn-bg); }
 .fl-state { font-size: 13px; padding: 3px 10px; vertical-align: 3px; }
@@ -179,3 +192,34 @@ table.data td.wrap .chip { margin: 1px 0; }
 .fl-chart-tools { margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
 .fl-g2.fl-gt { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
 @media (max-width: 1250px) { .fl-g2.fl-gt { grid-template-columns: minmax(0, 1fr); } }
+
+/* =====================================================================
+   Alerts page + sidebar count
+   ===================================================================== */
+.al-kpis { margin-bottom: 16px; }
+.panel > header .al-view { margin-inline-start: auto; }
+.tile.crit { border-color: color-mix(in srgb, var(--critical) 40%, transparent); background: var(--bad-bg); }
+.al-table td { vertical-align: top; }
+.al-sev { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; white-space: nowrap; color: var(--text-2); }
+.al-sev i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.al-sev.critical { color: var(--bad-ink); } .al-sev.critical i { background: var(--critical); }
+.al-sev.warning { color: var(--warn-ink); } .al-sev.warning i { background: var(--warning); }
+.al-sev.info { color: var(--info-ink); } .al-sev.info i { background: var(--info-ink); }
+.al-what { display: flex; align-items: flex-start; gap: 10px; min-width: 300px; }
+.al-what .ico { width: 28px; height: 28px; padding: 6px; border-radius: 8px; flex: none; color: var(--text-2); background: var(--inset); border: 1px solid var(--line); }
+.al-what .ico svg { width: 100%; height: 100%; display: block; }
+.al-what b { display: block; font-weight: 600; color: var(--text); }
+.al-what span { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-2); }
+.al-what small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.al-sub { margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+tr.al-done td { opacity: .7; }
+.rail a.nav .nav-count { margin-inline-start: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center;
+  font: 700 11px/1 var(--sans); font-style: normal; color: #fff; background: var(--warning); font-variant-numeric: tabular-nums; }
+.rail a.nav .nav-count[data-level="critical"] { background: var(--critical); }
+.rail a.nav .nav-count[hidden] { display: none; }
+.shell.collapsed .rail a.nav .nav-count { position: absolute; top: 3px; inset-inline-end: 6px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px;
+  box-shadow: 0 0 0 2px var(--sidebar-bg, #0b1220); }
+@media (max-width: 1440px) {
+  .shell:not(.expanded) .rail a.nav .nav-count { position: absolute; top: 3px; inset-inline-end: 6px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px;
+    box-shadow: 0 0 0 2px var(--sidebar-bg, #0b1220); } }
+@media (max-width: 700px) { .rail a.nav .nav-count { position: absolute; top: 2px; inset-inline-end: 2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; } }

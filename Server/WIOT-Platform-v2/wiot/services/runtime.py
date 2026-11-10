@@ -6,6 +6,7 @@ import time
 
 from ..config import Settings
 from ..security import LoginThrottle
+from ..storage.alert_store import AlertStore
 from ..storage.main_store import MainStore
 from ..storage.org_store import OrgStore
 from ..storage.telemetry_store import TelemetryStore
@@ -15,7 +16,8 @@ from .commands import CommandService
 from .farm import FarmService, FarmStore, WeatherClient
 from .ingest import IngestService
 from .realtime import LogBuffer, RealtimeHub
-from .webhooks import AlertMonitor, WebhookService
+from .alerts import AlertMonitor
+from .webhooks import WebhookService
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ class Runtime:
             history_writer=self._write_command_history)
         self.ingest = IngestService(self.telemetry, self.commands, self.hub, self.logs,
                                     settings.flash_db, self.main.company_names)
+        self.commands.flash_transfer = self.ingest.flash.active_transfer  # one flash conversation per node
         self.analytics = AnalyticsService(settings, self.telemetry)
         self.farm = FarmService(settings, FarmStore(settings.main_db), self.telemetry, WeatherClient(settings))
         self.farm.commands, self.farm.logs, self.farm.hub, self.farm.audit = (
@@ -46,7 +49,8 @@ class Runtime:
         self.webhooks = WebhookService(self.org, allow_private=settings.env == "development" if allow_private is None
                                        else allow_private)
         self.hub.listeners.append(self.webhooks.on_event)
-        self.alerts = AlertMonitor(self.telemetry, self.org, self.hub, self.main.company_names)
+        self.alert_store = AlertStore(settings.main_db)
+        self.alerts = AlertMonitor(self.telemetry, self.org, self.hub, self.main.company_names, self.alert_store)
         self.throttle = LoginThrottle(settings.login_max_attempts, settings.login_window_seconds)
 
     def _on_plaintext(self, topic: str, plaintext: bytes) -> None:
@@ -61,6 +65,7 @@ class Runtime:
         s.data_dir.mkdir(parents=True, exist_ok=True)
         self.main.init_schema()
         self.org.init_schema()
+        self.alert_store.init_schema()
         created = self.main.bootstrap_users(
             s.admin_password.get_secret_value() if s.admin_password else None,
             s.supervisor_password.get_secret_value() if s.supervisor_password else None,

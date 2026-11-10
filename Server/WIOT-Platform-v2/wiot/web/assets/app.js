@@ -7,6 +7,7 @@ import * as farm from "./pages/farm.js";
 import * as world from "./pages/world.js";
 import * as org from "./pages/org.js";
 import * as overview from "./pages/overview.js";
+import * as alerts from "./pages/alerts.js";
 import * as commands from "./pages/commands.js";
 import * as analytics from "./pages/analytics.js";
 import * as history from "./pages/history.js";
@@ -17,6 +18,7 @@ const ROUTES = {
   farm: { mod: farm, label: "Smart farm", icon: ICONS.farm, group: "Operations" },
   world: { mod: world, label: "World operations", icon: ICONS.world, group: "Operations" },
   overview: { mod: overview, label: "Fleet overview", icon: ICONS.overview, group: "Operations" },
+  alerts: { mod: alerts, label: "Alerts", icon: ICONS.bell, group: "Operations" },
   commands: { mod: commands, label: "Command center", icon: ICONS.commands, group: "Operations" },
   analytics: { mod: analytics, label: "Data science", icon: ICONS.analytics, group: "Insights" },
   history: { mod: history, label: "Message history", icon: ICONS.history, group: "Insights" },
@@ -40,6 +42,7 @@ async function boot() {
   renderTopbar();
   connectStream();
   onEvent((m) => { if (m.type === "broker" || m.type === "hello") paintBroker(); });
+  onEvent((m) => { if (m.type === "alert" && m.company === state.company) { clearTimeout(alertTimer); alertTimer = setTimeout(refreshAlertCount, 600); } });
   addEventListener("hashchange", route);
   addEventListener("wiot:goto", (e) => gotoSite(e.detail));
   route();
@@ -83,7 +86,7 @@ function renderRail() {
   let group = "", nav = "";
   for (const [k, r] of visible) {
     if (r.group !== group) { group = r.group; nav += `<div class="sb-group">${esc(group)}</div>`; }
-    nav += `<a class="nav" href="#/${k}" data-route="${k}" data-tip="${esc(r.label)}" aria-label="${esc(r.label)}">${r.icon}<span>${esc(r.label)}</span></a>`;
+    nav += `<a class="nav" href="#/${k}" data-route="${k}" data-tip="${esc(r.label)}" aria-label="${esc(r.label)}">${r.icon}<span>${esc(r.label)}</span>${k === "alerts" ? `<i class="nav-count" id="nav-alerts" hidden></i>` : ""}</a>`;
   }
   const initials = u.username.replace(/[^A-Za-z0-9]/g, " ").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "U";
   rail.innerHTML = `<div class="sb-brand"><img src="/favicon.svg" alt=""><div><b>WIOT</b><span>Control Center</span></div></div>${nav}
@@ -100,6 +103,19 @@ function renderRail() {
   });
   setSidebar(localStorageGet("wiot.sidebar"), false);
   markActive();
+  refreshAlertCount();
+}
+// Sidebar count of open, unacknowledged alerts for the selected company (red if any is critical).
+let alertTimer = null;
+async function refreshAlertCount() {
+  const el = $("#nav-alerts"); if (!el) return;
+  try {
+    const s = (await api("/alerts", { params: { company: state.company, limit: 1 } })).summary;
+    el.hidden = !s.unacknowledged;
+    el.textContent = s.unacknowledged > 99 ? "99+" : String(s.unacknowledged);
+    el.dataset.level = s.critical ? "critical" : "warning";
+    el.title = `${s.unacknowledged} open alert${s.unacknowledged === 1 ? "" : "s"} not acknowledged`;
+  } catch { /* the badge is best-effort */ }
 }
 function setSidebar(mode, persist = true) {
   const shell = document.querySelector(".shell");
@@ -129,7 +145,7 @@ function renderTopbar() {
       <div id="pill-theme">${themeToggleHtml()}</div>
       <div id="pill-lang">${langToggleHtml()}</div>
     </div>`;
-  $("#sel-company")?.addEventListener("change", async (e) => { await switchCompany(e.target.value); renderTopbar(); route(); });
+  $("#sel-company")?.addEventListener("change", async (e) => { await switchCompany(e.target.value); renderTopbar(); route(); refreshAlertCount(); });
   $("#sel-region").addEventListener("change", (e) => { state.region = e.target.value; renderTopbar(); route(); });
   bindThemeToggle();
   $$("#lang-toggle [data-lang]").forEach((b) => b.addEventListener("click", () => switchLang(b.dataset.lang)));
