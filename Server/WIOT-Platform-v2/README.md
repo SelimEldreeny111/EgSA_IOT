@@ -131,6 +131,11 @@ All settings are environment variables with the `WIOT_` prefix (see
 
 ## Documentation
 
+**Developers and agents start with [`docs/HANDOFF.md`](docs/HANDOFF.md)** (rules, architecture, run / test / commit,
+domain facts, open issues, roadmap), then [`docs/CHANGELOG.md`](docs/CHANGELOG.md) (everything done, by date) and the
+generated references in [`docs/reference/`](docs/reference) (API, configuration, CLI, database schemas, code map,
+tests, events and metrics; regenerate with `.venv\Scripts\python docs\tools\gen_reference.py`).
+
 The release documents live in `Documentation/ServerSoftware/` (Word + PDF, built from the
 Markdown sources there with `python build_docs.py`, which drives Microsoft Word):
 
