@@ -61,6 +61,9 @@ device reports a fault and needs investigation, not guessed register writes.
 #ifndef APP_FLASH_SPI_HZ
 #define APP_FLASH_SPI_HZ 4000000UL       // start at 4 MHz on the bench
 #endif
+#ifndef APP_FLASH_RETENTION_SECONDS
+#define APP_FLASH_RETENTION_SECONDS 86400UL // 24 hours; 0 for manual clear only
+#endif
 #ifndef APP_FLASH_HISTORY_ACK_TIMEOUT_MS
 #define APP_FLASH_HISTORY_ACK_TIMEOUT_MS 60000UL
 #endif
@@ -130,15 +133,34 @@ integer precision loss and use a new request ID. The generation must still exist
 The normal menu starts at record one. A fresh full download is safe because the
 server deduplicates records already received.
 
-## 24-hour retention and “today”
+## Configurable retention and “today”
 
-Clearing is **every 24 elapsed hours**, not midnight. A batch starting at 14:20
-expires around 14:20 next day. Persisted UTC start survives resets; power removal
-does not deliberately restart the timer. If RTC trust is lost, capture and
-time-based erase wait for STIME. Following a long outage, expired records clear
-after recovery and trusted time become available. A forward time correction can
-expire a batch sooner. Backward time blocks capture/automatic erase until it
-catches up or an operator starts a new generation with CLEAR_FLASH.
+Set `APP_FLASH_RETENTION_SECONDS` in `src/config/AppConfig.h`, then compile and
+upload the node sketch. The default is 86,400 seconds (24 elapsed hours). A batch
+starting at 14:20 expires at 14:20 the next day with that setting.
+
+| Value | Automatic clear interval |
+| ---: | --- |
+| `300UL` | 5 minutes |
+| `21600UL` | 6 hours |
+| `86400UL` | 24 hours (default) |
+| `172800UL` | 48 hours |
+| `0UL` | Manual clear only, using CLEAR_FLASH |
+
+The saved UTC batch start survives reset and power loss. After an upload, the
+node applies the new interval to the existing start. A shorter interval can
+make the existing batch expire as soon as recovery finishes with trusted time.
+Download any records you need before shortening retention.
+
+Send FLASH_STATUS to see the next clear time. When the archive is ready and
+automatic clearing is disabled, `next_clear_epoch` is zero. Deadlines beyond the
+STM32 RTC calendar (end of 2099) also have no scheduled clear. With a long interval
+or manual clearing, the log can reach its 14,322-record capacity. It preserves
+stored records and drops new samples until a clear frees space.
+
+If RTC trust is lost, capture and automatic erase wait for STIME. A forward
+time correction can expire a batch sooner. Backward time blocks capture and
+automatic erase until it catches up or CLEAR_FLASH starts a new generation.
 
 TODAY filters the **retained batch** with the existing node calendar/timezone.
 It may not contain a whole day's records because earlier ones expired or were

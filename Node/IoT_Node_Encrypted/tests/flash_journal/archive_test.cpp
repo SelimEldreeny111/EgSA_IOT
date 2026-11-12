@@ -106,7 +106,17 @@ int main(int argc,char** argv){
         Status_Message s=Status_Message_init_zero;assert(TelemetryArchive::storedStatus(s));
         assert(s.timestamp==epoch&&s.stored_sample&&s.sample_sequence==2&&s.secondary_flow_meter.flow_rate==35);
         assert(TelemetryArchive::prepareSleep()&&FlashModel::asleep);TelemetryArchive::resume();assert(!FlashModel::asleep);
-        if(scenario=="capture"){
+        if(scenario=="manual-clear-only"){
+            epoch += 86401;
+            steps();
+            const auto memory = status().flash_log;
+            assert(memory.next_clear_epoch == 0 && memory.generation == 1 && memory.record_count == 2);
+            assert(!TelemetryArchive::maintenanceDue(epoch) && TelemetryArchive::storedStatus(s));
+            assert(TelemetryArchive::handle(cmd(11, 12), false));
+            assert(TelemetryArchive::handle(cmd(9, 13), false));
+            steps();
+            assert(status().flash_log.generation == 2 && status().flash_log.record_count == 0);
+        }else if(scenario=="capture"){
             Telemetry t=Telemetry_init_zero;auto c=cmd(11,12);assert(TelemetryArchive::handle(c,false));TelemetryArchive::reply(c,t,true);
             assert(t.history.kind==1&&t.history.sequence==2&&t.command_ack_success);
             auto clear=cmd(9,13);assert(TelemetryArchive::handle(clear,false));steps();
@@ -128,7 +138,23 @@ int main(int argc,char** argv){
                 assert(!TelemetryArchive::handle(cmd(14,24,(uint64_t(2)<<32)|1),false));
                 uint8_t bytes[640];size_t n=0;assert(!TelemetryArchive::packet(bytes,sizeof(bytes),n));
                 if(scenario=="cancel"){assert(TelemetryArchive::handle(cmd(13,26),false));auto end=packet();assert(end.history.result==4);TelemetryArchive::published(true);ack(end);}
-                else if(scenario=="retention"){epoch+=86400;steps();auto end=packet();assert(end.history.result==5);TelemetryArchive::published(true);ack(end);assert(status().flash_log.record_count==0);}
+                else if(scenario=="retention"){
+                    const auto memory = status().flash_log;
+                    const uint32_t deadline = memory.retention_started_epoch + 120U;
+                    assert(memory.next_clear_epoch == deadline && TelemetryArchive::expiry() == deadline);
+                    epoch = deadline - 1;
+                    steps();
+                    assert(!TelemetryArchive::maintenanceDue(epoch) && status().flash_log.record_count == 2);
+                    ++epoch;
+                    trusted = false;
+                    assert(TelemetryArchive::expiry() == 0 && !TelemetryArchive::maintenanceDue(epoch));
+                    assert(status().flash_log.next_clear_epoch == 0);
+                    trusted = true;
+                    assert(TelemetryArchive::maintenanceDue(epoch));
+                    steps();
+                    auto end=packet();assert(end.history.result==5);TelemetryArchive::published(true);ack(end);
+                    assert(status().flash_log.record_count == 0 && TelemetryArchive::expiry() == deadline + 120U);
+                }
                 else if(scenario=="timeout"){
                     for(unsigned i=0;i<2;++i){FlashModel::now+=60000;steps(1);auto retry=packet();assert(retry.history.sequence==first.history.sequence);TelemetryArchive::published(false);}
                     FlashModel::now+=60000;steps(1);auto end=packet();assert(end.history.result==6);TelemetryArchive::published(true);ack(end);

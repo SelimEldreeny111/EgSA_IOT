@@ -15,7 +15,7 @@ repository contains the production STM32 Arduino node, its native
 STM32CubeIDE/HAL port, an independent ESP32 port, the Python server, sensor
 simulators, documentation, and software requirement specifications.
 
-The 30 October STM32 update adds [external SPI telemetry logging and history download](Node/IoT_Node_Encrypted/SPI_FLASH_TELEMETRY_GUIDE.md), with elapsed 24-hour retention and scoped server archives. See its [bench acceptance plan](Node/IoT_Node_Encrypted/SPI_FLASH_TEST_PLAN.md).
+The 30 October STM32 update adds [external SPI telemetry logging and history download](Node/IoT_Node_Encrypted/SPI_FLASH_TELEMETRY_GUIDE.md), with configurable elapsed retention and scoped server archives. See its [bench acceptance plan](Node/IoT_Node_Encrypted/SPI_FLASH_TEST_PLAN.md).
 
 The [complete software flowchart reference](Documentation/Flowcharts/README.md)
 maps the node, gateway, server and simulators in 30 source-verified charts,

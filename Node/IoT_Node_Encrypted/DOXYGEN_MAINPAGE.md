@@ -141,8 +141,9 @@ See REGIONAL_MQTT_TOPICS_GUIDE.md for the company/region/node contract, migratio
 
 Completed sampling cycles are queued to the S25FL064L journal. Normal reports
 use the latest committed sample, preserving its acquisition time and source flags;
-operational valve/reset/power fields remain current. Elapsed 24-hour retention
-survives resets. Direct clear/status/last/today/cancel commands and scoped server
+operational valve/reset/power fields remain current. The node applies
+`APP_FLASH_RETENTION_SECONDS` to the saved batch start across resets. The default
+is 24 hours. Use zero for manual clearing only. Direct clear/status/last/today/cancel commands and scoped server
 persistence ACKs provide bounded retrieval. Flash is asleep before controller
 Stop/Standby, and writes/recovery/transfers defer sleep.
 

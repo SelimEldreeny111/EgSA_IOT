@@ -845,7 +845,7 @@ async function sendCommand(broadcast, suppressToast = false) {
     };
     if (['CLEAR_FLASH','FLASH_STATUS','FLASH_LAST','FLASH_TODAY','FLASH_CANCEL'].includes(data.cmd_type)) {
         if (broadcast) { showToast('Flash commands must target one node.', 'danger'); return; }
-        if (data.cmd_type === 'CLEAR_FLASH' && !window.confirm(`Clear stored telemetry on Node ${nodeValue}? This starts a new 24-hour log and cannot be undone.`)) return;
+        if (data.cmd_type === 'CLEAR_FLASH' && !window.confirm(`Clear stored telemetry on Node ${nodeValue}? This starts a new log and cannot be undone.`)) return;
         data.cmd_data = 0;
     }
     if (['CLEAR_POWER_RESETS', 'CLEAR_WDT_RESETS'].includes(data.cmd_type)) {

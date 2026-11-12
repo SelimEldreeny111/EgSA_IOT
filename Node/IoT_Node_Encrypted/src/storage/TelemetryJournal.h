@@ -1,4 +1,4 @@
-/** @file TelemetryJournal.h @brief CRC/commit-last telemetry log with durable 24-hour generations. */
+/** @file TelemetryJournal.h @brief CRC/commit-last telemetry log with configurable elapsed retention. */
 #ifndef WIOT_TELEMETRY_JOURNAL_H
 #define WIOT_TELEMETRY_JOURNAL_H
 #include "NorFlash.h"
@@ -22,10 +22,11 @@ struct Info {
 /** @brief Fixed-memory journal. Call step repeatedly; flash waits are represented as states. */
 class TelemetryJournal {
 public:
-    static constexpr uint32_t Sector=4096, Slot=512, SlotsPerSector=7, Retention=86400;
+    static constexpr uint32_t Sector=4096, Slot=512, SlotsPerSector=7;
     /** @brief Bind exclusive flash ownership and immutable geometry/node identity.
-     * @param flash NOR implementation. @param bytes Physical capacity. @param node Payload owner. */
-    TelemetryJournal(NorFlash& flash, uint32_t bytes, uint32_t node);
+     * @param flash NOR implementation. @param bytes Physical capacity. @param node Payload owner.
+     * @param retentionSeconds Elapsed seconds per generation. Zero enables manual clearing only. */
+    TelemetryJournal(NorFlash& flash, uint32_t bytes, uint32_t node, uint32_t retentionSeconds);
     /** @brief Select the newest valid metadata copy, then recover cooperatively.
      * @return True for identified flash, including Unformatted; never auto-formats unknown data. */
     bool begin();
@@ -54,8 +55,8 @@ public:
     bool busy() const;
     /** @brief Ready and Full both permit retained-record reads. */
     bool ready() const { return info_.state==State::Ready || info_.state==State::Full; }
-    /** @brief Persisted batch start + 86,400 seconds; zero before recovery completes. */
-    uint32_t expiry() const { return ready() ? info_.startedEpoch+Retention : 0; }
+    /** @brief Deadline from the saved batch start, or zero if there is no schedulable expiry. */
+    uint32_t expiry() const;
     /** @brief Consumed physical slots, including torn records that must not be reused. */
     uint32_t occupiedSlots() const { return next_; }
 private:
@@ -63,6 +64,7 @@ private:
         SectorBody, SectorCommit, RecordPage1, RecordPage2, RecordCommit, SweepErase };
     NorFlash& flash_;
     Info info_;
+    const uint32_t retentionSeconds_;
     uint32_t node_, dataSectors_, revision_=0, metaCopy_=1, startSector_=0, next_=0, latest_=0;
     uint32_t scan_=0, sweep_=0, sweepPage_=0, operationAddress_=0;
     bool sweeping_=false, changingGeneration_=false, pendingClear_=false;

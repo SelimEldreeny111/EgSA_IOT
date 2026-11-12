@@ -5,6 +5,7 @@ namespace WiotStorage {
 namespace {
 constexpr uint32_t MetaMagic=0x574D5431, SectorMagic=0x57535431, RecordMagic=0x57524331;
 constexpr uint32_t Commit=0x434D4954, Version=1;
+constexpr uint32_t LastRtcEpoch = 4102444799UL; // STM32RTC calendar ends in 2099.
 bool erased(const uint8_t* p, size_t n) { while(n--) if(*p++!=0xFF) return false; return true; }
 }
 uint32_t read32(const uint8_t* p) { return uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24); }
@@ -14,7 +15,8 @@ uint32_t crc32(const uint8_t* p,size_t n) {
     while(n--) { c^=*p++; for(unsigned i=0;i<8;++i)c=(c>>1)^(0xEDB88320U & (0U-(c&1U))); }
     return ~c;
 }
-TelemetryJournal::TelemetryJournal(NorFlash& f,uint32_t bytes,uint32_t node):flash_(f),node_(node) {
+TelemetryJournal::TelemetryJournal(NorFlash& f, uint32_t bytes, uint32_t node, uint32_t retentionSeconds)
+    : flash_(f), retentionSeconds_(retentionSeconds), node_(node) {
     info_.capacity=bytes; dataSectors_=bytes/Sector>2 ? bytes/Sector-2 : 0;
     info_.maximumRecords=dataSectors_*SlotsPerSector;
 }
@@ -75,8 +77,13 @@ bool TelemetryJournal::append(const uint8_t* p,uint16_t n,uint32_t epoch,uint32_
     Record& r=pending_[(queueHead_+queueCount_)%4];r.length=n;r.epoch=epoch;r.day=day;
     memcpy(r.payload,p,n);++queueCount_;return true;
 }
+uint32_t TelemetryJournal::expiry() const {
+    if (!ready() || !retentionSeconds_ || info_.startedEpoch > LastRtcEpoch ||
+        retentionSeconds_ > LastRtcEpoch - info_.startedEpoch) return 0;
+    return info_.startedEpoch + retentionSeconds_;
+}
 bool TelemetryJournal::requestClear(uint32_t id,uint32_t epoch,bool trusted) {
-    if(!trusted || epoch<1704067200U || epoch>UINT32_MAX-Retention || info_.state==State::Missing || info_.state==State::Disabled ||
+    if(!trusted || epoch<1704067200U || epoch>LastRtcEpoch || info_.state==State::Missing || info_.state==State::Disabled ||
         info_.state==State::Fault || revision_==UINT32_MAX || info_.generation==UINT32_MAX)return false;
     if(id && id==info_.lastClearRequest)return true;
     if(pendingClear_)return id==pendingRequest_;
@@ -180,7 +187,11 @@ void TelemetryJournal::step(uint32_t epoch,bool trusted) {
     if(pendingClear_){dropPending();issueMeta(true,pendingEpoch_,pendingRequest_);return;}
     if(info_.state==State::Recovering){recoverOne();return;}
     if(!ready())return;
-    if(trusted && epoch>=info_.startedEpoch && epoch-info_.startedEpoch>=Retention){requestClear(0,epoch,true);return;}
+    const uint32_t deadline = expiry();
+    if (trusted && deadline && epoch >= deadline) {
+        requestClear(0, epoch, true);
+        return;
+    }
     if(queueCount_){
         if(next_>=info_.maximumRecords){dropPending();info_.state=State::Full;return;}
         const uint32_t address=dataAddress(next_+1);

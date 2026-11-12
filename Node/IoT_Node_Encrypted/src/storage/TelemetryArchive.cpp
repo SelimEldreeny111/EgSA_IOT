@@ -18,7 +18,8 @@ namespace {
 using namespace WiotStorage;
 S25Fl064l chip(AppConfig::kFlashMosiPin,AppConfig::kFlashMisoPin,AppConfig::kFlashSckPin,
     AppConfig::kFlashCsPin,AppConfig::kFlashSpiHz,AppConfig::kFlashExpectedJedec);
-TelemetryJournal journal(chip,AppConfig::kFlashCapacityBytes,AppConfig::kNodeId);
+TelemetryJournal journal(chip, AppConfig::kFlashCapacityBytes, AppConfig::kNodeId,
+    AppConfig::kFlashRetentionSeconds);
 uint32_t skipped=0,lastProbe=0; ///< RAM diagnostics and missing-chip retry deadline.
 bool initialized=false;
 /** @brief Stop-and-wait transfer states; only packet()/published() perform a send attempt. */
@@ -36,7 +37,10 @@ struct Download {
 /** @brief Refuse default/untrusted time and clocks behind the persisted batch start. */
 bool timeUsable(){return isRtcTrusted()&&(!journal.ready()||getEpochTime()>=journal.info().startedEpoch);}
 /** @brief Permit reads only from the recovered, unexpired, trusted generation. */
-bool retained(){return journal.ready()&&timeUsable()&&getEpochTime()<journal.expiry();}
+bool retained(){
+    const uint32_t deadline = journal.expiry();
+    return journal.ready() && timeUsable() && (!deadline || getEpochTime() < deadline);
+}
 /** @brief Preserve the transfer identity while preparing a terminal result. */
 void finish(uint32_t result){
     APP_LOG_INFO("history_terminal request=%lu index=%lu total=%lu result=%lu",
@@ -57,9 +61,10 @@ void describe(FlashLogInfo& info){
     info.maximum_records=s.maximumRecords;info.usable_bytes=s.maximumRecords*512U;
     info.used_bytes=journal.occupiedSlots()*512U;info.free_bytes=info.usable_bytes-info.used_bytes;
     info.record_count=s.records;info.generation=s.generation;info.latest_sequence=s.lastSequence;
-    info.retention_started_epoch=s.startedEpoch;info.next_clear_epoch=journal.expiry();
+    info.retention_started_epoch=s.startedEpoch;info.rtc_trusted=timeUsable();
+    info.next_clear_epoch=info.rtc_trusted ? journal.expiry() : 0;
     info.clear_sectors_remaining=s.clearRemaining;info.dropped_samples=s.dropped+skipped;
-    info.corrupt_records=s.corrupt;info.busy=journal.busy();info.rtc_trusted=timeUsable();
+    info.corrupt_records=s.corrupt;info.busy=journal.busy();
 }
 /** @brief Attach frozen request/generation/index/count data to a record or control packet. */
 void history(Telemetry& t,uint32_t kind,uint32_t phase,uint32_t result,bool ack){
@@ -72,9 +77,10 @@ void history(Telemetry& t,uint32_t kind,uint32_t phase,uint32_t result,bool ack)
 }
 void begin(){
     initialized=true;lastProbe=millis();journal.begin();
-    APP_LOG_INFO("probe jedec=0x%06lX state=%u capacity_bytes=%lu retention_seconds=86400",
+    APP_LOG_INFO("probe jedec=0x%06lX state=%u capacity_bytes=%lu retention_seconds=%lu",
         static_cast<unsigned long>(chip.jedec()), static_cast<unsigned>(journal.info().state),
-        static_cast<unsigned long>(journal.info().capacity));
+        static_cast<unsigned long>(journal.info().capacity),
+        static_cast<unsigned long>(AppConfig::kFlashRetentionSeconds));
     if(journal.info().state==State::Unformatted)APP_DEBUG_PRINTLN("Flash log requires direct CLEAR_FLASH after STIME; existing data is not auto-formatted");
 }
 void capture(){
@@ -270,8 +276,14 @@ void published(bool success){
 bool writePending(){return initialized&&journal.busy();}
 bool blocking(){return initialized&&(journal.busy()||download.state!=Transfer::Idle);}
 bool transferring(){return initialized&&download.state!=Transfer::Idle;}
-bool maintenanceDue(uint32_t epoch){return initialized&&journal.ready()&&isRtcTrusted()&&epoch>=journal.expiry();}
-uint32_t expiry(){return initialized?journal.expiry():0;}
+bool maintenanceDue(uint32_t epoch){
+    const uint32_t deadline = expiry();
+    return deadline && epoch >= deadline;
+}
+uint32_t expiry(){
+    const uint32_t deadline = initialized ? journal.expiry() : 0;
+    return deadline && isRtcTrusted() ? deadline : 0;
+}
 bool prepareSleep(){return !blocking()&&(journal.info().state==State::Missing||journal.info().state==State::Fault||chip.sleep());}
 void resume(){if(initialized)chip.wake();}
 }

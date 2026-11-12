@@ -30,6 +30,10 @@ $wakeConfigCases = @(
     @{Name='flash-enabled'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_SPI_FLASH='true'}; Error=$null},
     @{Name='flash-disabled'; Modem='USE_ESP8266'; Defines=@{APP_ENABLE_SPI_FLASH='false'}; Error=$null},
     @{Name='reject-flash-enable'; Modem='USE_SIM800'; Defines=@{APP_ENABLE_SPI_FLASH='2'}; Error='APP_ENABLE_SPI_FLASH must'},
+    @{Name='flash-short-retention'; Modem='USE_SIM800'; Defines=@{APP_FLASH_RETENTION_SECONDS='300UL'}; Error=$null},
+    @{Name='flash-manual-clear-only'; Modem='USE_SIM800'; Defines=@{APP_FLASH_RETENTION_SECONDS='0UL'}; Error=$null},
+    @{Name='reject-flash-negative-retention'; Modem='USE_SIM800'; Defines=@{APP_FLASH_RETENTION_SECONDS='-1'}; Error='APP_FLASH_RETENTION_SECONDS must'},
+    @{Name='reject-flash-overflow-retention'; Modem='USE_SIM800'; Defines=@{APP_FLASH_RETENTION_SECONDS='4294967296ULL'}; Error='APP_FLASH_RETENTION_SECONDS must'},
     @{Name='reject-flash-speed'; Modem='USE_SIM800'; Defines=@{APP_FLASH_SPI_HZ='12000001UL'}; Error='APP_FLASH_SPI_HZ must'},
     @{Name='reject-flash-ack-timeout'; Modem='USE_SIM800'; Defines=@{APP_FLASH_HISTORY_ACK_TIMEOUT_MS='9999UL'}; Error='APP_FLASH_HISTORY_ACK_TIMEOUT_MS must'},
     @{Name='reject-flash-ack-attempts'; Modem='USE_SIM800'; Defines=@{APP_FLASH_HISTORY_MAX_ATTEMPTS='0U'}; Error='APP_FLASH_HISTORY_MAX_ATTEMPTS must'},
@@ -82,11 +86,12 @@ try {
     if ($LASTEXITCODE -ne 0 -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_WATCHDOG_TIMEOUT_US 30000000UL\s*$' -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_NETWORK_RETRIES_PER_STAGE 10U\s*$' -or
+        $wakeConfigProductionMacros -notmatch '(?m)^#define APP_FLASH_RETENTION_SECONDS 86400UL\s*$' -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_LORA_WOR_USE_APP_SCHEDULE true\s*$' -or
         $wakeConfigProductionMacros -notmatch '(?m)^#define APP_LORA_WOR_WAKE_SOURCE APP_LORA_WOR_WAKE_SOURCE_UART_RX\s*$') {
-        throw 'Expected production defaults: 30-second watchdog, 10 retries, UART_RX WOR wake and app scheduling'
+        throw 'Expected production defaults: 30-second watchdog, 10 retries, 24-hour flash retention, UART_RX WOR wake and app scheduling'
     }
-    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10; WOR UART_RX wake and app scheduling'
+    Write-Host 'PASS production defaults: watchdog 30 seconds; network retries 10 + 10; 24-hour flash retention; WOR UART_RX wake and app scheduling'
     foreach ($wakeConfigCase in $wakeConfigCases) {
         $wakeConfigDefines = $wakeConfigDefaults.Clone()
         foreach ($wakeConfigName in $wakeConfigCase.Defines.Keys) {

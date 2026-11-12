@@ -42,7 +42,7 @@ bool transferring();
 bool writePending();
 /** @brief Test the trusted retention deadline for an early RTC maintenance wake. */
 bool maintenanceDue(uint32_t epoch);
-/** @brief Return the recovered persisted expiry, or zero before recovery. */
+/** @brief Return the next trusted maintenance deadline, or zero when none is scheduled. */
 uint32_t expiry();
 /** @brief Enter flash deep power-down if idle; missing/faulted hardware cannot block controller sleep. */
 bool prepareSleep();

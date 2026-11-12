@@ -156,6 +156,10 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #ifndef APP_FLASH_SPI_HZ
 #define APP_FLASH_SPI_HZ 4000000UL
 #endif
+#ifndef APP_FLASH_RETENTION_SECONDS
+// Elapsed seconds from the saved batch start. Use 0 for manual clear only.
+#define APP_FLASH_RETENTION_SECONDS 86400UL
+#endif
 #ifndef APP_FLASH_HISTORY_ACK_TIMEOUT_MS
 #define APP_FLASH_HISTORY_ACK_TIMEOUT_MS 60000UL
 #endif
@@ -167,6 +171,9 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #endif
 #if APP_FLASH_SPI_HZ < 100000UL || APP_FLASH_SPI_HZ > 12000000UL
 #error "APP_FLASH_SPI_HZ must be 100000..12000000"
+#endif
+#if APP_FLASH_RETENTION_SECONDS < 0 || APP_FLASH_RETENTION_SECONDS > 0xFFFFFFFFUL
+#error "APP_FLASH_RETENTION_SECONDS must be 0..4294967295 seconds"
 #endif
 #if APP_FLASH_HISTORY_ACK_TIMEOUT_MS < 10000UL || APP_FLASH_HISTORY_ACK_TIMEOUT_MS > 300000UL
 #error "APP_FLASH_HISTORY_ACK_TIMEOUT_MS must be 10000..300000"
@@ -760,6 +767,7 @@ constexpr uint32_t kFlashMosiPin=PA7, kFlashMisoPin=PA6, kFlashSckPin=PA5, kFlas
 constexpr uint32_t kFlashSpiHz=APP_FLASH_SPI_HZ;
 constexpr uint32_t kFlashExpectedJedec=0x016017UL;
 constexpr uint32_t kFlashCapacityBytes=8UL*1024UL*1024UL;
+constexpr uint32_t kFlashRetentionSeconds = APP_FLASH_RETENTION_SECONDS;
 constexpr uint32_t kFlashHistoryAckTimeoutMs=APP_FLASH_HISTORY_ACK_TIMEOUT_MS;
 constexpr uint8_t kFlashHistoryMaxAttempts=APP_FLASH_HISTORY_MAX_ATTEMPTS;
 

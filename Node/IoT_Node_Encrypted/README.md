@@ -10,7 +10,7 @@ For the current node, gateway and server paths, start with the
 `APP_ENABLE_DEBUG=true` plus `APP_DEBUG_LITE=true` selects compact command and
 telemetry logs. Set lite false for full detail, or the master false for silence.
 
-30 October update: [S25FL064L telemetry log, storage commands and 24-hour elapsed retention](SPI_FLASH_TELEMETRY_GUIDE.md), with [step-by-step acceptance tests](SPI_FLASH_TEST_PLAN.md). Update the LoRa gateway as well as nodes for larger storage replies.
+30 October update: [S25FL064L telemetry log, storage commands and configurable elapsed retention](SPI_FLASH_TELEMETRY_GUIDE.md), with [step-by-step acceptance tests](SPI_FLASH_TEST_PLAN.md). Update the LoRa gateway as well as nodes for larger storage replies.
 
 29 October update: [LoRa WOR wake using the UART RX pin](LORA_WOR_RX_WAKE_GUIDE.md).
 

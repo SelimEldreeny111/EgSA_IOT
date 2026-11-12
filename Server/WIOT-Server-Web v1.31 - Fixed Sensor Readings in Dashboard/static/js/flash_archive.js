@@ -3,11 +3,14 @@
     'use strict';
     function memoryText(info) {
         if (!info) return 'No flash status received. Send FLASH_STATUS to the node.';
+        const nextClear = info.next_clear_epoch
+            ? `Next automatic clear (UTC): ${new Date(info.next_clear_epoch * 1000).toISOString()}.`
+            : 'No automatic clear scheduled.';
         return `${info.state_name}: ${info.record_count} / ${info.maximum_records} frames; ` +
             `${info.used_bytes} bytes occupied, ${info.free_bytes} free, ${info.capacity_bytes} total. ` +
             `Generation ${info.generation}; erase sectors remaining: ${info.clear_sectors_remaining}. ` +
             `Dropped samples: ${info.dropped_samples}; corrupt records: ${info.corrupt_records}. ` +
-            `RTC trusted: ${info.rtc_trusted ? 'yes' : 'no'}.`;
+            `RTC trusted: ${info.rtc_trusted ? 'yes' : 'no'}. ${nextClear}`;
     }
     function transferText(t) {
         if (!t) return 'No download transfer received.';

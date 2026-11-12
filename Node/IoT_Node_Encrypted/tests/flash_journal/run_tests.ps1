@@ -22,13 +22,17 @@ try {
         (Join-Path $flashRoot 'src/third_party/nanopb/pb_encode.c'),
         (Join-Path $flashRoot 'src/third_party/nanopb/pb_decode.c'),
         (Join-Path $flashRoot 'src/generated/sensor.pb.c'),
-        (Join-Path $PSScriptRoot 'archive_test.cpp'),'-o',(Join-Path $flashBuild 'archive.exe'))
-    & $flashCompiler @flashArgs
+        (Join-Path $PSScriptRoot 'archive_test.cpp'))
+    & $flashCompiler @flashArgs '-o' (Join-Path $flashBuild 'archive.exe')
     if($LASTEXITCODE -ne 0){throw 'Flash archive compile failed'}
     foreach($flashCase in @('driver','missing','capture','download','timeout','cancel','retention','resume','empty')){
         & (Join-Path $flashBuild 'archive.exe') $flashCase
         if($LASTEXITCODE -ne 0){throw "Flash archive regression: $flashCase"}
     }
+    & $flashCompiler @flashArgs '-DAPP_FLASH_RETENTION_SECONDS=0UL' '-o' (Join-Path $flashBuild 'archive-manual.exe')
+    if($LASTEXITCODE -ne 0){throw 'Manual-clear-only archive compile failed'}
+    & (Join-Path $flashBuild 'archive-manual.exe') 'manual-clear-only'
+    if($LASTEXITCODE -ne 0){throw 'Manual-clear-only archive regression'}
     & $flashCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' `
         '-I' (Join-Path $PSScriptRoot 'fakes') '-include' (Join-Path $PSScriptRoot 'fakes/LoraConfig.h') `
         (Join-Path $PSScriptRoot 'lora_large_frame_test.cpp') '-o' (Join-Path $flashBuild 'lora.exe')
