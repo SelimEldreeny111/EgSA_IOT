@@ -20,6 +20,18 @@ MAX_TTL_SECONDS = 604800
 RETRY_SECONDS = 15
 MAX_ATTEMPTS = 3
 ACK_TIMEOUT_SECONDS = 30
+# Reply deadline by the node's power mode (wire values of protocol.power). Measured on the
+# journal of Oct-Nov 2026: p99 ACK latency NORMAL 21 s, REMOTE_WAKE 58 s, LORA_WOR_STOP 69 s
+# (max 153 s). A later reply still completes an 'outcome_unknown' command.
+ACK_TIMEOUT_BY_MODE = {1: 30, 2: 60, 3: 60, 4: 60, 5: 90}
+
+
+def ack_timeout_for(power_mode) -> int:
+    """ACK deadline in seconds for a node last seen in ``power_mode`` (30 s when unknown)."""
+    try:
+        return ACK_TIMEOUT_BY_MODE.get(int(power_mode), ACK_TIMEOUT_SECONDS)
+    except (TypeError, ValueError):
+        return ACK_TIMEOUT_SECONDS
 MAX_PENDING_PER_NODE = 32
 RETRYABLE = ('SRATE', 'STRAN')
 DESIRED_VALUES = ('SRATE', 'STRAN', 'STIME', 'VALVE')
@@ -297,20 +309,21 @@ class CommandQueue:
             self._refresh(db, now)
             return self._active_flash(db, company, region, node_id)
 
-    def _claim(self, db, row, now):
+    def _claim(self, db, row, now, ack_timeout=None):
         attempt = row['attempts'] + 1
         # STIME is refreshed once on first dispatch, then is never automatically retried.
         data = now if row['cmd_type'] == 'STIME' and attempt == 1 else row['cmd_data']
+        timeout = int(ack_timeout or ACK_TIMEOUT_SECONDS)
         db.execute("""UPDATE pending_commands SET state='dispatched',cmd_data=?,attempts=?,
             submitted_at=?,ack_deadline=?,next_attempt_at=?,reason='',outcome_uncertain=1
-            WHERE request_id=?""", (data, attempt, now, now + ACK_TIMEOUT_SECONDS,
+            WHERE request_id=?""", (data, attempt, now, now + timeout,
                                    now + RETRY_SECONDS, row['request_id']))
         db.execute("INSERT INTO command_attempts(request_id,attempt,submitted_at) VALUES(?,?,?)",
                    (row['request_id'], attempt, now))
         self._event(db, row['request_id'], 'submitted', now, f'attempt={attempt}')
         return dict(db.execute("SELECT * FROM pending_commands WHERE request_id=?", (row['request_id'],)).fetchone())
 
-    def claim_on_status(self, company, node_id, now=None, *, region=DEFAULT_REGION):
+    def claim_on_status(self, company, node_id, now=None, *, region=DEFAULT_REGION, ack_timeout=None):
         """One command per Status. Operator VALVE > fresh pending > bounded retry."""
         now = int(time.time() if now is None else now)
         with self._db() as db:
@@ -324,16 +337,16 @@ class CommandQueue:
                 ORDER BY CASE WHEN cmd_type='VALVE' THEN 0 ELSE 1 END,
                          CASE WHEN attempts=0 THEN 0 ELSE 1 END,id LIMIT 1""",
                 (company, region_id(region), node_id, now, now, MAX_ATTEMPTS)).fetchone()
-            return self._claim(db, row, now) if row else None
+            return self._claim(db, row, now, ack_timeout) if row else None
 
-    def claim_immediate(self, request_id, now=None):
+    def claim_immediate(self, request_id, now=None, ack_timeout=None):
         now = int(time.time() if now is None else now)
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._refresh(db, now)
             row = db.execute("""SELECT * FROM pending_commands
                 WHERE request_id=? AND delivery='now' AND state='pending'""", (request_id,)).fetchone()
-            return self._claim(db, row, now) if row else None
+            return self._claim(db, row, now, ack_timeout) if row else None
 
     def confirm_publish(self, request_id, attempt, now=None):
         """PUBACK belongs to one attempt, even if its node ACK arrived first."""
@@ -392,6 +405,14 @@ class CommandQueue:
             self._event(db, request_id, 'node_ack' if success else 'node_rejected', now,
                         json.dumps({'node_id': node_id, 'late': bool(late)}))
             return True
+
+    def lookup(self, request_id, company, node_id, *, region=DEFAULT_REGION):
+        """(request_id, cmd_id, cmd_type) of a journaled command, or None; read-only, no refresh."""
+        with self._db() as db:
+            row = db.execute("SELECT request_id, cmd_id, cmd_type FROM pending_commands WHERE request_id=? "
+                             "AND company=? AND region=? AND node_id=?",
+                             (int(request_id), company, region_id(region), int(node_id))).fetchone()
+        return dict(row) if row else None
 
     def get(self, request_id, company, node_id, now=None, *, region=DEFAULT_REGION):
         now = int(time.time() if now is None else now)

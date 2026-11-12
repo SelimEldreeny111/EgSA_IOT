@@ -17,6 +17,7 @@ from .farm import FarmService, FarmStore, WeatherClient
 from .ingest import IngestService
 from .realtime import LogBuffer, RealtimeHub
 from .alerts import AlertMonitor
+from .clocksync import ClockSync
 from .webhooks import WebhookService
 
 log = logging.getLogger(__name__)
@@ -50,7 +51,14 @@ class Runtime:
                                        else allow_private)
         self.hub.listeners.append(self.webhooks.on_event)
         self.alert_store = AlertStore(settings.main_db)
-        self.alerts = AlertMonitor(self.telemetry, self.org, self.hub, self.main.company_names, self.alert_store)
+        self.alerts = AlertMonitor(self.telemetry, self.org, self.hub, self.main.company_names, self.alert_store,
+                                   settings=settings)
+        self.alerts.farm = self.farm
+        self.ingest.alerts = self.alerts
+        self.clock_sync = ClockSync(settings, self.commands, self.logs, self.main.audit)
+        self.ingest.clock = self.clock_sync
+        self.commands.power_mode = self.telemetry.latest_power_mode
+        self.commands.risk = lambda c, r, n, t: self.analytics.predict_live(c, r, n, t)
         self.throttle = LoginThrottle(settings.login_max_attempts, settings.login_window_seconds)
 
     def _on_plaintext(self, topic: str, plaintext: bytes) -> None:

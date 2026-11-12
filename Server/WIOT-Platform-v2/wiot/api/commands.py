@@ -18,7 +18,7 @@ class CommandIn(BaseModel):
     node_id: int = Field(ge=1, le=65535)
     cmd_type: str = Field(max_length=32)
     cmd_data: int | str | None = None
-    delivery: str = Field("now", pattern="^(now|next_wake)$")
+    delivery: str = Field("now", pattern="^(now|next_wake|auto)$")
     broadcast: bool = False
     ttl_seconds: int = Field(86400, ge=60, le=604800)
 
@@ -69,7 +69,8 @@ def submit(body: CommandIn, request: Request, principal: Principal = Depends(aut
                        target=f"{req.region}/{'broadcast' if req.broadcast else req.node_id}",
                        ip=request.client.host if request.client else None,
                        details={"cmd_type": req.cmd_type, "delivery": req.delivery,
-                                "request_id": result.get("request_id")})
+                                "request_id": result.get("request_id"),
+                                **({"auto": result["auto"]} if result.get("auto") else {})})
     return result
 
 

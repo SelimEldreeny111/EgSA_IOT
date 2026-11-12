@@ -200,3 +200,9 @@
 .setup-adv summary { cursor: pointer; }
 .setup-adv p { margin: 8px 0; font-size: 12px; }
 .setup-adv textarea { margin-bottom: 8px; }
+
+/* R2.1: frost / heat warnings in the weather card */
+.wx-warn { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 8px; border-radius: 8px; font: 12px var(--sans); line-height: 1.35; }
+.wx-warn svg { width: 14px; height: 14px; flex: none; }
+.wx-warn.frost { background: rgba(56, 189, 248, .18); color: #bae6fd; border: 1px solid rgba(56, 189, 248, .35); }
+.wx-warn.heat { background: rgba(245, 158, 11, .18); color: #fde68a; border: 1px solid rgba(245, 158, 11, .35); }

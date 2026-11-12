@@ -1,6 +1,6 @@
 # WIOT Platform v2 — hand-over for the next agent
 
-**Date:** 11 November 2026 · **Version:** 2.0.0 (`wiot/__init__.py`) · **Owner:** EgSA R&D IoT team
+**Date:** 12 November 2026 · **Version:** 2.1.0 (`wiot/__init__.py`; release R2.1 done, not committed yet) · **Owner:** EgSA R&D IoT team
 (lead researcher Selim Eldreeny; supervisor Dr. Haitham Akah).
 
 This is the entry point. Read §1 before touching anything. The other documents:
@@ -16,7 +16,8 @@ This is the entry point. Read §1 before touching anything. The other documents:
 | `docs/reference/MODULES.md` | Code map: every module with its purpose and public names; web assets |
 | `docs/reference/TESTS.md` | Every test file and test |
 | `docs/reference/EVENTS.md` | Realtime hub events and Prometheus metrics |
-| `Documentation/ServerSoftware/` (project root) | User Manual, System Analysis & Design, Test Report (Word/PDF, 9 Nov 2026 — before the Phase 0 changes) |
+| `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0` (project root) | **The work plan:** all 62 improvement points in releases R2.1–R2.6 and Track G, with dates, prerequisites, quality gates and risks |
+| `Documentation/ServerSoftware/` (project root) | User Manual (44 pp), System Analysis & Design (34 pp), Test Report (25 pp) — V1.1 of 11 Nov 2026, covering Phase 0 and R2.1 (V1.0 of 9 Nov kept) |
 | `Documentation/Flowcharts/` (project root) | Flowcharts; F31–F41 are the server |
 | `data/analytics/REPORT.md` | Data-analysis report (8 Nov 2026) |
 
@@ -29,6 +30,9 @@ Regenerate the reference files after any change: `.venv\Scripts\python docs\tool
    showing it (for example print only its length). Screenshot scripts read credentials through
    `Video/tools/capture.py` (`creds()`, `new_context()`).
 2. **Real nodes.** Company_1 / Region_1 nodes 1–3 are real hardware; node 2 is the live LORA_WOR_STOP test node.
+   Since R2.1 the server itself queues STIME for nodes whose clock is unset or drifting (`WIOT_CLOCK_SYNC`, on by
+   default): a server running with the HiveMQ bridge therefore sends STIME to the real nodes when needed. For tests
+   that must not touch the field, run without the bridge or set `WIOT_CLOCK_SYNC=false`.
    Send them no command (including flash downloads) unless the user asks. The user operates the Flash page and the
    Command center at the same time, and extra downlinks collide on the LoRa channel.
 3. **Git.** Commit or push only when the user asks; push only the server branch with an explicit refspec. The
@@ -103,7 +107,7 @@ The real gateway publishes to `broker.hivemq.com`; without the bridge the server
 `Company_2` (imported v1.31 field data), `Demo_Utility` and `Demo_AgriFarm` (simulator; the farm has six East Owainat
 pivots).
 
-**Test:** `.\.venv\Scripts\python -m pytest` → 119 tests and 13 subtests pass (about 64 s). The analytics timing test
+**Test:** `.\.venv\Scripts\python -m pytest` → 140 tests and 13 subtests pass (about 62 s). The analytics timing test
 can fail on a cold start because importing scikit-learn takes long; re-run it.
 
 **Mirror into the worktree (PowerShell):**
@@ -163,11 +167,13 @@ unregistered nodes). Meter samples are deduplicated by fingerprint.
 **Commands** (`services/commands.py`, `domain/command_queue.py`). IDs: 1 SRATE, 2 STRAN, 3 STIME, 4 GOSTM, 5 VALVE,
 6 WAKE, 7 CLEAR_POWER_RESETS, 8 CLEAR_WDT_RESETS, 9 CLEAR_FLASH, 10 FLASH_STATUS, 11 FLASH_LAST, 12 FLASH_TODAY,
 13 FLASH_CANCEL, 14 HISTORY_ACK (sent by the server only). States: `pending → dispatched → acknowledged`, or
-`rejected`, `outcome_unknown` (no reply in 30 s; a late reply still completes it), `waiting_retry` (SRATE/STRAN only,
-3 attempts, 15 s), `superseded`, `broadcast_partial`, `expired` (TTL default 24 h, max 7 days). At most 32 active
-per node. Delivery *now* or *next wake* (released on the node's next uplink). PUBACK = broker receipt only; only the
-node's reply with the request ID proves execution. Valve commands to a registered *monitoring* node → 409.
-STIME carries the server epoch at dispatch.
+`rejected`, `outcome_unknown` (no reply before the deadline; a late reply still completes it), `waiting_retry`
+(SRATE/STRAN only, 3 attempts, 15 s), `superseded`, `broadcast_partial`, `expired` (TTL default 24 h, max 7 days). At
+most 32 active per node. Reply deadline by the node's last power mode (`ack_timeout_for`): 30 s NORMAL, 60 s
+RTC_PERIODIC / REMOTE_WAKE / RTC_QUEUED, 90 s LORA_WOR_STOP. Delivery *now*, *next wake* (released on the node's next
+Status) or *auto* (risk model: UNLIKELY → next wake). SRATE/STRAN 10–86,400 s. PUBACK = broker receipt only; only the
+node's reply with the request ID proves execution. Valve commands to a registered *monitoring* node → 409. STIME
+carries the server epoch at dispatch; `services/clocksync.py` queues it automatically (actor `system:clock-sync`).
 
 **Flash journal** (`domain/flash_archive.py`, `domain/flash_analysis.py`). Node log: 14,322 records, 24-hour
 generations. Download = phases 1 (count), 2 (rows), 3 (end + result code). The server stores each row in one
@@ -177,12 +183,26 @@ other flash commands → 409 while a transfer runs (idle limit 360 s) or a flash
 `FLASH_CANCEL` always allowed (`GET /api/v2/flash/lock`).
 
 **Alerts** (`services/alerts.py`, `storage/alert_store.py`). `node_offline` (critical, 6 × median interval),
-`low_battery` (< 3.3 V, clears at ≥ 3.4 V), `flow_unstable` (constants at the top of `alerts.py`). One open alert per
-node and kind; hub events `alert` with `alert_kind` / `state`; resolution events `node_online`, `<kind>_resolved`.
+`low_battery` (< 3.3 V, clears at ≥ 3.4 V), `flow_unstable`, `leak_suspected` / `no_flow` (valve nodes), optional
+`night_flow`, `frost_risk` / `heat_stress` (farm site, node 0), and the event alerts `foreign_command` /
+`possible_replay` (raised by ingest, resolved after 24 h quiet). Rules and constants at the top of `alerts.py`. One
+open alert per node and kind; hub events `alert` with `alert_kind` / `state`; resolution events `node_online`,
+`<kind>_resolved`.
+
+**Security watch** (`services/ingest.py`). `_foreign_command`: a command on a node's topic with no journal entry
+(`CommandQueue.lookup`). `_out_of_order_repeat`: a Status whose plaintext repeats an older message after newer data is
+flagged and not processed; repeats of the newest message are duplicates. Metrics `wiot_foreign_commands_total`,
+`wiot_repeated_frames_total{kind}`.
+
+**Backups** (`storage/backup.py`, CLI `backup` / `verify-backup` / `restore-backup`). Online SQLite copies, integrity
+check, SHA-256 manifest, AES-256-GCM chunks with an scrypt key when `WIOT_BACKUP_PASSWORD` is set. Restore only into an
+empty folder. Windows service, Mosquitto and HTTPS kit: `deploy/windows/`.
 
 **Farm** (`services/farm.py`, `api/farm.py`, `web/assets/pages/farm.js`). Layout per company (JSON, validated;
 format `wiot/data/demo_farm_layout.json`). Deficit D = (θ_target − θ)/100 × Z_r (Z_r default 300 mm), run time
-D / application rate, ETc = Kc · ET₀ (Open-Meteo). Automation: hysteresis on each fresh Status, minimum interval
+D / application rate, ETc = Kc · ET₀ (Open-Meteo, 7 past days + 7 forecast days). Irrigation index per zone
+(`FarmService.irrigation_index`, 7 days, applied ÷ ETc). Weather warnings `_weather_items` (frost / heat, today and
+tomorrow). Automation: hysteresis on each fresh Status, minimum interval
 `WIOT_AUTOMATION_MIN_INTERVAL_S` (120 s), always through the command journal. Satellite budget
 `WIOT_SATELLITE_MSGS_PER_DAY` (48).
 
@@ -213,37 +233,52 @@ All settings are `WIOT_*` environment variables (`docs/reference/CONFIG.md`). Th
 `WIOT_MQTT_AES_KEY_HEX` (= firmware key), `WIOT_SECRET_KEY` (session signing; set it or sessions reset at restart),
 `WIOT_ENV=production` (enforces a strong secret), `WIOT_COOKIE_SECURE=true` behind HTTPS, `WIOT_DATA_DIR`,
 `WIOT_ALERT_MONITOR`, `WIOT_WEATHER_ENABLED`, `WIOT_MAP_TILE_URL` (default Esri World Imagery — check its terms for
-production and publications).
+production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_CLOCK_SYNC*`, `WIOT_NIGHT_FLOW_HOURS`,
+`WIOT_FROST_WARN_C`, `WIOT_HEAT_WARN_C` and `WIOT_BACKUP_DIR` / `PASSWORD` / `KEEP`.
 
-## 8. Current state (11 November 2026)
+## 8. Current state (12 November 2026)
 
-- Code: branch at `356e60c`, identical to the development copy apart from this documentation (`docs/HANDOFF.md`,
-  `docs/CHANGELOG.md`, `docs/reference/`, `docs/tools/gen_reference.py`), which is **not committed yet**.
-- Tests: 119 passed, 13 subtests passed (local, 11 Nov). CI passed on `356e60c` (10 Nov).
+- Code: the branch is at `7ce0132` (hand-over documents). **Release R2.1 (version 2.1.0) is implemented in the
+  development copy and not committed yet** — see `docs/CHANGELOG.md`, last entry. The CI workflow change (new `audit`
+  job) is in the final-copy root `.github/workflows/server-v2-tests.yml`; copy it to the worktree root when committing.
+- Tests: 140 passed, 13 subtests passed (local, 11 Nov). CI last passed on `7ce0132`; the `audit` job has not run yet.
+- R2.1 items that need the user: installing the service, Mosquitto and HTTPS on a real host (`deploy/windows/README.md`),
+  the monthly restore test, and the gateway-log bench session for OI-01 (`docs/procedures/FLASH_DOWNLOAD_DIAGNOSIS.md`).
 - Processes: the background broker, server and simulator of the previous session stopped on 10 Nov at 14:54; the
   databases show writes on 11 Nov between 10:37 and 10:46, so someone ran the server since. Check what is running
   (port 8000, port 1883) before starting another copy.
 - Field: node 2 (Company_1) last behaved normally in LORA_WOR_STOP; its flash log holds data that has not been
   downloaded (downloads fail, see OI-01).
-- Documents: the Word User Manual, System Analysis & Design and Test Report predate the flash lock, the persistent
-  alerts and the Alerts page; they need an update (V1.1).
+- Documents: User Manual, System Analysis & Design and Test Report V1.1 (Phase 0 + R2.1) in
+  `Documentation/ServerSoftware/` (V1.0 kept).
 
 ## 9. Known issues and open items
 
 | ID | Issue | Status / next step |
 |---|---|---|
-| OI-01 | Per-row `HISTORY_ACK` downlinks to a node in LORA_WOR_STOP are mostly lost; flash downloads end in *ACK timeout* (1 of 5 completed). Uplinks are reliable. | Capture the gateway serial log (`FLASH_HISTORY_ACK`, `downlink_wake` lines) during a download. Then a cumulative ACK every N records — needs node firmware (`TelemetryArchive.cpp` accepts only the exact next index); keep the server compatible with both ACK styles. |
+| OI-01 | Per-row `HISTORY_ACK` downlinks to a node in LORA_WOR_STOP are mostly lost; flash downloads end in *ACK timeout* (1 of 5 completed). Uplinks are reliable. | Run the bench session in `docs/procedures/FLASH_DOWNLOAD_DIAGNOSIS.md` and `python -m wiot flash-timeline … --gateway-log …` to see which leg loses the ACKs. Then a cumulative ACK every N records — needs node firmware (`TelemetryArchive.cpp` accepts only the exact next index); keep the server compatible with both ACK styles. |
 | OI-02/03 | Implausible flow values (e.g. Supmea cycling 0 … 4800 m³/h — a simulator on the RS-485 port) | `flow_unstable` alert done; real sensor acceptance outstanding |
 | OI-04 | Several flash commands at once collide on LoRa | **Done** (flash lock, 10 Nov) |
 | OI-05 | Public broker, one shared AES key, no authentication tag; commands can be forged or replayed | Private broker (TLS, per-gateway logins, ACLs) and per-company keys — needs node and gateway firmware |
-| OI-06 | Analytics timing test flaky on a cold start (slow scikit-learn import) | Re-run; consider a longer timeout |
-| — | Server accepts SRATE/STRAN 5–86,400 s; the node accepts 10–86,400 s | Not fixed: align the server minimum to 10 s (`services/commands.py`, lines 32–34 and 139) |
+| OI-06 | Analytics timing test flaky on a cold start (slow scikit-learn import) | Limit raised to 30 s in R2.1 (cold import measured at 13 s) |
+| — | Server accepted SRATE/STRAN from 5 s; the node accepts 10–86,400 s | **Done** in R2.1 (minimum 10 s) |
+| — | Demo farm irrigation index is near 0 because the simulator's daily volumes are small for 45 ha pivots | Expected for simulated data; real meters give real ratios |
 | — | GitHub Actions warns that its standard actions run on an old Node.js | Bump action versions in the workflow |
 | — | Repository is public | User's decision (GitHub → Settings → General → Change visibility) |
 | — | Starlette deprecation warning for `httpx` in the test client | Harmless; revisit when upgrading |
 | — | Company_1 site coordinates came from Wikipedia | User to confirm |
 
-## 10. Roadmap (update plan of 9 Nov 2026)
+## 10. Roadmap
+
+**Status:** R2.1 is done (12 Nov 2026, not committed). **Next: R2.2 "Operations and data platform"** — points 7–11,
+15, 16, 32 (monitoring, status page, batched writes, retention and summaries, load test, configuration watch, node
+health view, engineering quality).
+
+**Current plan (11 Nov 2026): `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0`** (Markdown, Word
+and PDF in the project root's documentation folder). It schedules all 62 agreed improvement points: server releases
+R2.1–R2.6 (no node or gateway software change) from 16 Nov 2026 to 16 Jul 2027, plus Track G (greenhouses and new
+sensors). Work release by release from that document; its Appendix A maps every point to its release. The phases
+below are the earlier update plan of 9 Nov 2026, kept for the record; the plan supersedes them.
 
 **Phase 0 — close open issues.** Done: git + CI; one flash command per node; silent-node and flow alerts.
 Remaining (need firmware): cumulative flash ACK (OI-01), private broker with per-company keys (OI-05).

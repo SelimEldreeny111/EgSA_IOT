@@ -19,5 +19,11 @@ HTTP_REQUESTS = Counter(
 HTTP_SECONDS = Histogram(
     "wiot_http_request_seconds", "HTTP latency", ["route"], registry=REGISTRY,
     buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5))
+REPEATED_FRAMES = Counter(
+    "wiot_repeated_frames_total", "Uplinks whose plaintext repeats an earlier one (duplicate or out of order)",
+    ["kind"], registry=REGISTRY)
+FOREIGN_COMMANDS = Counter(
+    "wiot_foreign_commands_total", "Commands seen on command topics that this server did not send",
+    registry=REGISTRY)
 BROKER_READY = Gauge("wiot_broker_ready", "1 when MQTT subscriptions are confirmed", registry=REGISTRY)
 WS_CONNECTIONS = Gauge("wiot_websocket_connections", "Open dashboard sockets", registry=REGISTRY)

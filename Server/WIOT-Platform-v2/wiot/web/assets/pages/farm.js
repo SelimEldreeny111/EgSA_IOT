@@ -428,9 +428,22 @@ export async function render(root) {
     $("#wx-card", root).innerHTML = w.available ? `<div class="wx-now"><span class="wx-ico">${ICON[w.current.icon] || ICON.cloud}</span><div><div class="wx-t">${Math.round(conv(w.current.temp_c, "temp"))}${unit("temp")}</div><div class="wx-l">${esc(w.current.label)}</div></div></div>
       <div class="wx-grid"><span>${ICON.drop}${w.current.humidity}%</span><span>${ICON.wind}${Math.round(conv(w.current.wind_kmh, "speed"))} ${unit("speed")}</span><span>${ICON.sun}ET₀ ${fmtU(w.et0_today_mm, "depth", 2)}</span><span>${ICON.rain}${fmtNum(conv(w.rain_next_24h_mm, "depth"), 1)} ${unit("depth")}/24h</span></div>`
       : `<div class="wx-l">${esc(w.reason || "Weather unavailable")}</div>`;
+    const warn = (data.weather_warnings || []).map((x) => x.kind === "frost_risk"
+      ? `<div class="wx-warn frost">${ICONS.thermo}<span>Frost risk ${esc(x.date)}: minimum ${fmtU(x.tmin_c, "temp")}</span></div>`
+      : `<div class="wx-warn heat">${ICONS.thermo}<span>Heat stress ${esc(x.date)}: maximum ${fmtU(x.tmax_c, "temp")}</span></div>`).join("");
+    if (warn) $("#wx-card", root).insertAdjacentHTML("beforeend", warn);
   }
 
   // ---------------------------------------------------------------- zone
+  const INDEX_LABEL = { on_target: ["good", "On target"], under: ["warning", "Under-irrigated"], over: ["warning", "Over-irrigated"],
+    insufficient_data: ["neutral", "Not enough data"] };
+  function indexCell(ix) {
+    if (!ix) return `<div><div class="label">Irrigation index</div><b>–</b><div class="muted" style="font-size:11px">no meter totals</div></div>`;
+    const [cls, label] = INDEX_LABEL[ix.status] || ["neutral", ix.status];
+    return `<div title="Applied ${fmtU(ix.applied_mm, "depth", 1)} vs crop need ${fmtU(ix.etc_mm, "depth", 1)} over ${ix.days} days (${ix.days_with_data} with meter totals)">
+      <div class="label">Irrigation index</div><b>${fmtNum(ix.ratio, 2)}×</b><div class="muted" style="font-size:11px">${esc(label)} · 7 days</div></div>`;
+  }
+
   async function paintZone() {
     const z = data.zones.find((x) => x.id === selected), box = $("#zone", root);
     if (!z) return;
@@ -452,6 +465,7 @@ export async function render(root) {
           <div><div class="label">Water today</div><b>${fmtU(z.water_today_m3 ?? 0, "volume", 0)}</b></div>
           <div><div class="label">Crop ET today</div><b>${fmtU(z.etc_today_mm, "depth", 2)}</b><span class="muted" style="font-size:11px"> Kc ${z.kc}</span></div>
           <div><div class="label">Battery · probe</div><b>${z.battery_v ? z.battery_v.toFixed(2) + " V" : "–"}</b><span class="muted" style="font-size:11px"> ${esc(z.probe || "")}</span></div>
+          ${indexCell(z.irrigation_index)}
         </div>
         ${monitoring ? `<div class="valve-box mon"><div class="mon-ico">${ICONS.sensor}</div><div style="flex:1;min-width:0"><div class="label">Node type</div>
           <div class="valve-state">Monitoring node</div><div class="muted" style="font-size:12px">Sensors only — this field's node has no valve. Irrigation for it is not controlled from WIOT; use a control node to automate it.</div></div></div>` : `<div class="valve-box"><div><div class="label">Valve</div><div class="valve-state ${z.valve}">${esc((z.valve || "–").toUpperCase())}</div><div class="muted" style="font-size:11.5px">${esc(z.power_mode || "")} · last uplink ${ago(z.last_seen)}</div></div>

@@ -1,6 +1,6 @@
 # Configuration (environment variables)
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
 
 All settings are environment variables with the `WIOT_` prefix, read by pydantic-settings from the process environment and `.env` (see `.env.example`). Secret values are never shown here.
 
@@ -25,7 +25,18 @@ All settings are environment variables with the `WIOT_` prefix, read by pydantic
 | `WIOT_CORS_ORIGINS` | list[str] | `[]` |  |
 | `WIOT_METRICS_PUBLIC` | bool | `True` |  |
 | `WIOT_WEBHOOK_ALLOW_PRIVATE` | bool \| None | — |  |
-| `WIOT_ALERT_MONITOR` | bool | `True` | node offline / back online / low-battery alerts (hub + webhooks) |
+| `WIOT_ALERT_MONITOR` | bool | `True` | fleet alerts every minute: offline, battery, flow, leak/no-flow, weather, events (hub + webhooks) |
+| `WIOT_TLS_CERTFILE` | pathlib.Path \| None | — |  |
+| `WIOT_TLS_KEYFILE` | pathlib.Path \| None | — |  |
+| `WIOT_BACKUP_DIR` | pathlib.Path \| None | — | default: <data_dir>/backups |
+| `WIOT_BACKUP_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) | set to encrypt backups (AES-256-GCM); keep it outside the server |
+| `WIOT_BACKUP_KEEP` | int | `14` |  |
+| `WIOT_CLOCK_SYNC` | bool | `True` | queue STIME when a node's clock is unset or drifts (real nodes: next wake) |
+| `WIOT_CLOCK_SYNC_DRIFT_S` | int | `120` |  |
+| `WIOT_CLOCK_SYNC_MIN_INTERVAL_S` | int | `21600` |  |
+| `WIOT_NIGHT_FLOW_HOURS` | str | — | e.g. "00-04" (company local time) enables the night-flow alert; empty = off |
+| `WIOT_FROST_WARN_C` | float | `2.0` |  |
+| `WIOT_HEAT_WARN_C` | float | `40.0` |  |
 | `WIOT_ADMIN_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
 | `WIOT_SUPERVISOR_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
 | `WIOT_MONITOR_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |

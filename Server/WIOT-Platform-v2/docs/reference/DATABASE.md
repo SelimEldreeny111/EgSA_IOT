@@ -1,6 +1,6 @@
 # Databases
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
 
 Schemas read (read-only) from the live databases in `data/`. One `messages_dbs/<Company>.db` per tenant has the same schema; one is shown. No data values are included.
 

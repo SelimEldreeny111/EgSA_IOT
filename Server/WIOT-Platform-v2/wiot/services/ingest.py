@@ -7,9 +7,11 @@ replies routed to the archive and acknowledged only after commit.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
+from collections import OrderedDict
 
 from ..domain.flash_archive import HISTORY_ACK, FlashArchive
 from ..protocol import messages_pb2
@@ -27,10 +29,14 @@ from ..protocol.topics import command_topic
 from ..protocol.validation import MAX_PROTO_BYTES, parse_topic, validate_message
 from ..storage.telemetry_store import TelemetryStore, decorate_row
 from .commands import CMD_NAMES, CommandService
-from .metrics import COMMAND_RECEIPTS, INGEST_SECONDS, MESSAGES_DROPPED, MESSAGES_INGESTED
+from .metrics import (COMMAND_RECEIPTS, FOREIGN_COMMANDS, INGEST_SECONDS, MESSAGES_DROPPED,
+                      MESSAGES_INGESTED, REPEATED_FRAMES)
 from .realtime import LogBuffer, RealtimeHub
 
 log = logging.getLogger(__name__)
+
+SEEN_PER_NODE = 256          # recent Status digests kept per node for the repeat check
+SEEN_MAX_AGE_S = 48 * 3600
 
 
 
@@ -87,6 +93,10 @@ class IngestService:
         self.frame_stats: dict[tuple[str, str, int], dict] = {}
         self.farm = None  # FarmService, injected by the runtime
         self.org = None  # OrgStore, injected by the runtime (strict provisioning, company time zone)
+        self.clock = None  # ClockSync, injected by the runtime (automatic STIME)
+        self.alerts = None  # AlertMonitor, injected by the runtime (event alerts)
+        self._seen: dict[tuple[str, str, int], OrderedDict] = {}
+        self._newest: dict[tuple[str, str, int], int] = {}
 
     @property
     def flash(self) -> FlashArchive:
@@ -156,6 +166,8 @@ class IngestService:
         msg = self._decode(messages_pb2.Status_Message, plaintext, node)
         now = int(time.time())
         fields, samples = self._reading(msg, company, region, now)
+        if self._out_of_order_repeat(company, region, msg.node_id, plaintext, fields, now):
+            return  # a replayed old Status must not drive automation, commands or the clock
         fields["details"] = _sample_details(msg)
         self._persist_and_emit(company, region, "Status", msg, now, fields, samples)
         if self.farm is not None:
@@ -163,7 +175,57 @@ class IngestService:
                 self.farm.on_status(company, region, msg.node_id, fields)
             except Exception:
                 log.exception("Irrigation automation failed")
+        if self.clock is not None:
+            try:
+                trusted = bool(getattr(msg, "sample_time_valid", False) or getattr(msg, "rtc_valid", False))
+                self.clock.observe(company, region, msg.node_id, int(msg.timestamp), trusted, now)
+            except Exception:
+                log.exception("Clock sync check failed")
         self.commands.dispatch_on_status(company, region, msg.node_id)
+
+    def _out_of_order_repeat(self, company: str, region: str, node_id: int, plaintext: bytes,
+                             fields: dict, now: int) -> bool:
+        """Flag a Status whose exact plaintext was already received.
+
+        A repeat of the newest message (LoRa retransmission after a lost ACK, or the same stored
+        sample reported twice) is a harmless duplicate: counted, then processed as before. A
+        repeat of an *older* message after the node has already delivered newer data (node RTC
+        time) cannot come from the node's normal operation; it is counted, raised as a
+        ``possible_replay`` alert and not processed. Returns True for the latter."""
+        key = (company, region, int(node_id))
+        digest = hashlib.sha256(plaintext).digest()[:16]
+        trusted = fields.get("time_source") == "node_rtc"
+        measured = int(fields.get("measured_at") or 0) if trusted else 0
+        seen = self._seen.setdefault(key, OrderedDict())
+        for old_digest, (_, received) in list(seen.items()):      # age out, oldest first
+            if now - received <= SEEN_MAX_AGE_S:
+                break
+            seen.pop(old_digest, None)
+        newest = self._newest.get(key, 0)
+        if digest in seen:
+            first_measured, first_received = seen[digest]
+            seen.move_to_end(digest)
+            if first_measured and newest > first_measured:
+                REPEATED_FRAMES.labels("out_of_order").inc()
+                self.logs.emit(f"[SECURITY] Node {node_id}: a Status from {first_measured} was received again after "
+                               f"newer data ({newest}); possible replay, not processed", company=company,
+                               level="warning")
+                if self.alerts is not None:
+                    try:
+                        self.alerts.record_event(company, region, node_id, "possible_replay", {
+                            "measured_at": first_measured, "first_received_at": first_received,
+                            "newest_measured_at": newest}, now)
+                    except Exception:
+                        log.exception("Replay alert failed")
+                return True
+            REPEATED_FRAMES.labels("duplicate").inc()
+            return False
+        seen[digest] = (measured, now)
+        while len(seen) > SEEN_PER_NODE:
+            seen.popitem(last=False)
+        if measured > newest:
+            self._newest[key] = measured
+        return False
 
     def _telemetry(self, company: str, region: str, node: int, plaintext: bytes) -> None:
         msg = self._decode(messages_pb2.Telemetry, plaintext, node)
@@ -260,6 +322,8 @@ class IngestService:
             return  # internal persistence receipt
         name = CMD_NAMES.get(msg.cmd_id, str(msg.cmd_id))
         details = f"Cmd={name}({msg.cmd_id}), Data={msg.cmd_data}"
+        if self._foreign_command(company, region, node, msg, name):
+            details += " FOREIGN (not sent by this server)"
         now = int(time.time())
         self.store.save_message(company=company, region=region, received_at=now, msg_type="Command",
                                 node_id=msg.node_id, sensor_id="-", fields={"details": details,
@@ -268,6 +332,30 @@ class IngestService:
         self.hub.publish("telemetry", decorate_row({
             "timestamp": now, "type": "Command", "node_id": msg.node_id, "sensor_id": "-",
             "company": company, "region": region, "details": details}), company=company)
+
+    def _foreign_command(self, company: str, region: str, topic_node: int, msg, name: str) -> bool:
+        """Command-topic watchdog: every command this server sends is journaled before it is
+        published, so a command on a node's topic with no matching journal entry came from
+        someone else (another tool, or a forged frame on the shared broker)."""
+        try:
+            known = self.commands.journal.lookup(int(msg.request_id), company, int(msg.node_id),
+                                                 region=region) if msg.request_id else None
+        except Exception:
+            log.exception("Command watchdog lookup failed")
+            return False
+        if known is not None and int(known["cmd_id"]) == int(msg.cmd_id):
+            return False
+        FOREIGN_COMMANDS.inc()
+        self.logs.emit(f"[SECURITY] {name} on the command topic of {company}/{region}/{topic_node or 'broadcast'} "
+                       f"(request {msg.request_id}) was not sent by this server", company=company, level="warning")
+        if self.alerts is not None:
+            try:
+                self.alerts.record_event(company, region, int(msg.node_id or topic_node), "foreign_command", {
+                    "cmd": name, "cmd_id": int(msg.cmd_id), "data": int(msg.cmd_data),
+                    "request_id": int(msg.request_id), "broadcast": topic_node == 0})
+            except Exception:
+                log.exception("Foreign-command alert failed")
+        return True
 
     def write_command_history(self, company: str, region: str, node_id: int, details: str,
                               request_id: int) -> None:

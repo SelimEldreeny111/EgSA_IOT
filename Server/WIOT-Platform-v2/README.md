@@ -47,7 +47,7 @@ flowchart LR
 | Analytics | none | analysis pipeline, delivery-risk ML model, what-if scoring, pre-send risk in the command form |
 | Dashboard | single dark page | five-page control center with a **Night / Day view** toggle (header and sign-in page); follows the OS light/dark setting until chosen, remembered per browser, charts switch to a validated light palette |
 | Deployment | `python server_web.py` | `python -m wiot serve`, Docker image, docker-compose with Mosquitto, systemd unit, nginx TLS proxy |
-| Tests | per-module scripts | 130+ pytest checks incl. the ported v1 journal/flash regression suites; GitHub Actions CI (Ubuntu + Windows) |
+| Tests | per-module scripts | 140 pytest tests (+13 subtests) incl. the ported v1 journal/flash regression suites; GitHub Actions CI (Ubuntu + Windows) and a dependency audit |
 
 ## Quick start (Windows, local demo)
 
@@ -93,6 +93,8 @@ with Mosquitto (`connection` + `topic wiot/# both 1`).
 | `python -m wiot create-user <name> --role admin --company Company_1` | add an account |
 | `python -m wiot reset-password <name>` | set a password and revoke that user's sessions |
 | `python -m wiot check` | read-only tenant-storage preflight |
+| `python -m wiot backup` · `verify-backup <file>` · `restore-backup <file> --to <empty dir>` | consistent, optionally encrypted backup of every database; verification; restore into a new folder |
+| `python -m wiot flash-timeline --company C --node N --since … --until … [--gateway-log file]` | flash-download diagnosis: server records merged with the gateway serial log |
 | `python -m wiot analyze` | run the analytics + ML pipeline into `data/analytics/` |
 | `python -m wiot devbroker` | local development MQTT broker (amqtt) |
 | `python -m wiot devbroker --bridge broker.hivemq.com --bridge-topic "wiot/Company_1/#"` | same, plus a two-way bridge so real gateways on the upstream broker appear beside the simulator |
@@ -113,6 +115,12 @@ All settings are environment variables with the `WIOT_` prefix (see
 | `WIOT_MQTT_HOST` / `PORT` / `USERNAME` / `PASSWORD` | `broker.hivemq.com` / `1883` | shared ingestion broker |
 | `WIOT_MQTT_AES_KEY_HEX` | — | 32 hex chars, identical to node/gateway `AppSecrets` |
 | `WIOT_ADMIN_PASSWORD`, `WIOT_SUPERVISOR_PASSWORD`, `WIOT_MONITOR_PASSWORD` | — | only used to create missing built-in accounts |
+| `WIOT_TLS_CERTFILE` / `WIOT_TLS_KEYFILE` | — | serve HTTPS from the platform (both required; forces secure cookies) |
+| `WIOT_CLOCK_SYNC` / `_DRIFT_S` / `_MIN_INTERVAL_S` | `true` / `120` / `21600` | automatic STIME for nodes whose clock is unset or drifting |
+| `WIOT_NIGHT_FLOW_HOURS`, `WIOT_FROST_WARN_C`, `WIOT_HEAT_WARN_C` | — / `2` / `40` | night-flow alert window (off when empty); weather warning thresholds |
+| `WIOT_BACKUP_DIR` / `WIOT_BACKUP_PASSWORD` / `WIOT_BACKUP_KEEP` | `data/backups` / — / `14` | backup folder (use an off-site one), encryption password, backups kept |
+
+The full list, generated from the code, is in [`docs/reference/CONFIG.md`](docs/reference/CONFIG.md).
 
 ## Security model
 
@@ -141,9 +149,10 @@ Markdown sources there with `python build_docs.py`, which drives Microsoft Word)
 
 | Document | Contents |
 |---|---|
-| `WIOT_Control_Center_User_Manual_V1.0` | Every page and everyday task, with screenshots; Arabic quick guide |
-| `WIOT_Server_v2_System_Analysis_and_Design_V1.0` | Requirements, architecture, protocol, data, interfaces, security, design decisions |
-| `WIOT_Server_v2_Test_Report_V1.0` | Automated, UI and live-hardware test results, defects and open issues |
+| `WIOT_Control_Center_User_Manual_V1.1` | Every page and everyday task, with screenshots; Arabic quick guide (V1.1: Alerts chapter, Auto delivery, Node busy lock, irrigation index, administrator operations) |
+| `WIOT_Server_v2_System_Analysis_and_Design_V1.1` | Requirements, architecture, protocol, data, interfaces, security, design decisions (V1.1: Phase 0 and R2.1, traceability of the plan points) |
+| `WIOT_Server_v2_Test_Report_V1.1` | Automated, UI and live-hardware test results, defects and open issues (V1.1: 140 tests, what was not tested) |
+| `WIOT_Platform_Development_Plan_V1.0` | The 62 improvement points in releases R2.1–R2.6 and Track G |
 
 Server flowcharts F31 onward are part of `Documentation/Flowcharts/WIOT_Project_Flowcharts.html`.
 
@@ -204,6 +213,10 @@ The landing page is a **satellite farm map** (Leaflet, served locally) for preci
 * **Zone panel** — moisture gauge and target band, EC, soil temperature, flow, water applied
   today, crop ET (ET₀ × FAO-56 Kc), valve state with **Start / Stop irrigation** (sent through the
   audited command journal; sleeping nodes get *next-wake* delivery) and a 24 h history.
+* **Irrigation index** — water applied over the last 7 days (daily meter volumes ÷ field area) against the crop's
+  need ETc = ET₀ × Kc: under-irrigated below 0.85, over-irrigated above 1.3, *not enough data* with fewer than 5 days
+  of meter totals.
+* **Frost and heat warnings** — from the site forecast for today and tomorrow, in the weather card and as alerts.
 * **Advisory** — soil-water deficit to the band midpoint over the root zone, converted to runtime
   with the application rate; holds irrigation when forecast rain covers the deficit.
 * **Automation** (opt-in per zone) — hysteresis control on every fresh Status: below the band →
@@ -300,12 +313,38 @@ when the server starts is reported too.
 | `node_offline` | critical | no uplink for 6 × the node's usual report interval | the node reports again |
 | `low_battery` | warning | battery below 3.3 V while reporting | battery ≥ 3.4 V |
 | `flow_unstable` | warning | within one hour, the flow reading jumps ×5 or more (both readings ≥ 1) at least 3 times and changes direction at least twice | a full hour of readings with no such jump |
+| `leak_suspected` | critical | valve node: valve reported closed but flow ≥ 0.5 m³/h for 15 minutes or more | flow stops or the valve opens |
+| `no_flow` | warning | valve node: valve reported open but flow < 0.05 m³/h for 15 minutes or more | flow returns or the valve closes |
+| `night_flow` | warning | flow ≥ 0.5 m³/h during `WIOT_NIGHT_FLOW_HOURS` (company local time) with the valve not open; off by default | flow stops or the night window ends |
+| `frost_risk` | critical | farm site (node 0, shown as SITE): forecast minimum ≤ `WIOT_FROST_WARN_C` today or tomorrow | the forecast no longer shows it |
+| `heat_stress` | warning | farm site: forecast maximum ≥ `WIOT_HEAT_WARN_C` today or tomorrow | the forecast no longer shows it |
+| `foreign_command` | critical | a command on a node's command topic that this server did not send (no journal entry) | 24 hours without another one |
+| `possible_replay` | warning | a Status repeating an older message after the node sent newer data (not processed) | 24 hours without another one |
+
+*Valve nodes* are registered control nodes, or unregistered nodes seen with an open valve in the last 7 days.
 
 Pump starts and stops are one-way steps and do not trigger `flow_unstable`; real pipe flow does not
 oscillate by ×8 between uplinks, so the cause is the meter, its wiring or Modbus settings, or a
 simulator on the RS-485 port. The **Alerts** page (Operations → Alerts) lists open alerts and the
 last 7 days, and the sidebar shows the number of open alerts nobody has acknowledged yet.
 Operators (command privilege) can acknowledge an alert; it stays open until its condition clears.
+
+## Commands: delivery and deadlines
+
+Every command is journaled before it is published (see the System Analysis & Design document). Delivery is
+`now`, `next_wake` (released right after the node's next Status) or `auto` — the Command center's default — which
+asks the delivery-risk model and queues the command for the next wake when the node is probably asleep (tier
+UNLIKELY), sends it now otherwise, and reports the decision. The reply deadline follows the node's last reported
+power mode: 30 s (NORMAL), 60 s (RTC_PERIODIC, REMOTE_WAKE, RTC_QUEUED), 90 s (LORA_WOR_STOP); a later reply still
+completes the command. Sampling and report intervals are 10–86,400 s, as in the node firmware.
+
+**Automatic clock sync.** When a node reports that its clock is not set, or its clock drifts more than 120 s, the
+server queues an STIME for its next wake (at most once per 6 hours per node, never during a flash download), journaled
+and audited as `system:clock-sync`. Turn it off with `WIOT_CLOCK_SYNC=false`.
+
+**Security watch.** Commands seen on a node's command topic without a journal entry raise `foreign_command`; old
+Status messages received again after newer data raise `possible_replay` and are not processed (see *Alerts*). The
+nodes' shared key and the public broker remain open issue OI-05 until the firmware changes.
 
 ## Analytics
 
@@ -316,11 +355,18 @@ pipeline from the UI. See `data/analytics/REPORT.md` for the full write-up.
 
 ## Operations
 
-* **Backups** — copy `data/` with the SQLite online-backup API (`python -m wiot import-v1`
-  uses it) or snapshot the volume; databases run in WAL mode.
+* **Backups** — `python -m wiot backup` writes a consistent copy of every database (SQLite online-backup API,
+  integrity-checked, SHA-256 manifest) into `WIOT_BACKUP_DIR`, encrypted with AES-256-GCM when `WIOT_BACKUP_PASSWORD`
+  is set, keeping the newest `WIOT_BACKUP_KEEP`. Check one with `verify-backup`; test a restore with
+  `restore-backup <file> --to <empty folder>` (it never writes over live data).
+* **Windows production** — `deploy/windows/`: Task Scheduler service with automatic restart and nightly backups
+  (`install-tasks.ps1`), Mosquitto with a bridge to HiveMQ (`mosquitto.conf`), HTTPS and an acceptance checklist
+  (`README.md`).
+* **Flash download diagnosis** — `python -m wiot flash-timeline` and `docs/procedures/FLASH_DOWNLOAD_DIAGNOSIS.md`.
 * **Logs** — `data/logs/wiot-server.log` (JSON, rotated 10 MB × 5).
 * **Monitoring** — scrape `/metrics`: `wiot_messages_ingested_total`, `wiot_messages_dropped_total{reason}`,
-  `wiot_command_receipts_total`, `wiot_broker_ready`, `wiot_ingest_seconds`, HTTP latency.
+  `wiot_command_receipts_total`, `wiot_broker_ready`, `wiot_ingest_seconds`, `wiot_foreign_commands_total`,
+  `wiot_repeated_frames_total{kind}`, HTTP latency.
 * **Docker** — `docker compose up -d --build` starts Mosquitto and the platform.
 
 ## Tests
@@ -331,5 +377,5 @@ pipeline from the UI. See `data/analytics/REPORT.md` for the full write-up.
 
 In the EgSA_IOT repository, `.github/workflows/server-v2-tests.yml` runs the same suite on every
 push or pull request that touches `Server/WIOT-Platform-v2/`: Ubuntu with Python 3.12 (the Docker
-image) and Windows with Python 3.14 (the development PC). Tests that need the live databases skip
-themselves there, because `data/` is never committed.
+image) and Windows with Python 3.14 (the development PC), plus a dependency vulnerability check (pip-audit).
+Tests that need the live databases skip themselves there, because `data/` is never committed.

@@ -326,6 +326,35 @@ class TelemetryStore:
                 out.setdefault(str(sensor), []).append((int(t), float(flow)))
         return out
 
+    def valve_flow_readings(self, company: str, region: str, node_id: int, since: int) -> list[dict]:
+        """Live uplinks since ``since`` with the valve state and primary flow, oldest first.
+
+        ``valve`` is the commanded valve state the node reports (0 closed, 1 open, 2 unknown,
+        3 fault); ``flow_valid`` is the live-flow validity flag; ``meter`` is True when the
+        sensor mask includes a flow meter (TUF bit 1 or Supmea bit 8)."""
+        with self.connect(company) as db:
+            rows = db.execute(
+                "SELECT timestamp, node_status, flow, flow_live_valid, sensor_mask FROM messages "
+                "WHERE region=? AND node_id=? AND type='Status' AND timestamp>=? ORDER BY id",
+                (region_id(region), int(node_id), int(since))).fetchall()
+        return [{"t": int(r[0]), "valve": int(r[1] or 0), "flow": float(r[2] or 0.0),
+                 "flow_valid": bool(r[3]), "meter": bool(int(r[4] or 0) & 0x09)} for r in rows]
+
+    def valve_seen_open(self, company: str, region: str, node_id: int, since: int) -> bool:
+        """Has the node reported an open valve since ``since`` (evidence that it drives one)?"""
+        with self.connect(company) as db:
+            return db.execute("SELECT 1 FROM messages WHERE region=? AND node_id=? AND type='Status' "
+                              "AND node_status=1 AND timestamp>=? LIMIT 1",
+                              (region_id(region), int(node_id), int(since))).fetchone() is not None
+
+    def latest_power_mode(self, company: str, region: str, node_id: int) -> int | None:
+        """Power mode reported in the node's latest uplink (wire value), or None."""
+        with self.connect(company) as db:
+            row = db.execute("SELECT power_mode FROM messages WHERE region=? AND node_id=? "
+                             "AND type IN ('Status','Telemetry') ORDER BY id DESC LIMIT 1",
+                             (region_id(region), int(node_id))).fetchone()
+        return int(row[0]) if row and row[0] else None
+
     def regions(self, company: str) -> list[str]:
         with self.connect(company) as db:
             found = {r[0] for r in db.execute("SELECT DISTINCT region FROM messages")}

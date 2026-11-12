@@ -20,9 +20,44 @@ def cmd_serve(args) -> None:
     from .app import create_app
 
     settings = _settings()
+    tls = {}
+    if settings.tls_certfile and settings.tls_keyfile:
+        tls = {"ssl_certfile": str(settings.tls_certfile), "ssl_keyfile": str(settings.tls_keyfile)}
     uvicorn.run(create_app(settings), host=args.host or settings.host, port=args.port or settings.port,
                 proxy_headers=True, forwarded_allow_ips="127.0.0.1", log_level="warning",
-                ws_ping_interval=20, ws_ping_timeout=20)
+                ws_ping_interval=20, ws_ping_timeout=20, **tls)
+
+
+def _backup_password(settings) -> str | None:
+    return settings.backup_password.get_secret_value() if settings.backup_password else None
+
+
+def cmd_backup(args) -> None:
+    from .storage.backup import create_backup
+    s = _settings()
+    dest = args.to or s.backup_dir or (s.data_dir / "backups")
+    result = create_backup(s, dest, password=_backup_password(s), keep=args.keep or s.backup_keep)
+    if not result["encrypted"]:
+        result["warning"] = "Backup is NOT encrypted: set WIOT_BACKUP_PASSWORD to encrypt it"
+    print(json.dumps(result, indent=2))
+    if result["integrity_problems"]:
+        sys.exit(2)
+
+
+def cmd_verify_backup(args) -> None:
+    from .storage.backup import verify_backup
+    try:
+        print(json.dumps(verify_backup(args.file, _backup_password(_settings())), indent=2))
+    except ValueError as exc:
+        sys.exit(f"Backup verification FAILED: {exc}")
+
+
+def cmd_restore_backup(args) -> None:
+    from .storage.backup import restore_backup
+    try:
+        print(json.dumps(restore_backup(args.file, args.to, _backup_password(_settings())), indent=2))
+    except ValueError as exc:
+        sys.exit(f"Restore refused: {exc}")
 
 
 def cmd_init(_) -> None:
@@ -99,6 +134,13 @@ def cmd_check(_) -> None:
     sys.exit(1 if issues else 0)
 
 
+def cmd_flash_timeline(args) -> None:
+    from .tools.flash_timeline import format_text, timeline
+    result = timeline(_settings(), args.company, args.region, args.node, args.since, args.until,
+                      args.gateway_log, args.tz)
+    print(json.dumps(result, indent=2, ensure_ascii=False) if args.json else format_text(result))
+
+
 def cmd_analyze(args) -> None:
     from .analytics import pipeline
     s = _settings()
@@ -153,6 +195,31 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(func=cmd_import_v1)
 
     sub.add_parser("check", help="tenant storage preflight").set_defaults(func=cmd_check)
+
+    p = sub.add_parser("backup", help="consistent (optionally encrypted) backup of every database")
+    p.add_argument("--to", type=Path, help="destination folder (default WIOT_BACKUP_DIR or data/backups)")
+    p.add_argument("--keep", type=int, help="backups to keep in the folder (default WIOT_BACKUP_KEEP)")
+    p.set_defaults(func=cmd_backup)
+
+    p = sub.add_parser("verify-backup", help="decrypt and check every database in a backup")
+    p.add_argument("file", type=Path)
+    p.set_defaults(func=cmd_verify_backup)
+
+    p = sub.add_parser("restore-backup", help="restore a backup into a new, empty data folder")
+    p.add_argument("file", type=Path)
+    p.add_argument("--to", type=Path, required=True, help="empty folder; then set WIOT_DATA_DIR to it")
+    p.set_defaults(func=cmd_restore_backup)
+
+    p = sub.add_parser("flash-timeline", help="diagnose a flash download: server records + gateway serial log")
+    p.add_argument("--company", required=True)
+    p.add_argument("--region", default="Region_1")
+    p.add_argument("--node", type=int, required=True)
+    p.add_argument("--since", required=True, help='local time, e.g. "2026-11-09 12:30"')
+    p.add_argument("--until", required=True)
+    p.add_argument("--gateway-log", type=Path, help="gateway serial log saved by the terminal program")
+    p.add_argument("--tz", default="Africa/Cairo")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_flash_timeline)
 
     p = sub.add_parser("analyze", help="run the analytics + ML pipeline")
     p.add_argument("--repo-root", type=Path)

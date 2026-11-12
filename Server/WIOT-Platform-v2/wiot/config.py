@@ -51,7 +51,22 @@ class Settings(BaseSettings):
     metrics_public: bool = True
     # Webhooks to private/loopback addresses (SSRF risk). Default: allowed only in development.
     webhook_allow_private: bool | None = None
-    alert_monitor: bool = True  # node offline / back online / low-battery alerts (hub + webhooks)
+    alert_monitor: bool = True  # fleet alerts every minute: offline, battery, flow, leak/no-flow, weather, events (hub + webhooks)
+    # TLS served directly by the platform (instead of a reverse proxy); both paths must be set.
+    tls_certfile: Path | None = None
+    tls_keyfile: Path | None = None
+    # Backups (python -m wiot backup): point backup_dir at an off-site folder (network share, synced drive).
+    backup_dir: Path | None = None  # default: <data_dir>/backups
+    backup_password: SecretStr | None = None  # set to encrypt backups (AES-256-GCM); keep it outside the server
+    backup_keep: int = Field(14, ge=1, le=365)
+
+    # --- field operations (R2.1) --------------------------------------------
+    clock_sync: bool = True  # queue STIME when a node's clock is unset or drifts (real nodes: next wake)
+    clock_sync_drift_s: int = Field(120, ge=10, le=86400)
+    clock_sync_min_interval_s: int = Field(6 * 3600, ge=600, le=7 * 86400)
+    night_flow_hours: str = ""  # e.g. "00-04" (company local time) enables the night-flow alert; empty = off
+    frost_warn_c: float = Field(2.0, ge=-20, le=15)
+    heat_warn_c: float = Field(40.0, ge=25, le=60)
 
     # Bootstrap accounts (same variable names as v1.31). Only used to create
     # missing built-in users; existing password hashes are never overwritten.
@@ -92,6 +107,14 @@ class Settings(BaseSettings):
         if len(key) != 16:
             raise ValueError("WIOT_MQTT_AES_KEY_HEX must be 32 hex characters (16 bytes)")
         return SecretStr(raw)
+
+    @model_validator(mode="after")
+    def _tls_pair(self) -> "Settings":
+        if bool(self.tls_certfile) != bool(self.tls_keyfile):
+            raise ValueError("Set both WIOT_TLS_CERTFILE and WIOT_TLS_KEYFILE, or neither")
+        if self.tls_certfile:
+            self.cookie_secure = True  # sessions over HTTPS only once TLS is on
+        return self
 
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":

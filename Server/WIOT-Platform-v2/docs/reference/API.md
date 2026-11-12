@@ -1,6 +1,6 @@
 # HTTP and WebSocket API
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
 
 71 HTTP paths, 85 operations (HEAD excluded), 1 WebSocket route(s); OpenAPI documents 67 paths. Interactive docs: `/api/docs` on a running server.
 

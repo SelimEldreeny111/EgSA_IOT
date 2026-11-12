@@ -6,5 +6,5 @@ framing and the ``messages.proto`` schema) and reads/writes the same SQLite
 layout, so deployed nodes and historical data keep working unchanged.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __all__ = ["__version__"]

@@ -89,6 +89,11 @@ class AlertStore:
                        (now, now, row["id"]))
             return self._row(db.execute("SELECT * FROM alerts WHERE id=?", (row["id"],)).fetchone())
 
+    def get_open(self, company: str, region: str, node_id: int, kind: str) -> dict | None:
+        with closing(self._db()) as db:
+            return self._row(db.execute("SELECT * FROM alerts WHERE company=? AND region=? AND node_id=? AND kind=? "
+                                        "AND state='open'", (company, region, int(node_id), kind)).fetchone())
+
     def is_open(self, company: str, region: str, node_id: int, kind: str) -> bool:
         with closing(self._db()) as db:
             return db.execute("SELECT 1 FROM alerts WHERE company=? AND region=? AND node_id=? AND kind=? "

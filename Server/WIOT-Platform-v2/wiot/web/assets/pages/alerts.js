@@ -5,11 +5,18 @@ import { api, state, onEvent, ago, badge, toast, ICONS, $, $$ } from "../api.js"
 import { esc, fmtDateTime, fmtNum } from "../charts.js";
 import { conv, unit } from "../units.js";
 
-const nodeTag = (id) => `NODE-${String(id).padStart(3, "0")}`;
+const nodeTag = (id) => (+id === 0 ? "SITE" : `NODE-${String(id).padStart(3, "0")}`);
 const KIND = {
   node_offline: { title: "Node silent", icon: "tower" },
   low_battery: { title: "Low battery", icon: "battery" },
   flow_unstable: { title: "Flow reading unstable", icon: "drop" },
+  leak_suspected: { title: "Leak suspected", icon: "drop" },
+  no_flow: { title: "No flow", icon: "drop" },
+  night_flow: { title: "Night flow", icon: "drop" },
+  frost_risk: { title: "Frost risk", icon: "thermo" },
+  heat_stress: { title: "Heat stress", icon: "thermo" },
+  foreign_command: { title: "Command not sent by this server", icon: "shield" },
+  possible_replay: { title: "Possible replay", icon: "shield" },
 };
 const SEV = { critical: "Critical", warning: "Warning", info: "Info" };
 
@@ -21,6 +28,8 @@ function dur(s) {
   return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
 }
 const flow = (v) => `${fmtNum(conv(v, "flow"), 1)} ${unit("flow")}`;
+const temp = (v) => `${fmtNum(conv(v, "temp"), 1)} ${unit("temp")}`;
+const events = (n) => `${n} ${+n === 1 ? "event" : "events"}`;
 
 /** [headline, detail] for one alert, as plain text (the Arabic layer translates each). */
 function describe(a, now) {
@@ -41,6 +50,29 @@ function describe(a, now) {
       [ex.from !== undefined ? `e.g. ${flow(ex.from)} → ${flow(ex.to)}` : null,
         "Real pipe flow does not oscillate like this: check the meter, its wiring and Modbus settings"].filter(Boolean).join(" · ")];
   }
+  if (a.kind === "leak_suspected") {
+    return [`Flow ${flow(d.flow_m3h)} with the valve closed for 15+ minutes`,
+      "Check for a leak, a valve that did not close, or a meter fault"];
+  }
+  if (a.kind === "no_flow") {
+    return ["No flow with the valve open for 15+ minutes", "Check the pump, upstream valves and the line for blockage or air"];
+  }
+  if (a.kind === "night_flow") {
+    return [`Flow ${flow(d.flow_m3h)} during night hours ${d.night_hours}`, "Possible leak or unauthorised use"];
+  }
+  if (a.kind === "frost_risk") {
+    return [`Minimum ${temp(d.tmin_c)} forecast on ${d.date}`, "Protect sensitive crops and exposed pipes"];
+  }
+  if (a.kind === "heat_stress") {
+    return [`Maximum ${temp(d.tmax_c)} forecast on ${d.date}`, "Irrigate early in the day; watch soil moisture and crop stress"];
+  }
+  if (a.kind === "foreign_command") {
+    return [`${d.cmd} (data ${d.data}) on this node's command topic, not sent by this server`,
+      `${events(d.events || 1)} · request ${d.request_id} · Check who else publishes to the broker`];
+  }
+  if (a.kind === "possible_replay") {
+    return ["An older Status was received again after newer data", `${events(d.events || 1)} · Not processed`];
+  }
   return [a.kind, ""];
 }
 
@@ -55,7 +87,8 @@ export async function render(root) {
         <div class="seg al-view" id="al-view"><button data-v="open" class="on">Open</button><button data-v="all">Last 7 days</button></div></header>
       <div class="table-wrap"><table class="data al-table"><thead><tr><th>Severity</th><th>Alert</th><th>Node</th><th>Region</th><th>Opened</th><th>Status</th><th></th></tr></thead>
         <tbody id="al-rows"></tbody></table></div>
-      <div class="body"><p class="note">The server checks every node once a minute. A node is silent after six times its usual report interval without an uplink; low battery means below 3.3 V; an unstable flow reading jumps by ×5 or more, repeatedly and in both directions, within an hour. Each alert is sent to webhooks once when it opens and once when it clears. Acknowledging only records that it has been seen.</p></div>
+      <div class="body"><p class="note">The server checks every node once a minute. A node is silent after six times its usual report interval without an uplink; low battery means below 3.3 V; an unstable flow reading jumps by ×5 or more, repeatedly and in both directions, within an hour. Each alert is sent to webhooks once when it opens and once when it clears. Acknowledging only records that it has been seen.</p>
+        <p class="note">On valve nodes, a leak is flow with the valve closed and "no flow" is an open valve without flow, each for 15 minutes or more. Frost and heat warnings come from the farm's forecast for today and tomorrow. A command on a node's topic that this server did not send, or an old Status received again after newer data, opens a security alert that clears after a quiet day.</p></div>
     </section>`;
 
   $$("#al-view button", root).forEach((b) => b.addEventListener("click", () => {
@@ -68,8 +101,8 @@ export async function render(root) {
     const s = data.summary, now = Math.floor(Date.now() / 1000);
     const tiles = [
       ["Open alerts", fmtNum(s.open, 0), s.unacknowledged ? `${s.unacknowledged} not acknowledged` : s.open ? "all acknowledged" : "all nodes reporting normally", s.critical ? "crit" : s.open ? "warn" : ""],
-      ["Critical", fmtNum(s.critical, 0), "silent nodes", ""],
-      ["Warnings", fmtNum(s.warning, 0), "battery and flow readings", ""],
+      ["Critical", fmtNum(s.critical, 0), "silent nodes, leaks, frost, security", ""],
+      ["Warnings", fmtNum(s.warning, 0), "battery, flow, heat, replay", ""],
       ["Resolved in 24 h", fmtNum(s.resolved_24h, 0), "conditions that cleared", ""],
     ];
     $("#al-kpis", root).innerHTML = tiles.map(([k, v, sub, cls]) => `<div class="tile ${cls}"><div class="label">${k}</div><div class="v">${v}</div><div class="s">${esc(sub)}</div></div>`).join("");

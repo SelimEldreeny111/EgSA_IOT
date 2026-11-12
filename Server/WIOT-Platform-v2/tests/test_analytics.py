@@ -176,7 +176,7 @@ def test_predictor_round_trip():
     stale = pred.predict({**defaults, "s_since_uplink": 86400, "s_since_status": 86400, "uplinks_10m": 0,
                           "uplinks_60m": 0})["probability"]
     assert stale <= fresh
-    assert load_s < 10  # typically ~1-2 s (dominated by importing scikit-learn)
+    assert load_s < 30  # typically ~1-2 s warm; a cold scikit-learn import on Windows took 13 s (OI-06)
 
 
 @needs_artifacts

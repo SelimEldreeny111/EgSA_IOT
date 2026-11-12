@@ -1,21 +1,27 @@
 # Command-line interface
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
 
 ```
 usage: wiot [-h]
-            {serve,init,create-user,reset-password,import-v1,check,analyze,simulate,devbroker} ...
+            {serve,init,create-user,reset-password,import-v1,check,backup,verify-backup,restore-backup,flash-timeline,analyze,simulate,devbroker} ...
 
 WIOT Platform v2
 
 positional arguments:
-  {serve,init,create-user,reset-password,import-v1,check,analyze,simulate,devbroker}
+  {serve,init,create-user,reset-password,import-v1,check,backup,verify-backup,restore-backup,flash-timeline,analyze,simulate,devbroker}
     serve               run the API + dashboard server
     init                create databases and built-in accounts
     create-user         add a user
     reset-password      set a user's password (revokes sessions)
     import-v1           copy databases from a v1.31 server directory
     check               tenant storage preflight
+    backup              consistent (optionally encrypted) backup of every
+                        database
+    verify-backup       decrypt and check every database in a backup
+    restore-backup      restore a backup into a new, empty data folder
+    flash-timeline      diagnose a flash download: server records + gateway
+                        serial log
     analyze             run the analytics + ML pipeline
     simulate            run an encrypted virtual fleet against a broker
     devbroker           start a local development MQTT broker
@@ -94,6 +100,62 @@ usage: wiot check [-h]
 
 options:
   -h, --help  show this help message and exit
+```
+
+## `python -m wiot backup`
+
+```
+usage: wiot backup [-h] [--to TO] [--keep KEEP]
+
+options:
+  -h, --help   show this help message and exit
+  --to TO      destination folder (default WIOT_BACKUP_DIR or data/backups)
+  --keep KEEP  backups to keep in the folder (default WIOT_BACKUP_KEEP)
+```
+
+## `python -m wiot verify-backup`
+
+```
+usage: wiot verify-backup [-h] file
+
+positional arguments:
+  file
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## `python -m wiot restore-backup`
+
+```
+usage: wiot restore-backup [-h] --to TO file
+
+positional arguments:
+  file
+
+options:
+  -h, --help  show this help message and exit
+  --to TO     empty folder; then set WIOT_DATA_DIR to it
+```
+
+## `python -m wiot flash-timeline`
+
+```
+usage: wiot flash-timeline [-h] --company COMPANY [--region REGION]
+                           --node NODE --since SINCE --until UNTIL
+                           [--gateway-log GATEWAY_LOG] [--tz TZ] [--json]
+
+options:
+  -h, --help            show this help message and exit
+  --company COMPANY
+  --region REGION
+  --node NODE
+  --since SINCE         local time, e.g. "2026-11-09 12:30"
+  --until UNTIL
+  --gateway-log GATEWAY_LOG
+                        gateway serial log saved by the terminal program
+  --tz TZ
+  --json
 ```
 
 ## `python -m wiot analyze`

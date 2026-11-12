@@ -217,6 +217,25 @@ const AR = {
   "No open alerts — every node is reporting normally.": "لا توجد تنبيهات مفتوحة — جميع العقد ترسل بشكل طبيعي.",
   "No alerts in the last 7 days.": "لا توجد تنبيهات خلال آخر 7 أيام.", "Alert acknowledged": "تم الإقرار بالتنبيه",
   "No uplink received yet": "لم يُستلم أي إرسال بعد",
+  "Leak suspected": "اشتباه تسرب", "No flow": "لا يوجد تدفق", "Night flow": "تدفق ليلي", "Frost risk": "خطر الصقيع",
+  "Heat stress": "إجهاد حراري", "Command not sent by this server": "أمر لم يرسله هذا الخادم", "Possible replay": "إعادة إرسال مشبوهة",
+  "Check for a leak, a valve that did not close, or a meter fault": "افحص وجود تسرب أو صمام لم يُغلق أو عطل في العداد",
+  "No flow with the valve open for 15+ minutes": "لا يوجد تدفق والصمام مفتوح لأكثر من 15 دقيقة",
+  "Check the pump, upstream valves and the line for blockage or air": "افحص المضخة والصمامات السابقة والخط بحثًا عن انسداد أو هواء",
+  "Possible leak or unauthorised use": "تسرب محتمل أو استخدام غير مصرح به",
+  "Protect sensitive crops and exposed pipes": "احمِ المحاصيل الحساسة والأنابيب المكشوفة",
+  "Irrigate early in the day; watch soil moisture and crop stress": "اروِ في الصباح الباكر وراقب رطوبة التربة وإجهاد المحصول",
+  "An older Status was received again after newer data": "استُقبلت رسالة حالة قديمة مرة أخرى بعد وصول بيانات أحدث",
+  "Check who else publishes to the broker": "تحقق ممن ينشر أيضًا على وسيط MQTT", "Not processed": "لم تُعالَج",
+  "silent nodes, leaks, frost, security": "عقد صامتة، تسرب، صقيع، أمان", "battery, flow, heat, replay": "البطارية، التدفق، الحرارة، إعادة الإرسال",
+  "On valve nodes, a leak is flow with the valve closed and \"no flow\" is an open valve without flow, each for 15 minutes or more. Frost and heat warnings come from the farm's forecast for today and tomorrow. A command on a node's topic that this server did not send, or an old Status received again after newer data, opens a security alert that clears after a quiet day.":
+    "في عقد الصمامات، يعني التسرب وجود تدفق والصمام مغلق، و\"لا يوجد تدفق\" يعني صمامًا مفتوحًا دون تدفق، لمدة 15 دقيقة أو أكثر في الحالتين. تأتي تحذيرات الصقيع والحرارة من توقعات الطقس للمزرعة لليوم والغد. أي أمر على موضوع العقدة لم يرسله هذا الخادم، أو رسالة حالة قديمة تصل مجددًا بعد بيانات أحدث، يفتح تنبيهًا أمنيًا يُغلق بعد يوم هادئ.",
+  // ---- R2.1 command center and farm
+  "Auto": "تلقائي", "Auto: node is probably asleep — the command will wait for its next wake.": "تلقائي: العقدة نائمة على الأرجح — سينتظر الأمر استيقاظها التالي.",
+  "Auto: node is probably listening — the command will be sent now.": "تلقائي: العقدة تستمع على الأرجح — سيُرسل الأمر الآن.",
+  "Send now if the node is probably listening, otherwise queue it for the node's next wake": "أرسل الآن إن كانت العقدة تستمع على الأرجح، وإلا فضعه في الانتظار حتى استيقاظها التالي",
+  "Irrigation index": "مؤشر الري", "Irrigation index · 7 d": "مؤشر الري · 7 أيام", "no meter totals": "لا توجد إجماليات عداد", "On target": "ضمن الهدف",
+  "Under-irrigated": "ري أقل من الحاجة", "Over-irrigated": "ري زائد", "Not enough data": "بيانات غير كافية",
   "Real pipe flow does not oscillate like this: check the meter, its wiring and Modbus settings":
     "التدفق الحقيقي في الأنابيب لا يتذبذب بهذا الشكل: افحص العداد وأسلاكه وإعدادات Modbus",
   "The server checks every node once a minute. A node is silent after six times its usual report interval without an uplink; low battery means below 3.3 V; an unstable flow reading jumps by ×5 or more, repeatedly and in both directions, within an hour. Each alert is sent to webhooks once when it opens and once when it clears. Acknowledging only records that it has been seen.":
@@ -343,6 +362,17 @@ const PATTERNS = [
   [/^Last uplink (.+)$/, (m) => `آخر إرسال ${translate(m[1])}`],
   [/^(\d+) jumps of ×(\d+) or more in one hour \((\d+) readings\)$/, (m) => `${m[1]} قفزات بمقدار ×${m[2]} أو أكثر خلال ساعة واحدة (${m[3]} قراءة)`],
   [/^e\.g\. (.+) → (.+)$/, (m) => `مثلًا من ${m[1]} إلى ${m[2]}`],
+  [/^Flow (.+) with the valve closed for 15\+ minutes$/, (m) => `تدفق ${m[1]} والصمام مغلق لأكثر من 15 دقيقة`],
+  [/^Flow (.+) during night hours (\d\d-\d\d)$/, (m) => `تدفق ${m[1]} خلال ساعات الليل ${m[2]}`],
+  [/^Minimum (.+) forecast on (.+)$/, (m) => `حد أدنى متوقع ${m[1]} يوم ${m[2]}`],
+  [/^Maximum (.+) forecast on (.+)$/, (m) => `حد أقصى متوقع ${m[1]} يوم ${m[2]}`],
+  [/^(\w+) \(data (-?\d+)\) on this node's command topic, not sent by this server$/, (m) => `${m[1]} (بيانات ${m[2]}) على موضوع أوامر هذه العقدة ولم يرسله هذا الخادم`],
+  [/^(\d+) events? · request (\d+) · Check who else publishes to the broker$/, (m) => `${m[1]} حدث · الطلب ${m[2]} · تحقق ممن ينشر أيضًا على وسيط MQTT`],
+  [/^(\d+) events? · Not processed$/, (m) => `${m[1]} حدث · لم تُعالَج`],
+  [/^(On target|Under-irrigated|Over-irrigated|Not enough data) · 7 days$/, (m) => `${translate(m[1])} · 7 أيام`],
+  [/^Frost risk (.+): minimum (.+)$/, (m) => `خطر صقيع ${m[1]}: حد أدنى ${m[2]}`],
+  [/^Heat stress (.+): maximum (.+)$/, (m) => `إجهاد حراري ${m[1]}: حد أقصى ${m[2]}`],
+  [/^Applied (.+) vs crop need (.+) over (\d+) days \((\d+) with meter totals\)$/, (m) => `المُضاف ${m[1]} مقابل حاجة المحصول ${m[2]} خلال ${m[3]} أيام (${m[4]} منها بإجماليات العداد)`],
 ];
 
 function translate(s) {

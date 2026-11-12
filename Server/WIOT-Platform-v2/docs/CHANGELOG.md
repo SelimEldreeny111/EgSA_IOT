@@ -132,3 +132,53 @@ the 2026-11-10 changes below.
 - `docs/HANDOFF.md` (this hand-over), `docs/CHANGELOG.md` (this file), `docs/reference/*.md` generated from the code
   by `docs/tools/gen_reference.py` (API, configuration, CLI, database schemas, code map, tests, events and metrics).
 - Re-run of the full suite: 119 passed, 13 subtests passed (64 s).
+- Development plan `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0` (Markdown, Word, PDF; 21 pages):
+  all 62 improvement points in six server-only releases (R2.1–R2.6, 16 Nov 2026 – 16 Jul 2027) and Track G
+  (greenhouses and new sensors); linked from `HANDOFF.md` §10.
+
+## 2026-11-11 — Release 2.1 "Foundation and quick wins" (version 2.1.0, server only)
+
+Points of `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0`. No node or gateway software change.
+
+- **1 · Interval minimum 10 s.** SRATE/STRAN below 10 s are refused (the node firmware accepts 10–86,400 s).
+- **13 · ACK deadline by power mode** (`domain/command_queue.py` `ack_timeout_for`): NORMAL 30 s, RTC_PERIODIC /
+  REMOTE_WAKE / RTC_QUEUED 60 s, LORA_WOR_STOP 90 s, from the node's last reported power mode
+  (`TelemetryStore.latest_power_mode`). Measured p99 reply latency Oct–Nov 2026: NORMAL 21 s, REMOTE_WAKE 58 s,
+  LORA_WOR_STOP 69 s (max 153 s). A late reply still completes an *outcome unknown* command.
+- **14 · Auto delivery.** `delivery: "auto"` (API and the Command center's new default *Auto*): the delivery-risk
+  model decides; tier UNLIKELY → next wake, otherwise now; broadcast → now; broker down → next wake; no model → now.
+  The response and the audit entry carry the decision.
+- **12 · Automatic clock sync** (`services/clocksync.py`, `WIOT_CLOCK_SYNC`): STIME queued for the next wake when a
+  node reports an unset clock or drifts more than `WIOT_CLOCK_SYNC_DRIFT_S` (120 s; robust to store-and-forward
+  delay), at most once per 6 h per node (30 min for an unset clock), never while an STIME is pending or a flash
+  download runs; journaled and audited as `system:clock-sync`. **On the live server this sends STIME to real nodes
+  whose clocks drift.**
+- **18 · Command-topic watchdog.** A command on a node's topic with no journal entry → critical `foreign_command`
+  event alert, metric `wiot_foreign_commands_total`, history row marked FOREIGN.
+- **19 · Replay flagging.** A Status whose plaintext repeats an older message after newer data → `possible_replay`
+  warning, not processed (no automation, commands or clock sync); repeats of the newest message are harmless
+  duplicates. Metric `wiot_repeated_frames_total{kind}`. Event alerts resolve after 24 h without a new event.
+- **33 · Leak / no-flow / night-flow alerts** on valve nodes: `leak_suspected` (critical), `no_flow` (warning), optional
+  `night_flow` (`WIOT_NIGHT_FLOW_HOURS`, off by default).
+- **45 · Frost and heat warnings** from the farm forecast (today and tomorrow): `frost_risk` (≤ `WIOT_FROST_WARN_C`
+  = 2 °C) and `heat_stress` (≥ `WIOT_HEAT_WARN_C` = 40 °C) as site alerts (node 0, shown as SITE) and in the farm
+  page's weather card.
+- **37 · Irrigation index** per field: applied water (daily meter volumes ÷ area) vs ETc = ET₀ × Kc over the last
+  7 days (Open-Meteo `past_days=7`); zone panel cell and `under_irrigated` / `over_irrigated` KPIs. The weather client
+  now separates past and forecast days and counts the 24-hour rain from the current hour.
+- **6 · Backups** (`storage/backup.py`): `python -m wiot backup | verify-backup | restore-backup` — online SQLite copies,
+  integrity checks, SHA-256 manifest, AES-256-GCM encryption (scrypt key, 4 MiB authenticated chunks) with
+  `WIOT_BACKUP_PASSWORD`, pruning to `WIOT_BACKUP_KEEP`, restore only into an empty folder.
+- **4 · HTTPS and Windows service.** `WIOT_TLS_CERTFILE` / `WIOT_TLS_KEYFILE` serve TLS from the platform (and force
+  secure cookies); `deploy/windows/install-tasks.ps1` / `uninstall-tasks.ps1` (Task Scheduler: server at boot with
+  restart, nightly backup). Prepared, not installed.
+- **5 · Production broker.** `deploy/windows/mosquitto.conf`: Mosquitto with persistence and a bridge to HiveMQ for the
+  real companies; steps in `deploy/windows/README.md`. Prepared, not installed.
+- **20 · Dependency audit** job (pip-audit) in `.github/workflows/server-v2-tests.yml`.
+- **3 · Flash download diagnosis.** `python -m wiot flash-timeline` merges server records with the gateway serial log;
+  bench procedure `docs/procedures/FLASH_DOWNLOAD_DIAGNOSIS.md`. The bench session itself is still to be run.
+- **UI:** Alerts page labels and texts for all new kinds (English and Arabic), Auto delivery, irrigation index,
+  weather warnings; checked in Night, Day and Arabic with no console errors.
+- **Tests:** `tests/test_r21.py` (21 tests). Full suite 140 passed, 13 subtests passed. The predictor load-time limit
+  in `tests/test_analytics.py` was raised from 10 s to 30 s (a cold scikit-learn import took 13 s on Windows; OI-06).
+- **Point 2** (Word documents V1.1) is delivered with this release in `Documentation/ServerSoftware/`.

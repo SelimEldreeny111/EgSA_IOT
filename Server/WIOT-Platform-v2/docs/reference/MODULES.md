@@ -1,11 +1,11 @@
 # Code map
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
 
 | Module | Lines | Purpose (module docstring) | Public classes and functions |
 |---|---|---|---|
 | `wiot/__init__.py` | 8 | WIOT Platform v2 — industrial water-IoT ingestion, control and analytics server. |  |
-| `wiot/__main__.py` | 146 | Command-line entry point: ``python -m wiot <command>``. | cmd_serve, cmd_init, cmd_create_user, cmd_reset_password, cmd_import_v1, cmd_check, cmd_analyze, cmd_simulate, cmd_devbroker, main |
+| `wiot/__main__.py` | 199 | Command-line entry point: ``python -m wiot <command>``. | cmd_serve, cmd_backup, cmd_verify_backup, cmd_restore_backup, cmd_init, cmd_create_user, cmd_reset_password, cmd_import_v1, cmd_check, cmd_flash_timeline, cmd_analyze, cmd_simulate, cmd_devbroker, main |
 | `wiot/analytics/__init__.py` | 14 | WIOT data-analysis and machine-learning pipeline. |  |
 | `wiot/analytics/common.py` | 93 | Small shared helpers: JSON serialisation, robust statistics, histograms, time zones. | to_jsonable, write_json, percentiles, histogram, wilson_ci, downsample_indices, local_hour, local_day |
 | `wiot/analytics/dataset.py` | 372 | Read-only loaders for the WIOT databases and the shared command feature builder. | FeatureSpec, connect_ro, message_db_paths, command_db_path, node_key, load_messages, load_meter_samples, load_consumption_periods, load_command_events, load_command_receipts, load_commands, link_features, history_features, command_features … |
@@ -22,7 +22,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not 
 | `wiot/api/admin.py` | 64 | Tenant administration: users, companies, audit trail. | UserIn, CompanyIn, list_users, create_user, delete_user, list_companies, add_company, audit |
 | `wiot/api/alerts.py` | 40 | Fleet alerts: silent nodes, low batteries and unstable flow readings. | list_alerts, acknowledge |
 | `wiot/api/auth.py` | 75 | Login, logout, session introspection and password change. | LoginIn, PasswordIn, login, logout, me, change_password |
-| `wiot/api/commands.py` | 66 | Command submission, lifecycle timeline and pre-send delivery risk. | CommandIn, RiskIn, catalog, list_commands, get_command, submit, delivery_risk |
+| `wiot/api/commands.py` | 67 | Command submission, lifecycle timeline and pre-send delivery risk. | CommandIn, RiskIn, catalog, list_commands, get_command, submit, delivery_risk |
 | `wiot/api/deps.py` | 93 | Request-scoped dependencies: runtime, authentication, tenant scoping. | get_runtime, authenticate, ws_authenticate, require_supervisor, require_admin, resolve_company, resolve_region |
 | `wiot/api/farm.py` | 78 | Smart-agriculture endpoints: farm map, zones, weather/ET0, satellite readiness. | ZonePatch, overview, get_layout, put_layout, patch_zone, zone_history, weather, connectivity, public_map |
 | `wiot/api/operations.py` | 222 | Broker control, flash archive, analytics, logs and health endpoints. | BrokerIn, broker_status, broker_connect, broker_disconnect, flash_status, flash_nodes, flash_analysis, flash_lock, flash_records, PredictIn, analytics_index, analytics_live, model_schema, predict … |
@@ -30,9 +30,9 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not 
 | `wiot/api/stream.py` | 59 | Live event stream (WebSocket). | stream |
 | `wiot/api/telemetry.py` | 137 | Fleet, node, message history, consumption and CSV export endpoints. | fleet, node_detail, node_series, messages, regions, consumption, export_csv |
 | `wiot/app.py` | 131 | FastAPI application factory. | build_csp, create_app |
-| `wiot/config.py` | 136 | Typed runtime configuration loaded from environment variables and ``.env``. | Settings, get_settings |
+| `wiot/config.py` | 157 | Typed runtime configuration loaded from environment variables and ``.env``. | Settings, get_settings |
 | `wiot/domain/__init__.py` | 0 |  |  |
-| `wiot/domain/command_queue.py` | 393 | Durable command intents, bounded mailbox and correlated execution audit. | CommandConflict, flash_request_limit, CommandQueue |
+| `wiot/domain/command_queue.py` | 411 | Durable command intents, bounded mailbox and correlated execution audit. | ack_timeout_for, CommandConflict, flash_request_limit, CommandQueue |
 | `wiot/domain/flash_analysis.py` | 196 | Analysis of a node's SPI-flash telemetry log, built from what the server already holds. | transfer_state, analyse |
 | `wiot/domain/flash_archive.py` | 190 | Durable, tenant-scoped flash downloads; acknowledge only after SQLite commit. | FlashArchive |
 | `wiot/logging_setup.py` | 53 | Structured logging with secret redaction and a rotating file sink. | redact, JsonFormatter, configure_logging |
@@ -46,44 +46,48 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-11. Do not 
 | `wiot/protocol/validation.py` | 102 | Fail-closed validation for the existing V1 wire/API contract (no schema change). | company_id, integer, parse_topic, validate_message |
 | `wiot/security.py` | 153 | Authentication primitives: principals, password hashing, JWT and throttling. | AuthError, Principal, hash_password, verify_password, validate_new_password, issue_token, decode_token, LoginThrottle |
 | `wiot/services/__init__.py` | 0 |  |  |
-| `wiot/services/alerts.py` | 132 | Fleet alert monitor: silent nodes, low batteries and implausible flow readings. | flow_jumps, flow_verdict, AlertMonitor |
+| `wiot/services/alerts.py` | 273 | Fleet alert monitor: silent nodes, low batteries and implausible flow readings. | flow_jumps, flow_verdict, valve_flow_verdict, night_hours, in_night, AlertMonitor |
 | `wiot/services/analytics.py` | 114 | Serves analysis artifacts, live KPIs and the command-delivery risk model. | AnalyticsService |
 | `wiot/services/broker.py` | 127 | Single owner of the shared MQTT ingestion session. | BrokerParams, BrokerManager |
-| `wiot/services/commands.py` | 258 | Operator command intents: validation, durable journal, publish and receipts. | CommandError, CommandRequest, CommandService |
-| `wiot/services/farm.py` | 442 | Smart-agriculture layer: farm layout, weather/ET0, irrigation advisory, soil-moisture automation and satellite-backhaul readiness. | Site, Agronomy, Zone, Gateway, Device, FarmLayout, FarmStore, WeatherClient, FarmService |
-| `wiot/services/ingest.py` | 268 | Decoded-MQTT ingestion: validate → persist → broadcast → release commands. | IngestService |
-| `wiot/services/metrics.py` | 21 | Prometheus metrics (scraped at ``/metrics``). |  |
+| `wiot/services/clocksync.py` | 114 | Automatic node clock synchronisation (R2.1, point 12). | ClockSync |
+| `wiot/services/commands.py` | 294 | Operator command intents: validation, durable journal, publish and receipts. | CommandError, CommandRequest, CommandService |
+| `wiot/services/farm.py` | 529 | Smart-agriculture layer: farm layout, weather/ET0, irrigation advisory, soil-moisture automation and satellite-backhaul readiness. | Site, Agronomy, Zone, Gateway, Device, FarmLayout, FarmStore, WeatherClient, FarmService |
+| `wiot/services/ingest.py` | 352 | Decoded-MQTT ingestion: validate → persist → broadcast → release commands. | IngestService |
+| `wiot/services/metrics.py` | 27 | Prometheus metrics (scraped at ``/metrics``). |  |
 | `wiot/services/realtime.py` | 115 | Tenant-scoped WebSocket fan-out, safe to call from any thread. | Subscriber, RealtimeHub, LogBuffer |
-| `wiot/services/runtime.py` | 95 | Composition root: builds and owns every long-lived service. | Runtime |
+| `wiot/services/runtime.py` | 103 | Composition root: builds and owns every long-lived service. | Runtime |
 | `wiot/services/webhooks.py` | 124 | Outbound webhooks. | sign, check_destination, WebhookService |
 | `wiot/sim/__init__.py` | 0 |  |  |
 | `wiot/sim/bridge.py` | 98 | Two-way MQTT bridge between the local development broker and an upstream broker. | MqttBridge, parse_endpoint |
 | `wiot/sim/devbroker.py` | 41 | Pure-Python MQTT broker for local development and demos (not for production). | main |
 | `wiot/sim/fleet.py` | 303 | Encrypted WIOT fleet simulator for demos, load and end-to-end tests. | VirtualNode, FleetSimulator, agri_fleet, default_fleet, main |
 | `wiot/storage/__init__.py` | 0 |  |  |
-| `wiot/storage/alert_store.py` | 124 | Persistent fleet alerts: at most one open alert per (company, region, node, kind). | AlertStore |
+| `wiot/storage/alert_store.py` | 128 | Persistent fleet alerts: at most one open alert per (company, region, node, kind). | AlertStore |
+| `wiot/storage/backup.py` | 167 | Consistent, optionally encrypted backups of every database, with verification and restore (R2.1, point 6). | database_files, create_backup, verify_backup, restore_backup |
 | `wiot/storage/main_store.py` | 218 | Identity, tenant registry and audit trail (``iot_data.db``). | MainStore |
 | `wiot/storage/org_store.py` | 533 | Organization registry: company profiles, regions, nodes, gateways, API tokens, webhooks. | sensors_from_mask, parse_sensors, check_timezone, check_country, check_point, OrgStore |
-| `wiot/storage/telemetry_store.py` | 410 | Per-tenant telemetry databases (``messages_dbs/<tenant>.db``). | decorate_row, TelemetryStore |
+| `wiot/storage/telemetry_store.py` | 435 | Per-tenant telemetry databases (``messages_dbs/<tenant>.db``). | decorate_row, TelemetryStore |
+| `wiot/tools/__init__.py` | 0 |  |  |
+| `wiot/tools/flash_timeline.py` | 137 | Flash-download diagnosis (R2.1, point 3): merge the server's records with the gateway's serial log. | parse_local, gateway_events, server_events, timeline, format_text |
 
 ## Web assets (`wiot/web`)
 
 | File | Lines |
 |---|---|
-| `wiot/web/assets/api.js` | 123 |
+| `wiot/web/assets/api.js` | 125 |
 | `wiot/web/assets/app.css` | 453 |
 | `wiot/web/assets/app.js` | 217 |
 | `wiot/web/assets/charts.js` | 330 |
-| `wiot/web/assets/farm.css` | 202 |
+| `wiot/web/assets/farm.css` | 208 |
 | `wiot/web/assets/favicon.svg` | 1 |
 | `wiot/web/assets/global.css` | 225 |
-| `wiot/web/assets/i18n.js` | 422 |
+| `wiot/web/assets/i18n.js` | 452 |
 | `wiot/web/assets/login.js` | 50 |
 | `wiot/web/assets/pages/admin.js` | 97 |
-| `wiot/web/assets/pages/alerts.js` | 115 |
+| `wiot/web/assets/pages/alerts.js` | 148 |
 | `wiot/web/assets/pages/analytics.js` | 269 |
-| `wiot/web/assets/pages/commands.js` | 154 |
-| `wiot/web/assets/pages/farm.js` | 552 |
+| `wiot/web/assets/pages/commands.js` | 157 |
+| `wiot/web/assets/pages/farm.js` | 566 |
 | `wiot/web/assets/pages/flash.js` | 331 |
 | `wiot/web/assets/pages/history.js` | 57 |
 | `wiot/web/assets/pages/org.js` | 401 |

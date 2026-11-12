@@ -32,7 +32,7 @@ export async function render(root) {
           </div>
           <div id="f-data-wrap"></div>
           <div class="field"><label>Delivery</label>
-            <div class="seg" id="f-delivery"><button type="button" data-v="now" class="on">Send now</button><button type="button" data-v="next_wake">Next wake</button></div></div>
+            <div class="seg" id="f-delivery"><button type="button" data-v="auto" class="on" title="Send now if the node is probably listening, otherwise queue it for the node's next wake">Auto</button><button type="button" data-v="now">Send now</button><button type="button" data-v="next_wake">Next wake</button></div></div>
           <label class="check" style="margin-bottom:12px"><input type="checkbox" id="f-bcast"> Broadcast to every node in ${esc(state.region)}</label>
           <p class="note" id="f-help" style="margin:0 0 12px"></p>
           <div class="section-title">Pre-send delivery risk</div>
@@ -47,7 +47,7 @@ export async function render(root) {
     </div>`;
 
   const form = $("#cmd-form", root);
-  let delivery = "now";
+  let delivery = "auto";
   const nodeId = () => $("#f-node", root).value === "custom" ? +$("#f-node-custom", root).value : +$("#f-node", root).value;
   const spec = () => cmds.find((c) => c.type === $("#f-type", root).value);
 
@@ -78,7 +78,10 @@ export async function render(root) {
     try {
       const r = await api("/commands/risk", { method: "POST", body: { ...scoped(), node_id: nodeId(), cmd_type: spec().type } });
       const color = riskColor(r.tier);
-      const advice = r.tier === "LIKELY" ? "Node is very likely listening — send now."
+      const advice = delivery === "auto"
+        ? (r.tier === "UNLIKELY" ? "Auto: node is probably asleep — the command will wait for its next wake."
+          : "Auto: node is probably listening — the command will be sent now.")
+        : r.tier === "LIKELY" ? "Node is very likely listening — send now."
         : delivery === "now" ? "Node is probably asleep. Queue for its next wake window to avoid a lost command." : "Queued delivery waits for the node's next Status uplink.";
       box.innerHTML = `<div id="risk-g"></div><div>
           <div class="row" style="margin-bottom:6px">${badge([r.tier === "LIKELY" ? "good" : r.tier === "UNCERTAIN" ? "warning" : "critical", r.tier])}<span class="dim" style="font-size:12.5px">${esc(advice)}</span></div>

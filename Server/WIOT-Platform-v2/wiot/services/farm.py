@@ -185,7 +185,7 @@ class WeatherClient:
             if hit and time.time() - hit[0] < 1200:
                 return hit[1]
         params = {
-            "latitude": key[0], "longitude": key[1], "timezone": "auto", "forecast_days": 7,
+            "latitude": key[0], "longitude": key[1], "timezone": "auto", "forecast_days": 7, "past_days": 7,
             "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code,is_day",
             "hourly": "precipitation,precipitation_probability",
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration,"
@@ -203,14 +203,25 @@ class WeatherClient:
             return {"available": False, "reason": f"Weather service unreachable ({type(exc).__name__})"}
         cur, daily, hourly = raw.get("current", {}), raw.get("daily", {}), raw.get("hourly", {})
         code = int(cur.get("weather_code") or 0)
-        days = []
+        all_days = []
+        radiation = daily.get("shortwave_radiation_sum") or []
         for i, date in enumerate(daily.get("time", [])):
             dcode = int((daily.get("weather_code") or [0])[i] or 0)
-            days.append({"date": date, "tmax": daily["temperature_2m_max"][i], "tmin": daily["temperature_2m_min"][i],
-                         "rain_mm": daily["precipitation_sum"][i], "et0_mm": daily["et0_fao_evapotranspiration"][i],
-                         "wind_max": daily["wind_speed_10m_max"][i], "radiation_mj": daily.get("shortwave_radiation_sum", [None] * 7)[i],
-                         "label": WMO.get(dcode, ("Unknown", "cloud"))[0], "icon": WMO.get(dcode, ("", "cloud"))[1]})
-        rain_24 = sum(v or 0 for v in (hourly.get("precipitation") or [])[:24])
+            all_days.append({"date": date, "tmax": daily["temperature_2m_max"][i], "tmin": daily["temperature_2m_min"][i],
+                             "rain_mm": daily["precipitation_sum"][i], "et0_mm": daily["et0_fao_evapotranspiration"][i],
+                             "wind_max": daily["wind_speed_10m_max"][i],
+                             "radiation_mj": radiation[i] if i < len(radiation) else None,
+                             "label": WMO.get(dcode, ("Unknown", "cloud"))[0], "icon": WMO.get(dcode, ("", "cloud"))[1]})
+        # Past days (requested with past_days) come first; "today" is the date of the current reading.
+        today = str(cur.get("time") or "")[:10]
+        past = [d for d in all_days if today and d["date"] < today]
+        days = [d for d in all_days if not today or d["date"] >= today]
+        hourly_times = hourly.get("time") or []
+        start = 0
+        if cur.get("time") and hourly_times:
+            hour_key = str(cur["time"])[:13] + ":00"
+            start = hourly_times.index(hour_key) if hour_key in hourly_times else 0
+        rain_24 = sum(v or 0 for v in (hourly.get("precipitation") or [])[start:start + 24])
         data = {
             "available": True, "source": "Open-Meteo", "fetched_at": int(time.time()),
             "current": {"temp_c": cur.get("temperature_2m"), "humidity": cur.get("relative_humidity_2m"),
@@ -218,6 +229,7 @@ class WeatherClient:
                         "precip_mm": cur.get("precipitation"), "is_day": bool(cur.get("is_day", 1)),
                         "label": WMO.get(code, ("Unknown", "cloud"))[0], "icon": WMO.get(code, ("", "cloud"))[1]},
             "daily": days, "rain_next_24h_mm": round(rain_24, 1),
+            "past_daily": [{"date": d["date"], "et0_mm": d["et0_mm"], "rain_mm": d["rain_mm"]} for d in past],
             "et0_today_mm": days[0]["et0_mm"] if days else None,
         }
         with self._lock:
@@ -226,6 +238,11 @@ class WeatherClient:
 
 
 # ------------------------------------------------------------------ agronomy
+INDEX_DAYS = 7            # irrigation index window (complete past days)
+INDEX_MIN_DAYS = 5        # days with meter totals needed for a verdict
+INDEX_UNDER, INDEX_OVER = 0.85, 1.3
+
+
 def _moisture(row: dict) -> tuple[float | None, float | None, str | None]:
     if row.get("soil_moisture_temp_valid") and (row.get("soil_moisture") or 0) > 0:
         return float(row["soil_moisture"]), row.get("soil_temperature"), "HNDA"
@@ -264,8 +281,45 @@ class FarmService:
         s = self.settings
         return {"tiles": s.map_tile_url, "labels": s.map_labels_url, "attribution": s.map_attribution}
 
-    def zone_state(self, zone: Zone, row: dict | None, layout: FarmLayout, wx: dict) -> dict:
+    def irrigation_index(self, company: str, zone: Zone, wx: dict) -> dict | None:
+        """Water applied vs crop water need (ETc = ET0 x Kc) over the last 7 complete days.
+
+        Applied water is the node's daily meter volume (consumption periods, largest meter per day)
+        spread over the field area. Ratio < 0.85 = under-irrigated, > 1.3 = over-irrigated (a
+        pivot needs roughly 1.1-1.2 x ETc to cover application losses). Rain is ignored (desert)."""
+        past = (wx.get("past_daily") or [])[-INDEX_DAYS:] if wx.get("available") else []
+        area_ha = zone.area_ha()
+        if not past or zone.node_id is None or area_ha <= 0:
+            return None
+        dates = {d["date"]: d for d in past}
+        per_day: dict[str, float] = {}
+        for r in self.telemetry.consumption(company, zone.region, period="day", node_id=zone.node_id):
+            if r["period_key"] in dates:
+                per_day[r["period_key"]] = max(per_day.get(r["period_key"], 0.0), float(r["volume_m3"] or 0))
+        if not per_day:
+            return None                         # no flow meter totals for this field
+        kc = _kc(zone.crop)
+        etc_mm = sum(float(d["et0_mm"] or 0) * kc for d in dates.values())
+        if etc_mm <= 0:
+            return None
+        applied_mm = sum(per_day.values()) / (area_ha * 10)      # m3 / (ha x 10) = mm
+        ratio = applied_mm / etc_mm
+        if len(per_day) < INDEX_MIN_DAYS:
+            status = "insufficient_data"
+        else:
+            status = "under" if ratio < INDEX_UNDER else "over" if ratio > INDEX_OVER else "on_target"
+        return {"days": len(dates), "days_with_data": len(per_day), "applied_mm": round(applied_mm, 1),
+                "etc_mm": round(etc_mm, 1), "ratio": round(ratio, 2), "status": status}
+
+    def zone_state(self, zone: Zone, row: dict | None, layout: FarmLayout, wx: dict,
+                   company: str | None = None) -> dict:
         out = {**zone.model_dump(), "area_ha": round(zone.area_ha(), 1), "kc": _kc(zone.crop)}
+        if company is not None:
+            try:
+                out["irrigation_index"] = self.irrigation_index(company, zone, wx)
+            except Exception:
+                log.exception("Irrigation index failed for zone %s", zone.id)
+                out["irrigation_index"] = None
         if row is None:
             out.update(status="no_data", advice="No uplink from this zone's node yet.", irrigating=False)
             return out
@@ -320,7 +374,7 @@ class FarmService:
             return {"company": company, "configured": False, "map": self.map_config()}
         fleet = {(n["node_id"]): n for n in self.telemetry.fleet(company, region)}
         wx = self.weather.get(*layout.site.center)
-        zones = [self.zone_state(z, fleet.get(z.node_id) if z.region == region else None, layout, wx)
+        zones = [self.zone_state(z, fleet.get(z.node_id) if z.region == region else None, layout, wx, company)
                  for z in layout.zones]
         for z in zones:  # monitoring nodes report sensors only; control nodes also drive the valve
             z["node_type"] = self.node_type(company, z["region"], z["node_id"]) if self.node_type and z.get("node_id") else None
@@ -343,6 +397,8 @@ class FarmService:
             "water_today_m3": round(sum(z.get("water_today_m3") or 0 for z in zones), 1),
             "flow_now_m3h": round(sum(z.get("flow_m3h") or 0 for z in zones), 1),
             "auto_zones": sum(1 for z in zones if z["auto_irrigation"]),
+            "under_irrigated": sum(1 for z in zones if (z.get("irrigation_index") or {}).get("status") == "under"),
+            "over_irrigated": sum(1 for z in zones if (z.get("irrigation_index") or {}).get("status") == "over"),
         }
         alerts = []
         for z in zones:
@@ -356,10 +412,47 @@ class FarmService:
                 alerts.append({"level": "serious", "zone": z["id"], "message": f"{z['name']} soil probe invalid"})
             if z.get("battery_v") and z["battery_v"] < 3.45:
                 alerts.append({"level": "warning", "zone": z["id"], "message": f"{z['name']} battery {z['battery_v']:.2f} V"})
+        warnings = self._weather_items(wx)
+        for w in warnings:
+            alerts.insert(0, {"level": "critical" if w["kind"] == "frost_risk" else "serious", "zone": None,
+                              "kind": w["kind"], "message": w["message"]})
         return {"company": company, "region": region, "configured": True, "map": self.map_config(),
+                "weather_warnings": warnings,
                 "site": layout.site.model_dump(), "agronomy": layout.agronomy.model_dump(),
                 "gateways": [g.model_dump() for g in layout.gateways], "devices": devices,
                 "zones": zones, "kpis": kpis, "alerts": alerts, "weather": wx}
+
+    def _weather_items(self, wx: dict) -> list[dict]:
+        """Frost and heat-stress warnings for today and tomorrow from the site forecast."""
+        if not wx.get("available"):
+            return []
+        days = [d for d in (wx.get("daily") or [])[:2]]
+        frost_c, heat_c = float(self.settings.frost_warn_c), float(self.settings.heat_warn_c)
+        items = []
+        cold = [d for d in days if d.get("tmin") is not None and float(d["tmin"]) <= frost_c]
+        if cold:
+            d = min(cold, key=lambda x: float(x["tmin"]))
+            items.append({"kind": "frost_risk", "severity": "critical", "date": d["date"], "tmin_c": d["tmin"],
+                          "threshold_c": frost_c,
+                          "message": f"Frost risk {d['date']}: minimum {float(d['tmin']):.1f} °C forecast"})
+        hot = [d for d in days if d.get("tmax") is not None and float(d["tmax"]) >= heat_c]
+        if hot:
+            d = max(hot, key=lambda x: float(x["tmax"]))
+            items.append({"kind": "heat_stress", "severity": "warning", "date": d["date"], "tmax_c": d["tmax"],
+                          "threshold_c": heat_c,
+                          "message": f"Heat stress {d['date']}: maximum {float(d['tmax']):.1f} °C forecast"})
+        return items
+
+    def weather_warnings(self, company: str) -> dict | None:
+        """Warnings for the alert monitor; None when there is no farm layout or no forecast."""
+        layout = self.store.get(company)
+        if layout is None:
+            return None
+        wx = self.weather.get(*layout.site.center)
+        if not wx.get("available"):
+            return None
+        region = layout.zones[0].region if layout.zones else "Region_1"
+        return {"region": region, "site": layout.site.name, "items": self._weather_items(wx)}
 
     def zone_history(self, company: str, zone_id: str, hours: float) -> dict:
         layout = self.store.get(company)

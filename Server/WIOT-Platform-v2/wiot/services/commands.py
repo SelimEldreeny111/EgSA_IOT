@@ -11,7 +11,7 @@ import threading
 import time
 from dataclasses import dataclass
 
-from ..domain.command_queue import CommandConflict, CommandQueue
+from ..domain.command_queue import CommandConflict, CommandQueue, ack_timeout_for
 from ..domain.flash_archive import FLASH_COMMANDS, TRANSFER_IDLE_S
 from ..protocol import messages_pb2
 from ..protocol.power import WAKE_COMMAND_ID, validate_wake_seconds
@@ -29,9 +29,9 @@ CMD_IDS.update(FLASH_COMMANDS)
 CMD_NAMES = {v: k for k, v in CMD_IDS.items()}
 
 CATALOG = [
-    {"type": "SRATE", "label": "Sampling interval", "data": "seconds", "min": 5, "max": 86400,
+    {"type": "SRATE", "label": "Sampling interval", "data": "seconds", "min": 10, "max": 86400,
      "default": 60, "group": "configuration", "help": "How often the node samples its sensors."},
-    {"type": "STRAN", "label": "Report interval", "data": "seconds", "min": 5, "max": 86400,
+    {"type": "STRAN", "label": "Report interval", "data": "seconds", "min": 10, "max": 86400,
      "default": 60, "group": "configuration", "help": "How often the node uplinks a Status message."},
     {"type": "STIME", "label": "Sync node clock", "data": "auto", "group": "configuration",
      "help": "Sends the server epoch at the moment of dispatch."},
@@ -87,6 +87,8 @@ class CommandService:
         self.history_writer = history_writer
         self.node_type = None  # (company, region, node) -> 'monitoring' | 'control' | None, set by the runtime
         self.flash_transfer = None  # (company, region, node, now) -> running history download | None
+        self.power_mode = None  # (company, region, node) -> last reported power mode | None, set by the runtime
+        self.risk = None  # (company, region, node, cmd_type) -> delivery-risk dict, set by the runtime
         self._lock = threading.RLock()
 
     @property
@@ -136,15 +138,44 @@ class CommandService:
                 data = int(value)
             except (TypeError, ValueError) as exc:
                 raise CommandError(f"Invalid command data: {value!r}") from exc
-            if ctype in ("SRATE", "STRAN") and not 5 <= data <= 86400:
-                raise CommandError("Interval must be 5..86400 seconds")
+            if ctype in ("SRATE", "STRAN") and not 10 <= data <= 86400:
+                # The node firmware accepts 10..86400 s (AppConfig); a shorter value would be rejected.
+                raise CommandError("Interval must be 10..86400 seconds")
             if ctype == "VALVE" and data not in (0, 1):
                 raise CommandError("Valve data must be 0 (close) or 1 (open)")
         integer(req.ttl_seconds, 60, 604800, "Command TTL")
         return CMD_IDS[ctype], data
 
     # --------------------------------------------------------------- dispatch
+    def _ack_timeout(self, company: str, region: str, node_id: int) -> int:
+        """Reply deadline from the node's last reported power mode (sleeping radios answer later)."""
+        try:
+            return ack_timeout_for(self.power_mode(company, region, node_id) if self.power_mode else None)
+        except Exception:
+            return ack_timeout_for(None)
+
+    def _auto_delivery(self, req: CommandRequest) -> tuple[str, dict]:
+        """``delivery='auto'``: queue for the next wake when the node is probably asleep."""
+        info: dict = {"requested": "auto"}
+        if req.broadcast:
+            return "now", {**info, "chosen": "now", "reason": "broadcast"}
+        if not self.broker.is_ready():
+            return "next_wake", {**info, "chosen": "next_wake", "reason": "broker not connected"}
+        try:
+            risk = self.risk(req.company, req.region, req.node_id, req.cmd_type) if self.risk else None
+        except Exception:
+            risk = None  # model not trained yet or no data: behave like "now"
+        if not risk:
+            return "now", {**info, "chosen": "now", "reason": "no delivery-risk estimate"}
+        chosen = "next_wake" if risk.get("tier") == "UNLIKELY" else "now"
+        return chosen, {**info, "chosen": chosen, "tier": risk.get("tier"),
+                        "probability": risk.get("probability"),
+                        "reason": "node probably asleep" if chosen == "next_wake" else "node probably listening"}
+
     def submit(self, req: CommandRequest, actor: str) -> dict:
+        auto = None
+        if req.delivery == "auto":
+            req.delivery, auto = self._auto_delivery(req)
         cmd_id, cmd_data = self.normalise(req)
         if req.cmd_type in ACTUATION and not req.broadcast and self.node_type is not None \
                 and self.node_type(req.company, req.region, req.node_id) == "monitoring":
@@ -170,7 +201,8 @@ class CommandService:
             request_id = result["request_id"]
             COMMANDS_SUBMITTED.labels(req.cmd_type, req.delivery).inc()
             if req.delivery == "now":
-                item = journal.claim_immediate(request_id)
+                item = journal.claim_immediate(request_id, ack_timeout=self._ack_timeout(
+                    req.company, req.region, req.node_id))
                 if item is None:
                     raise CommandError("Accepted command could not be claimed", status=500)
                 try:
@@ -179,16 +211,17 @@ class CommandService:
                     raise CommandError("Publication failed; execution unknown. Inspect the journal.",
                                        status=503, request_id=request_id, outcome_unknown=True) from exc
         self._notify(req.company, request_id)
+        extra = {"delivery": req.delivery, **({"auto": auto} if auto else {})}
         if req.delivery == "next_wake":
             self.logs.emit(f"[QUEUE] Accepted {req.cmd_type} request={request_id}; waiting for Status",
                            company=req.company)
-            return {**result, "queued": True, "message": "Queued until the node's next Status uplink"}
+            return {**result, **extra, "queued": True, "message": "Queued until the node's next Status uplink"}
         try:
             self.history_writer(req.company, req.region, req.node_id,
                                 f"{req.cmd_type} data={cmd_data} request={request_id}", request_id)
         except Exception:
             log.exception("Command submitted; history copy failed (journal retained)")
-        return {**result, "queued": False, "awaiting_node_ack": True,
+        return {**result, **extra, "queued": False, "awaiting_node_ack": True,
                 "message": "Submitted; waiting for the node's execution reply"}
 
     def _publish(self, item: dict) -> None:
@@ -221,7 +254,8 @@ class CommandService:
             return
         try:
             with self._lock:
-                item = self.journal.claim_on_status(company, node_id, region=region)
+                item = self.journal.claim_on_status(company, node_id, region=region,
+                                                    ack_timeout=self._ack_timeout(company, region, node_id))
                 if item is not None:
                     self._publish(item)
                     self._notify(company, item["request_id"])
@@ -236,6 +270,11 @@ class CommandService:
         if accepted:
             self._notify(company, request_id)
         return accepted
+
+    def has_active(self, company: str, region: str, node_id: int, cmd_type: str) -> bool:
+        """Is a ``cmd_type`` command for this node still pending, dispatched or waiting to retry?"""
+        return any(r["cmd_type"] == cmd_type and r["state"] in ("pending", "dispatched", "waiting_retry")
+                   for r in self.journal.list(company, node_id, 50, region=region))
 
     def _notify(self, company: str, request_id: int) -> None:
         self.hub.publish("command", {"request_id": request_id}, company=company)
