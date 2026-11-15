@@ -17,7 +17,7 @@ This is the entry point. Read §1 before touching anything. The other documents:
 | `docs/reference/TESTS.md` | Every test file and test |
 | `docs/reference/EVENTS.md` | Realtime hub events and Prometheus metrics |
 | `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0` (project root) | **The work plan:** all 62 improvement points in releases R2.1–R2.6 and Track G, with dates, prerequisites, quality gates and risks |
-| `Documentation/ServerSoftware/` (project root) | User Manual (44 pp), System Analysis & Design (34 pp), Test Report (25 pp) — V1.1 of 11 Nov 2026, covering Phase 0 and R2.1 (V1.0 of 9 Nov kept) |
+| `Documentation/ServerSoftware/` (project root) | Server Description and User Manual V2.0 (81 pp, 15 Nov 2026, server 2.7.0); System Analysis & Design (34 pp) and Test Report (25 pp) V1.1 of 11 Nov 2026 (Phase 0 and R2.1); earlier versions kept |
 | `Documentation/Flowcharts/` (project root) | Flowcharts; F31–F41 are the server |
 | `data/analytics/REPORT.md` | Data-analysis report (8 Nov 2026) |
 
@@ -238,11 +238,15 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 
 ## 8. Current state (12 November 2026)
 
-- Code: R2.1 is committed (`43fce3e`); releases R2.2–R2.7 (version 2.7.0) are committed as `30890e1` and pushed
-  on 15 Nov 2026 (R2.7 = Earth observation: open Sentinel-2, Copernicus catalogue, EUMETSAT) — see `docs/CHANGELOG.md`,
-  last entry. Track G (points 53–60) is not started, by decision. The CI workflow (with the `lint` and `browser` jobs)
+- Code: R2.1 is committed (`43fce3e`); releases R2.2–R2.7 (version 2.7.0) are committed as `30890e1`, with the
+  fixes found while writing the User Manual V2.0 (`ad7373f`) and the browser-test fix after it, all pushed on
+  15 Nov 2026 (R2.7 = Earth observation: open Sentinel-2, Copernicus catalogue, EUMETSAT) — see `docs/CHANGELOG.md`,
+  last entries. Track G (points 53–60) is not started, by decision. The CI workflow (with the `lint` and `browser` jobs)
   is committed at the worktree root; keep the final-copy root `.github/workflows/server-v2-tests.yml` in step with it.
-- Tests: see the last CHANGELOG entry for the count; the browser smoke test is skipped locally (no Playwright).
+- Tests: 220 (see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
+  run it locally with the Video tooling's Playwright appended to the path:
+  `.venv\Scripts\python -c "import sys; sys.path.append(r'..\..\Video\.venv\Lib\site-packages'); import pytest;
+  sys.exit(pytest.main(['tests/test_browser_smoke.py']))"`.
 - External accounts still needed to switch on R2.3–R2.6 features: SMTP account, Telegram bot / Twilio / WhatsApp
   Cloud API / Teams webhook, an OpenID Connect provider (Entra ID, Google, Keycloak), a Copernicus Data Space account
   (Sentinel Hub NDVI; optional since 2.7 — `WIOT_SATELLITE_PROVIDER=open` needs none), an EUMETSAT API key (downloads), WaPOR CSV exports, an Anthropic API key (assistant), a public HTTPS address (`WIOT_PUBLIC_URL`; Web
@@ -254,8 +258,12 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
   (port 8000, port 1883) before starting another copy.
 - Field: node 2 (Company_1) last behaved normally in LORA_WOR_STOP; its flash log holds data that has not been
   downloaded (downloads fail, see OI-01).
-- Documents: User Manual, System Analysis & Design and Test Report V1.1 (Phase 0 + R2.1) in
-  `Documentation/ServerSoftware/` (V1.0 kept).
+- Documents in `Documentation/ServerSoftware/` (not in git):
+  - **Server Description and User Manual V2.0** (15 Nov 2026, 81 pp, server 2.7.0, every page). Its screenshots
+    were made with `capture_manual_v2.py` against a demonstration copy (port 8010, local broker without a bridge,
+    simulator for the Demo companies only).
+  - System Analysis & Design and Test Report V1.1 (Phase 0 + R2.1); V1.0 kept.
+  - Remote-sensing course: `RemoteSensing/` next to `Server/`.
 
 ## 9. Known issues and open items
 

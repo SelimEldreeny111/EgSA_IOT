@@ -330,3 +330,8 @@ retaken with `capture_manual_v2.py` on a demonstration copy). Eight defects foun
 - New tests:
   - `test_r22.py`: status sampling between longer cycles; availability for 5- and 10-minute cadences.
   - `test_r26.py`: calibration alert title.
+- **Browser smoke test (CI).** The `browser smoke test` job failed on the release 2.2–2.7 commit (`30890e1`); every
+  other job passed. The test waited for `/**` after pressing Sign in, which already matches `/login`, so its first
+  navigation cancelled the sign-in request and no page rendered. It now waits until the address leaves `/login`.
+  This is a test defect, not an application one. The test had never run before: it is skipped where Playwright is
+  missing. It passes locally in English and Arabic.

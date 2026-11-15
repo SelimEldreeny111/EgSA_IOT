@@ -55,7 +55,10 @@ def test_every_page_renders_without_console_errors(server, lang):
         page.fill("#u", "EgSA_Supervisor")
         page.fill("#p", PASSWORDS["WIOT_SUPERVISOR_PASSWORD"])
         page.click("button[type=submit]")
-        page.wait_for_url(server + "/**")
+        # "/**" also matches /login itself: wait until the sign-in has really completed, or the next navigation
+        # cancels the sign-in request and every page lands back on the sign-in page.
+        page.wait_for_url(lambda url: "/login" not in url, timeout=20000)
+        page.wait_for_selector("#page > *", timeout=15000)
         for name in PAGES:
             page.goto(f"{server}/#/{name}")
             page.wait_for_selector("#page > *", timeout=15000)
