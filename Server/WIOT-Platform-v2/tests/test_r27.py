@@ -310,3 +310,32 @@ def test_eumetsat_search_and_download(farm, tmp_path):
     csrf = login(farm, "Super_User", PASSWORDS["WIOT_MONITOR_PASSWORD"])                     # read-only monitor
     farm.headers["X-CSRF-Token"] = csrf
     assert farm.post("/api/v2/eo/eumetsat/download", json=body).status_code == 403
+
+
+def test_sentinel_hub_clear_share_is_measured_against_the_field(farm):
+    """The Statistical API counts the whole bounding box: a fully clear round field must read 100 %, not ~78 %."""
+    from pydantic import SecretStr
+
+    from wiot.services.satellite import field_share_of_bbox, zone_geometry
+    rt = farm.app.state.runtime
+    rt.settings.sentinel_client_id, rt.settings.sentinel_client_secret = "cid", SecretStr("sec")
+    zone = rt.farm.store.get("Company_1").zones[0]
+    share = field_share_of_bbox(zone_geometry(zone))
+    assert 0.74 < share < 0.80                                     # a circle fills about pi/4 of its box
+    total = 10000
+    outside = round(total * (1 - share))
+
+    def stats(day, cloudy_part):
+        nodata = outside + round(total * share * cloudy_part)
+        return {"interval": {"from": f"{day}T00:00:00Z"}, "outputs": {"ndvi": {"bands": {"B0": {"stats": {
+            "min": 0.2, "max": 0.8, "mean": 0.6, "sampleCount": total, "noDataCount": nodata}}}}}}
+
+    def fake(method, url, headers, body, timeout=60):
+        if url.endswith("/token"):
+            return 200, json.dumps({"access_token": "tok", "expires_in": 600}).encode()
+        return 200, json.dumps({"data": [stats("2026-11-05", 0.0), stats("2026-11-08", 0.4),
+                                         stats("2026-11-11", 0.6)]}).encode()
+    rt.satellite.http = fake
+    assert rt.satellite.fetch_ndvi("Company_1") == 2                              # 60 % cloud is dropped
+    hist = {h["date"]: h["clear_share"] for h in rt.satellite.ndvi_history("Company_1", days=3000)}
+    assert hist["2026-11-05"] == 1.0 and abs(hist["2026-11-08"] - 0.6) < 0.01 and "2026-11-11" not in hist

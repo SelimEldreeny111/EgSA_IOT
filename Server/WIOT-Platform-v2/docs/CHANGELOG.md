@@ -335,3 +335,13 @@ retaken with `capture_manual_v2.py` on a demonstration copy). Eight defects foun
   navigation cancelled the sign-in request and no page rendered. It now waits until the address leaves `/login`.
   This is a test defect, not an application one. The test had never run before: it is skipped where Playwright is
   missing. It passes locally in English and Arabic.
+- **Sentinel Hub cloud-free share.**
+  - The problem: the Statistical API counts every cell of the request's bounding box in `sampleCount`, and the cells
+    outside the field polygon in `noDataCount`. A fully clear round pivot was therefore stored as about 78 % clear,
+    and the 50 % minimum effectively required about 64 %.
+  - The fix: the clear share is now measured against the field's own share of the box (`field_share_of_bbox`),
+    counted cell by cell on the 0.0001° request grid.
+  - Checked against the live service with the project's Copernicus client: P-08 and P-19 went from 80–81 % to 100 %
+    on clear days.
+  - Stored values are corrected by the next update of the same dates (**Update now** re-reads the last 30 days).
+  - New test: `test_r27.py::test_sentinel_hub_clear_share_is_measured_against_the_field`.

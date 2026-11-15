@@ -83,6 +83,39 @@ def zone_geometry(zone) -> dict:
     return {"type": "Polygon", "coordinates": [ring]}
 
 
+SH_RES_DEG = 0.0001                 # grid of the Statistical API requests (about 10 m)
+
+
+def field_share_of_bbox(geom: dict, res: float = SH_RES_DEG) -> float:
+    """Share of the cells of the bounding-box grid whose centres lie inside the field polygon.
+
+    The Statistical API counts every cell of the request's bounding box in ``sampleCount`` and the cells outside
+    the polygon in ``noDataCount``, so for a round pivot about 22 % of the cells are "no data" even on a clear day.
+    Dividing by this share measures the clear part against the field itself. Small grids are counted cell by cell
+    (as the API sees them); large ones use the exact area ratio."""
+    ring = geom["coordinates"][0]
+    xs, ys = [q[0] for q in ring], [q[1] for q in ring]
+    x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
+    nx, ny = max(1, math.ceil((x1 - x0) / res)), max(1, math.ceil((y1 - y0) / res))
+    if nx * ny <= 40000:
+        inside = 0
+        n = len(ring)
+        for j in range(ny):
+            py = y0 + (j + 0.5) * res
+            for i in range(nx):
+                px, hit = x0 + (i + 0.5) * res, False
+                for k in range(n - 1):
+                    (ax, ay), (bx, by) = ring[k], ring[k + 1]
+                    if (ay > py) != (by > py) and px < ax + (py - ay) * (bx - ax) / (by - ay):
+                        hit = not hit
+                inside += hit
+        if inside:
+            return inside / (nx * ny)
+    area = abs(sum(ring[k][0] * ring[k + 1][1] - ring[k + 1][0] * ring[k][1] for k in range(len(ring) - 1))) / 2
+    box = max((x1 - x0) * (y1 - y0), 1e-12)
+    return min(1.0, max(area / box, 1e-6))
+
+
 def bbox_of(geom: dict) -> list[float]:
     xs = [p[0] for p in geom["coordinates"][0]]
     ys = [p[1] for p in geom["coordinates"][0]]
@@ -227,11 +260,12 @@ class SatelliteService:
         stored = 0
         for zone in layout.zones:
             geom = zone_geometry(zone)
+            share = field_share_of_bbox(geom)                             # cells of the box inside the field
             payload = {"input": {"bounds": {"geometry": geom, "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}},
                                  "data": [{"type": "sentinel-2-l2a", "dataFilter": {"maxCloudCoverage": 60}}]},
                        "aggregation": {"timeRange": {"from": f"{today - timedelta(days=days)}T00:00:00Z", "to": f"{today}T23:59:59Z"},
                                        "aggregationInterval": {"of": "P1D"}, "evalscript": NDVI_EVALSCRIPT,
-                                       "resx": 0.0001, "resy": 0.0001}}
+                                       "resx": SH_RES_DEG, "resy": SH_RES_DEG}}
             status, text = self._sh("/api/v1/statistics", payload)
             if status != 200:
                 log.warning("Sentinel statistics for %s/%s failed: HTTP %s", company, zone.id, status)
@@ -241,7 +275,8 @@ class SatelliteService:
                 st = (((item.get("outputs") or {}).get("ndvi") or {}).get("bands") or {}).get("B0", {}).get("stats", {})
                 if not st or st.get("sampleCount", 0) == 0 or st.get("mean") in (None, "NaN"):
                     continue
-                clear = 1 - st.get("noDataCount", 0) / max(1, st.get("sampleCount", 1))
+                samples = max(1, st.get("sampleCount", 1))                # every cell of the bounding box
+                clear = min(1.0, (samples - st.get("noDataCount", 0)) / (samples * share))
                 if clear < 0.5:
                     continue
                 rows.append((company, zone.id, item["interval"]["from"][:10], float(st["mean"]), float(st["min"]),
