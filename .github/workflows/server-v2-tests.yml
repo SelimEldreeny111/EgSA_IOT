@@ -137,4 +137,10 @@ jobs:
           python -m pip install -e ".[dev]" playwright
           python -m playwright install --with-deps chromium
       - name: Browser smoke test
-        run: python -m pytest -q -rs tests/test_browser_smoke.py
+        # On failure the failing lines become public annotations (job logs need a GitHub sign-in to read).
+        run: |
+          set -o pipefail
+          python -m pytest -q -rs tests/test_browser_smoke.py 2>&1 | tee browser.log || {
+            grep -E "^E |Error|assert" browser.log | head -20 | sed 's/^/::error title=browser smoke test::/'
+            exit 1
+          }

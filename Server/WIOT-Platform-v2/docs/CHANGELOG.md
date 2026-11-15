@@ -345,3 +345,9 @@ retaken with `capture_manual_v2.py` on a demonstration copy). Eight defects foun
     on clear days.
   - Stored values are corrected by the next update of the same dates (**Update now** re-reads the last 30 days).
   - New test: `test_r27.py::test_sentinel_hub_clear_share_is_measured_against_the_field`.
+- **Commissioning push check.** The page asked the browser's push service for its subscription without catching a
+  refusal. Headless or locked-down browsers (for example Chromium on Linux) can refuse, and the error surfaced
+  whenever the service worker finished starting, possibly on another page. This is the likely cause of an
+  intermittent CI browser-test failure on `bc12fd0`; the test passes locally, also with a CPU slowed six-fold. The
+  page now shows "Push alerts are not available in this browser (…)". The CI browser job also turns failing lines
+  into public annotations, so a failure can be read without a GitHub sign-in.

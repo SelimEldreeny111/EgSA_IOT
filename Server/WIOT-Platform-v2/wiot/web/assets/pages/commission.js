@@ -132,8 +132,11 @@ export async function render(root) {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) { el.textContent = "This browser does not support push alerts."; return null; }
     let key;
     try { key = await api("/push/key"); } catch (err) { el.textContent = err.message; return null; }
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
+    let reg, sub;
+    try {                                   // headless or locked-down browsers can refuse the push service
+      reg = await navigator.serviceWorker.ready;
+      sub = await reg.pushManager.getSubscription();
+    } catch (err) { el.textContent = `Push alerts are not available in this browser (${err.message}).`; return null; }
     el.textContent = sub ? `Alerts are on for this device (${key.subscriptions} device(s) for your account).` : "Alerts are off for this device. Warning and critical alerts of your company will appear as phone or desktop notifications.";
     return { reg, sub, key };
   }
@@ -142,13 +145,14 @@ export async function render(root) {
     try {
       if ((await Notification.requestPermission()) !== "granted") { toast("Notifications are blocked for this site", "error"); return; }
       const sub = s.sub || await s.reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(s.key.public_key) });
-      await api("/push/subscribe", { method: "POST", body: sub.toJSON() }); toast("Alerts turned on", "ok"); pushState();
+      await api("/push/subscribe", { method: "POST", body: sub.toJSON() }); toast("Alerts turned on", "ok"); pushState().catch(() => {});
     } catch (err) { toast(err.message, "error"); }
   });
   $("#push-off", root).addEventListener("click", async () => {
     const s = await pushState(); if (!s?.sub) return;
     await api("/push/unsubscribe", { method: "POST", body: s.sub.toJSON() }).catch(() => {});
-    await s.sub.unsubscribe(); toast("Alerts turned off", "ok"); pushState();
+    try { await s.sub.unsubscribe(); toast("Alerts turned off", "ok"); } catch (err) { toast(err.message, "error"); }
+    pushState().catch(() => {});
   });
   $("#push-test", root).addEventListener("click", async () => { try { const r = await api("/push/test", { method: "POST" }); toast(`Test sent to ${r.sent} device(s)`, "ok"); } catch (err) { toast(err.message, "error"); } });
 
@@ -167,6 +171,6 @@ export async function render(root) {
     } catch (err) { toast(err.message, "error"); }
   });
 
-  await show(); pushState();
+  await show(); pushState().catch(() => {});
   return () => { clearInterval(timer); stopCamera(); };
 }
