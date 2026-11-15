@@ -23,7 +23,9 @@ function batteryCell(n) {
 }
 function configCell(c) {
   if (!c) return "–";
-  const one = (label, v) => v.desired === null ? "" : `<div class="${v.drift ? "nh-drift" : ""}">${label} ${v.reported ?? "?"} s${v.drift ? ` <small>(set ${v.desired} s)</small>` : ""}</div>`;
+  const one = (label, v) => v.desired === null ? "" : v.reported == null
+    ? `<div>${label} set ${v.desired} s <small class="dim">(not reported yet)</small></div>`
+    : `<div class="${v.drift ? "nh-drift" : ""}">${label} ${v.reported} s${v.drift ? ` <small>(set ${v.desired} s)</small>` : ""}</div>`;
   return one("Sampling", c.sampling_s) + one("Report", c.report_s) || `<span class="dim">not set from WIOT</span>`;
 }
 

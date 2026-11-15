@@ -5,7 +5,8 @@ Every ``WIOT_MAINTENANCE_INTERVAL_S`` (default 10 min) one thread:
 1. folds new readings into the hourly and daily summaries of every company (``storage.rollups.update``);
 2. applies each company's raw-data retention (``companies.retention_days``, else ``WIOT_RETENTION_DAYS``;
    0 keeps everything, any other value is raised to the 365-day minimum) — once a day;
-3. records a status sample for the public status page (``SystemService.sample``);
+3. records a status sample for the public status page (``SystemService.sample``) — every 5 minutes, also
+   when the maintenance interval is longer (the thread wakes for the sample in between);
 4. runs ``PRAGMA optimize`` on the tenant databases once a day.
 
 ``python -m wiot maintain [--vacuum]`` runs the same cycle once from the command line (stop the server first
@@ -53,13 +54,22 @@ class Maintenance:
         return bool(self._thread and self._thread.is_alive())
 
     def _loop(self) -> None:
+        from .system import SAMPLE_EVERY_S
         self._stop.wait(20)                       # let the server finish starting
+        next_cycle = 0.0
         while not self._stop.is_set():
-            try:
-                self.run_once()
-            except Exception:
-                log.exception("Maintenance cycle failed")
-            self._stop.wait(self.settings.maintenance_interval_s)
+            if time.monotonic() >= next_cycle:
+                try:
+                    self.run_once()
+                except Exception:
+                    log.exception("Maintenance cycle failed")
+                next_cycle = time.monotonic() + self.settings.maintenance_interval_s
+            elif self.system is not None:         # status samples every 5 min, also between longer cycles
+                try:
+                    self.system.sample()
+                except Exception:
+                    log.exception("Status sample failed")
+            self._stop.wait(min(self.settings.maintenance_interval_s, SAMPLE_EVERY_S))
 
     def retention_days(self, company: str) -> int:
         days = None

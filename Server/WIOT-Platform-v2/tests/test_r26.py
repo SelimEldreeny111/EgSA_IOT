@@ -208,3 +208,10 @@ def test_assistant_refusal_rate_limit_and_off_switch(supervisor):
     r = supervisor.post("/api/v2/assistant/ask", json={"question": "hi"})
     assert r.json()["answer"] == "The assistant declined to answer this question."
     assert supervisor.post("/api/v2/assistant/ask", json={"question": "again"}).status_code == 403
+
+
+def test_calibration_alert_has_a_readable_title():
+    from wiot.services.notify import alert_text
+    subject, body = alert_text("Company_1", {"alert_kind": "calibration_due_7", "severity": "warning", "node_id": 0,
+                                             "region": "Region_1", "details": {"asset": "Main line meter", "due": "2026-01-10"}})
+    assert "Calibration overdue: Main line meter" in subject and "calibration_due" not in subject

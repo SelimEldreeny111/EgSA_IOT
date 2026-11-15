@@ -1,6 +1,6 @@
 # WIOT Platform v2 — hand-over for the next agent
 
-**Date:** 12 November 2026 · **Version:** 2.1.0 (`wiot/__init__.py`; release R2.1 done, not committed yet) · **Owner:** EgSA R&D IoT team
+**Date:** 15 November 2026 · **Version:** 2.7.0 (`wiot/__init__.py`; releases R2.1–R2.7 committed and pushed) · **Owner:** EgSA R&D IoT team
 (lead researcher Selim Eldreeny; supervisor Dr. Haitham Akah).
 
 This is the entry point. Read §1 before touching anything. The other documents:
@@ -238,10 +238,10 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 
 ## 8. Current state (12 November 2026)
 
-- Code: R2.1 is committed (`43fce3e`). **Releases R2.2–R2.7 (version 2.7.0) are implemented in the development copy
-  and not committed yet** (R2.7 = Earth observation: open Sentinel-2, Copernicus catalogue, EUMETSAT) — see `docs/CHANGELOG.md`, last entry. Track G (points 53–60) is not started, by decision.
-  The CI workflow (new `lint` and `browser` jobs) is in the final-copy root `.github/workflows/server-v2-tests.yml`;
-  copy it to the worktree root when committing.
+- Code: R2.1 is committed (`43fce3e`); releases R2.2–R2.7 (version 2.7.0) are committed as `30890e1` and pushed
+  on 15 Nov 2026 (R2.7 = Earth observation: open Sentinel-2, Copernicus catalogue, EUMETSAT) — see `docs/CHANGELOG.md`,
+  last entry. Track G (points 53–60) is not started, by decision. The CI workflow (with the `lint` and `browser` jobs)
+  is committed at the worktree root; keep the final-copy root `.github/workflows/server-v2-tests.yml` in step with it.
 - Tests: see the last CHANGELOG entry for the count; the browser smoke test is skipped locally (no Playwright).
 - External accounts still needed to switch on R2.3–R2.6 features: SMTP account, Telegram bot / Twilio / WhatsApp
   Cloud API / Teams webhook, an OpenID Connect provider (Entra ID, Google, Keycloak), a Copernicus Data Space account

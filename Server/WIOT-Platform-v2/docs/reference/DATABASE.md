@@ -1,6 +1,6 @@
 # Databases
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
 
 Schemas read (read-only) from the live databases in `data/`. One `messages_dbs/<Company>.db` per tenant has the same schema; one is shown. No data values are included.
 
@@ -374,6 +374,18 @@ Indexes: `CREATE INDEX notify_log_by_channel ON notify_log(channel_id, id DESC)`
 | `max` | REAL |  |  |  |
 | `clear_share` | REAL |  |  |  |
 | `source` | TEXT | yes |  | 4 |
+
+### `sat_open_scenes`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `scene_id` | TEXT | yes |  | 2 |
+| `date` | TEXT | yes |  |  |
+| `cloud` | REAL |  |  |  |
+| `fields` | INTEGER | yes |  |  |
+| `meta` | TEXT | yes |  |  |
+| `read_at` | INTEGER | yes |  |  |
 
 ### `sat_passes`
 

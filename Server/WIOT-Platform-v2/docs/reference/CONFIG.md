@@ -1,6 +1,6 @@
 # Configuration (environment variables)
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
 
 All settings are environment variables with the `WIOT_` prefix, read by pydantic-settings from the process environment and `.env` (see `.env.example`). Secret values are never shown here.
 

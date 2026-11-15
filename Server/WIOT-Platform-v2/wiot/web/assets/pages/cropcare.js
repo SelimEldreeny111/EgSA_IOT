@@ -19,7 +19,7 @@ export async function render(root) {
     <section class="panel"><header><h2><span class="ico">${ICONS.thermo}</span>Degree days and disease risk</h2><span class="meta">next 72 h forecast</span></header>
       <div class="table-wrap"><table class="data"><thead><tr><th>Field</th><th>Crop</th><th class="num">Degree days</th><th>Since</th><th>Risk</th></tr></thead><tbody id="cc-risk"></tbody></table></div>
       <div class="body"><p class="note">Degree days accumulate the daily mean temperature above the crop's base temperature from the planting date (field profile). Risk models: late blight (Hutton criteria), yellow rust, powdery mildew (Gubler-Thomas), downy mildew (10-10-24) and olive fruit fly — indicators to plan scouting and sprays, not a diagnosis.</p></div></section>
-    <div class="ed-split">
+    <div class="ed-split ed-wide">
       <section class="panel"><header><h2><span class="ico">${ICONS.edit}</span>Farm diary</h2>
         <select class="input" id="dy-field" style="margin-inline-start:auto;max-width:220px;height:32px"><option value="">All fields</option>${fields.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select></header>
         <div class="table-wrap" style="max-height:440px"><table class="data"><thead><tr><th>Date</th><th>Field</th><th>Operation</th><th>Details</th><th>Operator</th><th></th></tr></thead><tbody id="dy-rows"></tbody></table></div></section>

@@ -1,6 +1,6 @@
 # Code map
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
 
 | Module | Lines | Purpose (module docstring) | Public classes and functions |
 |---|---|---|---|
@@ -68,11 +68,11 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not 
 | `wiot/services/farm.py` | 546 | Smart-agriculture layer: farm layout, weather/ET0, irrigation advisory, soil-moisture automation and satellite-backhaul readiness. | Site, Agronomy, Zone, Gateway, Device, FarmLayout, FarmStore, WeatherClient, FarmService |
 | `wiot/services/ingest.py` | 366 | Decoded-MQTT ingestion: validate → persist → broadcast → release commands. | IngestService |
 | `wiot/services/integrations.py` | 246 | Forward readings to other platforms (R2.3, point 29). | reading, azure_sas, IntegrationService |
-| `wiot/services/maintenance.py` | 96 | Background maintenance (R2.2, point 10). | Maintenance |
+| `wiot/services/maintenance.py` | 106 | Background maintenance (R2.2, point 10). | Maintenance |
 | `wiot/services/maintenance_module.py` | 243 | Maintenance module (R2.6, point 26): assets, work orders, photos and calibration history. | MaintenanceModule |
 | `wiot/services/metrics.py` | 37 | Prometheus metrics (scraped at ``/metrics``). |  |
 | `wiot/services/nodehealth.py` | 134 | Per-node health scores (R2.2, point 16). | grade, NodeHealth |
-| `wiot/services/notify.py` | 296 | Alert notifications and custom alert rules (R2.3, point 22). | http_request, node_tag, alert_text, Notifier, RuleEngine |
+| `wiot/services/notify.py` | 297 | Alert notifications and custom alert rules (R2.3, point 22). | http_request, node_tag, alert_text, Notifier, RuleEngine |
 | `wiot/services/oidc.py` | 131 | OpenID Connect single sign-on (R2.3, point 21): authorization-code flow with PKCE. | OidcError, OidcClient, doc_issuer, username_for |
 | `wiot/services/push.py` | 169 | Web Push for the installable dashboard (R2.6, point 24), with no third-party push library. | b64u, unb64u, encrypt, decrypt, PushService |
 | `wiot/services/realtime.py` | 115 | Tenant-scoped WebSocket fan-out, safe to call from any thread. | Subscriber, RealtimeHub, LogBuffer |
@@ -80,7 +80,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not 
 | `wiot/services/reports.py` | 223 | Monthly operations report per company (R2.3, point 23): Excel (.xlsx), PDF and JSON. | month_bounds, previous_month, ReportService |
 | `wiot/services/runtime.py` | 229 | Composition root: builds and owns every long-lived service. | Runtime |
 | `wiot/services/satellite.py` | 423 | Satellite data (R2.5, points 49, 51 and 52). | http_raw, zone_geometry, bbox_of, detect_pivots, SatelliteService, b64png |
-| `wiot/services/system.py` | 166 | System health, status history and the public status page (R2.2, points 7 and 8). | SystemService |
+| `wiot/services/system.py` | 169 | System health, status history and the public status page (R2.2, points 7 and 8). | SystemService |
 | `wiot/services/totp.py` | 45 | Time-based one-time passwords (RFC 6238 over RFC 4226 HOTP), standard library only. | new_secret, hotp, now_step, totp, verify, provisioning_uri |
 | `wiot/services/usage.py` | 100 | Usage metering per company (R2.3, point 28) — the basis for service plans and billing. | UsageMeter |
 | `wiot/services/water.py` | 581 | Irrigation planning and water accounts (R2.4, points 34-36, 38-43, 47). | WaterService, utc_day |
@@ -116,14 +116,14 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not 
 | `wiot/web/assets/farmer.js` | 43 |
 | `wiot/web/assets/favicon.svg` | 1 |
 | `wiot/web/assets/forms.js` | 57 |
-| `wiot/web/assets/global.css` | 225 |
+| `wiot/web/assets/global.css` | 228 |
 | `wiot/web/assets/help-content.js` | 85 |
-| `wiot/web/assets/i18n.js` | 1044 |
+| `wiot/web/assets/i18n.js` | 1047 |
 | `wiot/web/assets/invite.js` | 32 |
 | `wiot/web/assets/login.js` | 65 |
-| `wiot/web/assets/ops.css` | 131 |
+| `wiot/web/assets/ops.css` | 133 |
 | `wiot/web/assets/pages/admin.js` | 97 |
-| `wiot/web/assets/pages/alerts.js` | 171 |
+| `wiot/web/assets/pages/alerts.js` | 175 |
 | `wiot/web/assets/pages/analytics.js` | 269 |
 | `wiot/web/assets/pages/assistant.js` | 49 |
 | `wiot/web/assets/pages/commands.js` | 157 |
@@ -131,7 +131,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not 
 | `wiot/web/assets/pages/cropcare.js` | 139 |
 | `wiot/web/assets/pages/farm.js` | 566 |
 | `wiot/web/assets/pages/flash.js` | 331 |
-| `wiot/web/assets/pages/health.js` | 70 |
+| `wiot/web/assets/pages/health.js` | 72 |
 | `wiot/web/assets/pages/help.js` | 98 |
 | `wiot/web/assets/pages/history.js` | 57 |
 | `wiot/web/assets/pages/integrations.js` | 100 |
@@ -143,7 +143,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not 
 | `wiot/web/assets/pages/regional.js` | 31 |
 | `wiot/web/assets/pages/reports.js` | 80 |
 | `wiot/web/assets/pages/satellite.js` | 180 |
-| `wiot/web/assets/pages/security.js` | 210 |
+| `wiot/web/assets/pages/security.js` | 212 |
 | `wiot/web/assets/pages/system.js` | 82 |
 | `wiot/web/assets/pages/usage.js` | 42 |
 | `wiot/web/assets/pages/wateraccounts.js` | 150 |

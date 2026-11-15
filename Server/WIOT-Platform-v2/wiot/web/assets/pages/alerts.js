@@ -21,7 +21,8 @@ const KIND = {
   well_licence: { title: "Well licence nearly used", icon: "tower" },
 };
 const kindMeta = (a) => KIND[a.kind] || (a.kind.startsWith("rule_") ? { title: a.details?.rule || "Custom rule", icon: "bell" }
-  : a.kind.startsWith("quota_") ? { title: "Water quota", icon: "drop" } : { title: a.kind, icon: "bell" });
+  : a.kind.startsWith("quota_") ? { title: "Water quota", icon: "drop" }
+  : a.kind.startsWith("calibration_due_") ? { title: "Calibration overdue", icon: "edit" } : { title: a.kind, icon: "bell" });
 const SEV = { critical: "Critical", warning: "Warning", info: "Info" };
 
 function dur(s) {
@@ -87,6 +88,9 @@ function describe(a, now) {
   if (a.kind.startsWith("quota_")) {
     return [`${d.quota}: ${fmtNum(d.used_m3, 0)} of ${fmtNum(d.quota_m3, 0)} m³ used`, `${fmtNum(d.projected_m3, 0)} m³ projected by ${d.period_end}`];
   }
+  if (a.kind.startsWith("calibration_due_")) {
+    return [`${d.asset || "Asset"}: calibration was due on ${d.due}`, "Calibrate it and record the result on the Maintenance page"];
+  }
   if (a.kind === "possible_replay") {
     return ["An older Status was received again after newer data", `${events(d.events || 1)} · Not processed`];
   }
@@ -139,7 +143,7 @@ export async function render(root) {
         <td class="mono" data-i18n-skip>${nodeTag(a.node_id)}${a.details?.name ? `<div class="al-sub">${esc(a.details.name)}</div>` : ""}</td>
         <td class="mono" data-i18n-skip>${esc(a.region)}</td>
         <td title="${esc(fmtDateTime(a.opened_at))}">${esc(ago(a.opened_at))}</td>
-        <td>${status}</td><td class="num">${action}</td></tr>`;
+        <td>${status}</td><td class="num">${action ? `<div class="al-actions">${action}</div>` : ""}</td></tr>`;
     }).join("") || `<tr><td colspan="7"><div class="empty">${view === "open" ? "No open alerts — every node is reporting normally." : "No alerts in the last 7 days."}</div></td></tr>`;
 
     $$("[data-wo]", root).forEach((b) => b.addEventListener("click", () => {

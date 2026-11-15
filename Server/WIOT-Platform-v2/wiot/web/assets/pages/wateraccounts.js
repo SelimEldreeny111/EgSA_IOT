@@ -15,24 +15,24 @@ export async function render(root) {
   const fname = (id) => fields.find((f) => f.id === id)?.name || id;
   const month = new Date().toISOString().slice(0, 7);
   root.innerHTML = `<div class="ops">
-    <div class="ed-split">
+    <div class="ed-split ed-wide">
       <section class="panel"><header><h2><span class="ico">${ICONS.drop}</span>Water quotas</h2></header>
         <div class="table-wrap"><table class="data"><thead><tr><th>Quota</th><th>Fields</th><th>Period</th><th class="num">Used / quota</th><th>Share</th><th>Projected</th></tr></thead><tbody id="q-rows"></tbody></table></div></section>
       ${canWrite ? `<section class="panel" id="q-ed"></section>` : ""}
     </div>
-    <div class="ed-split">
+    <div class="ed-split ed-wide">
       <section class="panel"><header><h2><span class="ico">${ICONS.tower}</span>Groundwater wells</h2></header>
         <div class="table-wrap"><table class="data"><thead><tr><th>Well</th><th>Licence year</th><th class="num">Pumped / licensed</th><th>Share</th><th class="num">Per day</th><th>Projection</th></tr></thead><tbody id="w-rows"></tbody></table></div>
         <div class="body"><p class="note">Pumped volume comes from the flow meter on the well's node. An alert opens at 90 % of the licence or when the current rate would exceed it before the licence year ends. Water level needs a level sensor in the node (Track G).</p></div></section>
       ${canWrite ? `<section class="panel" id="w-ed"></section>` : ""}
     </div>
-    <div class="ed-split">
+    <div class="ed-split ed-wide">
       <section class="panel"><header><h2><span class="ico">${ICONS.analytics}</span>Water and pumping cost per field</h2><span class="meta" id="c-meta"></span></header>
         <div class="table-wrap"><table class="data"><thead><tr><th>Field</th><th>Since</th><th class="num">Water m³</th><th class="num">mm</th><th class="num">Pump hours</th><th class="num">Energy kWh</th><th class="num">Water cost</th><th class="num">Energy cost</th><th class="num">Total</th><th class="num">Per ha</th></tr></thead><tbody id="c-rows"></tbody></table></div>
         <div class="body"><p class="note">Season from the planting date (field profile) or 1 January. Pump hours = volume ÷ the pivot flow on the Smart farm page.</p></div></section>
       ${canWrite ? `<section class="panel" id="t-ed"></section>` : ""}
     </div>
-    <div class="ed-split">
+    <div class="ed-split ed-wide">
       <section class="panel"><header><h2><span class="ico">${ICONS.region}</span>Utility districts · water balance</h2>
         <label class="tb-select" style="margin-inline-start:auto"><span>Month</span><input class="input" type="month" id="d-month" value="${month}" style="height:30px;border:0;background:transparent"></label></header>
         <div class="body" id="d-body"></div></section>

@@ -223,3 +223,6 @@ tr.al-done td { opacity: .7; }
   .shell:not(.expanded) .rail a.nav .nav-count { position: absolute; top: 3px; inset-inline-end: 6px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px;
     box-shadow: 0 0 0 2px var(--sidebar-bg, #0b1220); } }
 @media (max-width: 700px) { .rail a.nav .nav-count { position: absolute; top: 2px; inset-inline-end: 2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; } }
+
+/* Alert row actions stack so a long alert text never pushes them out of view */
+.al-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }

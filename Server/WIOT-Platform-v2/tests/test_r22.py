@@ -219,3 +219,48 @@ def test_loadtest_cli_is_registered():
     with pytest.raises(SystemExit) as exc:
         cli.main(["loadtest", "--help"])
     assert exc.value.code == 0
+
+
+def test_status_is_sampled_every_5_minutes_between_longer_maintenance_cycles(supervisor, monkeypatch):
+    """With the default 10-minute maintenance interval the availability math still gets one sample per 5 minutes."""
+    import types
+
+    from wiot.services import maintenance as m
+    rt = supervisor.app.state.runtime
+    clock = {"t": 0.0}
+    calls = {"cycles": 0, "samples": 0}
+
+    class Sys:
+        def sample(self, now=None, force=False):
+            calls["samples"] += 1
+
+    mt = m.Maintenance(rt.settings, rt.telemetry, rt.main, system=Sys())
+    mt.run_once = lambda *a, **k: calls.__setitem__("cycles", calls["cycles"] + 1)
+    monkeypatch.setattr(m, "time", types.SimpleNamespace(monotonic=lambda: clock["t"], perf_counter=time.perf_counter,
+                                                         time=time.time))
+    waits = []
+
+    def fake_wait(seconds):
+        waits.append(seconds)
+        clock["t"] += seconds
+        if len(waits) > 6:
+            mt._stop.set()
+        return mt._stop.is_set()
+
+    monkeypatch.setattr(mt._stop, "wait", fake_wait)
+    rt.settings.maintenance_interval_s = 600
+    mt._loop()
+    assert waits[1:] == [300] * (len(waits) - 1)            # wakes every 5 minutes
+    assert calls["cycles"] == 3 and calls["samples"] == 3   # cycles at 0, 10 and 20 min; samples in between
+
+
+def test_availability_counts_covered_time_for_any_cadence(supervisor):
+    rt = supervisor.app.state.runtime
+    day0 = (NOW // 86400) * 86400 - 2 * 86400                         # two full days ago
+    for k in range(0, 86400, 600):                                     # day 1: a sample every 10 minutes, all up
+        rt.system.sample(day0 + k, force=True)
+    for k in range(86400, 86400 + 43200, 300):                         # day 2: every 5 minutes until noon, then silent
+        rt.system.sample(day0 + k, force=True)
+    days = {d["day"]: d for d in rt.system.public_status(5, now=day0 + 2 * 86400)["days"]}
+    assert days[day0]["platform"] == 1.0                               # 10-minute sampling is not read as 50 %
+    assert 0.49 < days[day0 + 86400]["platform"] < 0.52                # half a day of samples, then a 12-hour gap

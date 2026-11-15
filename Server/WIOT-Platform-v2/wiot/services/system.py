@@ -18,6 +18,7 @@ from .metrics import BACKUP_AGE, DISK_FREE_RATIO, INGEST_AGE
 
 LEVELS = {"ok": 0, "info": 0, "warning": 1, "critical": 2}
 SAMPLE_EVERY_S = 300
+GAP_CAP_S = 3 * SAMPLE_EVERY_S          # a sample covers at most 15 minutes; longer gaps count as down
 STALE_INGEST_S = 1800
 BACKUP_WARN_S = 36 * 3600
 
@@ -133,7 +134,7 @@ class SystemService:
     # ------------------------------------------------------------ history
     def sample(self, now: int | None = None, force: bool = False) -> dict | None:
         now = int(time.time() if now is None else now)
-        if not force and now - self._last_sample < SAMPLE_EVERY_S:
+        if not force and now - self._last_sample < SAMPLE_EVERY_S - 10:     # a timer may wake a little early
             return None
         snap = self.snapshot(now)
         levels = {c["name"]: c["level"] for c in snap["checks"]}
@@ -154,28 +155,31 @@ class SystemService:
         return [dict(r) for r in rows]
 
     def public_status(self, days: int = 30, now: int | None = None) -> dict:
-        """Service health for the public page: per day, the share of 5-minute samples in which each
-        component was up. A day with no samples at all means the platform itself was down."""
+        """Service health for the public page: per day, the share of time in which each component was up.
+
+        A sample (taken every 5 minutes) stands for the time until the next sample, at most ``GAP_CAP_S``; a longer
+        gap without samples means the platform itself was down. Counting covered time instead of samples keeps
+        the result right for any sampling cadence up to the cap (older data was sampled every 10 minutes)."""
         now = int(time.time() if now is None else now)
         rows = self.history(days, now)
         snap = self.snapshot(now)
         levels = {c["name"]: c["level"] for c in snap["checks"]}
-        per_day: dict[int, list[dict]] = {}
-        for r in rows:
-            per_day.setdefault(r["ts"] // 86400, []).append(r)
+        per_day: dict[int, list[tuple[int, int, int]]] = {}
+        for i, r in enumerate(rows):
+            nxt = rows[i + 1]["ts"] if i + 1 < len(rows) else now
+            per_day.setdefault(r["ts"] // 86400, []).append((max(0, min(nxt - r["ts"], GAP_CAP_S)), r["broker"], r["ingest"]))
         first = rows[0]["ts"] if rows else now
         out_days = []
         for d in range((now // 86400) - days + 1, now // 86400 + 1):
             day_start = d * 86400
             if day_start + 86400 <= first:
                 continue                                  # before monitoring began
-            span_start = max(day_start, first)
-            expected = (min(now, day_start + 86400) - span_start) // SAMPLE_EVERY_S + 1
+            span = max(1, min(now, day_start + 86400) - max(day_start, first))
             got = per_day.get(d, [])
-            share = lambda n: round(min(1.0, n / expected), 4)       # noqa: E731
-            out_days.append({"day": day_start, "platform": share(len(got)),
-                             "ingestion": share(sum(r["ingest"] for r in got)),
-                             "broker": share(sum(r["broker"] for r in got))})
+            share = lambda secs: round(min(1.0, secs / span), 4)      # noqa: E731
+            out_days.append({"day": day_start, "platform": share(sum(g[0] for g in got)),
+                             "ingestion": share(sum(g[0] for g in got if g[2])),
+                             "broker": share(sum(g[0] for g in got if g[1]))})
         current = {"platform": "operational",
                    "ingestion": "operational" if levels.get("Ingestion") == "ok" else "degraded",
                    "broker": "operational" if levels.get("Broker") in ("ok", "info") else "outage"}

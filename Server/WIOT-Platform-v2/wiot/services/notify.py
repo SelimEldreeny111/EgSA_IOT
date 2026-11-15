@@ -70,6 +70,7 @@ def alert_text(company: str, data: dict) -> tuple[str, str]:
     resolved = data.get("state") == "resolved" or str(data.get("kind", "")).endswith("_resolved")
     d = data.get("details") or {}
     title = (d.get("rule") if kind.startswith("rule_") else f"Water quota {d.get('quota', '')}".strip() if kind.startswith("quota_")
+             else f"Calibration overdue: {d.get('asset', '')}".strip(": ") if kind.startswith("calibration_due_")
              else TITLES.get(kind, kind.replace("_", " ").capitalize()))
     where = f"{node_tag(data.get('node_id'))} · {company}/{data.get('region', '')}"
     sev = "Resolved" if resolved else str(data.get("severity", "")).capitalize()

@@ -305,3 +305,28 @@ Access to Copernicus Sentinel and EUMETSAT data from the server, built with the 
 - Tests: `tests/test_r27.py` (10). They run offline: a minimal tiled-GeoTIFF writer, fake STAC / EUMETSAT servers
   with range support, the BOA offset both ways, cloud masking, read-once, background refresh, permissions, path
   safety and upstream errors.
+
+## 2026-11-15 — fixes found while writing the User Manual V2.0 (version unchanged, 2.7.0)
+
+Review of every page for `Documentation/ServerSoftware/WIOT_Control_Center_User_Manual_V2.0` (81 pages, all screenshots
+retaken with `capture_manual_v2.py` on a demonstration copy). Eight defects found and fixed:
+
+- **Availability read about 50 %.** With the default 10-minute maintenance interval only one status sample was taken
+  per 10 minutes, while the availability expected one per 5 minutes, so System health and the public `/status` page
+  showed about 50 % for a healthy server.
+  - The maintenance thread now wakes every 5 minutes for the sample and still runs the full cycle at its own interval.
+  - Availability now counts covered time: a sample stands for the time until the next one, at most 15 minutes. Days
+    recorded at the old cadence read correctly, and longer gaps still count as downtime.
+- **Calibration alert title.** The overdue-calibration alert showed its raw kind (`calibration_due_7`). It is now
+  **Calibration overdue** with the asset and the due date, on the page and in e-mail and push messages.
+- **Page access list.** It did not offer Regional dashboard, Administration, Integrations or Usage, so saving a page
+  list silently hid them from users whose role allows them.
+- **Node health intervals.** The cell showed "Sampling ? s" when an interval was set from WIOT but not yet reported.
+  It now shows "set *Y* s (not reported yet)".
+- **Alerts page.** **Acknowledge** and **Work order** are stacked, so a long alert text no longer pushes them out of
+  view.
+- **Water accounts and Crop care.** The editors go under their wide tables on screens narrower than 1800 px; columns
+  were cut off before.
+- New tests:
+  - `test_r22.py`: status sampling between longer cycles; availability for 5- and 10-minute cadences.
+  - `test_r26.py`: calibration alert title.
