@@ -1,0 +1,20 @@
+{
+  "name": "WIOT Control Center",
+  "short_name": "WIOT",
+  "description": "Smart agriculture and water-IoT operations",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a101d",
+  "theme_color": "#0a101d",
+  "icons": [
+    {"src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ],
+  "shortcuts": [
+    {"name": "Farmer view", "url": "/farmer", "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Alerts", "url": "/#/alerts", "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Commissioning", "url": "/#/commission", "icons": [{"src": "/assets/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

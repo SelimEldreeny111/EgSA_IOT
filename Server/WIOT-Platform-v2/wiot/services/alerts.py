@@ -127,6 +127,8 @@ class AlertMonitor:
         self.store = store
         self.settings = settings
         self.farm = None                  # FarmService, injected by the runtime (weather warnings)
+        self.rules = None                 # RuleEngine, injected by the runtime (custom alert rules)
+        self.company_hooks: list = []     # callables(monitor, company, now) -> fired alerts (R2.4 water, ...)
         self.interval = interval
         self.state: dict[tuple, str] = {}     # last link state per node (diagnostics/tests)
         self._stop = threading.Event()
@@ -153,6 +155,8 @@ class AlertMonitor:
             try:
                 fired += self._check_events(company, now)
                 fired += self._check_weather(company, now)
+                for hook in self.company_hooks:
+                    fired += hook(self, company, now) or []
             except Exception:  # pragma: no cover
                 log.exception("Company-level alert checks failed for %s", company)
             regions = sorted(set(self.telemetry.regions(company)) | set(self.org.region_ids(company)))
@@ -203,6 +207,11 @@ class AlertMonitor:
             fired += self._resolve(company, region, node, "flow_unstable", now)   # a clean hour of readings
 
         fired += self._check_valve_flow(company, region, node, base, now)
+        if self.rules is not None:           # custom rules from the Rules & notifications page (R2.3)
+            try:
+                fired += self.rules.check_node(self, company, region, node, now)
+            except Exception:
+                log.exception("Custom alert rules failed for %s/%s/%s", company, region, nid)
         return fired
 
     def _drives_valve(self, company: str, region: str, nid: int, now: int) -> bool:

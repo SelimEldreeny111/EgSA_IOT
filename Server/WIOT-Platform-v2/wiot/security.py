@@ -45,6 +45,7 @@ class Principal:
     via_cookie: bool = False
     csrf: str | None = field(default=None, compare=False)
     token: bool = False  # authenticated with an API token (machine access), not a user session
+    session_id: str | None = field(default=None, compare=False)  # JWT jti of a browser/API session
 
     @property
     def is_supervisor(self) -> bool:
@@ -185,3 +186,36 @@ class LoginThrottle:
         with self._lock:
             for key in keys:
                 self._failures.pop(key, None)
+
+
+# ------------------------------------------------------------ secrets at rest (R2.3)
+def _rest_key(secret: str) -> bytes:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=b"wiot-at-rest-v1",
+                info=b"totp+channels").derive(secret.encode())
+
+
+def seal(secret: str, plaintext: str) -> str:
+    """Encrypt a small secret (TOTP seed, channel token) with a key derived from WIOT_SECRET_KEY.
+
+    Changing WIOT_SECRET_KEY makes sealed values unreadable: users re-enrol two-factor and channel
+    secrets are entered again."""
+    import base64
+    import os
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    nonce = os.urandom(12)
+    return "v1:" + base64.urlsafe_b64encode(nonce + AESGCM(_rest_key(secret)).encrypt(nonce, plaintext.encode(), None)).decode()
+
+
+def unseal(secret: str, sealed: str) -> str:
+    import base64
+    from cryptography.exceptions import InvalidTag
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    if not sealed or not sealed.startswith("v1:"):
+        raise ValueError("Not a sealed value")
+    raw = base64.urlsafe_b64decode(sealed[3:])
+    try:
+        return AESGCM(_rest_key(secret)).decrypt(raw[:12], raw[12:], None).decode()
+    except InvalidTag as exc:
+        raise ValueError("Sealed with another server key") from exc

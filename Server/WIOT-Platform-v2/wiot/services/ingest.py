@@ -95,6 +95,8 @@ class IngestService:
         self.org = None  # OrgStore, injected by the runtime (strict provisioning, company time zone)
         self.clock = None  # ClockSync, injected by the runtime (automatic STIME)
         self.alerts = None  # AlertMonitor, injected by the runtime (event alerts)
+        self.confwatch = None  # ConfigWatch, injected by the runtime (desired vs reported intervals)
+        self.usage = None  # UsageMeter, injected by the runtime (per-company metering)
         self._seen: dict[tuple[str, str, int], OrderedDict] = {}
         self._newest: dict[tuple[str, str, int], int] = {}
 
@@ -151,6 +153,9 @@ class IngestService:
             return
         frame = 1 + 16 + 16 * (payload // 16 + 1)  # version + IV + PKCS7-padded AES-CBC
         s = self.frame_stats.setdefault((company, region, node), {"count": 0, "payload_bytes": 0, "frame_bytes": 0})
+        if self.usage is not None:
+            self.usage.count(company, "messages")
+            self.usage.count(company, "bytes", frame)
         s["count"] += 1
         s["payload_bytes"] += payload
         s["frame_bytes"] += frame
@@ -234,6 +239,9 @@ class IngestService:
             return
         now = int(time.time())
         fields, samples = self._reading(msg, company, region, now)
+        # Reported configuration (firmware sends milliseconds); used by the configuration watch.
+        fields["sampling_rate_s"] = int(msg.sampling_rate) // 1000
+        fields["transmission_rate_s"] = int(msg.Transmission_rate) // 1000
         meta = fields["_meta"]
         details = (f"Node-TS:{msg.timestamp} S-Rate:{msg.sampling_rate} T-Rate:{msg.Transmission_rate} "
                    f"sensors:{msg.active_sensor_count} meter:{meta['flow_meter_name']} "
@@ -262,6 +270,12 @@ class IngestService:
                 self.logs.emit(f"[WAKE ACK] node {msg.node_id} active for "
                                f"{power['wake_remaining_seconds']}s", company=company)
         fields["details"] = details
+        if self.confwatch is not None and (fields["sampling_rate_s"] or fields["transmission_rate_s"]):
+            try:
+                self.confwatch.observe(company, region, msg.node_id, fields["sampling_rate_s"],
+                                       fields["transmission_rate_s"], now)
+            except Exception:
+                log.exception("Configuration watch failed")
         self._persist_and_emit(company, region, "Telemetry", msg, now, fields, samples, extra={
             "command_ack_request_id": int(msg.command_ack_request_id),
             "command_ack_cmd_id": int(msg.command_ack_cmd_id),

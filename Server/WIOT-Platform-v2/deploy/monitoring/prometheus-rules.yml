@@ -1,0 +1,54 @@
+# Prometheus alert rules for the WIOT platform (R2.2, point 7).
+# Scrape config:  - job_name: wiot   static_configs: [{targets: ["wiot-server:8000"]}]   metrics_path: /metrics
+groups:
+  - name: wiot
+    rules:
+      - alert: WiotDown
+        expr: up{job="wiot"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "WIOT server is not answering /metrics"}
+      - alert: WiotBrokerDisconnected
+        expr: wiot_broker_ready == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "WIOT is not subscribed to the MQTT broker (no field data arrives)"}
+      - alert: WiotIngestStale
+        expr: wiot_ingest_last_message_age_seconds > 1800 and wiot_ingest_last_message_age_seconds < 604800
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "No message from {{ $labels.company }} for over 30 minutes"}
+      - alert: WiotDiskLow
+        expr: wiot_disk_free_ratio < 0.10
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "Data disk below 10 % free"}
+      - alert: WiotDiskCritical
+        expr: wiot_disk_free_ratio < 0.05
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "Data disk below 5 % free"}
+      - alert: WiotBackupOld
+        expr: wiot_backup_age_seconds > 129600
+        for: 30m
+        labels: {severity: warning}
+        annotations: {summary: "Newest backup is older than 36 hours"}
+      - alert: WiotMessagesDropped
+        expr: sum(rate(wiot_messages_dropped_total[15m])) > 0.05
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "MQTT messages are being rejected before storage (key, topic or decode errors)"}
+      - alert: WiotIngestSlow
+        expr: histogram_quantile(0.95, sum(rate(wiot_ingest_seconds_bucket[10m])) by (le)) > 0.25
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "95th percentile ingest latency above 250 ms"}
+      - alert: WiotApiErrors
+        expr: sum(rate(wiot_http_requests_total{status=~"5.."}[10m])) > 0.02
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "API returning server errors"}
+      - alert: WiotMaintenanceErrors
+        expr: increase(wiot_maintenance_runs_total{outcome="error"}[1h]) > 0
+        labels: {severity: warning}
+        annotations: {summary: "A maintenance cycle (summaries, retention) failed; see the server log"}

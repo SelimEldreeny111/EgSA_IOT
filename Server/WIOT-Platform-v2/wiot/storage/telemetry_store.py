@@ -33,7 +33,7 @@ MESSAGE_COLUMNS = (
     "forward_total_liters", "reverse_total_liters", "net_total_liters", "flow_period_quality",
     "flow_meter_alarm_flags", "legacy_flow_schema", "secondary_flow_json", "power_mode",
     "power_state", "wake_remaining_seconds", "wake_command_ack", "wake_request_id",
-    "wdt_reset_count", "power_reset_count", "region",
+    "wdt_reset_count", "power_reset_count", "region", "sampling_rate_s", "transmission_rate_s",
 )
 
 _MESSAGES_DDL = """CREATE TABLE IF NOT EXISTS messages
@@ -70,7 +70,15 @@ _ADDITIVE_COLUMNS = (
     ("power_state", "INTEGER DEFAULT 0"), ("wake_remaining_seconds", "INTEGER DEFAULT 0"),
     ("wdt_reset_count", "INTEGER DEFAULT 0"), ("power_reset_count", "INTEGER DEFAULT 0"),
     ("wake_command_ack", "INTEGER DEFAULT 0"), ("wake_request_id", "INTEGER DEFAULT 0"),
+    ("sampling_rate_s", "INTEGER DEFAULT 0"), ("transmission_rate_s", "INTEGER DEFAULT 0"),
 )
+
+# SQLite tuning for the telemetry databases (R2.2, point 9). WAL + synchronous=NORMAL is crash-safe for the
+# application (a committed transaction survives a process crash); only an OS crash or power cut can lose the
+# last transactions. The flash archive and the command journal keep their own, stricter settings.
+_PRAGMAS = ("PRAGMA synchronous=NORMAL", "PRAGMA temp_store=MEMORY", "PRAGMA cache_size=-16000",
+            "PRAGMA mmap_size=268435456")
+BATCH_MAX_ROWS = 200
 
 _METER_DDL = """CREATE TABLE IF NOT EXISTS meter_samples
     (id INTEGER PRIMARY KEY AUTOINCREMENT, received_at INTEGER NOT NULL,
@@ -137,11 +145,24 @@ def decorate_row(row: dict) -> dict:
 
 
 class TelemetryStore:
-    def __init__(self, messages_dir: Path, companies: Callable[[], list[str]]):
+    def __init__(self, messages_dir: Path, companies: Callable[[], list[str]], batch_ms: int = 0):
         self.messages_dir = Path(messages_dir)
         self._companies = companies
         self._ready: set[str] = set()
         self._lock = threading.Lock()
+        # Latest uplink per node, kept in memory as it is written (R2.2, point 11).
+        self.latest: dict[tuple[str, str, int], dict] = {}
+        self._fleet_cache: dict[tuple[str, str], tuple[float, list[dict]]] = {}
+        # Optional group commit (R2.2, point 9): rows queue up and are committed together every
+        # ``batch_ms`` milliseconds or BATCH_MAX_ROWS rows. 0 = write each message synchronously.
+        self.batch_ms = int(batch_ms or 0)
+        self._queue: list[tuple] = []
+        self._cond = threading.Condition()
+        self._writer: threading.Thread | None = None
+        self._stopping = False
+        if self.batch_ms > 0:
+            self._writer = threading.Thread(target=self._writer_loop, name="telemetry-writer", daemon=True)
+            self._writer.start()
 
     # --------------------------------------------------------------- plumbing
     def preflight(self) -> list[dict]:
@@ -158,6 +179,8 @@ class TelemetryStore:
             path = self.ensure(company)
         db = sqlite3.connect(path, timeout=10)
         db.row_factory = sqlite3.Row
+        for pragma in _PRAGMAS:
+            db.execute(pragma)
         try:
             yield db
             if write:
@@ -208,8 +231,77 @@ class TelemetryStore:
     # ------------------------------------------------------------------ write
     def save_message(self, *, company: str, region: str, received_at: int, msg_type: str,
                      node_id: int, sensor_id, fields: dict, samples: Iterable[dict] = ()) -> None:
-        """Persist one decoded message, its meter samples and period snapshots atomically."""
+        """Persist one decoded message, its meter samples and period snapshots atomically.
+
+        With batching on, the message is queued and committed with others within ``batch_ms``."""
         region_id(region)
+        item = (company, region, int(received_at), msg_type, int(node_id), sensor_id, dict(fields), list(samples))
+        if msg_type in ("Status", "Telemetry"):
+            self.latest[(company, region, int(node_id))] = {**{c: fields.get(c) for c in MESSAGE_COLUMNS},
+                                                            "timestamp": int(received_at), "type": msg_type,
+                                                            "node_id": int(node_id)}
+        self._fleet_cache.pop((company, region), None)
+        if self._writer is not None and not self._stopping:
+            with self._cond:
+                self._queue.append(item)
+                if len(self._queue) >= BATCH_MAX_ROWS:
+                    self._cond.notify()
+            return
+        with self.connect(company, write=True) as db:
+            self._insert(db, *item)
+
+    # -------------------------------------------------------------- batching
+    def _writer_loop(self) -> None:
+        while True:
+            with self._cond:
+                if not self._queue and not self._stopping:
+                    self._cond.wait(self.batch_ms / 1000)
+                batch, self._queue = self._queue, []
+                stopping = self._stopping
+            if batch:
+                self._write_batch(batch)
+            if stopping and not self._queue:
+                return
+
+    def _write_batch(self, batch: list[tuple]) -> None:
+        by_company: dict[str, list[tuple]] = {}
+        for item in batch:
+            by_company.setdefault(item[0], []).append(item)
+        for company, items in by_company.items():
+            try:
+                with self.connect(company, write=True) as db:
+                    for item in items:
+                        self._insert(db, *item)
+            except Exception:
+                log.exception("Batched write of %d messages for %s failed; retrying one by one", len(items), company)
+                for item in items:
+                    try:
+                        with self.connect(company, write=True) as db:
+                            self._insert(db, *item)
+                    except Exception:
+                        log.exception("Message for %s/%s/%s could not be stored", item[0], item[1], item[4])
+
+    def flush(self) -> None:
+        """Commit everything queued so far (no-op without batching)."""
+        if self._writer is None:
+            return
+        with self._cond:
+            batch, self._queue = self._queue, []
+        if batch:
+            self._write_batch(batch)
+
+    def close(self) -> None:
+        """Stop the batch writer after committing the queue (called at shutdown)."""
+        if self._writer is None:
+            return
+        with self._cond:
+            self._stopping = True
+            self._cond.notify()
+        self._writer.join(timeout=10)
+        self.flush()
+
+    def _insert(self, db: sqlite3.Connection, company: str, region: str, received_at: int, msg_type: str,
+                node_id: int, sensor_id, fields: dict, samples: list) -> None:
         row = {col: fields.get(col) for col in MESSAGE_COLUMNS}
         row.update(timestamp=int(received_at), type=msg_type, node_id=int(node_id),
                    sensor_id=str(sensor_id), company=company, region=region)
@@ -224,48 +316,47 @@ class TelemetryStore:
             if row[key] is None and key not in ("battery_voltage", "secondary_flow_json", "details"):
                 row[key] = 0
         placeholders = ",".join("?" for _ in MESSAGE_COLUMNS)
-        with self.connect(company, write=True) as db:
+        db.execute(
+            f"INSERT INTO messages ({','.join(MESSAGE_COLUMNS)}) VALUES ({placeholders})",
+            tuple(row[c] for c in MESSAGE_COLUMNS),
+        )
+        for sample in samples:
+            meta = sample["metadata"]
+            if not meta.get("flow_meter_type") or not sample.get("fingerprint"):
+                continue
             db.execute(
-                f"INSERT INTO messages ({','.join(MESSAGE_COLUMNS)}) VALUES ({placeholders})",
-                tuple(row[c] for c in MESSAGE_COLUMNS),
+                """INSERT OR IGNORE INTO meter_samples
+                   (received_at, measured_at, time_source, message_type, node_id, sensor_id,
+                    flow_meter_type, flow_rate, velocity, volume_day, volume_month, volume_year,
+                    forward_total_liters, reverse_total_liters, net_total_liters,
+                    flow_live_valid, period_totals_valid, cumulative_totals_valid, rtc_valid,
+                    period_source, period_quality, alarm_flags, sample_fingerprint, region)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (received_at, row["measured_at"], row["time_source"], msg_type, node_id,
+                 str(sensor_id), meta["flow_meter_type"], sample["flow_rate"], sample["velocity"],
+                 sample["volume_day"], sample["volume_month"], sample["volume_year"],
+                 meta.get("forward_total_liters", 0), meta.get("reverse_total_liters", 0),
+                 meta.get("net_total_liters", 0), meta.get("flow_live_valid", 0),
+                 meta.get("flow_period_totals_valid", 0), meta.get("flow_cumulative_totals_valid", 0),
+                 meta.get("rtc_valid", 0), meta.get("flow_period_source", 0),
+                 meta.get("flow_period_quality", 0), meta.get("flow_meter_alarm_flags", 0),
+                 sample["fingerprint"], region),
             )
-            for sample in samples:
-                meta = sample["metadata"]
-                if not meta.get("flow_meter_type") or not sample.get("fingerprint"):
-                    continue
+            for period in sample.get("period_rows", ()):
                 db.execute(
-                    """INSERT OR IGNORE INTO meter_samples
-                       (received_at, measured_at, time_source, message_type, node_id, sensor_id,
-                        flow_meter_type, flow_rate, velocity, volume_day, volume_month, volume_year,
-                        forward_total_liters, reverse_total_liters, net_total_liters,
-                        flow_live_valid, period_totals_valid, cumulative_totals_valid, rtc_valid,
-                        period_source, period_quality, alarm_flags, sample_fingerprint, region)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (received_at, row["measured_at"], row["time_source"], msg_type, node_id,
-                     str(sensor_id), meta["flow_meter_type"], sample["flow_rate"], sample["velocity"],
-                     sample["volume_day"], sample["volume_month"], sample["volume_year"],
-                     meta.get("forward_total_liters", 0), meta.get("reverse_total_liters", 0),
-                     meta.get("net_total_liters", 0), meta.get("flow_live_valid", 0),
-                     meta.get("flow_period_totals_valid", 0), meta.get("flow_cumulative_totals_valid", 0),
-                     meta.get("rtc_valid", 0), meta.get("flow_period_source", 0),
-                     meta.get("flow_period_quality", 0), meta.get("flow_meter_alarm_flags", 0),
-                     sample["fingerprint"], region),
+                    """INSERT INTO consumption_periods
+                       (region, node_id, sensor_id, flow_meter_type, period_type, period_key,
+                        volume_liters, source, quality, measured_at, updated_at)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                       ON CONFLICT(region, node_id, sensor_id, flow_meter_type, period_type, period_key)
+                       DO UPDATE SET volume_liters=excluded.volume_liters, source=excluded.source,
+                           quality=excluded.quality, measured_at=excluded.measured_at,
+                           updated_at=excluded.updated_at
+                       WHERE excluded.measured_at >= consumption_periods.measured_at""",
+                    (region, node_id, str(sensor_id), meta["flow_meter_type"],
+                     period["period_type"], period["period_key"], period["volume_liters"],
+                     period["source"], period["quality"], row["measured_at"], received_at),
                 )
-                for period in sample.get("period_rows", ()):
-                    db.execute(
-                        """INSERT INTO consumption_periods
-                           (region, node_id, sensor_id, flow_meter_type, period_type, period_key,
-                            volume_liters, source, quality, measured_at, updated_at)
-                           VALUES (?,?,?,?,?,?,?,?,?,?,?)
-                           ON CONFLICT(region, node_id, sensor_id, flow_meter_type, period_type, period_key)
-                           DO UPDATE SET volume_liters=excluded.volume_liters, source=excluded.source,
-                               quality=excluded.quality, measured_at=excluded.measured_at,
-                               updated_at=excluded.updated_at
-                           WHERE excluded.measured_at >= consumption_periods.measured_at""",
-                        (region, node_id, str(sensor_id), meta["flow_meter_type"],
-                         period["period_type"], period["period_key"], period["volume_liters"],
-                         period["source"], period["quality"], row["measured_at"], received_at),
-                    )
 
     # ------------------------------------------------------------------- read
     def _scoped_companies(self, company: str | None) -> list[str]:
@@ -361,8 +452,18 @@ class TelemetryStore:
         return sorted(found | {DEFAULT_REGION})
 
     def fleet(self, company: str, region: str) -> list[dict]:
-        """Latest reading and uplink statistics for every node of one tenant/region."""
+        """Latest reading and uplink statistics for every node of one tenant/region.
+
+        Cached for 2 s and cleared on every write, so dashboards polling together share one query."""
         region_id(region)
+        hit = self._fleet_cache.get((company, region))
+        if hit and time.time() - hit[0] < 2.0:
+            return [dict(n) for n in hit[1]]
+        fleet = self._fleet(company, region)
+        self._fleet_cache[(company, region)] = (time.time(), fleet)
+        return [dict(n) for n in fleet]
+
+    def _fleet(self, company: str, region: str) -> list[dict]:
         now = int(time.time())
         with self.connect(company) as db:
             latest = [dict(r) for r in db.execute(
@@ -414,6 +515,10 @@ class TelemetryStore:
             raise ValueError(f"Unknown metric; choose one of {', '.join(SERIES_METRICS)}")
         expr, valid = SERIES_METRICS[metric]
         bucket_s = max(1, int(bucket_s))
+        from . import rollups  # long ranges read the hourly/daily summaries (R2.2, point 10)
+        summary = rollups.series(self, company, region_id(region), node_id, metric, start, end, bucket_s)
+        if summary is not None:
+            return summary
         with self.connect(company) as db:
             rows = db.execute(
                 f"""SELECT (measured_at / ?) * ? AS t, AVG({expr}) AS avg, MIN({expr}) AS lo,

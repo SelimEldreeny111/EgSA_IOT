@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WIOT Invitation</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="/assets/theme.js"></script>
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="stylesheet" href="/assets/global.css">
+  <link rel="stylesheet" href="/assets/ops.css">
+  <script type="module" src="/assets/invite.js"></script>
+</head>
+<body>
+  <div class="login-page">
+    <form class="login-card" id="invite" autocomplete="on">
+      <img src="/favicon.svg" alt="" width="52" height="52">
+      <h1>Join the WIOT Control Center</h1>
+      <p class="dim" id="inv-info" style="margin:0 0 18px;font-size:13px">Checking your invitation…</p>
+      <div id="inv-fields" hidden>
+        <div class="field"><label for="u">Choose a username</label><input class="input" id="u" name="username" autocomplete="username" required minlength="3" maxlength="80" pattern="[A-Za-z0-9._\-]+"></div>
+        <div class="field"><label for="p">Choose a password</label><input class="input" id="p" name="password" type="password" autocomplete="new-password" required minlength="10" maxlength="512"></div>
+        <div class="field"><label for="p2">Repeat the password</label><input class="input" id="p2" type="password" autocomplete="new-password" required minlength="10" maxlength="512"></div>
+        <p class="note">At least 10 characters with 3 of: lowercase, uppercase, digit, symbol.</p>
+        <button class="btn primary" style="width:100%;justify-content:center;padding:10px;margin-top:12px" type="submit">Create my account</button>
+      </div>
+      <div class="err" id="err" role="alert"></div>
+    </form>
+  </div>
+</body>
+</html>

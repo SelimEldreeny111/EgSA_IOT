@@ -182,3 +182,126 @@ Points of `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0`. No
 - **Tests:** `tests/test_r21.py` (21 tests). Full suite 140 passed, 13 subtests passed. The predictor load-time limit
   in `tests/test_analytics.py` was raised from 10 s to 30 s (a cold scikit-learn import took 13 s on Windows; OI-06).
 - **Point 2** (Word documents V1.1) is delivered with this release in `Documentation/ServerSoftware/`.
+
+## 2026-11-12 — Releases 2.2 to 2.6 (version 2.6.0)
+
+All server-only points of the development plan except Track G (points 53–60). No node or gateway software change;
+topics, AES frame, protobuf fields and command IDs unchanged. One server process (one MQTT owner).
+
+### R2.2 — Operations and data platform (points 7–11, 15, 16, 32)
+- **7 · Monitoring.** `services/system.py`: System health page (supervisor) with checks for broker, ingestion per
+  company, disk, backups, alert monitor and maintenance threads; new gauges `wiot_ingest_last_message_age_seconds`,
+  `wiot_disk_free_ratio`, `wiot_backup_age_seconds`, counters `wiot_maintenance_runs_total`,
+  `wiot_config_corrections_total`. `deploy/monitoring/`: Prometheus alert rules and a Grafana dashboard.
+- **8 · Status page.** Public `/status` (service health only, no company data; `WIOT_STATUS_PUBLIC`), 30-day
+  availability from 5-minute samples (`status_history`). `docs/DISASTER_RECOVERY.md` (RPO 24 h, RTO 2 h, scenarios).
+- **9 · Faster writes.** SQLite tuning (WAL + `synchronous=NORMAL`, memory temp store, 16 MB cache, 256 MB mmap),
+  optional group commit (`WIOT_INGEST_BATCH_MS`, 250 ms recommended), in-memory latest reading per node, 2-second
+  fleet cache cleared on every write.
+- **10 · Summaries and retention.** `storage/rollups.py`: hourly and daily summaries (n, mean, min, max) per node and
+  metric, recomputed for late store-and-forward samples; charts longer than 7 days read them. Retention per company
+  (`retention_days`, minimum 365 days, 0 = forever) deletes only summarised raw rows. `services/maintenance.py` runs
+  every 10 minutes; `python -m wiot maintain [--vacuum]`.
+- **11 · Load test.** `python -m wiot loadtest`: throw-away data folder, local broker, server subprocess, N encrypted
+  virtual nodes, API latency. Recorded: 1000 nodes × 2 uplinks/min for 3 min — 5943 published, 5943 stored (0 % loss),
+  32.6 msg/s, ingest mean 21 ms, API p95 259 ms (fleet 285 ms, 24 h series 82 ms, message page 89 ms)
+  (`docs/loadtest/R2.2_1000nodes.json`).
+- **15 · Configuration watch.** Telemetry carries the node's sampling and report intervals (ms); when they differ from
+  the last acknowledged SRATE / STRAN the value is queued again for the next wake, at most once a day per node
+  (`system:config-watch`, `WIOT_CONFIG_WATCH`). Reported intervals are stored (`sampling_rate_s`, `transmission_rate_s`).
+- **16 · Node health.** `services/nodehealth.py`, page Node health and `GET /api/v2/fleet/health`: score 0–100 from
+  battery trend (days to 3.3 V), resets, reporting regularity, store-and-forward share, clock trust, command success
+  and configuration drift, with findings in words.
+- **32 · Engineering quality.** `ruff.toml` (defect rules only), CI jobs *lint and type check* (ruff, mypy
+  informational) and *browser smoke test* (Playwright: every page in English and Arabic without console errors;
+  skipped locally without Playwright), `requirements.lock`.
+
+### R2.3 — Security, alerts by message, reports, integrations (points 17, 21–23, 27–30)
+- **17 · Two-factor sign-in** (RFC 6238 TOTP, standard library; secrets sealed with AES-GCM under a key derived from
+  `WIOT_SECRET_KEY`), 10 one-time recovery codes, session registry with per-session sign-out, audit viewer with
+  filters and CSV (Security page).
+- **21 · Single sign-on** (OpenID Connect, authorization code + PKCE, ID token verified against the provider's JWKS),
+  e-mail invitations with one-time links, page access per user.
+- **22 · Alert rules and notifications.** Custom threshold rules (metric, condition, duration, nodes, severity) run in
+  the alert monitor; channels: e-mail (SMTP), Telegram, SMS and WhatsApp (Twilio, Meta Cloud API, generic HTTPS),
+  Microsoft Teams; burst limit 20 per 10 minutes per channel; delivery log (Rules & notifications page).
+- **23 · Monthly reports** in Excel and PDF (writers in `tools/xlsx.py`, `tools/pdf.py`, no dependency), built on the
+  1st and sent to report channels (`WIOT_REPORTS_AUTO`); Reports page with archive.
+- **27 · Branding** per company: name, colour, logo (PNG / JPEG ≤ 40 KB).
+- **28 · Usage metering** per company and day: uplinks, air-time bytes, commands, API calls, exports, active nodes,
+  storage; Usage page and CSV; history back-filled from stored messages.
+- **29 · Integrations.** Forwarding of every reading to ThingsBoard, Azure IoT Hub (SAS over HTTPS) or any HTTPS
+  endpoint; daily CSV feed for Power BI / Excel; `docs/integrations/README.md` with examples.
+- **30 · Help center**, guided tour on the first visit, *What's new* after an upgrade.
+
+### R2.4 — Agronomy and water management (points 34–36, 38–43, 47)
+- `services/agronomy.py`: FAO-56 crop calendar and stage Kc (**43**), soil water-holding capacity from texture or lab
+  values (**47**), FAO-29 yield potential and leaching requirement (**34**), deficit programmes for olives, dates and
+  grapes (**39**), daily root-zone balance (**41**: 7-day moisture forecast, date and amount of the next irrigation).
+- `services/water.py`: field profiles; irrigation schedules through the command journal with rain, rotation and
+  quota skips (**40**); canal rotations and quotas (**35**); wells against their licence with projection and alert
+  (**36**); water and pumping cost per field (**38**); utility districts with monthly non-revenue water and a
+  billing statement in Excel (**42**). The farm advice now uses the stage Kc and the leaching requirement.
+- Pages Irrigation planning and Water accounts; alerts `salinity_risk`, `well_licence`, `quota_<id>`.
+
+### R2.5 — Crop records, satellite, regional views (points 44, 46, 48–52, 61, 62)
+- `services/cropcare.py`: stored daily weather, growing degree days, disease and pest risk from the hourly forecast
+  (**44**); farm diary and GlobalG.A.P.-style traceability with pre-harvest-interval check, Excel and PDF (**46**);
+  yields and water productivity (**48**); WaPOR AETI import (CSV) and comparison (**50**).
+- `services/satellite.py`: Sentinel-2 NDVI per field and pass through the Copernicus Data Space Sentinel Hub APIs
+  (**49**, needs an account); pivot detection from an image (excess green + Otsu + distance transform, **51**);
+  WIOT-SAT products marked `satellite` and pass schedule (**52**).
+- Farmer view `/farmer` — one Arabic-first card per field with what to do today (**61**); regional dashboard for
+  national accounts with areas below `WIOT_REGIONAL_MIN_FARMS` suppressed (**62**).
+
+### R2.6 — Field apps, maintenance, assistant (points 24–26, 31)
+- **24 · Installable app**: web manifest, service worker (offline app shell, last API answers with an offline banner,
+  map tiles saved per farm), Web Push alerts (VAPID + RFC 8291 encryption, no extra package).
+- **25 · Commissioning wizard**: QR label (camera or typed) → register with GPS position → first uplink → clock →
+  acceptance checks → certificate (PDF) stored with the node's asset.
+- **26 · Maintenance module**: assets, work orders (from an alert or by hand) with timeline and photos, calibration
+  history with deviation and next due date; an overdue calibration opens an alert.
+- **31 · Optional AI assistant** (Claude, `claude-opus-5-5`, official SDK as the `assistant` extra): read-only tools
+  scoped to the user's company, no personal data, audited, rate-limited, daily summary; off by default.
+
+### Tests and checks
+- New: `tests/test_r22.py` (14), `test_r23.py` (19), `test_r24.py` (13), `test_r25.py` (13), `test_r26.py` (10).
+- UI checked on a copy of the data in Night, Day and Arabic (R2.2–R2.4 pages), no console errors besides the
+  expected WebSocket reconnects during server restarts.
+- Version 2.6.0.
+
+## 2026-11-13 — Release 2.7 "Earth observation" (version 2.7.0)
+
+Access to Copernicus Sentinel and EUMETSAT data from the server, built with the remote-sensing course
+(`RemoteSensing/` next to `Server/`). Nothing changes for the nodes.
+
+- `services/eo.py` (new):
+  - **Open Sentinel-2 NDVI without an account** (`WIOT_SATELLITE_PROVIDER=open`). Earth Search STAC search, one pass
+    per date whose tile holds the farm, then a standard-library + numpy reader for cloud-optimised GeoTIFFs: HTTP range
+    requests, classic and BigTIFF, DEFLATE, horizontal predictor, tie point / pixel scale, EPSG from the GeoKeys.
+    UTM by the Krüger series; even-odd polygon mask at pixel centres; SCL clear-sky mask (4, 5, 6, 7, 11).
+  - The BOA offset is removed only when the metadata says it is still present (`earthsearch:boa_offset_applied`,
+    processing baseline ≥ 04.00).
+  - Checked on real data: the reader is bit-identical to GDAL. UTM agrees with PROJ to < 1 mm. NDVI and pixel counts
+    are identical to the course's rasterio processing for the six East Owainat pivots (10 March 2026; 11 s for the
+    farm).
+  - **Copernicus Data Space catalogue**: public STAC search of Sentinel-1 GRD, Sentinel-2 L2A and Sentinel-3 SLSTR
+    LST, OLCI land and SYN, newest first, with Copernicus Browser links.
+  - **EUMETSAT Data Store**: collections (cached a day) and product search over the farm are public. Downloads use
+    the API key (`WIOT_EUMETSAT_KEY` / `_SECRET`, client-credentials token), are streamed to
+    `data/eo/eumetsat/<collection>/` with a size cap (`WIOT_EO_DOWNLOAD_MAX_MB`), checked ids and safe file names,
+    and are audited.
+- `services/satellite.py`:
+  - `ndvi_provider` (auto / sentinelhub / open / off); `fetch_ndvi` dispatches to the configured provider.
+  - The open path stores into the same `sat_ndvi` table (source `sentinel-2-open`) and remembers the passes it has
+    read (`sat_open_scenes`), so each pass is read once, at most `WIOT_SATELLITE_OPEN_MAX_SCENES` per run.
+  - *Update now* runs in the background with a status. Field images (true colour or NDVI) are rendered from the
+    open archive.
+- API `GET /api/v2/eo/status`, `/eo/scenes`, `/eo/eumetsat/collections`, `/eo/eumetsat/products`, `/eo/downloads`,
+  `POST /eo/eumetsat/download` (administrators); remote failures return 502 with the provider's message.
+  `/satellite/status` reports the provider and the background job; `/satellite/ndvi/refresh` takes `days`.
+- Satellite page: *Copernicus catalogue* and *EUMETSAT Data Store* panels, background refresh progress.
+- Defaults keep the previous behaviour: with `auto` and no Copernicus OAuth client, nothing is fetched.
+- Tests: `tests/test_r27.py` (10). They run offline: a minimal tiled-GeoTIFF writer, fake STAC / EUMETSAT servers
+  with range support, the BOA offset both ways, cloud masking, read-once, background refresh, permissions, path
+  safety and upstream errors.

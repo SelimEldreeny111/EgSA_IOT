@@ -1,0 +1,36 @@
+{
+  "nodes": 1000,
+  "rate_per_node_per_min": 2.0,
+  "minutes": 3.04,
+  "batch_ms": 250,
+  "published": 5943,
+  "stored": 5943,
+  "loss_pct": 0.0,
+  "offered_msgs_per_s": 32.6,
+  "stored_msgs_per_s": 32.6,
+  "ingest_mean_ms": 20.9,
+  "api": {
+    "fleet": {
+      "n": 139,
+      "p50_ms": 207.2,
+      "p95_ms": 284.9,
+      "max_ms": 855.8
+    },
+    "series_24h": {
+      "n": 139,
+      "p50_ms": 43.5,
+      "p95_ms": 82.2,
+      "max_ms": 102.8
+    },
+    "messages": {
+      "n": 139,
+      "p50_ms": 48.5,
+      "p95_ms": 89.3,
+      "max_ms": 276.0
+    }
+  },
+  "api_p95_ms": 259.0,
+  "api_errors": 0,
+  "python": "3.14.2",
+  "platform": "win32"
+}

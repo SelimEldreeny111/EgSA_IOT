@@ -1,6 +1,6 @@
 # Configuration (environment variables)
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
 
 All settings are environment variables with the `WIOT_` prefix, read by pydantic-settings from the process environment and `.env` (see `.env.example`). Secret values are never shown here.
 
@@ -37,6 +37,51 @@ All settings are environment variables with the `WIOT_` prefix, read by pydantic
 | `WIOT_NIGHT_FLOW_HOURS` | str | — | e.g. "00-04" (company local time) enables the night-flow alert; empty = off |
 | `WIOT_FROST_WARN_C` | float | `2.0` |  |
 | `WIOT_HEAT_WARN_C` | float | `40.0` |  |
+| `WIOT_INGEST_BATCH_MS` | int | `0` | group-commit telemetry writes (250 recommended); 0 = off |
+| `WIOT_MAINTENANCE_INTERVAL_S` | int | `600` | rollups, retention, status sampling |
+| `WIOT_RETENTION_DAYS` | int | `0` | default raw-data retention per company; 0 = keep forever |
+| `WIOT_STATUS_PUBLIC` | bool | `True` | public /status page (service health only, no company data) |
+| `WIOT_CONFIG_WATCH` | bool | `True` | re-send SRATE/STRAN when a node reports other intervals than intended |
+| `WIOT_PUBLIC_URL` | str \| None | — | e.g. https://wiot.example.org (links in e-mails, SSO redirect) |
+| `WIOT_OIDC_ISSUER` | str \| None | — |  |
+| `WIOT_OIDC_CLIENT_ID` | str \| None | — |  |
+| `WIOT_OIDC_CLIENT_SECRET` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
+| `WIOT_OIDC_SCOPES` | str | `openid email profile` |  |
+| `WIOT_OIDC_BUTTON_LABEL` | str | `Sign in with your organisation` |  |
+| `WIOT_OIDC_AUTO_CREATE` | bool | `False` |  |
+| `WIOT_OIDC_DEFAULT_ROLE` | Literal['admin', 'monitor', 'user'] | `user` |  |
+| `WIOT_OIDC_DEFAULT_COMPANY` | str \| None | — |  |
+| `WIOT_OIDC_ROLE_CLAIM` | str \| None | — |  |
+| `WIOT_OIDC_COMPANY_CLAIM` | str \| None | — |  |
+| `WIOT_OIDC_ALLOWED_DOMAINS` | list[str] | `[]` |  |
+| `WIOT_SMTP_HOST` | str \| None | — |  |
+| `WIOT_SMTP_PORT` | int | `587` |  |
+| `WIOT_SMTP_USERNAME` | str \| None | — |  |
+| `WIOT_SMTP_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
+| `WIOT_SMTP_FROM` | str \| None | — |  |
+| `WIOT_SMTP_SECURITY` | Literal['starttls', 'ssl', 'none'] | `starttls` |  |
+| `WIOT_REPORTS_AUTO` | bool | `True` | build last month's report for every company on the 1st (and e-mail it) |
+| `WIOT_FORWARD_QUEUE_MAX` | int | `5000` | integrations: pending forwards kept in memory |
+| `WIOT_SENTINEL_CLIENT_ID` | str \| None | — |  |
+| `WIOT_SENTINEL_CLIENT_SECRET` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
+| `WIOT_SENTINEL_BASE_URL` | str | `https://sh.dataspace.copernicus.eu` |  |
+| `WIOT_SENTINEL_TOKEN_URL` | str | `https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token` |  |
+| `WIOT_REGIONAL_MIN_FARMS` | int | `3` | areas with fewer farms are not shown (privacy) |
+| `WIOT_SATELLITE_PROVIDER` | Literal['auto', 'sentinelhub', 'open', 'off'] | `auto` |  |
+| `WIOT_SATELLITE_MAX_CLOUD` | float | `60` | scene cloud cover above this is not searched |
+| `WIOT_SATELLITE_OPEN_MAX_SCENES` | int | `6` | passes read per farm and run (bounds the traffic) |
+| `WIOT_EARTHSEARCH_URL` | str | `https://earth-search.aws.element84.com/v1` |  |
+| `WIOT_CDSE_STAC_URL` | str | `https://stac.dataspace.copernicus.eu/v1` | Copernicus Data Space catalogue (public) |
+| `WIOT_EUMETSAT_URL` | str | `https://api.eumetsat.int` |  |
+| `WIOT_EUMETSAT_KEY` | str \| None | — (secret; set in `.env`) |  |
+| `WIOT_EUMETSAT_SECRET` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
+| `WIOT_EO_DOWNLOAD_MAX_MB` | int | `200` |  |
+| `WIOT_WEB_PUSH` | bool | `True` | alerts to installed dashboards / phones (VAPID key created in data/ on first use) |
+| `WIOT_ASSISTANT_ENABLED` | bool | `False` |  |
+| `WIOT_ASSISTANT_API_KEY` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
+| `WIOT_ASSISTANT_MODEL` | str | `claude-opus-5-5` |  |
+| `WIOT_ASSISTANT_DAILY_SUMMARY` | bool | `True` |  |
+| `WIOT_ASSISTANT_MAX_PER_HOUR` | int | `30` |  |
 | `WIOT_ADMIN_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
 | `WIOT_SUPERVISOR_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
 | `WIOT_MONITOR_PASSWORD` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |

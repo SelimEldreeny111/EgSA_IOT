@@ -48,14 +48,17 @@ def dep_names(dependant, seen=None) -> list[str]:
 
 def gen_api() -> None:
     from fastapi.routing import APIRoute, APIWebSocketRoute
-    from wiot.api import admin, alerts, auth, commands, farm, operations, org, stream, telemetry
+    from wiot.api import (admin, alerts, auth, commands, crop, eo, farm, field, notify, operations, org, reports, satellite,
+                          stream, system, telemetry, water)
     from wiot.app import API_PREFIX, create_app
     from wiot.config import Settings
 
     # Same router list and prefixes as wiot/app.py create_app (FastAPI >= 0.16x wraps included routers,
     # so the routes are read from the routers themselves).
-    mounted = [(m.router, API_PREFIX) for m in (auth, admin, telemetry, commands, farm, operations, org, alerts)]
-    mounted += [(farm.public_router, ""), (stream.router, API_PREFIX), (operations.health_router, "")]
+    mounted = [(m.router, API_PREFIX) for m in (auth, admin, telemetry, commands, farm, operations, org, alerts, system,
+                                                 notify, reports, water, crop, satellite, eo, field)]
+    mounted += [(farm.public_router, ""), (system.public_router, ""), (crop.public_router, ""), (field.public_router, ""),
+                (stream.router, API_PREFIX), (operations.health_router, "")]
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # the app's log file stays open
         settings = Settings(_env_file=None, data_dir=Path(tmp), secret_key="x" * 48)
         app = create_app(settings)

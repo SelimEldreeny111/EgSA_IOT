@@ -1,10 +1,29 @@
 # Databases
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
 
 Schemas read (read-only) from the live databases in `data/`. One `messages_dbs/<Company>.db` per tenant has the same schema; one is shown. No data values are included.
 
 ## `iot_data.db`
+
+### `alert_rules`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `name` | TEXT | yes |  |  |
+| `region` | TEXT |  |  |  |
+| `nodes` | TEXT |  |  |  |
+| `metric` | TEXT | yes |  |  |
+| `op` | TEXT | yes |  |  |
+| `value` | REAL | yes |  |  |
+| `duration_s` | INTEGER | yes | 0 |  |
+| `severity` | TEXT | yes | 'warning' |  |
+| `enabled` | INTEGER | yes | 1 |  |
+| `created_by` | TEXT |  |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
 
 ### `alerts`
 
@@ -42,6 +61,21 @@ Indexes: `CREATE UNIQUE INDEX alerts_one_open                     ON alerts(comp
 | `last_used_at` | INTEGER |  |  |  |
 | `revoked_at` | INTEGER |  |  |  |
 
+### `assistant_log`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `user_id` | INTEGER |  |  |  |
+| `question` | TEXT | yes |  |  |
+| `answer` | TEXT |  |  |  |
+| `tools` | TEXT |  |  |  |
+| `input_tokens` | INTEGER |  |  |  |
+| `output_tokens` | INTEGER |  |  |  |
+| `ts` | INTEGER | yes |  |  |
+
 ### `audit_log`
 
 | Column | Type | Not null | Default | PK |
@@ -75,6 +109,47 @@ Indexes: `CREATE INDEX idx_audit_ts ON audit_log(ts DESC)`
 | `active` | INTEGER | yes | 1 |  |
 | `strict_nodes` | INTEGER | yes | 0 |  |
 | `updated_at` | INTEGER |  |  |  |
+| `retention_days` | INTEGER |  |  |  |
+| `brand_name` | TEXT |  |  |  |
+| `brand_color` | TEXT |  |  |  |
+| `brand_logo` | TEXT |  |  |  |
+
+### `crop_diary`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `zone_id` | TEXT | yes |  |  |
+| `date` | TEXT | yes |  |  |
+| `type` | TEXT | yes |  |  |
+| `data` | TEXT | yes | '{}' |  |
+| `operator` | TEXT |  |  |  |
+| `created_by` | TEXT | yes |  |  |
+| `created_at` | INTEGER | yes |  |  |
+
+Indexes: `CREATE INDEX crop_diary_by_zone ON crop_diary(company, zone_id, date)`
+
+### `crop_wapor`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `zone_id` | TEXT | yes |  | 2 |
+| `month` | TEXT | yes |  | 3 |
+| `aeti_mm` | REAL | yes |  |  |
+| `source` | TEXT | yes |  |  |
+
+### `crop_weather`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `date` | TEXT | yes |  | 2 |
+| `tmax` | REAL |  |  |  |
+| `tmin` | REAL |  |  |  |
+| `rain_mm` | REAL |  |  |  |
+| `et0_mm` | REAL |  |  |  |
 
 ### `farm_layouts`
 
@@ -84,6 +159,144 @@ Indexes: `CREATE INDEX idx_audit_ts ON audit_log(ts DESC)`
 | `layout` | TEXT | yes |  |  |
 | `updated_at` | INTEGER | yes |  |  |
 | `updated_by` | TEXT | yes |  |  |
+
+### `integrations`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `name` | TEXT | yes |  |  |
+| `config` | TEXT | yes | '{}' |  |
+| `secrets` | TEXT |  |  |  |
+| `enabled` | INTEGER | yes | 1 |  |
+| `created_at` | INTEGER | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+| `sent` | INTEGER | yes | 0 |  |
+| `failed` | INTEGER | yes | 0 |  |
+| `dropped` | INTEGER | yes | 0 |  |
+| `last_ok_at` | INTEGER |  |  |  |
+| `last_error` | TEXT |  |  |  |
+| `last_error_at` | INTEGER |  |  |  |
+
+### `invitations`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `token_hash` | TEXT | yes |  |  |
+| `email` | TEXT | yes |  |  |
+| `role` | TEXT | yes |  |  |
+| `company` | TEXT | yes |  |  |
+| `pages` | TEXT |  |  |  |
+| `invited_by` | TEXT | yes |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `expires_at` | INTEGER | yes |  |  |
+| `accepted_at` | INTEGER |  |  |  |
+| `accepted_username` | TEXT |  |  |  |
+| `revoked_at` | INTEGER |  |  |  |
+
+### `mnt_assets`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `name` | TEXT | yes |  |  |
+| `region` | TEXT |  |  |  |
+| `node_id` | INTEGER |  |  |  |
+| `serial` | TEXT |  |  |  |
+| `model` | TEXT |  |  |  |
+| `installed` | TEXT |  |  |  |
+| `notes` | TEXT |  |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+
+Indexes: `CREATE UNIQUE INDEX mnt_assets_node ON mnt_assets(company, region, node_id) WHERE node_id IS NOT NULL`
+
+### `mnt_events`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `order_id` | INTEGER | yes |  |  |
+| `ts` | INTEGER | yes |  |  |
+| `actor` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `text` | TEXT |  |  |  |
+| `photo` | TEXT |  |  |  |
+
+### `mnt_orders`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `asset_id` | INTEGER |  |  |  |
+| `alert_id` | INTEGER |  |  |  |
+| `title` | TEXT | yes |  |  |
+| `description` | TEXT |  |  |  |
+| `priority` | TEXT | yes |  |  |
+| `status` | TEXT | yes |  |  |
+| `assignee` | TEXT |  |  |  |
+| `due` | TEXT |  |  |  |
+| `created_by` | TEXT | yes |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+| `closed_at` | INTEGER |  |  |  |
+| `closure` | TEXT |  |  |  |
+
+Indexes: `CREATE INDEX mnt_orders_by_status ON mnt_orders(company, status)`
+
+### `mnt_records`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `asset_id` | INTEGER | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `date` | TEXT | yes |  |  |
+| `data` | TEXT | yes |  |  |
+| `next_due` | TEXT |  |  |  |
+| `created_by` | TEXT | yes |  |  |
+| `created_at` | INTEGER | yes |  |  |
+
+Indexes: `CREATE INDEX mnt_records_by_asset ON mnt_records(company, asset_id, date)`
+
+### `notify_channels`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `name` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `config` | TEXT | yes | '{}' |  |
+| `secrets` | TEXT |  |  |  |
+| `min_severity` | TEXT | yes | 'warning' |  |
+| `events` | TEXT | yes | '["alert"]' |  |
+| `enabled` | INTEGER | yes | 1 |  |
+| `created_at` | INTEGER | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+| `last_ok` | INTEGER |  |  |  |
+| `last_at` | INTEGER |  |  |  |
+| `last_error` | TEXT |  |  |  |
+
+### `notify_log`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `channel_id` | INTEGER | yes |  |  |
+| `ts` | INTEGER | yes |  |  |
+| `event` | TEXT | yes |  |  |
+| `ok` | INTEGER | yes |  |  |
+| `detail` | TEXT |  |  |  |
+
+Indexes: `CREATE INDEX notify_log_by_channel ON notify_log(channel_id, id DESC)`
 
 ### `org_gateways`
 
@@ -136,6 +349,104 @@ Indexes: `CREATE INDEX idx_audit_ts ON audit_log(ts DESC)`
 | `created_at` | INTEGER | yes |  |  |
 | `updated_at` | INTEGER | yes |  |  |
 
+### `push_subscriptions`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `endpoint` | TEXT |  |  | 1 |
+| `user_id` | INTEGER | yes |  |  |
+| `p256dh` | TEXT | yes |  |  |
+| `auth` | TEXT | yes |  |  |
+| `user_agent` | TEXT |  |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `last_ok_at` | INTEGER |  |  |  |
+| `failures` | INTEGER | yes | 0 |  |
+
+### `sat_ndvi`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `zone_id` | TEXT | yes |  | 2 |
+| `date` | TEXT | yes |  | 3 |
+| `mean` | REAL |  |  |  |
+| `min` | REAL |  |  |  |
+| `max` | REAL |  |  |  |
+| `clear_share` | REAL |  |  |  |
+| `source` | TEXT | yes |  | 4 |
+
+### `sat_passes`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `satellite` | TEXT | yes |  |  |
+| `station` | TEXT |  |  |  |
+| `aos` | INTEGER | yes |  |  |
+| `los` | INTEGER | yes |  |  |
+| `max_elevation` | REAL |  |  |  |
+
+### `sat_products`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `pass_id` | TEXT |  |  | 1 |
+| `satellite` | TEXT | yes |  |  |
+| `received_at` | INTEGER | yes |  |  |
+| `imported_at` | INTEGER | yes |  |  |
+| `records` | INTEGER | yes |  |  |
+| `stored` | INTEGER | yes |  |  |
+| `rejected` | INTEGER | yes |  |  |
+| `companies` | TEXT | yes |  |  |
+
+### `sessions`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `jti` | TEXT |  |  | 1 |
+| `user_id` | INTEGER | yes |  |  |
+| `username` | TEXT | yes |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `expires_at` | INTEGER | yes |  |  |
+| `last_seen_at` | INTEGER | yes |  |  |
+| `ip` | TEXT |  |  |  |
+| `user_agent` | TEXT |  |  |  |
+| `method` | TEXT | yes | 'password' |  |
+| `revoked_at` | INTEGER |  |  |  |
+| `revoked_by` | TEXT |  |  |  |
+
+Indexes: `CREATE INDEX sessions_by_user ON sessions(user_id, expires_at)`
+
+### `status_history`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `ts` | INTEGER |  |  | 1 |
+| `broker` | INTEGER | yes |  |  |
+| `ingest` | INTEGER | yes |  |  |
+| `overall` | TEXT | yes |  |  |
+
+### `usage_daily`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `day` | TEXT | yes |  | 2 |
+| `messages` | INTEGER | yes | 0 |  |
+| `bytes` | INTEGER | yes | 0 |  |
+| `commands` | INTEGER | yes | 0 |  |
+| `api_calls` | INTEGER | yes | 0 |  |
+| `exports` | INTEGER | yes | 0 |  |
+| `nodes_active` | INTEGER | yes | 0 |  |
+| `storage_bytes` | INTEGER | yes | 0 |  |
+
+### `usage_meta`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `key` | TEXT |  |  | 1 |
+| `value` | TEXT |  |  |  |
+
 ### `users`
 
 | Column | Type | Not null | Default | PK |
@@ -149,6 +460,60 @@ Indexes: `CREATE INDEX idx_audit_ts ON audit_log(ts DESC)`
 | `created_at` | INTEGER |  |  |  |
 | `last_login_at` | INTEGER |  |  |  |
 | `disabled` | INTEGER | yes | 0 |  |
+| `totp_secret` | TEXT |  |  |  |
+| `totp_enabled` | INTEGER | yes | 0 |  |
+| `totp_last_step` | INTEGER |  |  |  |
+| `recovery_codes` | TEXT |  |  |  |
+| `pages` | TEXT |  |  |  |
+| `email` | TEXT |  |  |  |
+| `sso_subject` | TEXT |  |  |  |
+
+### `water_items`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `data` | TEXT | yes |  |  |
+| `state` | TEXT | yes | '{}' |  |
+| `enabled` | INTEGER | yes | 1 |  |
+| `created_at` | INTEGER | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+| `updated_by` | TEXT |  |  |  |
+
+Indexes: `CREATE INDEX water_items_by_kind ON water_items(company, kind)`
+
+### `water_log`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `item_id` | INTEGER |  |  |  |
+| `ts` | INTEGER | yes |  |  |
+| `action` | TEXT | yes |  |  |
+| `detail` | TEXT |  |  |  |
+
+Indexes: `CREATE INDEX water_log_by_item ON water_log(company, item_id, id DESC)`
+
+### `water_profiles`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `zone_id` | TEXT | yes |  | 2 |
+| `data` | TEXT | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+| `updated_by` | TEXT |  |  |  |
+
+### `water_settings`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT |  |  | 1 |
+| `data` | TEXT | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
 
 ### `webhooks`
 
@@ -384,8 +749,10 @@ Indexes: `CREATE INDEX idx_region_periods ON consumption_periods(region,node_id,
 | `wdt_reset_count` | INTEGER |  | 0 |  |
 | `power_reset_count` | INTEGER |  | 0 |  |
 | `region` | TEXT | yes | 'Region_1' |  |
+| `sampling_rate_s` | INTEGER |  | 0 |  |
+| `transmission_rate_s` | INTEGER |  | 0 |  |
 
-Indexes: `CREATE INDEX idx_region_messages ON messages(region,node_id,id)`; `CREATE INDEX idx_v2_messages_time ON messages(region, timestamp)`; `CREATE INDEX idx_v2_messages_node_time ON messages(region, node_id, type, timestamp)`
+Indexes: `CREATE INDEX idx_region_messages ON messages(region,node_id,id)`; `CREATE INDEX idx_v2_messages_time ON messages(region, timestamp)`; `CREATE INDEX idx_v2_messages_node_time ON messages(region, node_id, type, timestamp)`; `CREATE INDEX idx_v2_messages_node_measured ON messages(region, node_id, measured_at)`
 
 ### `meter_samples`
 
@@ -418,3 +785,24 @@ Indexes: `CREATE INDEX idx_region_messages ON messages(region,node_id,id)`; `CRE
 | `region` | TEXT | yes | 'Region_1' |  |
 
 Indexes: `CREATE INDEX idx_meter_samples_node_time                  ON meter_samples(node_id, sensor_id, measured_at)`
+
+### `rollup_state`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `key` | TEXT |  |  | 1 |
+| `value` | INTEGER | yes |  |  |
+
+### `rollups`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `grain` | TEXT | yes |  | 1 |
+| `region` | TEXT | yes |  | 2 |
+| `node_id` | INTEGER | yes |  | 3 |
+| `metric` | TEXT | yes |  | 4 |
+| `t` | INTEGER | yes |  | 5 |
+| `n` | INTEGER | yes |  |  |
+| `avg` | REAL |  |  |  |
+| `lo` | REAL |  |  |  |
+| `hi` | REAL |  |  |  |

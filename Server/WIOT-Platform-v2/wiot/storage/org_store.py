@@ -15,7 +15,6 @@ import io
 import json
 import re
 import secrets
-import sqlite3
 import threading
 import time
 from datetime import date
@@ -103,6 +102,30 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+LOGO_MAX_BYTES = 40 * 1024  # base64 must fit the 64 KB request limit
+PNG_MAGIC = bytes.fromhex("89504e470d0a1a0a")
+JPEG_MAGIC = bytes.fromhex("ffd8ff")
+
+
+def check_logo(value: str | None) -> str | None:
+    """A PNG or JPEG logo as a data URL (SVG is refused: it can carry script)."""
+    if not value:
+        return None
+    import base64
+    head, _, data = value.partition(",")
+    if head not in ("data:image/png;base64", "data:image/jpeg;base64"):
+        raise ValueError("Logo must be a PNG or JPEG image")
+    try:
+        raw = base64.b64decode(data, validate=True)
+    except ValueError as exc:
+        raise ValueError("Logo data is not valid base64") from exc
+    if len(raw) > LOGO_MAX_BYTES:
+        raise ValueError("Logo must be 40 KB or smaller")
+    if not (raw.startswith(PNG_MAGIC) or raw.startswith(JPEG_MAGIC)):
+        raise ValueError("Logo content is not a PNG or JPEG image")
+    return value
+
+
 class OrgStore:
     def __init__(self, main: MainStore):
         self.main = main
@@ -117,7 +140,8 @@ class OrgStore:
                 "display_name": "TEXT", "country": "TEXT", "timezone": "TEXT", "units": "TEXT",
                 "language": "TEXT", "lat": "REAL", "lon": "REAL", "notes": "TEXT",
                 "active": "INTEGER NOT NULL DEFAULT 1", "strict_nodes": "INTEGER NOT NULL DEFAULT 0",
-                "updated_at": "INTEGER",
+                "updated_at": "INTEGER", "retention_days": "INTEGER",
+                "brand_name": "TEXT", "brand_color": "TEXT", "brand_logo": "TEXT",
             }.items():
                 if name not in cols:
                     db.execute(f"ALTER TABLE companies ADD COLUMN {name} {ddl}")
@@ -189,6 +213,19 @@ class OrgStore:
             row = db.execute("SELECT * FROM companies WHERE name=?", (name,)).fetchone()
         return self._company_public(dict(row)) if row else None
 
+    def company_logo(self, name: str) -> tuple[bytes, str] | None:
+        import base64
+        with self.main.connect() as db:
+            row = db.execute("SELECT brand_logo FROM companies WHERE name=?", (name,)).fetchone()
+        if not row or not row[0]:
+            return None
+        head, _, data = row[0].partition(",")
+        return base64.b64decode(data), head[5:].split(";")[0]
+
+    def branding(self, name: str) -> dict:
+        c = self.get_company(name) or {}
+        return {"name": c.get("brand_name") or c.get("display_name") or name, "color": c.get("brand_color")}
+
     @staticmethod
     def _company_public(r: dict) -> dict:
         return {
@@ -198,6 +235,9 @@ class OrgStore:
             "lat": r.get("lat"), "lon": r.get("lon"), "notes": r.get("notes") or "",
             "active": bool(r.get("active", 1) if r.get("active") is not None else 1),
             "strict_nodes": bool(r.get("strict_nodes") or 0), "created_at": r.get("created_at"),
+            "retention_days": r.get("retention_days"),
+            "brand_name": r.get("brand_name") or None, "brand_color": r.get("brand_color") or None,
+            "has_logo": bool(r.get("brand_logo")),
         }
 
     def create_company(self, name: str, profile: dict) -> dict:
@@ -233,6 +273,21 @@ class OrgStore:
             fields["active"] = 1 if changes["active"] else 0
         if "strict_nodes" in changes:
             fields["strict_nodes"] = 1 if changes["strict_nodes"] else 0
+        if "brand_name" in changes:
+            fields["brand_name"] = _text(changes["brand_name"] or "", 60, "Brand name") or None
+        if "brand_color" in changes:
+            color = (changes["brand_color"] or "").strip()
+            if color and not (len(color) == 7 and color[0] == "#" and all(c in "0123456789abcdefABCDEF" for c in color[1:])):
+                raise ValueError("Brand colour must be #RRGGBB")
+            fields["brand_color"] = color.lower() or None
+        if "brand_logo" in changes:
+            fields["brand_logo"] = check_logo(changes["brand_logo"])
+        if "retention_days" in changes:
+            days = changes["retention_days"]
+            if days is not None:
+                if isinstance(days, bool) or not isinstance(days, int) or not (days == 0 or 365 <= days <= 36500):
+                    raise ValueError("Retention must be 0 (keep forever) or 365..36500 days")
+            fields["retention_days"] = days
         if fields:
             fields["updated_at"] = int(time.time())
             with self.main.connect() as db:

@@ -15,7 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import admin, alerts, auth, commands, farm, operations, org, stream, telemetry
+from .api import (admin, alerts, auth, commands, crop, eo, farm, field, notify, operations, org, reports, satellite, stream,
+                  system, telemetry, water)
 from .config import Settings, get_settings
 from .logging_setup import configure_logging, request_id_var
 from .security import SESSION_COOKIE
@@ -26,6 +27,9 @@ from .services.runtime import Runtime
 log = logging.getLogger("wiot")
 API_PREFIX = "/api/v2"
 MAX_BODY = 64 * 1024
+UPLOAD_PATHS = ("/api/v2/satellite/pivots/detect", "/api/v2/satellite/products", "/api/v2/crop/wapor/import")
+UPLOAD_PREFIX = "/api/v2/maintenance/orders/"     # work-order photos (R2.6)
+MAX_UPLOAD = 16 * 1024 * 1024  # images and satellite products (R2.5)
 
 def build_csp(settings: Settings) -> str:
     """Strict CSP; the only third-party origins are the configured map tile hosts."""
@@ -37,6 +41,12 @@ def build_csp(settings: Settings) -> str:
             f"img-src 'self' data: blob: {' '.join(hosts)}; connect-src 'self'")
 
 
+def tile_hosts(settings: Settings) -> list[str]:
+    from urllib.parse import urlsplit
+    return sorted({f"{urlsplit(u).scheme}://{urlsplit(u).netloc}" for u in (settings.map_tile_url, settings.map_labels_url)
+                   if u and urlsplit(u).netloc})
+
+
 def _error(status: int, message: str, **extra) -> JSONResponse:
     return JSONResponse({"detail": message, **extra}, status_code=status)
 
@@ -45,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_dir, settings.log_json)
     csp = build_csp(settings)
+    sw_csp = csp.replace("connect-src 'self'", "connect-src 'self' " + " ".join(tile_hosts(settings)))
     runtime = Runtime(settings)
 
     @asynccontextmanager
@@ -75,7 +86,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         token = request_id_var.set(rid)
         started = time.perf_counter()
         length = request.headers.get("content-length")
-        if length and length.isdigit() and int(length) > MAX_BODY:
+        path_ = request.url.path
+        limit = MAX_UPLOAD if path_ in UPLOAD_PATHS or (path_.startswith(UPLOAD_PREFIX) and path_.endswith("/photos")) else MAX_BODY
+        if length and length.isdigit() and int(length) > limit:
             request_id_var.reset(token)
             return _error(413, "Request body too large")
         try:
@@ -84,6 +97,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request_id_var.reset(token)
         route = request.scope.get("route")
         path = getattr(route, "path", "unmatched")
+        principal = getattr(request.state, "principal", None)
+        if principal is not None and request.url.path.startswith(API_PREFIX):          # usage metering (R2.3)
+            tenant = request.query_params.get("company") if principal.global_read else principal.company
+            runtime.usage.count(tenant or principal.company, "api_calls")
         HTTP_REQUESTS.labels(request.method, path, str(response.status_code)).inc()
         HTTP_SECONDS.labels(path).observe(time.perf_counter() - started)
         response.headers["X-Request-ID"] = rid
@@ -92,9 +109,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "same-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # camera (QR scan) and location (node position) for the commissioning wizard, this origin only (R2.6)
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=(self)"
         if not request.url.path.startswith("/api/docs") and not request.url.path.startswith("/api/redoc"):
-            response.headers["Content-Security-Policy"] = csp
+            response.headers["Content-Security-Policy"] = sw_csp if request.url.path == "/sw.js" else csp
         if settings.cookie_secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
@@ -129,9 +147,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return _error(500, "Internal server error", request_id=request_id_var.get())
 
     # --------------------------------------------------------------- routers
-    for module in (auth, admin, telemetry, commands, farm, operations, org, alerts):
+    for module in (auth, admin, telemetry, commands, farm, operations, org, alerts, system, notify, reports, water, crop,
+                   satellite, eo, field):
         app.include_router(module.router, prefix=API_PREFIX)
     app.include_router(farm.public_router)
+    app.include_router(system.public_router)
+    app.include_router(crop.public_router)
+    app.include_router(field.public_router)
     app.include_router(stream.router, prefix=API_PREFIX)
     app.include_router(operations.health_router)
 
@@ -144,6 +166,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not request.cookies.get(SESSION_COOKIE):
             return RedirectResponse("/login")
         return FileResponse(web / "index.html", headers={"Cache-Control": "no-store"})
+
+    @app.get("/invite", include_in_schema=False)
+    async def invite_page():
+        return FileResponse(web / "invite.html", headers={"Cache-Control": "no-store"})
 
     @app.get("/login", include_in_schema=False)
     async def login_page():

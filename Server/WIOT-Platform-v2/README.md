@@ -95,6 +95,8 @@ with Mosquitto (`connection` + `topic wiot/# both 1`).
 | `python -m wiot check` | read-only tenant-storage preflight |
 | `python -m wiot backup` · `verify-backup <file>` · `restore-backup <file> --to <empty dir>` | consistent, optionally encrypted backup of every database; verification; restore into a new folder |
 | `python -m wiot flash-timeline --company C --node N --since … --until … [--gateway-log file]` | flash-download diagnosis: server records merged with the gateway serial log |
+| `python -m wiot maintain [--vacuum]` | hourly / daily summaries, retention, status sample once (stop the server for `--vacuum`) |
+| `python -m wiot loadtest --nodes 1000 --rate 2 --minutes 3` | load test on a throw-away data folder, local broker and spare ports |
 | `python -m wiot analyze` | run the analytics + ML pipeline into `data/analytics/` |
 | `python -m wiot devbroker` | local development MQTT broker (amqtt) |
 | `python -m wiot devbroker --bridge broker.hivemq.com --bridge-topic "wiot/Company_1/#"` | same, plus a two-way bridge so real gateways on the upstream broker appear beside the simulator |
@@ -368,6 +370,20 @@ pipeline from the UI. See `data/analytics/REPORT.md` for the full write-up.
   `wiot_command_receipts_total`, `wiot_broker_ready`, `wiot_ingest_seconds`, `wiot_foreign_commands_total`,
   `wiot_repeated_frames_total{kind}`, HTTP latency.
 * **Docker** — `docker compose up -d --build` starts Mosquitto and the platform.
+
+## Releases 2.2 – 2.6 at a glance
+
+| Area | Pages and endpoints | Notes |
+|---|---|---|
+| Operations | System health (supervisor), public `/status`, Node health, `GET /api/v2/fleet/health` | Grafana / Prometheus files in `deploy/monitoring/`; disaster recovery in `docs/DISASTER_RECOVERY.md` |
+| Data platform | hourly / daily summaries, retention per company, batched writes | charts longer than 7 days read the summaries; `WIOT_INGEST_BATCH_MS=250` |
+| Security | Security page: two-factor sign-in, sessions, invitations, page access, audit viewer | SSO with OpenID Connect (`WIOT_OIDC_*`) |
+| Alerts | Rules & notifications: custom rules; e-mail, Telegram, SMS, WhatsApp, Teams | SMTP via `WIOT_SMTP_*`; channel secrets stored encrypted |
+| Reports | Reports (monthly Excel / PDF), Usage, Integrations (ThingsBoard, Azure IoT Hub, HTTPS, Power BI feed) | examples in `docs/integrations/` |
+| Agronomy | Irrigation planning (FAO-56 calendar, soil, FAO-29 salinity, deficit programmes, 7-day forecast, schedules, canal rotations), Water accounts (quotas, wells, costs, utility districts) | schedules act through the command journal |
+| Crop records | Crop care (degree days, disease risk, diary, GlobalG.A.P. traceability, yields, WaPOR), Satellite (Sentinel-2 NDVI, pivot detection, WIOT-SAT), Regional dashboard, Farmer view `/farmer` | Sentinel-2 needs `WIOT_SENTINEL_CLIENT_ID/SECRET` |
+| Earth observation (2.7) | Satellite page: open Sentinel-2 NDVI without an account, Copernicus catalogue (Sentinel-1/2/3), EUMETSAT Data Store search and downloads; `GET /api/v2/eo/*` | `WIOT_SATELLITE_PROVIDER=open`; downloads need `WIOT_EUMETSAT_KEY/SECRET` |
+| Field | installable app with offline mode and push alerts, Commissioning wizard, Maintenance (work orders, photos, calibrations), Assistant (optional, Claude) | assistant: `pip install -e ".[assistant]"` and `WIOT_ASSISTANT_ENABLED=true` |
 
 ## Tests
 

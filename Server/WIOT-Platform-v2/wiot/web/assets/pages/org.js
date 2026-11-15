@@ -68,6 +68,8 @@ export async function render(root) {
       else if (f.type === "check") input = `<label class="check"><input type="checkbox" name="${f.k}" ${v ? "checked" : ""} ${f.disabled ? "disabled" : ""}> ${esc(t(f.text || f.label))}</label>`;
       else if (f.type === "checks") input = `<div class="check-grid">${f.options.map(([ov, ol]) => `<label class="check"><input type="checkbox" name="${f.k}" value="${ov}" ${(v || []).includes(ov) ? "checked" : ""}> ${esc(t(ol))}</label>`).join("")}</div>`;
       else if (f.type === "textarea") input = `<textarea class="input" rows="3" ${attrs}>${esc(v)}</textarea>`;
+      else if (f.type === "logo") input = `<div class="logo-pick">${f.src ? `<img src="${esc(f.src)}" alt="">` : ""}
+          <input type="file" name="${f.k}" accept="image/png,image/jpeg">${f.src ? `<label class="check"><input type="checkbox" name="${f.k}__remove"> ${esc(t("Remove logo"))}</label>` : ""}</div>`;
       else if (f.type === "typecards") input = `<div class="type-cards">${Object.entries(NODE_TYPES).map(([k, d]) => `<label class="type-card ${k}">
           <input type="radio" name="${f.k}" value="${k}" ${v === k ? "checked" : ""}><span class="tc-ico">${k === "control" ? ICONS.valve : ICONS.sensor}</span>
           <span class="tc-txt"><b>${esc(t(d.label))}</b><small>${esc(t(d.desc))}</small></span></label>`).join("")}</div>`;
@@ -79,6 +81,12 @@ export async function render(root) {
     const out = {};
     fields.forEach((f) => {
       if (f.disabled && !f.keep) return;
+      if (f.type === "logo") {
+        const inp = formEl.querySelector(`[name="${f.k}"]`);
+        if (formEl.querySelector(`[name="${f.k}__remove"]`)?.checked) out[f.k] = "";
+        else if (inp.dataset.value) out[f.k] = inp.dataset.value;
+        return;
+      }
       if (f.type === "check") out[f.k] = formEl.querySelector(`[name="${f.k}"]`).checked;
       else if (f.type === "checks") out[f.k] = $$(`[name="${f.k}"]:checked`, formEl).map((i) => i.value);
       else if (f.type === "typecards") out[f.k] = formEl.querySelector(`[name="${f.k}"]:checked`)?.value || "monitoring";
@@ -103,6 +111,15 @@ export async function render(root) {
       ${values.__new ? "" : `<button class="btn ghost" type="button" id="ed-new">${t("New")}</button>`}
       ${onDelete ? `<button class="btn danger" type="button" id="ed-del" style="margin-inline-start:auto">${t(deleteLabel)}</button>` : ""}</div>
       ${note ? `<p class="note">${note}</p>` : ""}</form>`;
+    $$('input[type="file"]', box).forEach((inp) => inp.addEventListener("change", () => {
+      const file = inp.files[0];
+      inp.dataset.value = "";
+      if (!file) return;
+      if (file.size > 40 * 1024) { toast(t("Logo must be 40 KB or smaller"), "error"); inp.value = ""; return; }
+      const reader = new FileReader();
+      reader.onload = () => { inp.dataset.value = reader.result; };
+      reader.readAsDataURL(file);
+    }));
     $("#ed", box).addEventListener("submit", async (e) => { e.preventDefault(); try { await onSave(read(e.target, fields)); } catch { /* toast shown */ } });
     $("#ed-new", box)?.addEventListener("click", () => show());
     $("#ed-del", box)?.addEventListener("click", async () => { if (confirm(t("Delete this entry? This cannot be undone."))) { try { await onDelete(); } catch { /* toast shown */ } } });
@@ -134,11 +151,15 @@ export async function render(root) {
       { k: "lon", label: "Headquarters longitude", type: "number", step: "any", min: -180, max: 180 },
       { k: "strict_nodes", label: "Provisioning", type: "check", text: "Strict: accept data only from registered nodes" },
       ...(isNew || !sup ? [] : [{ k: "active", label: "Status", type: "check", text: "Active (uncheck to archive)" }]),
+      { k: "brand_name", label: "Brand name", maxlength: 60, placeholder: "Shown in the sidebar and on reports" },
+      { k: "brand_color", label: "Brand colour", maxlength: 7, placeholder: "#1f5fad", mono: true, hint: "Replaces the blue accent for this company's users" },
+      ...(isNew ? [] : [{ k: "brand_logo", label: "Logo", type: "logo", src: c.has_logo ? `/api/v2/org/companies/${encodeURIComponent(c.name)}/logo?v=${Date.now()}` : "", hint: "PNG or JPEG, square, up to 40 KB" }]),
+      ...(sup ? [{ k: "retention_days", label: "Raw data retention (days)", type: "number", min: 0, max: 36500, hint: "0 keeps everything; otherwise 365 or more. Hourly and daily summaries are always kept." }] : []),
       { k: "notes", label: "Notes", type: "textarea", full: true, maxlength: 500 },
     ];
     const open = (c) => {
       const isNew = !c;
-      const values = c ? { ...c, lat: c.lat ?? "", lon: c.lon ?? "" } : { __new: true, timezone: "Africa/Cairo", units: "metric", language: "en", country: "EG" };
+      const values = c ? { ...c, lat: c.lat ?? "", lon: c.lon ?? "", brand_name: c.brand_name ?? "", brand_color: c.brand_color ?? "", retention_days: c.retention_days ?? 0 } : { __new: true, timezone: "Africa/Cairo", units: "metric", language: "en", country: "EG" };
       if (isNew && !sup) { $("#org-form", root).innerHTML = `<div class="empty">${t("Select your company to edit its profile.")}</div>`; return; }
       editor(isNew ? t("New company") : `${t("Edit")} · ${c.display_name}`, fields(isNew, c), values, {
         onSave: async (v) => {

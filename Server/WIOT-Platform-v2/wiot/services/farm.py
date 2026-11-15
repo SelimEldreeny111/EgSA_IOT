@@ -187,7 +187,7 @@ class WeatherClient:
         params = {
             "latitude": key[0], "longitude": key[1], "timezone": "auto", "forecast_days": 7, "past_days": 7,
             "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code,is_day",
-            "hourly": "precipitation,precipitation_probability",
+            "hourly": "precipitation,precipitation_probability,temperature_2m,relative_humidity_2m",
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration,"
                      "wind_speed_10m_max,weather_code,shortwave_radiation_sum",
         }
@@ -229,7 +229,13 @@ class WeatherClient:
                         "precip_mm": cur.get("precipitation"), "is_day": bool(cur.get("is_day", 1)),
                         "label": WMO.get(code, ("Unknown", "cloud"))[0], "icon": WMO.get(code, ("", "cloud"))[1]},
             "daily": days, "rain_next_24h_mm": round(rain_24, 1),
-            "past_daily": [{"date": d["date"], "et0_mm": d["et0_mm"], "rain_mm": d["rain_mm"]} for d in past],
+            "past_daily": [{"date": d["date"], "et0_mm": d["et0_mm"], "rain_mm": d["rain_mm"], "tmax": d["tmax"],
+                            "tmin": d["tmin"]} for d in past],
+            # next 72 h for crop-disease risk models (R2.5)
+            "hourly": [{"time": t, "temp_c": (hourly.get("temperature_2m") or [None] * len(hourly_times))[i],
+                        "rh": (hourly.get("relative_humidity_2m") or [None] * len(hourly_times))[i],
+                        "rain_mm": (hourly.get("precipitation") or [None] * len(hourly_times))[i]}
+                       for i, t in enumerate(hourly_times[start:start + 72], start=start)],
             "et0_today_mm": days[0]["et0_mm"] if days else None,
         }
         with self._lock:
@@ -274,6 +280,7 @@ class FarmService:
         self.hub = None
         self.audit = None
         self._last_auto: dict[tuple[str, str], float] = {}
+        self.water = None             # WaterService, injected by the runtime (field profiles, R2.4)
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------ overview
@@ -313,7 +320,16 @@ class FarmService:
 
     def zone_state(self, zone: Zone, row: dict | None, layout: FarmLayout, wx: dict,
                    company: str | None = None) -> dict:
-        out = {**zone.model_dump(), "area_ha": round(zone.area_ha(), 1), "kc": _kc(zone.crop)}
+        kc, stage, lr = _kc(zone.crop), None, 0.0
+        if company is not None and self.water is not None:      # crop calendar + salinity profile (R2.4)
+            try:
+                kc, st = self.water.kc(company, zone)
+                stage = st.get("stage")
+                lr = self.water.leaching(company, zone)
+            except Exception:
+                log.exception("Field profile failed for zone %s", zone.id)
+        out = {**zone.model_dump(), "area_ha": round(zone.area_ha(), 1), "kc": kc, "stage": stage,
+               "leaching_requirement": lr or None}
         if company is not None:
             try:
                 out["irrigation_index"] = self.irrigation_index(company, zone, wx)
@@ -346,9 +362,10 @@ class FarmService:
         status = "dry" if moisture < lo else "wet" if moisture > hi else "optimal"
         if link == "offline":
             status = "offline"
-        etc = (wx.get("et0_today_mm") or 0) * _kc(zone.crop) if wx.get("available") else None
+        etc = (wx.get("et0_today_mm") or 0) * kc if wx.get("available") else None
         target = (lo + hi) / 2
-        deficit_mm = max(0.0, (target - moisture) / 100 * layout.agronomy.root_zone_mm)
+        # net depth to the target, plus the FAO-29 leaching fraction when the irrigation water is saline
+        deficit_mm = max(0.0, (target - moisture) / 100 * layout.agronomy.root_zone_mm) / (1 - min(lr, 0.5))
         runtime_min = deficit_mm / layout.agronomy.application_rate_mm_h * 60
         rain = wx.get("rain_next_24h_mm") or 0 if wx.get("available") else 0
         if status == "offline":

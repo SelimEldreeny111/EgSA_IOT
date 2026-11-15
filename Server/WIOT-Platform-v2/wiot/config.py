@@ -68,6 +68,68 @@ class Settings(BaseSettings):
     frost_warn_c: float = Field(2.0, ge=-20, le=15)
     heat_warn_c: float = Field(40.0, ge=25, le=60)
 
+    # --- operations and data platform (R2.2) --------------------------------
+    ingest_batch_ms: int = Field(0, ge=0, le=5000)  # group-commit telemetry writes (250 recommended); 0 = off
+    maintenance_interval_s: int = Field(600, ge=30, le=86400)  # rollups, retention, status sampling
+    retention_days: int = Field(0, ge=0, le=36500)  # default raw-data retention per company; 0 = keep forever
+    status_public: bool = True  # public /status page (service health only, no company data)
+    config_watch: bool = True  # re-send SRATE/STRAN when a node reports other intervals than intended
+
+    # --- security, notifications, reports, integrations (R2.3) ---------------
+    public_url: str | None = None  # e.g. https://wiot.example.org (links in e-mails, SSO redirect)
+    # OpenID Connect single sign-on (Entra ID, Google, Keycloak, Okta ...); off until issuer + client id are set
+    oidc_issuer: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: SecretStr | None = None
+    oidc_scopes: str = "openid email profile"
+    oidc_button_label: str = "Sign in with your organisation"
+    oidc_auto_create: bool = False
+    oidc_default_role: Literal["admin", "monitor", "user"] = "user"
+    oidc_default_company: str | None = None
+    oidc_role_claim: str | None = None
+    oidc_company_claim: str | None = None
+    oidc_allowed_domains: list[str] = []
+    # Outgoing e-mail (alerts, invitations, monthly reports)
+    smtp_host: str | None = None
+    smtp_port: int = Field(587, ge=1, le=65535)
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from: str | None = None
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    reports_auto: bool = True  # build last month's report for every company on the 1st (and e-mail it)
+    forward_queue_max: int = Field(5000, ge=100, le=100000)  # integrations: pending forwards kept in memory
+
+    # --- crop records, satellite, regional views (R2.5) -----------------------
+    # Copernicus Data Space Ecosystem (Sentinel Hub APIs) OAuth client; Sentinel-2 NDVI is off until set
+    sentinel_client_id: str | None = None
+    sentinel_client_secret: SecretStr | None = None
+    sentinel_base_url: str = "https://sh.dataspace.copernicus.eu"
+    sentinel_token_url: str = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
+    regional_min_farms: int = Field(3, ge=1, le=100)  # areas with fewer farms are not shown (privacy)
+
+    # --- Earth observation (R2.7) ----------------------------------------------
+    # Where field NDVI comes from: "auto" = Sentinel Hub when the OAuth client above is set, otherwise none;
+    # "open" = the open Sentinel-2 archive on AWS (Earth Search, no account; needs numpy); "off" = never.
+    satellite_provider: Literal["auto", "sentinelhub", "open", "off"] = "auto"
+    satellite_max_cloud: float = Field(60, ge=0, le=100)  # scene cloud cover above this is not searched
+    satellite_open_max_scenes: int = Field(6, ge=1, le=60)  # passes read per farm and run (bounds the traffic)
+    earthsearch_url: str = "https://earth-search.aws.element84.com/v1"
+    cdse_stac_url: str = "https://stac.dataspace.copernicus.eu/v1"  # Copernicus Data Space catalogue (public)
+    # EUMETSAT Data Store: search is public; downloads need the API key from https://api.eumetsat.int/api-key
+    eumetsat_url: str = "https://api.eumetsat.int"
+    eumetsat_key: str | None = None
+    eumetsat_secret: SecretStr | None = None
+    eo_download_max_mb: int = Field(200, ge=1, le=5000)
+
+    # --- field apps, maintenance, assistant (R2.6) ----------------------------
+    web_push: bool = True  # alerts to installed dashboards / phones (VAPID key created in data/ on first use)
+    # Optional AI assistant (Claude); off until enabled, needs the "assistant" extra and an Anthropic API key
+    assistant_enabled: bool = False
+    assistant_api_key: SecretStr | None = None
+    assistant_model: str = "claude-opus-5-5"
+    assistant_daily_summary: bool = True
+    assistant_max_per_hour: int = Field(30, ge=1, le=1000)
+
     # Bootstrap accounts (same variable names as v1.31). Only used to create
     # missing built-in users; existing password hashes are never overwritten.
     admin_password: SecretStr | None = None

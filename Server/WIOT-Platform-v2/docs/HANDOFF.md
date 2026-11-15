@@ -238,10 +238,15 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 
 ## 8. Current state (12 November 2026)
 
-- Code: the branch is at `7ce0132` (hand-over documents). **Release R2.1 (version 2.1.0) is implemented in the
-  development copy and not committed yet** — see `docs/CHANGELOG.md`, last entry. The CI workflow change (new `audit`
-  job) is in the final-copy root `.github/workflows/server-v2-tests.yml`; copy it to the worktree root when committing.
-- Tests: 140 passed, 13 subtests passed (local, 11 Nov). CI last passed on `7ce0132`; the `audit` job has not run yet.
+- Code: R2.1 is committed (`43fce3e`). **Releases R2.2–R2.7 (version 2.7.0) are implemented in the development copy
+  and not committed yet** (R2.7 = Earth observation: open Sentinel-2, Copernicus catalogue, EUMETSAT) — see `docs/CHANGELOG.md`, last entry. Track G (points 53–60) is not started, by decision.
+  The CI workflow (new `lint` and `browser` jobs) is in the final-copy root `.github/workflows/server-v2-tests.yml`;
+  copy it to the worktree root when committing.
+- Tests: see the last CHANGELOG entry for the count; the browser smoke test is skipped locally (no Playwright).
+- External accounts still needed to switch on R2.3–R2.6 features: SMTP account, Telegram bot / Twilio / WhatsApp
+  Cloud API / Teams webhook, an OpenID Connect provider (Entra ID, Google, Keycloak), a Copernicus Data Space account
+  (Sentinel Hub NDVI; optional since 2.7 — `WIOT_SATELLITE_PROVIDER=open` needs none), an EUMETSAT API key (downloads), WaPOR CSV exports, an Anthropic API key (assistant), a public HTTPS address (`WIOT_PUBLIC_URL`; Web
+  Push and the camera / location in the commissioning wizard need HTTPS on a real host).
 - R2.1 items that need the user: installing the service, Mosquitto and HTTPS on a real host (`deploy/windows/README.md`),
   the monthly restore test, and the gateway-log bench session for OI-01 (`docs/procedures/FLASH_DOWNLOAD_DIAGNOSIS.md`).
 - Processes: the background broker, server and simulator of the previous session stopped on 10 Nov at 14:54; the
@@ -270,9 +275,9 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 
 ## 10. Roadmap
 
-**Status:** R2.1 is done (12 Nov 2026, not committed). **Next: R2.2 "Operations and data platform"** — points 7–11,
-15, 16, 32 (monitoring, status page, batched writes, retention and summaries, load test, configuration watch, node
-health view, engineering quality).
+**Status:** R2.1 committed; R2.2–R2.6 done (12 Nov 2026, version 2.6.0, not committed). **Next:** user acceptance
+of the new pages on real data, the external accounts listed in §8, then Track G (greenhouses and new sensors) when the
+user decides.
 
 **Current plan (11 Nov 2026): `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0`** (Markdown, Word
 and PDF in the project root's documentation folder). It schedules all 62 agreed improvement points: server releases

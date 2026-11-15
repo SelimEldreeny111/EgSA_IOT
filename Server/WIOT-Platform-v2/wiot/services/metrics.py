@@ -25,5 +25,15 @@ REPEATED_FRAMES = Counter(
 FOREIGN_COMMANDS = Counter(
     "wiot_foreign_commands_total", "Commands seen on command topics that this server did not send",
     registry=REGISTRY)
+INGEST_AGE = Gauge(
+    "wiot_ingest_last_message_age_seconds", "Seconds since the newest message of each company", ["company"],
+    registry=REGISTRY)
+DISK_FREE_RATIO = Gauge("wiot_disk_free_ratio", "Free share of the data disk (0..1)", registry=REGISTRY)
+BACKUP_AGE = Gauge("wiot_backup_age_seconds", "Seconds since the newest backup file", registry=REGISTRY)
+MAINTENANCE_RUNS = Counter(
+    "wiot_maintenance_runs_total", "Maintenance cycles (summaries, retention, status)", ["outcome"],
+    registry=REGISTRY)
+CONFIG_CORRECTIONS = Counter(
+    "wiot_config_corrections_total", "SRATE/STRAN re-sent by the configuration watch", registry=REGISTRY)
 BROKER_READY = Gauge("wiot_broker_ready", "1 when MQTT subscriptions are confirmed", registry=REGISTRY)
 WS_CONNECTIONS = Gauge("wiot_websocket_connections", "Open dashboard sockets", registry=REGISTRY)

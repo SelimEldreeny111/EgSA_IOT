@@ -173,7 +173,8 @@ class VirtualNode:
 
 class FleetSimulator:
     def __init__(self, host: str, port: int, key: bytes, nodes: list[VirtualNode],
-                 drop_rate: float = 0.02):
+                 drop_rate: float = 0.02, stagger_s: float = 0.7):
+        self.stagger_s = stagger_s  # delay between the first reports of consecutive nodes
         self.nodes = {(n.company, n.region, n.node_id): n for n in nodes}
         self.drop_rate = drop_rate
         topics = sorted({f"wiot/{n.company}/{n.region}/{n.node_id}/cmd" for n in nodes}
@@ -255,7 +256,7 @@ class FleetSimulator:
             time.sleep(0.2)
         now = time.time()
         for i, node in enumerate(self.nodes.values()):
-            node.next_report = now + 1 + i * 0.7
+            node.next_report = now + 1 + i * self.stagger_s
         log.info("Simulating %d nodes", len(self.nodes))
         while not self._stop.is_set():
             now = time.time()

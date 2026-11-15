@@ -1,6 +1,6 @@
 # Realtime events and metrics
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
 
 ## Realtime hub events
 
@@ -9,14 +9,14 @@ Published on the internal hub, delivered to WebSocket clients of the same tenant
 | Event | Published at |
 |---|---|
 | `alert` | `wiot/api/alerts.py:46` |
-| `alert` | `wiot/services/alerts.py:310` |
+| `alert` | `wiot/services/alerts.py:319` |
 | `broker` | `wiot/services/broker.py:97` |
 | `broker` | `wiot/services/broker.py:118` |
-| `command` | `wiot/services/commands.py:280` |
-| `automation` | `wiot/services/farm.py:533` |
-| `telemetry` | `wiot/services/ingest.py:316` |
-| `telemetry` | `wiot/services/ingest.py:332` |
-| `flash` | `wiot/services/ingest.py:372` |
+| `command` | `wiot/services/commands.py:289` |
+| `automation` | `wiot/services/farm.py:550` |
+| `telemetry` | `wiot/services/ingest.py:330` |
+| `telemetry` | `wiot/services/ingest.py:346` |
+| `flash` | `wiot/services/ingest.py:386` |
 | `log` | `wiot/services/realtime.py:128` |
 | `log` | `wiot/services/realtime.py:130` |
 
@@ -33,5 +33,10 @@ Published on the internal hub, delivered to WebSocket clients of the same tenant
 | `wiot_http_request_seconds` | HTTP latency |
 | `wiot_repeated_frames_total` | Uplinks whose plaintext repeats an earlier one (duplicate or out of order) |
 | `wiot_foreign_commands_total` | Commands seen on command topics that this server did not send |
+| `wiot_ingest_last_message_age_seconds` | Seconds since the newest message of each company |
+| `wiot_disk_free_ratio` | Free share of the data disk (0..1) |
+| `wiot_backup_age_seconds` | Seconds since the newest backup file |
+| `wiot_maintenance_runs_total` | Maintenance cycles (summaries, retention, status) |
+| `wiot_config_corrections_total` | SRATE/STRAN re-sent by the configuration watch |
 | `wiot_broker_ready` | 1 when MQTT subscriptions are confirmed |
 | `wiot_websocket_connections` | Open dashboard sockets |

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/assets/app.css">
   <link rel="stylesheet" href="/assets/farm.css">
   <link rel="stylesheet" href="/assets/global.css">
+  <link rel="stylesheet" href="/assets/ops.css">
   <script src="/assets/vendor/leaflet.js"></script>
   <script type="module" src="/assets/login.js"></script>
 </head>
@@ -24,8 +25,10 @@
       <p class="dim" style="margin:0 0 20px;font-size:13px">Smart agriculture &amp; irrigation · water-IoT operations</p>
       <div class="field"><label for="u">Username</label><input class="input" id="u" name="username" autocomplete="username" required maxlength="80"></div>
       <div class="field"><label for="p">Password</label><input class="input" id="p" name="password" type="password" autocomplete="current-password" required maxlength="512"></div>
+      <div class="field" id="otp-field" hidden><label for="otp">Authentication code</label><input class="input" id="otp" name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="32" placeholder="6-digit code or a recovery code"></div>
       <div class="err" id="err" role="alert"></div>
       <button class="btn primary" style="width:100%;justify-content:center;padding:10px" type="submit">Sign in</button>
+      <div id="sso" hidden><div class="login-or"><span>or</span></div><a class="btn" id="sso-btn" href="/api/v2/auth/oidc/login" style="width:100%;justify-content:center;padding:10px"></a></div>
       <p class="note" style="text-align:center">Sessions are signed tokens · repeated failures are rate-limited</p>
     </form>
   </div>

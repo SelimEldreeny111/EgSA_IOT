@@ -160,6 +160,24 @@ def cmd_simulate(args) -> None:
                 "--companies", args.companies])
 
 
+def cmd_maintain(args) -> None:
+    from .services.runtime import Runtime
+    rt = Runtime(_settings())
+    rt.main.init_schema()
+    rt.org.init_schema()
+    rt.system.init_schema()
+    report = rt.maintenance.run_once(daily=True, vacuum=args.vacuum)
+    rt.telemetry.close()
+    print(json.dumps(report, indent=2))
+    if report["errors"]:
+        sys.exit(2)
+
+
+def cmd_loadtest(args) -> None:
+    from .tools.loadtest import main as loadtest
+    sys.exit(loadtest(args))
+
+
 def cmd_devbroker(args) -> None:
     from .sim import devbroker
     devbroker.main(args.host, args.port, bridge=args.bridge,
@@ -220,6 +238,20 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--tz", default="Africa/Cairo")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_flash_timeline)
+
+    p = sub.add_parser("maintain", help="summaries, retention and status sample once (stop the server for --vacuum)")
+    p.add_argument("--vacuum", action="store_true", help="also rewrite each tenant database to free disk space")
+    p.set_defaults(func=cmd_maintain)
+
+    p = sub.add_parser("loadtest", help="measure ingest and API latency with N simulated nodes (temporary data)")
+    p.add_argument("--nodes", type=int, default=200)
+    p.add_argument("--rate", type=float, default=1.0, help="uplinks per node per minute")
+    p.add_argument("--minutes", type=float, default=2.0)
+    p.add_argument("--batch-ms", type=int, default=250)
+    p.add_argument("--port", type=int, default=8021)
+    p.add_argument("--broker-port", type=int, default=1886)
+    p.add_argument("--out", type=Path, help="write the JSON report here")
+    p.set_defaults(func=cmd_loadtest)
 
     p = sub.add_parser("analyze", help="run the analytics + ML pipeline")
     p.add_argument("--repo-root", type=Path)

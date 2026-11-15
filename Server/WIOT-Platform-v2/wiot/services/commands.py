@@ -89,6 +89,8 @@ class CommandService:
         self.flash_transfer = None  # (company, region, node, now) -> running history download | None
         self.power_mode = None  # (company, region, node) -> last reported power mode | None, set by the runtime
         self.risk = None  # (company, region, node, cmd_type) -> delivery-risk dict, set by the runtime
+        self.ack_listeners: list = []  # (company, region, node) callbacks after a node acknowledgement
+        self.usage = None  # UsageMeter, set by the runtime
         self._lock = threading.RLock()
 
     @property
@@ -200,6 +202,8 @@ class CommandService:
                 raise CommandError(str(exc), status=409, lock=self._command_lock(exc.blocking)) from exc
             request_id = result["request_id"]
             COMMANDS_SUBMITTED.labels(req.cmd_type, req.delivery).inc()
+            if self.usage is not None:
+                self.usage.count(req.company, "commands")
             if req.delivery == "now":
                 item = journal.claim_immediate(request_id, ack_timeout=self._ack_timeout(
                     req.company, req.region, req.node_id))
@@ -269,6 +273,11 @@ class CommandService:
                                             success=success, region=region)
         if accepted:
             self._notify(company, request_id)
+            for listener in self.ack_listeners:
+                try:
+                    listener(company, region, node_id)
+                except Exception:
+                    log.exception("Acknowledgement listener failed")
         return accepted
 
     def has_active(self, company: str, region: str, node_id: int, cmd_type: str) -> bool:

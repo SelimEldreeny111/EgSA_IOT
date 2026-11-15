@@ -89,3 +89,52 @@ jobs:
 
       - name: Audit installed packages
         run: python -m pip_audit --skip-editable --progress-spinner off
+
+  lint:
+    # R2.2, point 32: defects only (syntax, undefined names, unused imports, bare except); see ruff.toml.
+    # mypy runs for information and does not fail the build yet.
+    name: lint and type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: Server/WIOT-Platform-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff and mypy
+        run: python -m pip install ruff mypy
+      - name: ruff
+        run: ruff check --output-format=github .
+      - name: mypy (informational)
+        continue-on-error: true
+        run: |
+          python -m pip install -e .
+          mypy wiot --ignore-missing-imports --no-strict-optional --follow-imports=silent --exclude "_pb2\.py$"
+
+  browser:
+    # R2.2, point 32: every page in English and Arabic, no console errors (tests/test_browser_smoke.py).
+    name: browser smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: Server/WIOT-Platform-v2
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Server/WIOT-Platform-v2/pyproject.toml
+      - name: Install server, Playwright and Chromium
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" playwright
+          python -m playwright install --with-deps chromium
+      - name: Browser smoke test
+        run: python -m pytest -q -rs tests/test_browser_smoke.py

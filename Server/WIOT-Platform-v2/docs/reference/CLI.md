@@ -1,15 +1,15 @@
 # Command-line interface
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-12. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-13. Do not edit by hand._
 
 ```
 usage: wiot [-h]
-            {serve,init,create-user,reset-password,import-v1,check,backup,verify-backup,restore-backup,flash-timeline,analyze,simulate,devbroker} ...
+            {serve,init,create-user,reset-password,import-v1,check,backup,verify-backup,restore-backup,flash-timeline,maintain,loadtest,analyze,simulate,devbroker} ...
 
 WIOT Platform v2
 
 positional arguments:
-  {serve,init,create-user,reset-password,import-v1,check,backup,verify-backup,restore-backup,flash-timeline,analyze,simulate,devbroker}
+  {serve,init,create-user,reset-password,import-v1,check,backup,verify-backup,restore-backup,flash-timeline,maintain,loadtest,analyze,simulate,devbroker}
     serve               run the API + dashboard server
     init                create databases and built-in accounts
     create-user         add a user
@@ -22,6 +22,10 @@ positional arguments:
     restore-backup      restore a backup into a new, empty data folder
     flash-timeline      diagnose a flash download: server records + gateway
                         serial log
+    maintain            summaries, retention and status sample once (stop the
+                        server for --vacuum)
+    loadtest            measure ingest and API latency with N simulated nodes
+                        (temporary data)
     analyze             run the analytics + ML pipeline
     simulate            run an encrypted virtual fleet against a broker
     devbroker           start a local development MQTT broker
@@ -156,6 +160,34 @@ options:
                         gateway serial log saved by the terminal program
   --tz TZ
   --json
+```
+
+## `python -m wiot maintain`
+
+```
+usage: wiot maintain [-h] [--vacuum]
+
+options:
+  -h, --help  show this help message and exit
+  --vacuum    also rewrite each tenant database to free disk space
+```
+
+## `python -m wiot loadtest`
+
+```
+usage: wiot loadtest [-h] [--nodes NODES] [--rate RATE] [--minutes MINUTES]
+                     [--batch-ms BATCH_MS] [--port PORT]
+                     [--broker-port BROKER_PORT] [--out OUT]
+
+options:
+  -h, --help            show this help message and exit
+  --nodes NODES
+  --rate RATE           uplinks per node per minute
+  --minutes MINUTES
+  --batch-ms BATCH_MS
+  --port PORT
+  --broker-port BROKER_PORT
+  --out OUT             write the JSON report here
 ```
 
 ## `python -m wiot analyze`

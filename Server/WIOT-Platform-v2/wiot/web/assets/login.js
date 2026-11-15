@@ -20,9 +20,15 @@ form.addEventListener("submit", async (e) => {
   err.textContent = "";
   const btn = form.querySelector("button"); btn.disabled = true;
   try {
+    const otp = document.getElementById("otp-field").hidden ? undefined : form.otp.value.trim();
     const res = await fetch("/api/v2/auth/login", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: form.username.value.trim(), password: form.password.value }) });
+      body: JSON.stringify({ username: form.username.value.trim(), password: form.password.value, otp }) });
     const data = await res.json().catch(() => ({}));
+    if (data.otp_required) {                    // two-factor sign-in: ask for the authenticator code
+      const field = document.getElementById("otp-field");
+      if (field.hidden) { field.hidden = false; form.otp.focus(); throw new Error("Enter the 6-digit code from your authenticator app"); }
+      form.otp.select();
+    }
     if (!res.ok) throw new Error(data.detail || "Sign-in failed");
     location.href = "/";
   } catch (ex) { err.textContent = t(ex.message); } finally { btn.disabled = false; }
@@ -48,3 +54,12 @@ fetch("/api/v2/public/map").then((r) => r.json()).then((m) => {
   setInterval(() => bg.panBy([0.5, 0.2], { animate: false }), 60);
   document.getElementById("login-attr").textContent = m.attribution;
 }).catch(() => {});
+
+// Single sign-on button (only when the server has an identity provider configured) and its errors.
+fetch("/api/v2/auth/oidc").then((r) => r.json()).then((o) => {
+  if (!o.enabled) return;
+  document.getElementById("sso").hidden = false;
+  document.getElementById("sso-btn").textContent = o.label;
+}).catch(() => {});
+const ssoError = new URLSearchParams(location.search).get("sso_error");
+if (ssoError) { err.textContent = t(ssoError); history.replaceState(null, "", "/login"); }

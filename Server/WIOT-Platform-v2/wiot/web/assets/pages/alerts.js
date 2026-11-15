@@ -17,7 +17,11 @@ const KIND = {
   heat_stress: { title: "Heat stress", icon: "thermo" },
   foreign_command: { title: "Command not sent by this server", icon: "shield" },
   possible_replay: { title: "Possible replay", icon: "shield" },
+  salinity_risk: { title: "Soil salinity above crop tolerance", icon: "drop" },
+  well_licence: { title: "Well licence nearly used", icon: "tower" },
 };
+const kindMeta = (a) => KIND[a.kind] || (a.kind.startsWith("rule_") ? { title: a.details?.rule || "Custom rule", icon: "bell" }
+  : a.kind.startsWith("quota_") ? { title: "Water quota", icon: "drop" } : { title: a.kind, icon: "bell" });
 const SEV = { critical: "Critical", warning: "Warning", info: "Info" };
 
 function dur(s) {
@@ -70,6 +74,19 @@ function describe(a, now) {
     return [`${d.cmd} (data ${d.data}) on this node's command topic, not sent by this server`,
       `${events(d.events || 1)} · request ${d.request_id} · Check who else publishes to the broker`];
   }
+  if (a.kind.startsWith("rule_")) {
+    return [`${d.metric} ${d.value} — limit ${d.op} ${d.threshold}`, d.since ? `Since ${fmtDateTime(d.since)}` : ""];
+  }
+  if (a.kind === "salinity_risk") {
+    return [`Soil EC ${fmtNum(d.ece_dsm, 2)} dS/m above the ${fmtNum(d.threshold_dsm, 1)} dS/m tolerance of ${d.crop}`,
+      `Yield potential ${fmtNum(d.yield_potential_pct, 0)} % (FAO-29) · leach with extra water or improve drainage`];
+  }
+  if (a.kind === "well_licence") {
+    return [`${fmtNum(d.pumped_m3, 0)} of ${fmtNum(d.licence_m3, 0)} m³ pumped this licence year`, `${fmtNum(d.projected_m3, 0)} m³ projected at the current rate`];
+  }
+  if (a.kind.startsWith("quota_")) {
+    return [`${d.quota}: ${fmtNum(d.used_m3, 0)} of ${fmtNum(d.quota_m3, 0)} m³ used`, `${fmtNum(d.projected_m3, 0)} m³ projected by ${d.period_end}`];
+  }
   if (a.kind === "possible_replay") {
     return ["An older Status was received again after newer data", `${events(d.events || 1)} · Not processed`];
   }
@@ -108,14 +125,14 @@ export async function render(root) {
     $("#al-kpis", root).innerHTML = tiles.map(([k, v, sub, cls]) => `<div class="tile ${cls}"><div class="label">${k}</div><div class="v">${v}</div><div class="s">${esc(sub)}</div></div>`).join("");
 
     $("#al-rows", root).innerHTML = data.alerts.map((a) => {
-      const meta = KIND[a.kind] || { title: a.kind, icon: "bell" };
+      const meta = kindMeta(a);
       const [head, detail] = describe(a, now);
       const status = a.state === "resolved"
         ? `${badge(["good", "Resolved"])}<div class="al-sub">${esc(ago(a.resolved_at))}</div>`
         : a.acknowledged_at ? `${badge(["neutral", "Acknowledged"])}<div class="al-sub" data-i18n-skip>${esc(a.acknowledged_by || "")}</div>`
           : badge([a.severity === "critical" ? "critical" : "warning", "Open"]);
-      const action = a.state === "open" && !a.acknowledged_at && canAck
-        ? `<button class="btn sm" data-ack="${a.id}">Acknowledge</button>` : "";
+      const action = (a.state === "open" && !a.acknowledged_at && canAck ? `<button class="btn sm" data-ack="${a.id}">Acknowledge</button> ` : "")
+        + (a.state === "open" && canAck ? `<button class="btn sm ghost" data-wo="${a.id}">Work order</button>` : "");
       return `<tr class="${a.state === "resolved" ? "al-done" : ""}">
         <td><span class="al-sev ${esc(a.severity)}"><i></i>${esc(SEV[a.severity] || a.severity)}</span></td>
         <td><div class="al-what"><span class="ico">${ICONS[meta.icon] || ICONS.bell}</span><div><b>${esc(meta.title)}</b><span>${esc(head)}</span>${detail ? `<small>${esc(detail)}</small>` : ""}</div></div></td>
@@ -125,6 +142,12 @@ export async function render(root) {
         <td>${status}</td><td class="num">${action}</td></tr>`;
     }).join("") || `<tr><td colspan="7"><div class="empty">${view === "open" ? "No open alerts — every node is reporting normally." : "No alerts in the last 7 days."}</div></td></tr>`;
 
+    $$("[data-wo]", root).forEach((b) => b.addEventListener("click", () => {
+      const a = data.alerts.find((x) => x.id === +b.dataset.wo);
+      sessionStorage.setItem("wiot.newOrder", JSON.stringify({ title: `${kindMeta(a).title} - ${nodeTag(a.node_id)}`, node_id: a.node_id || null,
+        alert_id: a.id, priority: a.severity === "critical" ? "high" : "normal", description: describe(a, Math.floor(Date.now() / 1000)).filter(Boolean).join("\n") }));
+      location.hash = "#/maintenance";
+    }));
     $$("[data-ack]", root).forEach((b) => b.addEventListener("click", async () => {
       b.disabled = true;
       try { await api(`/alerts/${b.dataset.ack}/acknowledge`, { method: "POST", params: { company: state.company } }); toast("Alert acknowledged", "ok"); }

@@ -1,0 +1,14 @@
+# Lint gate for CI (R2.2, point 32). Deliberately small: only rules that catch real defects
+# (syntax errors, undefined names, invalid comparisons, unused imports/variables, bare excepts that
+# hide errors). Style is left to review. Run locally with `ruff check .` once ruff is installed.
+target-version = "py311"
+line-length = 120
+extend-exclude = ["wiot/protocol/*_pb2.py"]
+
+[lint]
+select = ["E9", "F63", "F7", "F82", "F401", "F841", "E722"]
+ignore = []
+
+[lint.per-file-ignores]
+"tests/**" = ["F841"]
+"wiot/__init__.py" = ["F401"]

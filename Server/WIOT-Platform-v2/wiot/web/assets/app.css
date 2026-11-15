@@ -451,3 +451,6 @@ table.data tr.clickable { cursor: pointer; }
 .theme-toggle:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--accent-ring); }
 .login-theme { position: fixed; top: 16px; right: 16px; }
 html.theme-anim, html.theme-anim * { transition: background-color .25s ease, border-color .25s ease, color .25s ease !important; }
+
+/* Screen-reader-only labels (R2.7 catalogue forms) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

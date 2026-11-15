@@ -13,14 +13,17 @@ export class ApiError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-export async function api(path, { method = "GET", body, params, raw } = {}) {
+export async function api(path, { method = "GET", body, params, raw, rawBody } = {}) {
   const url = new URL(BASE + path, location.origin);
   Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v); });
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (rawBody !== undefined) headers["Content-Type"] = rawBody.type || "application/octet-stream";
   if (method !== "GET") headers["X-CSRF-Token"] = decodeURIComponent(readCookie("wiot_csrf") || "");
-  const res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined, credentials: "same-origin" });
+  const res = await fetch(url, { method, headers, body: rawBody !== undefined ? rawBody : body !== undefined ? JSON.stringify(body) : undefined, credentials: "same-origin" });
   if (res.status === 401 && !path.startsWith("/auth/login")) { location.href = "/login"; throw new ApiError(401, "Session expired"); }
+  const offline = res.headers.get("X-WIOT-Offline");       // answer from the offline cache (service worker)
+  if (offline !== state.offline) { state.offline = offline; dispatchEvent(new CustomEvent("wiot:offline", { detail: offline })); }
   if (raw) return res;
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, data?.detail || `Request failed (${res.status})`);

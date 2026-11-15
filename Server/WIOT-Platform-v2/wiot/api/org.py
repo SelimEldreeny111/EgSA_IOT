@@ -66,6 +66,10 @@ class CompanyBody(BaseModel):
     notes: str | None = Field(None, max_length=500)
     active: bool | None = None
     strict_nodes: bool | None = None
+    retention_days: int | None = Field(None, ge=0, le=36500)  # raw-data retention; 0 = keep forever
+    brand_name: str | None = Field(None, max_length=60)
+    brand_color: str | None = Field(None, max_length=7)
+    brand_logo: str | None = Field(None, max_length=60000)  # data:image/png;base64,... (40 KB image)
 
 
 @router.get("/companies")
@@ -95,6 +99,8 @@ def update_company(name: str, body: CompanyBody, request: Request, principal: Pr
     changes = body.model_dump(exclude_unset=True, exclude={"name"})
     if "active" in changes and not principal.is_supervisor:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the supervisor can archive or restore a company")
+    if "retention_days" in changes and not principal.is_supervisor:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the supervisor can change data retention")
     if not (principal.is_supervisor or (principal.can_write(name) and runtime.org.get_company(name) is not None)):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Administrator privileges for this company required")
     row = runtime.org.update_company(name, changes)

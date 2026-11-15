@@ -129,8 +129,8 @@ class MainStore:
             db.execute("UPDATE users SET last_login_at=? WHERE id=?", (int(time.time()), user_id))
 
     def list_users(self, company: str | None) -> list[dict]:
-        query = ("SELECT id, username, role, company, created_at, last_login_at, disabled "
-                 "FROM users")
+        query = ("SELECT id, username, role, company, created_at, last_login_at, disabled, email, pages, "
+                 "COALESCE(totp_enabled, 0) AS totp_enabled, sso_subject IS NOT NULL AS sso FROM users")
         params: tuple = ()
         if company is not None:
             query += " WHERE company=?"
@@ -141,6 +141,8 @@ class MainStore:
             if row["username"] == SUPERVISOR_USERNAME:
                 row["role"] = "supervisor"
             row["protected"] = row["username"] in PROTECTED_USERS
+            row["pages"] = json.loads(row["pages"]) if row.get("pages") else None
+            row["totp_enabled"], row["sso"] = bool(row["totp_enabled"]), bool(row["sso"])
         return rows
 
     def create_user(self, username: str, password: str, role: str, company: str, *,
@@ -221,14 +223,38 @@ class MainStore:
         except sqlite3.Error:
             log.exception("Audit write failed for action=%s", action)
 
-    def list_audit(self, company: str | None, limit: int = 200) -> list[dict]:
-        query = "SELECT * FROM audit_log"
-        params: list = []
+    def audit_actions(self, company: str | None) -> list[str]:
+        q, p = "SELECT DISTINCT action FROM audit_log", ()
         if company is not None:
-            query += " WHERE company=?"
+            q, p = q + " WHERE company=?", (company,)
+        with self.connect() as db:
+            return sorted(r[0] for r in db.execute(q, p))
+
+    def list_audit(self, company: str | None, limit: int = 200, *, actor: str | None = None,
+                   action: str | None = None, q: str | None = None, since: int | None = None,
+                   until: int | None = None, offset: int = 0) -> list[dict]:
+        where, params = [], []
+        if company is not None:
+            where.append("company=?")
             params.append(company)
-        query += " ORDER BY id DESC LIMIT ?"
-        params.append(limit)
+        if actor:
+            where.append("actor LIKE ?")
+            params.append(f"%{actor}%")
+        if action:
+            where.append("action=?")
+            params.append(action)
+        if q:
+            where.append("(target LIKE ? OR details LIKE ? OR ip LIKE ?)")
+            params += [f"%{q}%"] * 3
+        if since:
+            where.append("ts>=?")
+            params.append(int(since))
+        if until:
+            where.append("ts<?")
+            params.append(int(until))
+        query = "SELECT * FROM audit_log" + (" WHERE " + " AND ".join(where) if where else "")
+        query += " ORDER BY id DESC LIMIT ? OFFSET ?"
+        params += [limit, offset]
         with self.connect() as db:
             rows = [dict(r) for r in db.execute(query, params)]
         for row in rows:

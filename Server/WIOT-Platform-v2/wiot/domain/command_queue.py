@@ -414,6 +414,31 @@ class CommandQueue:
                              (int(request_id), company, region_id(region), int(node_id))).fetchone()
         return dict(row) if row else None
 
+    def last_acknowledged(self, company, node_id, cmd_type, *, region=DEFAULT_REGION):
+        """Newest acknowledged command of this type for the node (cmd_data, acknowledged_at, actor), or None."""
+        with self._db() as db:
+            row = db.execute("SELECT request_id, cmd_data, acknowledged_at, actor FROM pending_commands "
+                             "WHERE company=? AND region=? AND node_id=? AND cmd_type=? AND state='acknowledged' "
+                             "ORDER BY acknowledged_at DESC, id DESC LIMIT 1",
+                             (company, region_id(region), int(node_id), cmd_type)).fetchone()
+        return dict(row) if row else None
+
+    def last_by_actor(self, company, node_id, cmd_type, actor, *, region=DEFAULT_REGION):
+        """created_at of the newest command of this type the given actor queued for the node, or None."""
+        with self._db() as db:
+            row = db.execute("SELECT MAX(created_at) FROM pending_commands WHERE company=? AND region=? "
+                             "AND node_id=? AND cmd_type=? AND actor=?",
+                             (company, region_id(region), int(node_id), cmd_type, actor)).fetchone()
+        return int(row[0]) if row and row[0] else None
+
+    def node_stats(self, company, node_id, since, *, region=DEFAULT_REGION):
+        """Command outcomes for one node since ``since``: state -> count."""
+        with self._db() as db:
+            rows = db.execute("SELECT state, COUNT(*) FROM pending_commands WHERE company=? AND region=? "
+                              "AND node_id=? AND created_at>=? GROUP BY state",
+                              (company, region_id(region), int(node_id), int(since))).fetchall()
+        return {r[0]: r[1] for r in rows}
+
     def get(self, request_id, company, node_id, now=None, *, region=DEFAULT_REGION):
         now = int(time.time() if now is None else now)
         with self._db() as db:

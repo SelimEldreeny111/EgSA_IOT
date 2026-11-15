@@ -30,9 +30,11 @@ def _principal_from_token(runtime: Runtime, token: str, via_cookie: bool) -> Pri
         raise AuthError("Account no longer exists")
     if int(user.get("token_version") or 0) != int(claims.get("tv", 0)):
         raise AuthError("Session revoked")
+    if not runtime.security.session_active(claims.get("jti")):
+        raise AuthError("Session revoked")
     return Principal(user_id=user["id"], username=user["username"], role=user["role"],
                      company=user["company"] or "", token_version=int(user.get("token_version") or 0),
-                     via_cookie=via_cookie, csrf=claims.get("csrf"))
+                     via_cookie=via_cookie, csrf=claims.get("csrf"), session_id=claims.get("jti"))
 
 
 def _principal_from_api_token(runtime: Runtime, token: str) -> Principal:
