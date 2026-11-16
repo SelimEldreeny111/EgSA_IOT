@@ -63,11 +63,11 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/services/commands.py` | 303 | Operator command intents: validation, durable journal, publish and receipts. | CommandError, CommandRequest, CommandService |
 | `wiot/services/commissioning.py` | 115 | Commissioning wizard (R2.6, point 25): QR scan -> register -> first uplink -> clock -> checks -> certificate. | parse_qr, Commissioning |
 | `wiot/services/confwatch.py` | 102 | Configuration watch: desired versus reported node intervals (R2.2, point 15). | ConfigWatch |
-| `wiot/services/cropcare.py` | 330 | Crop care and records (R2.5, points 44, 46, 48 and 50). | disease_risks, gdd, CropCare |
+| `wiot/services/cropcare.py` | 332 | Crop care and records (R2.5, points 44, 46, 48 and 50). | disease_risks, gdd, CropCare |
 | `wiot/services/eo.py` | 571 | Earth-observation data access (R2.7): open Sentinel-2, the Copernicus catalogue and the EUMETSAT Data Store. | http_download, safe_name, utm_zone, utm_forward, utm_forward_np, Cog, polygon_mask, boa_offset, OpenSentinel2, browser_link, Catalogue, farm_bbox, utc_now, days_ago |
 | `wiot/services/eo_layers.py` | 268 | Satellite layers for the Satellite viewer (R2.7): the Copernicus Browser's layers, rendered for any map view. | public_catalogue, custom_script, ramp_colors, render_numpy, bands_needed |
 | `wiot/services/eo_render.py` | 492 | Satellite viewer (R2.7): render any layer for any map view, and list every dataset available over a farm. | ViewerInputError, NoImagery, Busy, QuotaExceeded, to_mercator, from_mercator_np, processing_units, covers, SatelliteViewer, browser_url |
-| `wiot/services/farm.py` | 546 | Smart-agriculture layer: farm layout, weather/ET0, irrigation advisory, soil-moisture automation and satellite-backhaul readiness. | Site, Agronomy, Zone, Gateway, Device, FarmLayout, FarmStore, WeatherClient, FarmService |
+| `wiot/services/farm.py` | 558 | Smart-agriculture layer: farm layout, weather/ET0, irrigation advisory, soil-moisture automation and satellite-backhaul readiness. | Site, Agronomy, Zone, Gateway, Device, FarmLayout, FarmStore, WeatherClient, FarmService |
 | `wiot/services/ingest.py` | 366 | Decoded-MQTT ingestion: validate → persist → broadcast → release commands. | IngestService |
 | `wiot/services/integrations.py` | 246 | Forward readings to other platforms (R2.3, point 29). | reading, azure_sas, IntegrationService |
 | `wiot/services/maintenance.py` | 106 | Background maintenance (R2.2, point 10). | Maintenance |
@@ -115,15 +115,15 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/web/assets/app.js` | 287 |
 | `wiot/web/assets/charts.js` | 330 |
 | `wiot/web/assets/farm.css` | 208 |
-| `wiot/web/assets/farmer.js` | 43 |
+| `wiot/web/assets/farmer.js` | 45 |
 | `wiot/web/assets/favicon.svg` | 1 |
 | `wiot/web/assets/forms.js` | 57 |
 | `wiot/web/assets/global.css` | 228 |
 | `wiot/web/assets/help-content.js` | 87 |
-| `wiot/web/assets/i18n.js` | 1174 |
+| `wiot/web/assets/i18n.js` | 1181 |
 | `wiot/web/assets/invite.js` | 32 |
 | `wiot/web/assets/login.js` | 65 |
-| `wiot/web/assets/ops.css` | 218 |
+| `wiot/web/assets/ops.css` | 219 |
 | `wiot/web/assets/pages/admin.js` | 97 |
 | `wiot/web/assets/pages/alerts.js` | 175 |
 | `wiot/web/assets/pages/analytics.js` | 269 |
@@ -131,7 +131,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/web/assets/pages/commands.js` | 157 |
 | `wiot/web/assets/pages/commission.js` | 176 |
 | `wiot/web/assets/pages/cropcare.js` | 139 |
-| `wiot/web/assets/pages/farm.js` | 566 |
+| `wiot/web/assets/pages/farm.js` | 580 |
 | `wiot/web/assets/pages/flash.js` | 331 |
 | `wiot/web/assets/pages/health.js` | 72 |
 | `wiot/web/assets/pages/help.js` | 98 |

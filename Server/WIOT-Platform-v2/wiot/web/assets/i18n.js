@@ -92,6 +92,11 @@ const AR = {
   "Above target band — no irrigation needed.": "فوق النطاق المستهدف — لا حاجة للري.", "Within target band — no action.": "ضمن النطاق المستهدف — لا يلزم إجراء.",
   "Node offline — last reading may be stale; verify the link before acting.": "العقدة غير متصلة — قد تكون آخر قراءة قديمة؛ تحقق من الاتصال قبل اتخاذ أي إجراء.",
   "Soil probe reports no valid moisture value — inspect the sensor.": "مجس التربة لا يرسل قيمة رطوبة صالحة — افحص المستشعر.",
+  "Node offline — no recent uplink; check its power and radio link.": "العقدة غير متصلة — لا إرسال حديث؛ افحص التغذية والاتصال اللاسلكي.",
+  "Node online, but no soil probe is fitted — moisture advice needs an HNDA or Sondas probe on this node.":
+    "العقدة متصلة لكن لا يوجد مجس تربة مركّب — نصائح الرطوبة تحتاج مجس HNDA أو Sondas على هذه العقدة.",
+  "No soil probe": "لا يوجد مجس تربة", "No probe": "بلا مجس", "no probe": "بلا مجس", "No reading": "لا قراءة", "no reading": "لا قراءة",
+  "no sensors": "لا مستشعرات",
   "Above target band while irrigating — stop to avoid leaching and waterlogging.": "فوق النطاق المستهدف أثناء الري — أوقف الري لتجنب الغسل والتشبع بالمياه.",
   "No uplink from this zone's node yet.": "لم ترسل عقدة هذا الحقل أي بيانات بعد.",
   // farm set-up
@@ -976,6 +981,8 @@ const PATTERNS = [
   [/^(\d+) of (\d+) fields in target band$/, (m) => `${m[1]} من ${m[2]} حقول ضمن النطاق المستهدف`],
   [/^(\S+) (\S+) total flow · (\d+) on automatic$/, (m) => `إجمالي التدفق ${m[1]} ${m[2]} · ${m[3]} تلقائي`],
   [/^(\d+) dry · (\d+) wet · (\d+) offline$/, (m) => `${m[1]} جاف · ${m[2]} رطب · ${m[3]} غير متصل`],
+  [/^(\d+) dry · (\d+) wet · (\d+) offline · (\d+) probe faults?$/, (m) => `${m[1]} جاف · ${m[2]} رطب · ${m[3]} غير متصل · ${m[4]} عطل مجس`],
+  [/^moisture from (HNDA|Sondas)$/, (m) => `الرطوبة من ${m[1]}`],
   [/^(\S+) (\S+) under pivots$/, (m) => `${m[1]} ${m[2]} تحت الري المحوري`],
   [/^(\d+) FIELDS · (\d+) ALERTS$/i, (m) => `${m[1]} حقول · ${m[2]} تنبيهات`],
   [/^\/(\d+) ONLINE$/, (m) => `/${m[1]} متصل`],

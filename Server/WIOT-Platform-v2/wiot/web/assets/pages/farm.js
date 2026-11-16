@@ -13,7 +13,17 @@ const STATUS = {
   offline: { color: "#94a3b8", label: "Node offline", cls: "critical" },
   no_data: { color: "#94a3b8", label: "No data", cls: "neutral" },
   sensor_fault: { color: "#ef4444", label: "Probe fault", cls: "critical" },
+  no_probe: { color: "#64748b", label: "No soil probe", cls: "neutral" },
 };
+// sensor_mask names reported by the node firmware
+const SENSOR_NAMES = { tuf: "TUF flow", hnda: "HNDA soil", sondas: "Sondas EC", supmea: "Supmea flow" };
+const sensorList = (z) => (z.sensors?.length ? z.sensors.map((s) => SENSOR_NAMES[s] || s).join(", ") : "no sensors");
+// Without a moisture value the field shows why, and the node's battery when it is online
+function noMoistureText(z) {
+  if (z.status === "offline" || z.status === "no_data") return "Offline";
+  const what = z.status === "no_probe" ? "no probe" : "no reading";
+  return z.battery_v ? `${(+z.battery_v).toFixed(2)} V · ${what}` : what;
+}
 const LAYERS = { moisture: "Soil moisture", ec: "Salinity (EC)", temp: "Soil temp", irrigation: "Irrigation" };
 const ICON = {
   drop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
@@ -322,7 +332,7 @@ export async function render(root) {
     if (layer === "ec") return z.ec ? `${fmtNum(z.ec, 0)}<small>µS</small>` : "–";
     if (layer === "temp") return z.soil_temp !== null && z.soil_temp !== undefined ? fmtUs(z.soil_temp, "temp") : "–";
     if (layer === "irrigation") return z.irrigating ? fmtUs(z.flow_m3h, "flow", 0) : "Idle";
-    return z.moisture !== null && z.moisture !== undefined ? `${(+z.moisture).toFixed(1)}<small>%</small>` : "–";
+    return z.moisture !== null && z.moisture !== undefined ? `${(+z.moisture).toFixed(1)}<small>%</small>` : `<small>${esc(noMoistureText(z))}</small>`;
   }
 
   function clearLayers() {
@@ -397,7 +407,10 @@ export async function render(root) {
   }
   function paintLegend() {
     let body;
-    if (layer === "moisture") body = ["dry", "optimal", "wet", "offline"].map((k) => `<div class="lg-row"><i style="background:${STATUS[k].color}"></i>${STATUS[k].label}</div>`).join("");
+    if (layer === "moisture") {                            // the four bands, plus probe states present on this farm
+      const extra = ["no_probe", "sensor_fault"].filter((k) => data.zones.some((z) => z.status === k));
+      body = ["dry", "optimal", "wet", "offline", ...extra].map((k) => `<div class="lg-row"><i style="background:${STATUS[k].color}"></i>${STATUS[k].label}</div>`).join("");
+    }
     else if (layer === "ec") body = `<div class="lg-ramp" style="background:linear-gradient(90deg,${EC_RAMP.join(",")})"></div><div class="lg-scale"><span>500</span><span>800</span><span>1100 µS/cm</span></div>`;
     else if (layer === "temp") body = `<div class="lg-ramp" style="background:linear-gradient(90deg,${TEMP_RAMP.join(",")})"></div><div class="lg-scale"><span>${Math.round(conv(12, "temp"))}</span><span>${Math.round(conv(23, "temp"))}</span><span>${Math.round(conv(34, "temp"))} ${unit("temp")}</span></div>`;
     else body = `<div class="lg-row"><i style="background:#22d3ee"></i>Irrigating (pivot arm turning)</div><div class="lg-row"><i style="background:#e2e8f0"></i>Idle</div>`;
@@ -419,7 +432,7 @@ export async function render(root) {
     const cards = [
       [ICON.drop, "Avg soil moisture", k.avg_moisture === null ? "–" : `${k.avg_moisture}<small>%</small>`, `${k.optimal} of ${k.zones} fields in target band`, "hl"],
       [ICON.pivot, "Irrigating now", `${k.irrigating}<small>/ ${k.zones}</small>`, `${fmtU(k.flow_now_m3h, "flow", 0)} total flow · ${k.auto_zones} on automatic`],
-      [ICON.alert, "Need attention", `${data.alerts.length}`, `${k.dry} dry · ${k.wet} wet · ${k.offline} offline`, data.alerts.length ? "warn" : ""],
+      [ICON.alert, "Need attention", `${data.alerts.length}`, `${k.dry} dry · ${k.wet} wet · ${k.offline} offline${k.probe_fault ? ` · ${k.probe_fault} probe fault${k.probe_fault > 1 ? "s" : ""}` : ""}`, data.alerts.length ? "warn" : ""],
       [ICON.water, "Water applied today", fmtUs(k.water_today_m3, "volume", 0), `${fmtU(k.area_ha, "area")} under pivots`],
       [ICON.sun, "Reference ET₀ today", w.available ? fmtUs(w.et0_today_mm, "depth", 2) : "–", w.available ? "FAO-56 Penman–Monteith" : "weather offline"],
       [ICON[w.current?.icon] || ICON.cloud, "Weather now", w.available ? `${Math.round(conv(w.current.temp_c, "temp"))}<small>${unit("temp")}</small>` : "–", w.available ? `${esc(w.current.label)} · ${w.current.humidity}% RH · ${Math.round(conv(w.current.wind_kmh, "speed"))} ${unit("speed")}` : esc(w.reason || "")],
@@ -452,7 +465,7 @@ export async function render(root) {
     box.innerHTML = `<header><h2><span class="ico">${ICON.pivot}</span>${esc(z.name)}</h2><span class="meta">${esc(z.crop || "")} · ${fmtU(z.area_ha, "area")} · node ${z.node_id ?? "–"}</span></header>
       <div class="body">
         <div class="zone-top"><div id="z-gauge"></div><div style="flex:1;min-width:0">
-          <div class="row" style="gap:6px;margin-bottom:8px">${badge([st.cls, st.label])}${z.link_state ? badge(LINK_BADGE[z.link_state] || ["neutral", z.link_state]) : ""}${z.irrigating ? badge(["info", "Irrigating"]) : ""}</div>
+          <div class="row" style="gap:6px;margin-bottom:8px">${badge([st.cls, st.label])}${z.link_state && z.status !== "offline" ? badge(LINK_BADGE[z.link_state] || ["neutral", z.link_state]) : ""}${z.irrigating ? badge(["info", "Irrigating"]) : ""}</div>
           <div class="label">Target band ${z.moisture_min}–${z.moisture_max}% VWC</div>
           <div class="band-bar"><span class="band" style="left:${pos(z.moisture_min)};width:calc(${pos(z.moisture_max)} - ${pos(z.moisture_min)})"></span>${z.moisture !== undefined && z.moisture !== null ? `<span class="needle" style="left:${pos(z.moisture)}"></span>` : ""}</div>
           <div class="band-scale"><span>0%</span><span>30%</span><span>60%</span></div>
@@ -464,7 +477,8 @@ export async function render(root) {
           <div><div class="label">Flow now</div><b>${fmtU(z.flow_m3h ?? 0, "flow", 0)}</b></div>
           <div><div class="label">Water today</div><b>${fmtU(z.water_today_m3 ?? 0, "volume", 0)}</b></div>
           <div><div class="label">Crop ET today</div><b>${fmtU(z.etc_today_mm, "depth", 2)}</b><span class="muted" style="font-size:11px"> Kc ${z.kc}</span></div>
-          <div><div class="label">Battery · probe</div><b>${z.battery_v ? z.battery_v.toFixed(2) + " V" : "–"}</b><span class="muted" style="font-size:11px"> ${esc(z.probe || "")}</span></div>
+          <div><div class="label">Battery</div><b>${z.battery_v ? z.battery_v.toFixed(2) + " V" : "–"}</b><div class="muted" style="font-size:11px">${z.last_seen ? `last uplink ${esc(ago(z.last_seen))}` : ""}</div></div>
+          <div><div class="label">Sensors</div><b style="font-size:13px">${esc(sensorList(z))}</b>${z.probe ? `<div class="muted" style="font-size:11px">moisture from ${esc(z.probe)}</div>` : ""}</div>
           ${indexCell(z.irrigation_index)}
         </div>
         ${monitoring ? `<div class="valve-box mon"><div class="mon-ico">${ICONS.sensor}</div><div style="flex:1;min-width:0"><div class="label">Node type</div>
@@ -478,7 +492,7 @@ export async function render(root) {
         <div class="section-title" style="margin-top:14px">Soil moisture · 24 h</div><div id="z-chart"></div>
         <div class="section-title" style="margin-top:10px">Irrigation flow · 24 h</div><div id="z-flow"></div>
       </div>`;
-    gauge($("#z-gauge", box), { value: z.moisture !== null && z.moisture !== undefined ? z.moisture / 60 : null, text: z.moisture !== null && z.moisture !== undefined ? `${(+z.moisture).toFixed(1)}%` : "–", label: "Soil moisture", color: st.color, size: 128 });
+    gauge($("#z-gauge", box), { value: z.moisture !== null && z.moisture !== undefined ? z.moisture / 60 : null, text: z.moisture !== null && z.moisture !== undefined ? `${(+z.moisture).toFixed(1)}%` : (z.status === "no_probe" ? "No probe" : z.status === "sensor_fault" ? "No reading" : "–"), label: "Soil moisture", color: st.color, size: 128 });
     const valve = async (v) => {
       const sleeping = z.power_mode && z.power_mode !== "NORMAL";
       try {

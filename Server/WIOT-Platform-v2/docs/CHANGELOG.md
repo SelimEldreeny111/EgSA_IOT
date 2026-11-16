@@ -490,3 +490,28 @@ repository; every finding was checked against the code before it was fixed.
 - Full suite: 231 passed + 13 subtests, 1 skipped (the browser smoke test without Playwright); the browser smoke test
   passes locally in English and Arabic. (In one run on a busy machine the analytics timing test took 30.7 s against
   its 30 s limit; it passes on its own.)
+
+## 2026-11-16 — Smart farm: fields of working nodes no longer shown as faults (version unchanged, 2.7.0)
+
+Reported on Company_1: nodes 2 and 3 were online and visible in Fleet overview, but on Smart farm all three fields were
+red with "–". Company_1's live readings showed three different cases, all drawn the same way.
+
+- `services/farm.py` `zone_state`: without a moisture value, the field now says why.
+  - **Offline**: node 1 (last uplink 18 days ago) was shown as **Probe fault**, because the moisture check came before
+    the link check. "Need attention" therefore said "0 offline".
+  - **No soil probe** (new status `no_probe`, neutral): node 3 reports no sensors (`sensor_mask` 0). Not a fault, no
+    alert.
+  - **Probe fault**: node 2 reports a Sondas probe and a Supmea flow meter (`sensor_mask` 12), but no valid value.
+  - Every field carries `sensors` (from `sensor_mask`). New KPIs `probe_fault` and `no_probe`.
+- Smart farm page:
+  - Without a moisture value, the field label shows **Offline**, or the battery with **no reading** / **no probe**.
+  - The field panel shows the battery with its last uplink and the node's **Sensors**.
+  - The legend lists **No soil probe** and **Probe fault** when present.
+  - "Need attention" counts probe faults.
+  - Arabic texts added.
+- Farmer view: a **No soil probe** card instead of "check the probe".
+- Manual V2.0: field panel and troubleshooting rows updated.
+- Checked on a read-only snapshot of the live data: F-1 "Offline", F-2 "3.70 V · no reading", F-3 "7.25 V · no probe";
+  "Need attention 2 — 1 offline · 1 probe fault".
+- New test `test_farm.py::test_field_without_moisture_says_why`; the Farmer view test accepts the new card.
+- Full suite: 232 passed + 13 subtests, 1 skipped (the browser smoke test without Playwright).

@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from ..config import PACKAGE_DIR, Settings
 from ..protocol.topics import region_id
 from ..protocol.validation import company_id
+from ..storage.org_store import sensors_from_mask
 from ..storage.telemetry_store import TelemetryStore
 
 log = logging.getLogger(__name__)
@@ -249,6 +250,9 @@ INDEX_MIN_DAYS = 5        # days with meter totals needed for a verdict
 INDEX_UNDER, INDEX_OVER = 0.85, 1.3
 
 
+SOIL_PROBES = ("hnda", "sondas")    # sensor_mask names of the soil moisture probes
+
+
 def _moisture(row: dict) -> tuple[float | None, float | None, str | None]:
     if row.get("soil_moisture_temp_valid") and (row.get("soil_moisture") or 0) > 0:
         return float(row["soil_moisture"]), row.get("soil_temperature"), "HNDA"
@@ -349,14 +353,22 @@ class FarmService:
         tz = _zone(layout.site.timezone)
         ts = int(row.get("timestamp") or 0)
         today = ts > 0 and datetime.fromtimestamp(ts, tz).date() == datetime.now(tz).date()
-        out.update(moisture=moisture, soil_temp=soil_t, probe=probe,
+        sensors = sensors_from_mask(row.get("sensor_mask"))
+        out.update(moisture=moisture, soil_temp=soil_t, probe=probe, sensors=sensors,
                    ec=row.get("electrical_conductivity") if row.get("soil_moisture_temp_ec_valid") else None,
                    valve={0: "closed", 1: "open", 2: "unknown", 3: "fault"}.get(valve, "unknown"),
                    flow_m3h=round(flow, 2), water_today_m3=round(float(row.get("flow_day") or 0), 2) if today else 0.0,
                    battery_v=row.get("battery_voltage"), link_state=link, last_seen=row.get("timestamp"),
                    power_mode=row.get("power_mode_name"), irrigating=irrigating)
         if moisture is None:
-            out.update(status="sensor_fault", advice="Soil probe reports no valid moisture value — inspect the sensor.")
+            # Without a moisture value, say why: the node is offline, it has no soil probe, or its probe is silent.
+            if link == "offline":
+                out.update(status="offline", advice="Node offline — no recent uplink; check its power and radio link.")
+            elif not any(s in SOIL_PROBES for s in sensors):
+                out.update(status="no_probe", advice="Node online, but no soil probe is fitted — moisture advice needs an "
+                                                     "HNDA or Sondas probe on this node.")
+            else:
+                out.update(status="sensor_fault", advice="Soil probe reports no valid moisture value — inspect the sensor.")
             return out
         lo, hi = zone.moisture_min, zone.moisture_max
         status = "dry" if moisture < lo else "wet" if moisture > hi else "optimal"
@@ -410,6 +422,8 @@ class FarmService:
             "optimal": sum(1 for z in zones if z["status"] == "optimal"),
             "wet": sum(1 for z in zones if z["status"] == "wet"),
             "offline": sum(1 for z in zones if z["status"] in ("offline", "no_data")),
+            "probe_fault": sum(1 for z in zones if z["status"] == "sensor_fault"),
+            "no_probe": sum(1 for z in zones if z["status"] == "no_probe"),
             "avg_moisture": round(sum(with_m) / len(with_m), 1) if with_m else None,
             "water_today_m3": round(sum(z.get("water_today_m3") or 0 for z in zones), 1),
             "flow_now_m3h": round(sum(z.get("flow_m3h") or 0 for z in zones), 1),

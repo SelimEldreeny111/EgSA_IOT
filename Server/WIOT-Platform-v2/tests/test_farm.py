@@ -165,3 +165,27 @@ def test_offline_node_is_not_reported_as_irrigating_or_watering_today():
     fresh = {**stale, "timestamp": int(time.time()), "link_state": "online"}
     out = FarmService.zone_state(object.__new__(FarmService), zone, fresh, layout, {"available": False})
     assert out["irrigating"] is True and out["flow_m3h"] == 42.0 and out["water_today_m3"] == 787.0
+
+
+def test_field_without_moisture_says_why():
+    """No moisture value: an offline node is offline, a node without a soil probe is not a probe fault,
+    and a fitted probe that sends nothing is (Company_1's live nodes 1-3 on 2026-11-16)."""
+    from wiot.services.farm import FarmService
+    layout = FarmLayout.model_validate(json.loads((PACKAGE_DIR / "data" / "demo_farm_layout.json").read_text(encoding="utf-8")))
+    zone = layout.zones[0]
+    base = {"node_status": 2, "soil_moisture": 0.0, "soil_moisture_temp_valid": 0, "ec_moisture": 0.0,
+            "soil_moisture_temp_ec_valid": 0, "battery_voltage": 3.66, "timestamp": int(time.time())}
+    svc = object.__new__(FarmService)
+
+    def state(**row):
+        return FarmService.zone_state(svc, zone, {**base, **row}, layout, {"available": False})
+    old = state(link_state="offline", sensor_mask=0, timestamp=int(time.time()) - 19 * 86400)
+    assert old["status"] == "offline" and "offline" in old["advice"]                  # not "probe fault"
+    bare = state(link_state="online", sensor_mask=0)
+    assert bare["status"] == "no_probe" and bare["sensors"] == [] and bare["battery_v"] == 3.66
+    flow_only = state(link_state="online", sensor_mask=0x08)                         # Supmea flow meter only
+    assert flow_only["status"] == "no_probe" and flow_only["sensors"] == ["supmea"]
+    silent = state(link_state="online", sensor_mask=0x0C)                            # Sondas probe + Supmea, no reading
+    assert silent["status"] == "sensor_fault" and silent["sensors"] == ["sondas", "supmea"]
+    ok = state(link_state="online", sensor_mask=0x04, ec_moisture=31.5, soil_moisture_temp_ec_valid=1)
+    assert ok["moisture"] == 31.5 and ok["probe"] == "Sondas" and ok["status"] in ("dry", "optimal", "wet")

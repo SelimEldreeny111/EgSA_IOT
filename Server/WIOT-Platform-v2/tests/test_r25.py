@@ -192,7 +192,8 @@ def test_farmer_view_and_page(farm):
     rt = farm.app.state.runtime
     rt.ingest.on_plaintext("wiot/Company_1/Region_1/2/status", __import__("tests.test_r22", fromlist=["status"]).status())
     d = farm.get("/api/v2/farmer/today", params={"company": "Company_1"}).json()
-    assert d["configured"] and d["fields"][0]["action"] in ("irrigate", "nothing", "check_sensor", "irrigating", "stop", "check_device")
+    assert d["configured"] and d["fields"][0]["action"] in ("irrigate", "nothing", "check_sensor", "irrigating", "stop", "check_device",
+                                                            "no_probe")
     page = farm.get("/farmer")
     assert page.status_code == 200 and "farmer.js" in page.text
 

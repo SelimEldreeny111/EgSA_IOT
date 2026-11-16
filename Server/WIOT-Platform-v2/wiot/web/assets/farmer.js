@@ -2,14 +2,16 @@
 const AR = {
   irrigate: ["اسقِ الآن", "التربة جافة"], stop: ["أوقف الري", "التربة مشبعة والري يعمل"], irrigating: ["الري يعمل", "لا شيء آخر مطلوب"],
   nothing: ["لا شيء اليوم", "رطوبة التربة مناسبة"], check_device: ["افحص الجهاز", "الجهاز لا يرسل بيانات"], check_sensor: ["افحص المجس", "قراءة الرطوبة غير صالحة"],
+  no_probe: ["لا يوجد مجس للتربة", "الجهاز يعمل لكن بلا مجس رطوبة"],
 };
 const EN = {
   irrigate: ["Irrigate now", "Soil is dry"], stop: ["Stop irrigation", "Soil is wet and the valve is open"], irrigating: ["Irrigating", "Nothing else to do"],
   nothing: ["Nothing today", "Soil moisture is right"], check_device: ["Check the device", "No data from the node"], check_sensor: ["Check the probe", "Moisture reading is invalid"],
+  no_probe: ["No soil probe", "The device works but has no moisture probe"],
 };
 const RISK_AR = { "Late blight": "اللفحة المتأخرة", "Yellow (stripe) rust": "الصدأ الأصفر", "Powdery mildew": "البياض الدقيقي",
   "Downy mildew": "البياض الزغبي", "Olive fruit fly": "ذبابة ثمار الزيتون" };
-const ICON = { irrigate: "💧", stop: "✋", irrigating: "🚿", nothing: "✅", check_device: "📡", check_sensor: "🔧" };
+const ICON = { irrigate: "💧", stop: "✋", irrigating: "🚿", nothing: "✅", check_device: "📡", check_sensor: "🔧", no_probe: "📟" };
 let lang = (() => { try { return localStorage.getItem("wiot.lang") === "en" ? "en" : "ar"; } catch { return "ar"; } })();
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 

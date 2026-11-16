@@ -339,6 +339,8 @@ class CropCare:
                 action, level = "check_device", "warning"
             elif z["status"] == "sensor_fault":
                 action, level = "check_sensor", "warning"
+            elif z["status"] == "no_probe":
+                action, level = "no_probe", "info"
             elif z["status"] == "dry" and not z.get("irrigating"):
                 action, level = "irrigate", "action"
             elif z["status"] == "wet" and z.get("irrigating"):
