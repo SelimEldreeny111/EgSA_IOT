@@ -493,12 +493,17 @@ export async function render(root) {
         <div class="section-title" style="margin-top:10px">Irrigation flow · 24 h</div><div id="z-flow"></div>
       </div>`;
     gauge($("#z-gauge", box), { value: z.moisture !== null && z.moisture !== undefined ? z.moisture / 60 : null, text: z.moisture !== null && z.moisture !== undefined ? `${(+z.moisture).toFixed(1)}%` : (z.status === "no_probe" ? "No probe" : z.status === "sensor_fault" ? "No reading" : "–"), label: "Soil moisture", color: st.color, size: 128 });
+    // The server picks the delivery from the node's power mode: now when its radio can receive (the gateway
+    // wakes LORA_WOR_STOP nodes), at its next uplink when its radio sleeps (RTC modes).
     const valve = async (v) => {
-      const sleeping = z.power_mode && z.power_mode !== "NORMAL";
+      const btns = [$("#v-open", box), $("#v-close", box)].filter(Boolean);
+      btns.forEach((b) => { b.disabled = true; });         // one click, one command
       try {
-        const r = await api("/commands", { method: "POST", body: { ...scoped(), node_id: z.node_id, cmd_type: "VALVE", cmd_data: v, delivery: sleeping ? "next_wake" : "now" } });
-        toast(`${z.name}: valve ${v ? "OPEN" : "CLOSE"} #${r.request_id} ${r.queued ? "queued for next wake" : "sent"}`, "ok");
+        const r = await api("/commands", { method: "POST", body: { ...scoped(), node_id: z.node_id, cmd_type: "VALVE", cmd_data: v, delivery: "auto" } });
+        const how = r.held_behind ? `waiting for the gateway (after #${r.held_behind})` : r.queued ? "queued for the node's next uplink" : "sent";
+        toast(`${z.name}: valve ${v ? "OPEN" : "CLOSE"} #${r.request_id} ${how}`, "ok");
       } catch (err) { toast(err.message, "error"); }
+      finally { setTimeout(() => btns.forEach((b) => { b.disabled = false; }), 1500); }
     };
     $("#v-open", box)?.addEventListener("click", () => valve(1));
     $("#v-close", box)?.addEventListener("click", () => valve(0));

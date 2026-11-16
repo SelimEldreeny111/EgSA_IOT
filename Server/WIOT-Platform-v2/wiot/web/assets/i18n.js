@@ -236,9 +236,11 @@ const AR = {
   "On valve nodes, a leak is flow with the valve closed and \"no flow\" is an open valve without flow, each for 15 minutes or more. Frost and heat warnings come from the farm's forecast for today and tomorrow. A command on a node's topic that this server did not send, or an old Status received again after newer data, opens a security alert that clears after a quiet day.":
     "في عقد الصمامات، يعني التسرب وجود تدفق والصمام مغلق، و\"لا يوجد تدفق\" يعني صمامًا مفتوحًا دون تدفق، لمدة 15 دقيقة أو أكثر في الحالتين. تأتي تحذيرات الصقيع والحرارة من توقعات الطقس للمزرعة لليوم والغد. أي أمر على موضوع العقدة لم يرسله هذا الخادم، أو رسالة حالة قديمة تصل مجددًا بعد بيانات أحدث، يفتح تنبيهًا أمنيًا يُغلق بعد يوم هادئ.",
   // ---- R2.1 command center and farm
-  "Auto": "تلقائي", "Auto: node is probably asleep — the command will wait for its next wake.": "تلقائي: العقدة نائمة على الأرجح — سينتظر الأمر استيقاظها التالي.",
-  "Auto: node is probably listening — the command will be sent now.": "تلقائي: العقدة تستمع على الأرجح — سيُرسل الأمر الآن.",
-  "Send now if the node is probably listening, otherwise queue it for the node's next wake": "أرسل الآن إن كانت العقدة تستمع على الأرجح، وإلا فضعه في الانتظار حتى استيقاظها التالي",
+  "Auto": "تلقائي",
+  "Auto: sent now when the node's radio can receive (NORMAL, REMOTE_WAKE, LORA_WOR_STOP); queued for its next uplink in the RTC modes.":
+    "تلقائي: يُرسل الآن عندما يستطيع راديو العقدة الاستقبال (NORMAL وREMOTE_WAKE وLORA_WOR_STOP)، ويُنتظر إرسالها التالي في أوضاع RTC.",
+  "From the node's power mode: send now when its radio can receive, queue for its next uplink when its radio sleeps":
+    "حسب وضع الطاقة: أرسل الآن إن كان الراديو يستقبل، وانتظر الإرسال التالي للعقدة إن كان الراديو نائمًا",
   "Irrigation index": "مؤشر الري", "Irrigation index · 7 d": "مؤشر الري · 7 أيام", "no meter totals": "لا توجد إجماليات عداد", "On target": "ضمن الهدف",
   "Under-irrigated": "ري أقل من الحاجة", "Over-irrigated": "ري زائد", "Not enough data": "بيانات غير كافية",
   "Real pipe flow does not oscillate like this: check the meter, its wiring and Modbus settings":
@@ -1048,6 +1050,9 @@ const PATTERNS = [
     (m) => `تنزيل السجل #${m[1]} قيد التشغيل — استُلم ${m[2]}/${m[3]} صف. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى يكتمل أو يتوقف أو يُلغى.`],
   [/^History download #(\d+) is preparing on the node\. Other flash commands are paused until it finishes, stops or is cancelled\.$/,
     (m) => `تنزيل السجل #${m[1]} قيد التحضير على العقدة. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى يكتمل أو يتوقف أو يُلغى.`],
+  [/^(\w+) #(\d+) waiting for the gateway \(after #(\d+)\)$/, (m) => `${m[1]} #${m[2]} بانتظار البوابة (بعد #${m[3]})`],
+  [/^(\w+) #(\d+) queued for the node's next uplink$/, (m) => `${m[1]} #${m[2]} في الانتظار حتى الإرسال التالي للعقدة`],
+  [/^(\w+) #(\d+) submitted — awaiting node ACK$/, (m) => `${m[1]} #${m[2]} أُرسل — بانتظار تأكيد العقدة`],
   [/^(\w+) #(\d+) is waiting for the node's reply\. Other flash commands are paused until it answers or times out\.$/,
     (m) => `${m[1]} #${m[2]} بانتظار رد العقدة. أوامر الفلاش الأخرى متوقفة مؤقتًا حتى ترد العقدة أو تنتهي المهلة.`],
   [/^(\w+) #(\d+) is queued for the node's next wake\. Other flash commands are paused until it has been answered\.$/,

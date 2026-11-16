@@ -5,6 +5,21 @@ MAX_WAKE_SECONDS = 86400
 POWER_MODES = {0: "Unknown / legacy", 1: "NORMAL", 2: "RTC_PERIODIC",
                3: "REMOTE_WAKE", 4: "RTC_QUEUED", 5: "LORA_WOR_STOP"}
 POWER_STATES = {0: "Unknown / legacy", 1: "ACTIVE", 2: "REACHABLE_IDLE"}
+# Node firmware (PowerManager / LoraLink): in NORMAL and REMOTE_WAKE the radio always listens; in LORA_WOR_STOP
+# the radio listens in wake-on-radio mode and the gateway's wake probe wakes the node for every command. In
+# RTC_PERIODIC and RTC_QUEUED the radio is off (E32 Mode 3, MCU in Standby) except for a short window after
+# the node's own Status, so commands for them must wait for that uplink.
+LISTENING_MODES = (1, 3, 5)
+RADIO_OFF_MODES = (2, 4)
+
+
+def delivery_for_power_mode(mode) -> str | None:
+    """'now' when the node can receive at any time, 'next_wake' when its radio sleeps, None when unknown."""
+    try:
+        mode = int(mode)
+    except (TypeError, ValueError):
+        return None
+    return "now" if mode in LISTENING_MODES else "next_wake" if mode in RADIO_OFF_MODES else None
 
 
 def validate_wake_seconds(value) -> int:

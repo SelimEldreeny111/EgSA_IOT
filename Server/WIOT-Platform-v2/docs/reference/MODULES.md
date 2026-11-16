@@ -40,17 +40,17 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/app.py` | 154 | FastAPI application factory. | build_csp, tile_hosts, create_app |
 | `wiot/config.py` | 218 | Typed runtime configuration loaded from environment variables and ``.env``. | Settings, get_settings |
 | `wiot/domain/__init__.py` | 0 |  |  |
-| `wiot/domain/command_queue.py` | 433 | Durable command intents, bounded mailbox and correlated execution audit. | ack_timeout_for, CommandConflict, flash_request_limit, CommandQueue |
+| `wiot/domain/command_queue.py` | 515 | Durable command intents, bounded mailbox and correlated execution audit. | ack_timeout_for, CommandConflict, flash_request_limit, CommandQueue |
 | `wiot/domain/flash_analysis.py` | 196 | Analysis of a node's SPI-flash telemetry log, built from what the server already holds. | transfer_state, analyse |
 | `wiot/domain/flash_archive.py` | 190 | Durable, tenant-scoped flash downloads; acknowledge only after SQLite commit. | FlashArchive |
 | `wiot/logging_setup.py` | 53 | Structured logging with secret redaction and a rotating file sink. | redact, JsonFormatter, configure_logging |
 | `wiot/protocol/__init__.py` | 0 |  |  |
 | `wiot/protocol/flow_schema.py` | 197 | Flow-meter schema helpers shared by MQTT ingestion and tests. | flow_meter_name, period_source_name, period_quality_name, extract_flow_metadata, secondary_flow_reading, flow_reading_snapshot, select_measurement_timestamp, build_sample_fingerprint, calendar_period_rows, dashboard_flow_fields |
 | `wiot/protocol/messages_pb2.py` | 0 | Generated protobuf module (from proto/messages.proto); do not edit. |  |
-| `wiot/protocol/power.py` | 47 | Wire-level remote-wake validation and display metadata (no broker side effects). | validate_wake_seconds, power_metadata, power_dashboard_fields, is_confirmed_wake |
+| `wiot/protocol/power.py` | 60 | Wire-level remote-wake validation and display metadata (no broker side effects). | delivery_for_power_mode, validate_wake_seconds, power_metadata, power_dashboard_fields, is_confirmed_wake |
 | `wiot/protocol/tenancy.py` | 75 | Stable, platform-independent tenant storage identities and legacy preflight. | storage_id, legacy_name, preflight, database_path |
 | `wiot/protocol/topics.py` | 36 | Case-sensitive WIOT company/region topic contract; no legacy aliases. | region_id, command_topic, migrate_region_storage |
-| `wiot/protocol/transport.py` | 504 | mqtt_impl.py ============ Annotated MQTT transport + AES-CBC/PKCS7 framing layer. | Counters, MqttNodeClient |
+| `wiot/protocol/transport.py` | 513 | mqtt_impl.py ============ Annotated MQTT transport + AES-CBC/PKCS7 framing layer. | Counters, MqttNodeClient |
 | `wiot/protocol/validation.py` | 102 | Fail-closed validation for the existing V1 wire/API contract (no schema change). | company_id, integer, parse_topic, validate_message |
 | `wiot/security.py` | 180 | Authentication primitives: principals, password hashing, JWT and throttling. | AuthError, Principal, hash_password, verify_password, validate_new_password, issue_token, decode_token, LoginThrottle, seal, unseal |
 | `wiot/services/__init__.py` | 0 |  |  |
@@ -60,7 +60,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/services/assistant.py` | 210 | Optional AI assistant (R2.6, point 31): answers fleet questions and writes a daily summary with Claude. | AssistantUnavailable, Assistant |
 | `wiot/services/broker.py` | 127 | Single owner of the shared MQTT ingestion session. | BrokerParams, BrokerManager |
 | `wiot/services/clocksync.py` | 114 | Automatic node clock synchronisation (R2.1, point 12). | ClockSync |
-| `wiot/services/commands.py` | 303 | Operator command intents: validation, durable journal, publish and receipts. | CommandError, CommandRequest, CommandService |
+| `wiot/services/commands.py` | 425 | Operator command intents: validation, durable journal, publish and receipts. | CommandError, CommandRequest, CommandService |
 | `wiot/services/commissioning.py` | 115 | Commissioning wizard (R2.6, point 25): QR scan -> register -> first uplink -> clock -> checks -> certificate. | parse_qr, Commissioning |
 | `wiot/services/confwatch.py` | 102 | Configuration watch: desired versus reported node intervals (R2.2, point 15). | ConfigWatch |
 | `wiot/services/cropcare.py` | 332 | Crop care and records (R2.5, points 44, 46, 48 and 50). | disease_risks, gdd, CropCare |
@@ -120,7 +120,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/web/assets/forms.js` | 57 |
 | `wiot/web/assets/global.css` | 228 |
 | `wiot/web/assets/help-content.js` | 87 |
-| `wiot/web/assets/i18n.js` | 1181 |
+| `wiot/web/assets/i18n.js` | 1186 |
 | `wiot/web/assets/invite.js` | 32 |
 | `wiot/web/assets/login.js` | 65 |
 | `wiot/web/assets/ops.css` | 219 |
@@ -131,7 +131,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not 
 | `wiot/web/assets/pages/commands.js` | 157 |
 | `wiot/web/assets/pages/commission.js` | 176 |
 | `wiot/web/assets/pages/cropcare.js` | 139 |
-| `wiot/web/assets/pages/farm.js` | 580 |
+| `wiot/web/assets/pages/farm.js` | 585 |
 | `wiot/web/assets/pages/flash.js` | 331 |
 | `wiot/web/assets/pages/health.js` | 72 |
 | `wiot/web/assets/pages/help.js` | 98 |

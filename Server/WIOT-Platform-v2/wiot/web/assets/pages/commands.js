@@ -32,7 +32,7 @@ export async function render(root) {
           </div>
           <div id="f-data-wrap"></div>
           <div class="field"><label>Delivery</label>
-            <div class="seg" id="f-delivery"><button type="button" data-v="auto" class="on" title="Send now if the node is probably listening, otherwise queue it for the node's next wake">Auto</button><button type="button" data-v="now">Send now</button><button type="button" data-v="next_wake">Next wake</button></div></div>
+            <div class="seg" id="f-delivery"><button type="button" data-v="auto" class="on" title="From the node's power mode: send now when its radio can receive, queue for its next uplink when its radio sleeps">Auto</button><button type="button" data-v="now">Send now</button><button type="button" data-v="next_wake">Next wake</button></div></div>
           <label class="check" style="margin-bottom:12px"><input type="checkbox" id="f-bcast"> Broadcast to every node in ${esc(state.region)}</label>
           <p class="note" id="f-help" style="margin:0 0 12px"></p>
           <div class="section-title">Pre-send delivery risk</div>
@@ -79,8 +79,7 @@ export async function render(root) {
       const r = await api("/commands/risk", { method: "POST", body: { ...scoped(), node_id: nodeId(), cmd_type: spec().type } });
       const color = riskColor(r.tier);
       const advice = delivery === "auto"
-        ? (r.tier === "UNLIKELY" ? "Auto: node is probably asleep — the command will wait for its next wake."
-          : "Auto: node is probably listening — the command will be sent now.")
+        ? "Auto: sent now when the node's radio can receive (NORMAL, REMOTE_WAKE, LORA_WOR_STOP); queued for its next uplink in the RTC modes."
         : r.tier === "LIKELY" ? "Node is very likely listening — send now."
         : delivery === "now" ? "Node is probably asleep. Queue for its next wake window to avoid a lost command." : "Queued delivery waits for the node's next Status uplink.";
       box.innerHTML = `<div id="risk-g"></div><div>
@@ -113,7 +112,8 @@ export async function render(root) {
     const btn = $("#f-send", root); btn.disabled = true;
     try {
       const r = await api("/commands", { method: "POST", body });
-      toast(`${c.type} #${r.request_id} ${r.queued ? "queued for next wake" : "submitted — awaiting node ACK"}`, "ok");
+      const how = r.held_behind ? `waiting for the gateway (after #${r.held_behind})` : r.queued ? "queued for the node's next uplink" : "submitted — awaiting node ACK";
+      toast(`${c.type} #${r.request_id} ${how}`, "ok");
       loadJournal();
     } catch (err) { toast(err.message, "error"); } finally { btn.disabled = !canSend; checkType(); }
   });

@@ -245,7 +245,7 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
   allowances `WIOT_VIEWER_*_PU`, drawing slots, own evalscripts for the supervisor only) — see `docs/CHANGELOG.md`,
   last entries. Track G (points 53–60) is not started, by decision. The CI workflow (with the `lint` and `browser` jobs)
   is committed at the worktree root; keep the final-copy root `.github/workflows/server-v2-tests.yml` in step with it.
-- Tests: 233 (232 pass + the browser smoke test, which runs in English and Arabic; see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
+- Tests: 241 (240 pass + the browser smoke test, which runs in English and Arabic; see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
   run it locally with the Video tooling's Playwright appended to the path:
   `.venv\Scripts\python -c "import sys; sys.path.append(r'..\..\Video\.venv\Lib\site-packages'); import pytest;
   sys.exit(pytest.main(['tests/test_browser_smoke.py']))"`.

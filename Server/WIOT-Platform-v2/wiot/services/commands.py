@@ -11,10 +11,10 @@ import threading
 import time
 from dataclasses import dataclass
 
-from ..domain.command_queue import CommandConflict, CommandQueue, ack_timeout_for
+from ..domain.command_queue import RADIO_BUSY_S, CommandConflict, CommandQueue, ack_timeout_for
 from ..domain.flash_archive import FLASH_COMMANDS, TRANSFER_IDLE_S
 from ..protocol import messages_pb2
-from ..protocol.power import WAKE_COMMAND_ID, validate_wake_seconds
+from ..protocol.power import POWER_MODES, WAKE_COMMAND_ID, delivery_for_power_mode, validate_wake_seconds
 from ..protocol.topics import DEFAULT_REGION, command_topic, region_id
 from ..protocol.validation import company_id, integer
 from .broker import BrokerManager
@@ -92,6 +92,7 @@ class CommandService:
         self.ack_listeners: list = []  # (company, region, node) callbacks after a node acknowledgement
         self.usage = None  # UsageMeter, set by the runtime
         self._lock = threading.RLock()
+        self._release_timers: dict[tuple, threading.Timer] = {}
 
     @property
     def journal(self) -> CommandQueue:
@@ -157,12 +158,24 @@ class CommandService:
             return ack_timeout_for(None)
 
     def _auto_delivery(self, req: CommandRequest) -> tuple[str, dict]:
-        """``delivery='auto'``: queue for the next wake when the node is probably asleep."""
+        """``delivery='auto'``: from the node's power mode — send now when its radio can receive at any time
+        (NORMAL, REMOTE_WAKE, LORA_WOR_STOP: the gateway wakes it), queue for its next Status when its radio
+        sleeps (RTC_PERIODIC, RTC_QUEUED). The delivery-risk model decides only when the mode is unknown."""
         info: dict = {"requested": "auto"}
         if req.broadcast:
             return "now", {**info, "chosen": "now", "reason": "broadcast"}
         if not self.broker.is_ready():
             return "next_wake", {**info, "chosen": "next_wake", "reason": "broker not connected"}
+        try:
+            mode = self.power_mode(req.company, req.region, req.node_id) if self.power_mode else None
+        except Exception:
+            mode = None
+        chosen = delivery_for_power_mode(mode)
+        if chosen:
+            name = POWER_MODES.get(int(mode), str(mode))
+            reason = (f"the node's radio is off between its uplinks ({name})" if chosen == "next_wake"
+                      else f"the node can receive at any time ({name})")
+            return chosen, {**info, "chosen": chosen, "power_mode": name, "reason": reason}
         try:
             risk = self.risk(req.company, req.region, req.node_id, req.cmd_type) if self.risk else None
         except Exception:
@@ -204,18 +217,37 @@ class CommandService:
             COMMANDS_SUBMITTED.labels(req.cmd_type, req.delivery).inc()
             if self.usage is not None:
                 self.usage.count(req.company, "commands")
-            if req.delivery == "now":
+            held = None
+            transfer = (self._gateway_transfer(req.company, req.region)
+                        if req.delivery == "now" and req.cmd_type != "FLASH_CANCEL" else None)
+            if transfer:                                      # a history download owns the radio: wait for it
+                held = {"request_id": transfer["request_id"], "cmd_type": "FLASH_TODAY", "node_id": None,
+                        "release_at": min(time.time() + 30, transfer["until"] + 1), "transfer": True}
+            elif req.delivery == "now":
                 item = journal.claim_immediate(request_id, ack_timeout=self._ack_timeout(
-                    req.company, req.region, req.node_id))
+                    req.company, req.region, req.node_id), one_in_flight=req.cmd_type != "FLASH_CANCEL")
                 if item is None:
                     raise CommandError("Accepted command could not be claimed", status=500)
-                try:
-                    self._publish(item)
-                except Exception as exc:
-                    raise CommandError("Publication failed; execution unknown. Inspect the journal.",
-                                       status=503, request_id=request_id, outcome_unknown=True) from exc
+                if "blocked_by" in item:
+                    held = item["blocked_by"]
+                else:
+                    try:
+                        self._publish(item)
+                    except Exception as exc:
+                        raise CommandError("Publication failed; execution unknown. Inspect the journal.",
+                                           status=503, request_id=request_id, outcome_unknown=True) from exc
         self._notify(req.company, request_id)
         extra = {"delivery": req.delivery, **({"auto": auto} if auto else {})}
+        if held:
+            self._schedule_release(req.company, req.region, held.get("release_at"))
+            behind = (f"history download #{held['request_id']} running" if held.get("transfer")
+                      else f"older {held['cmd_type']} #{held['request_id']} still waiting" if held.get("waiting")
+                      else f"node {held['node_id']} answering {held['cmd_type']} #{held['request_id']}")
+            self.logs.emit(f"[CMD] Holding {req.cmd_type} request={request_id}: gateway busy ({behind})",
+                           company=req.company)
+            return {**result, **extra, "queued": True, "held_behind": held["request_id"],
+                    "held_node": held.get("node_id"),
+                    "message": f"Sent as soon as the gateway is free ({behind}); one command on the radio at a time"}
         if req.delivery == "next_wake":
             self.logs.emit(f"[QUEUE] Accepted {req.cmd_type} request={request_id}; waiting for Status",
                            company=req.company)
@@ -231,6 +263,7 @@ class CommandService:
     def _publish(self, item: dict) -> None:
         client = self.broker.client
         if client is None:
+            self.journal.publish_failed(item["request_id"], item["attempts"], "Broker is not connected")
             raise RuntimeError("Broker is not connected")
         msg = messages_pb2.CMD_Message(node_id=item["node_id"], cmd_id=item["cmd_id"],
                                        cmd_data=item["cmd_data"], request_id=item["request_id"])
@@ -253,19 +286,112 @@ class CommandService:
             raise
 
     def dispatch_on_status(self, company: str, region: str, node_id: int) -> None:
-        """A valid Status proves the node's RX window is open: release one intent."""
+        """A valid Status proves the node's RX window is open: release one intent (if the gateway is free)."""
         if not self.broker.is_ready():
             return
         try:
             with self._lock:
-                item = self.journal.claim_on_status(company, node_id, region=region,
-                                                    ack_timeout=self._ack_timeout(company, region, node_id))
-                if item is not None:
+                # A listening node's queued command waits for a free radio (release_held sends it then); an
+                # RTC node's short window after its own Status is its only chance, so it keeps going out here.
+                listening = self._listening(company, region)(node_id)
+                if listening and self._gateway_transfer(company, region):
+                    item = None
+                else:
+                    item = self.journal.claim_on_status(company, node_id, region=region, one_in_flight=listening,
+                                                        ack_timeout=self._ack_timeout(company, region, node_id))
+                if item is not None and "blocked_by" not in item:
                     self._publish(item)
                     self._notify(company, item["request_id"])
         except Exception as exc:
             self.logs.emit(f"[QUEUE] Dispatch failed ({type(exc).__name__}); inspect the journal",
                            company=company, level="warning")
+        self.release_held(company, region)                # also covers held commands after a restart
+
+    # --------------------------------------------- one command on a gateway's radio
+    def _gateway_transfer(self, company: str, region: str) -> dict | None:
+        """A history download running on this gateway (its per-row ACK downlinks are not in the journal)."""
+        if not self.flash_transfer:
+            return None
+        now = int(time.time())
+        try:
+            for node_id in self.journal.recent_flash_nodes(company, now - 86400, region=region):
+                lock = self._transfer_lock(company, region, node_id, now)
+                if lock:
+                    return lock
+        except Exception:
+            log.exception("Could not check running history downloads")
+        return None
+
+    def _listening(self, company: str, region: str):
+        """node_id -> True when the node's radio receives at any time (its queued commands need not wait)."""
+        def check(node_id: int) -> bool:
+            try:
+                mode = self.power_mode(company, region, node_id) if self.power_mode else None
+            except Exception:
+                return False
+            return delivery_for_power_mode(mode) == "now"
+        return check
+
+    def release_held(self, company: str, region: str, node_id: int | None = None) -> None:
+        """Publish the oldest command waiting for this gateway's radio once nothing is on air, and re-arm the
+        timer so the rest follow (``node_id`` is accepted for callers that know it; the scope is the gateway)."""
+        if not self.broker.is_ready():
+            try:
+                if self.journal.held_count(company, region=region):
+                    self._schedule_release(company, region, None, delay=5)
+            except Exception:
+                log.exception("Could not check held commands")
+            return
+        item = None
+        try:
+            with self._lock:
+                transfer = self._gateway_transfer(company, region)
+                if transfer:                                   # a history download owns the radio
+                    if self.journal.held_count(company, region=region):
+                        self._schedule_release(company, region, None, delay=max(1.0, min(30.0, transfer["until"] - time.time() + 1)))
+                    return
+                item = self.journal.claim_held(company, region=region, listening=self._listening(company, region),
+                                               ack_timeout=lambda n: self._ack_timeout(company, region, n))
+                if item is None:
+                    return
+                if "blocked_by" in item:
+                    self._schedule_release(company, region, item["blocked_by"].get("release_at"))
+                    return
+                self._publish(item)
+                self._schedule_release(company, region, min(item["ack_deadline"], item["submitted_at"] + RADIO_BUSY_S))
+            self._notify(company, item["request_id"])
+            if item["delivery"] == "now":
+                try:
+                    self.history_writer(company, region, item["node_id"], f"{item['cmd_type']} data={item['cmd_data']} "
+                                        f"request={item['request_id']}", item["request_id"])
+                except Exception:
+                    log.exception("Held command published; history copy failed (journal retained)")
+        except Exception as exc:
+            self.logs.emit(f"[CMD] Releasing a held command failed ({type(exc).__name__}); inspect the journal",
+                           company=company, level="warning")
+            if item is not None and "request_id" in item:
+                self._notify(company, item["request_id"])
+            self._schedule_release(company, region, None, delay=5)
+
+    def _schedule_release(self, company: str, region: str, release_at, delay: float | None = None) -> None:
+        """Try again when the radio becomes free (one timer per gateway)."""
+        if delay is None:
+            delay = max(1.0, float(release_at) - time.time() + 1.0) if release_at else 5.0
+        key = (company, region)
+        with self._lock:
+            old = self._release_timers.get(key)
+            if old is not None and old.is_alive():
+                old.cancel()
+            timer = threading.Timer(min(delay, 300.0), self._timer_release, args=key)
+            timer.daemon = True
+            self._release_timers[key] = timer
+            timer.start()
+
+    def _timer_release(self, company: str, region: str) -> None:
+        with self._lock:
+            if self._release_timers.get((company, region)) is threading.current_thread():
+                del self._release_timers[(company, region)]
+        self.release_held(company, region)
 
     def acknowledge(self, company: str, region: str, node_id: int, request_id: int,
                     cmd_id: int, success: bool) -> bool:
@@ -278,6 +404,7 @@ class CommandService:
                     listener(company, region, node_id)
                 except Exception:
                     log.exception("Acknowledgement listener failed")
+            self.release_held(company, region)             # the node answered: the next command may go
         return accepted
 
     def has_active(self, company: str, region: str, node_id: int, cmd_type: str) -> bool:

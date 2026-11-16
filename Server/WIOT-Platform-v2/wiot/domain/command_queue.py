@@ -33,6 +33,12 @@ def ack_timeout_for(power_mode) -> int:
     except (TypeError, ValueError):
         return ACK_TIMEOUT_SECONDS
 MAX_PENDING_PER_NODE = 32
+# One command on a gateway's radio at a time (2026-11-16 field report): a command counts as on air until it is
+# answered or for at most RADIO_BUSY_S (replies come in 7-20 s; a later one is still accepted until the ACK
+# deadline). A command held behind others is dropped after HELD_LIMIT_S, so a valve never moves long after the
+# click.
+RADIO_BUSY_S = 45
+HELD_LIMIT_S = 300
 RETRYABLE = ('SRATE', 'STRAN')
 DESIRED_VALUES = ('SRATE', 'STRAN', 'STIME', 'VALVE')
 FLASH_CMD_IDS = range(9, 14)          # CLEAR_FLASH .. FLASH_CANCEL
@@ -207,7 +213,10 @@ class CommandQueue:
         for row in rows:
             expired = row['expires_at'] <= now
             timeout = row['ack_deadline'] is not None and row['ack_deadline'] <= now
-            if expired:
+            if (row['delivery'] == 'now' and row['state'] == 'pending' and not row['attempts']
+                    and row['created_at'] <= now - HELD_LIMIT_S):
+                state, reason = 'expired', 'Held behind other commands for 5 minutes; not sent'
+            elif expired:
                 state = 'outcome_unknown' if row['attempts'] else 'expired'
                 reason = 'TTL ended after submission; execution unknown' if row['attempts'] else 'Expired before submission'
             elif timeout and row['state'] in ('dispatched', 'broadcast_partial'):
@@ -323,12 +332,17 @@ class CommandQueue:
         self._event(db, row['request_id'], 'submitted', now, f'attempt={attempt}')
         return dict(db.execute("SELECT * FROM pending_commands WHERE request_id=?", (row['request_id'],)).fetchone())
 
-    def claim_on_status(self, company, node_id, now=None, *, region=DEFAULT_REGION, ack_timeout=None):
-        """One command per Status. Operator VALVE > fresh pending > bounded retry."""
+    def claim_on_status(self, company, node_id, now=None, *, region=DEFAULT_REGION, ack_timeout=None,
+                        one_in_flight=False):
+        """One command per Status. Operator VALVE > fresh pending > bounded retry.
+
+        With ``one_in_flight`` nothing is claimed (``{'blocked_by': row}``) while another command of the same
+        gateway is still on the radio (see :meth:`_in_flight`)."""
         now = int(time.time() if now is None else now)
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._refresh(db, now)
+            region = region_id(region)
             row = db.execute("""SELECT * FROM pending_commands
                 WHERE company=? AND region=? AND node_id=? AND delivery='next_wake'
                   AND state IN ('pending','dispatched','waiting_retry')
@@ -336,17 +350,92 @@ class CommandQueue:
                   AND (attempts=0 OR (cmd_type IN ('SRATE','STRAN') AND attempts<?))
                 ORDER BY CASE WHEN cmd_type='VALVE' THEN 0 ELSE 1 END,
                          CASE WHEN attempts=0 THEN 0 ELSE 1 END,id LIMIT 1""",
-                (company, region_id(region), node_id, now, now, MAX_ATTEMPTS)).fetchone()
-            return self._claim(db, row, now, ack_timeout) if row else None
+                (company, region, node_id, now, now, MAX_ATTEMPTS)).fetchone()
+            if row is None:
+                return None
+            if one_in_flight:
+                busy = self._in_flight(db, company, region, now, row['request_id'])
+                if busy:
+                    return {'blocked_by': busy}
+            return self._claim(db, row, now, ack_timeout)
 
-    def claim_immediate(self, request_id, now=None, ack_timeout=None):
+    def claim_immediate(self, request_id, now=None, ack_timeout=None, *, one_in_flight=False):
+        """Claim a 'now' intent for publication.
+
+        With ``one_in_flight`` it is left pending, and ``{'blocked_by': row}`` returned, while another command
+        of the same gateway is on the radio or an older one is still waiting: the LoRa link is half duplex,
+        every node hears every command, and the gateway has no queue or retry, so a downlink sent during a
+        node's reply collides with it and both are lost."""
         now = int(time.time() if now is None else now)
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._refresh(db, now)
             row = db.execute("""SELECT * FROM pending_commands
                 WHERE request_id=? AND delivery='now' AND state='pending'""", (request_id,)).fetchone()
-            return self._claim(db, row, now, ack_timeout) if row else None
+            if row is None:
+                return None
+            if one_in_flight:
+                busy = self._in_flight(db, row['company'], row['region'], now, row['request_id'])
+                if busy is None:                                  # first come, first served
+                    older = db.execute("""SELECT request_id,cmd_type,node_id FROM pending_commands
+                        WHERE company=? AND region=? AND delivery='now' AND state='pending' AND attempts=0
+                          AND expires_at>? AND id<? ORDER BY id LIMIT 1""",
+                        (row['company'], row['region'], now, row['id'])).fetchone()
+                    busy = {**dict(older), 'release_at': now, 'waiting': True} if older else None
+                if busy:
+                    return {'blocked_by': busy}
+            return self._claim(db, row, now, ack_timeout)
+
+    @staticmethod
+    def _in_flight(db, company, region, now, exclude=0):
+        """The command on the gateway's radio, if any: sent, not answered, and sent less than RADIO_BUSY_S ago
+        (its reply is still accepted until the ACK deadline). A superseded command that was already sent is
+        still on air, and so is a broadcast until the first node answers."""
+        row = db.execute("""SELECT request_id,cmd_type,node_id,submitted_at,ack_deadline,
+                MIN(ack_deadline, submitted_at + ?) AS release_at FROM pending_commands
+            WHERE company=? AND region=? AND attempts>0 AND acknowledged_at IS NULL
+              AND state IN ('dispatched','superseded','broadcast_partial')
+              AND ack_deadline>? AND submitted_at>? AND request_id<>?
+            ORDER BY submitted_at DESC LIMIT 1""",
+            (RADIO_BUSY_S, company, region, now, now - RADIO_BUSY_S, exclude)).fetchone()
+        return dict(row) if row else None
+
+    def recent_flash_nodes(self, company, since, *, region=DEFAULT_REGION):
+        """Nodes of this gateway that were sent a history download (FLASH_TODAY) since ``since``."""
+        with self._db() as db:
+            return [r[0] for r in db.execute("""SELECT DISTINCT node_id FROM pending_commands WHERE company=?
+                AND region=? AND cmd_type='FLASH_TODAY' AND created_at>=?""", (company, region_id(region), int(since)))]
+
+    def held_count(self, company, now=None, *, region=DEFAULT_REGION):
+        """'now' commands of this gateway still waiting for the radio."""
+        now = int(time.time() if now is None else now)
+        with self._db() as db:
+            return db.execute("""SELECT COUNT(*) FROM pending_commands WHERE company=? AND region=?
+                AND delivery='now' AND state='pending' AND attempts=0 AND expires_at>?""",
+                (company, region_id(region), now)).fetchone()[0]
+
+    def claim_held(self, company, now=None, *, region=DEFAULT_REGION, ack_timeout=None, listening=None):
+        """The oldest command waiting for this gateway's radio, once nothing is on air: a held 'now' intent,
+        or a fresh next_wake intent of a node whose radio listens at any time (``listening(node_id)``).
+
+        ``ack_timeout`` is a number or a ``node_id -> seconds`` function. Returns the claimed row,
+        ``{'blocked_by': row}`` while the radio is busy, or None when nothing waits."""
+        now = int(time.time() if now is None else now)
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self._refresh(db, now)
+            region = region_id(region)
+            rows = db.execute("""SELECT * FROM pending_commands WHERE company=? AND region=? AND state='pending'
+                AND attempts=0 AND expires_at>? AND (delivery='now' OR broadcast=0) ORDER BY id LIMIT 64""",
+                (company, region, now)).fetchall()
+            row = next((r for r in rows if r['delivery'] == 'now' or (listening and listening(r['node_id']))), None)
+            if row is None:
+                return None
+            busy = self._in_flight(db, company, region, now)
+            if busy:
+                return {'blocked_by': busy}
+            timeout = ack_timeout(row['node_id']) if callable(ack_timeout) else ack_timeout
+            return self._claim(db, row, now, timeout)
 
     def confirm_publish(self, request_id, attempt, now=None):
         """PUBACK belongs to one attempt, even if its node ACK arrived first."""

@@ -515,3 +515,54 @@ red with "–". Company_1's live readings showed three different cases, all draw
   "Need attention 2 — 1 offline · 1 probe fault".
 - New test `test_farm.py::test_field_without_moisture_says_why`; the Farmer view test accepts the new card.
 - Full suite: 232 passed + 13 subtests, 1 skipped (the browser smoke test without Playwright).
+
+## 2026-11-16 — Commands reach the gateway at once and are not lost in bursts (version unchanged, 2.7.0)
+
+Reported: commands from v2 reached the gateway late or never, while v1.31 delivered them at once. Investigated
+read-only with five parallel checks: node and gateway firmware, the v1.31 and v2 command paths, and both
+servers' journals of the same day.
+
+- **Delay.** The node firmware, gateway build `gateway-wor`, `APP_LORA_GATEWAY_WOR_TX=1` lets the gateway wake a
+  LORA_WOR_STOP node (mode 5) for every command: v1.31's immediate commands were answered in 10-20 s. v2 instead
+  held them until the node's next Status ("next wake"), and released only one per Status:
+  - the farm valve buttons held every command for any mode other than NORMAL;
+  - the Command center's **Auto** followed the delivery-risk model, which rated node 3 UNLIKELY.
+
+  Result: 12 s to 6 min of waiting.
+  - Fix: **Auto** now follows the power mode (`protocol.power.delivery_for_power_mode`). Modes 1, 3 and 5 send
+    now. Modes 2 and 4 (radio off between the node's own uplinks, E32 Mode 3 and MCU in Standby) wait for the next
+    Status. The model decides only when the mode is unknown.
+  - The farm valve buttons use **Auto** and are disabled for a moment after each click.
+- **Lost commands.** Every node hears every command; the gateway forwards each one synchronously with a wake probe,
+  with no queue and no retry; the link is half duplex.
+  - Today 20 SRATE to node 2 within about one minute (12 within 6 s) produced 1 acknowledgement. v1.31 lost 9 of 14 fast VALVE
+    clicks the same way.
+  - Fix: one command on a gateway's (company, region) radio at a time (`command_queue._in_flight`). A command
+    counts as on air until it is answered, or for at most 45 s (`RADIO_BUSY_S`); its reply is still accepted until
+    the deadline.
+  - Commands sent meanwhile stay pending and go out first come, first served (`claim_held`). They are released
+    when the reply arrives, when the radio becomes free (a per-gateway timer), or at a Status.
+  - A superseded command that was already sent still counts as on air, so repeated clicks send only the first and
+    the last.
+  - Broadcasts wait too. FLASH_CANCEL never waits.
+  - A running history download counts as on air (its per-row ACK downlinks are not in the journal).
+  - Queued commands of listening nodes no longer wait for a Status when the radio is free. RTC nodes keep their
+    Status window.
+  - A command held for 5 minutes expires and is never sent late (`HELD_LIMIT_S`).
+- **Transport.** The PUBACK callback no longer takes the publish lock: it was an ABBA deadlock risk with paho's
+  message mutex, found in review and older than this change. It now uses a short lock that is never held while
+  calling paho.
+- Reviewed by two independent reviewers (concurrency and journal; firmware behaviour), each finding checked by a
+  second agent. All 10 confirmed findings are fixed.
+- New `tests/test_command_delivery.py` (8): power-mode delivery, the per-gateway radio rule and its timeout, order,
+  expiry, the Status path, history downloads, the release timer.
+- Not changed (firmware, reported to the user):
+  - nodes answer CMD_REJECTED to commands addressed to other nodes (`IoT_Node_Encrypted.ino` reply path), which
+    costs airtime and battery;
+  - the gateway defers MQTT for up to 15 s while it reassembles an uplink.
+- Checked end to end over MQTT: local broker, throwaway server, simulator for the demo companies only.
+  - Five fast SRATE clicks to a LORA_WOR_STOP node: the first was sent at once, the three in the middle were never
+    sent, and the last was sent when the first was answered (answered 2 s later). A GOSTM sent after the clicks
+    followed when the radio was free.
+  - A GOSTM to an RTC_PERIODIC node waited for its next Status (+6 s) and was answered at +7 s.
+- Full suite: 240 passed + 13 subtests, 1 skipped (the browser smoke test without Playwright).

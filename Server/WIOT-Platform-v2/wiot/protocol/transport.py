@@ -110,7 +110,11 @@ class MqttNodeClient:
         self._pending_subscriptions = {}
         self._confirmed_subscriptions = set()
         self._subscription_timer = None
-        self._publish_lock = threading.RLock()
+        self._publish_lock = threading.RLock()   # one confirmed publish at a time (exact early-PUBACK window)
+        # Guards _pending_publish / _early_pubacks / _publishing. Never held while calling paho: the network
+        # thread runs on_publish while holding paho's message mutex, so taking _publish_lock there (held by a
+        # publisher across client.publish, which takes that mutex) could deadlock both threads.
+        self._ack_lock = threading.Lock()
         self._pending_publish = {}
         self._early_pubacks = set()
         self._publishing = False
@@ -253,32 +257,37 @@ class MqttNodeClient:
             if qos != 1:
                 raise ValueError('Command completion requires QoS 1 PUBACK')
             with self._publish_lock:
-                if len(self._pending_publish) >= 256:
-                    raise RuntimeError('Publication confirmation window full')
-                self._publishing = True
+                with self._ack_lock:
+                    if len(self._pending_publish) >= 256:
+                        raise RuntimeError('Publication confirmation window full')
+                    self._publishing = True
                 try:
                     result = self.client.publish(topic, frame['payload'], qos=1, retain=False)
+                    early = False
                     if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                        if result.mid in self._early_pubacks or result.is_published():
-                            self._schedule_completion(on_complete)
-                        else:
-                            self._pending_publish[result.mid] = on_complete
+                        with self._ack_lock:
+                            early = result.mid in self._early_pubacks or result.is_published()
+                            if not early:
+                                self._pending_publish[result.mid] = on_complete
+                    if early:
+                        self._schedule_completion(on_complete)
                 finally:
-                    self._publishing = False
-                    self._early_pubacks.clear()
+                    with self._ack_lock:
+                        self._publishing = False
+                        self._early_pubacks.clear()
         if result.rc != mqtt.MQTT_ERR_SUCCESS:
             raise RuntimeError(f"MQTT publish rejected (rc={result.rc})")
         frame['mqtt_mid'] = getattr(result, 'mid', None)
         return frame
 
     def _on_publish(self, client, userdata, mid, *args):
-        """Network callback: enqueue proof, never wait for disk/application work."""
-        with self._publish_lock:
+        """Network callback: enqueue proof, never wait for disk/application work (only the short _ack_lock)."""
+        with self._ack_lock:
             callback = self._pending_publish.pop(mid, None)
-            if callback is not None:
-                self._schedule_completion(callback)
-            elif self._publishing:
+            if callback is None and self._publishing:
                 self._early_pubacks.add(mid)
+        if callback is not None:
+            self._schedule_completion(callback)
 
     def _schedule_completion(self, callback):
         try:
@@ -396,7 +405,7 @@ class MqttNodeClient:
         if self.client.is_connected():
             self.client.disconnect()
         self.client.loop_stop()
-        with self._publish_lock:
+        with self._ack_lock:
             # Explicit teardown drops unresolved callbacks, not execution history.
             # Network reconnects retain pending QoS 1 proof until explicit teardown.
             self._pending_publish.clear()

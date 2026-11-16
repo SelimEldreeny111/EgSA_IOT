@@ -12,7 +12,7 @@ Published on the internal hub, delivered to WebSocket clients of the same tenant
 | `alert` | `wiot/services/alerts.py:319` |
 | `broker` | `wiot/services/broker.py:97` |
 | `broker` | `wiot/services/broker.py:118` |
-| `command` | `wiot/services/commands.py:289` |
+| `command` | `wiot/services/commands.py:416` |
 | `automation` | `wiot/services/farm.py:564` |
 | `telemetry` | `wiot/services/ingest.py:330` |
 | `telemetry` | `wiot/services/ingest.py:346` |
