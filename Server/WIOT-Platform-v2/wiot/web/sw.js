@@ -2,7 +2,8 @@
 // App shell and assets: stale-while-revalidate. API reads: network first, the last good answer when offline
 // (marked with X-WIOT-Offline). Map tiles: cache first (saved per farm from Commissioning > Field tools).
 const SHELL = "wiot-shell-v1", API = "wiot-api-v1", TILES = "wiot-tiles-v1", TILE_LIMIT = 3000;
-const NO_CACHE_API = ["/api/v2/auth/", "/api/v2/ws", "/api/v2/push/", "/api/v2/assistant", "/api/v2/commission/"];
+const NO_CACHE_API = ["/api/v2/auth/", "/api/v2/ws", "/api/v2/push/", "/api/v2/assistant", "/api/v2/commission/",
+  "/api/v2/eo/render.png"];                                  // satellite images: one per map view, cached on the server
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(["/", "/assets/app.css", "/assets/global.css", "/assets/ops.css",

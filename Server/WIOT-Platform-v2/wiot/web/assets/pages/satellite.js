@@ -2,6 +2,7 @@
 // and (R2.7) the Copernicus catalogue and the EUMETSAT Data Store over the farm.
 import { api, state, ago, badge, toast, ICONS, $, $$ } from "../api.js";
 import { esc, fmtNum, fmtDateTime, lineChart, legend, PALETTE } from "../charts.js";
+import { mountViewer, mountAvailability } from "./satviewer.js";
 
 const toT = (d) => Math.floor(new Date(`${d}T12:00:00`).getTime() / 1000);
 
@@ -12,6 +13,8 @@ export async function render(root) {
   const SRC = { sentinelhub: "Copernicus Sentinel Hub", open: "open Sentinel-2 archive (AWS)" };
   const fields = fl.fields;
   root.innerHTML = `<div class="ops">
+    <div id="sv-host"></div>
+    <div id="av-host"></div>
     <div class="grid g-wide">
       <section class="panel"><header><h2><span class="ico">${ICONS.farm}</span>Crop health · NDVI</h2>
         ${st.sentinel && canWrite ? `<button class="btn sm" id="nd-refresh" style="margin-inline-start:auto">${ICONS.refresh}<span>Update now</span></button>` : ""}</header>
@@ -174,7 +177,12 @@ export async function render(root) {
       <td class="num">${x.stored}</td><td class="num">${x.rejected ? badge(["warning", String(x.rejected)]) : "0"}</td></tr>`).join("")
       || `<tr><td colspan="5"><div class="empty">No satellite products yet.</div></td></tr>`;
   }
+  let viewer = null;
+  const svHost = $("#sv-host", root), avHost = $("#av-host", root);
+  mountViewer(svHost)                            // the viewer must not hold up or break the rest of the page
+    .then((v) => { viewer = v; if (fields.length && avHost.isConnected) mountAvailability(avHost, v); })
+    .catch((err) => { if (svHost.isConnected) svHost.innerHTML = `<div class="inv-link">Satellite viewer: ${esc(err.message)}</div>`; });
   await Promise.all([ndvi(), sat(), downloads()]);
   if (st.job?.running) watchJob();
-  return undefined;
+  return () => viewer?.destroy();
 }

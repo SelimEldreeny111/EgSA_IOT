@@ -183,6 +183,8 @@ class SatelliteService:
         self.http = http
         self._token: tuple[float, str] | None = None
         self.catalogue = Catalogue(settings, lambda *a, **k: self.http(*a, **k))
+        from .eo_render import SatelliteViewer
+        self.viewer = SatelliteViewer(settings, self, self.catalogue)
         self._job_lock = threading.Lock()
         self.job: dict = {"running": False}
 

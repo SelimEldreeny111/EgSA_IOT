@@ -351,3 +351,142 @@ retaken with `capture_manual_v2.py` on a demonstration copy). Eight defects foun
   intermittent CI browser-test failure on `bc12fd0`; the test passes locally, also with a CPU slowed six-fold. The
   page now shows "Push alerts are not available in this browser (…)". The CI browser job also turns failing lines
   into public annotations, so a failure can be read without a GitHub sign-in.
+
+## 2026-11-15 — Satellite viewer and satellite data over the farm (R2.7 addition, version unchanged 2.7.0)
+
+The Satellite page now has the Copernicus Browser's layers on the farm map, and a list of every satellite dataset
+over the farm. Nothing changes for the nodes.
+
+- `services/eo_layers.py` (new): the layer catalogue.
+  - Five missions: Sentinel-2 L2A and L1C, Sentinel-1 GRD, Sentinel-3 OLCI and SLSTR.
+  - 20 layers with Sentinel Hub evalscripts (v3), legends and swatches:
+    - Sentinel-2: True color, False color, Highlight Optimized Natural Color, NDVI (the Browser's palette),
+      Wildfires, False color (urban), Moisture index, SWIR, NDWI, NDSI, Scene classification map, Agriculture,
+      NDRE, Custom;
+    - Sentinel-1: VV and VH decibel, radar false colour (gamma-0 terrain-corrected, orthorectified);
+    - Sentinel-3: OLCI true colour and NDVI, SLSTR brightness temperature.
+  - Custom = a composite of any three bands or a normalised-difference index of two (band names validated).
+  - Numpy renderers of the same Sentinel-2 layers for the open archive.
+- `services/eo_render.py` (new): `SatelliteViewer`.
+  - **Copernicus Sentinel Hub** (with the OAuth client): Process API in EPSG:3857 so the PNG lies exactly on the
+    Leaflet map. Least-cloudy mosaic of the last 30 days, the most recent pass for radar and Sentinel-3, or one
+    chosen day.
+  - **Open archive** (no account, Sentinel-2 L2A): the pass that covers the centre of the view; each band read in
+    parallel at the matching COG overview, nearest-pixel sampling onto the Mercator grid, transparent where there is
+    no data or SCL = 0. Views up to 0.6° across, images up to 1024 px; about 25 s for a farm view the first time.
+    Open-archive and Sentinel Hub NDVI agree pixel for pixel.
+  - Images are cached on disk (`data/satellite/render/`, newest 600, at most `WIOT_VIEWER_CACHE_MB`).
+  - **Availability**: CDSE STAC (S2 L2A, S1 GRD, S3 OLCI, S3 SLSTR), Earth Search Landsat C2 L2 and EUMETSAT
+    counts for 5 collections, queried in parallel within one 60 s deadline. Cached 20 minutes (2 minutes when a
+    catalogue failed); a failing catalogue is reported in its row and does not hide the others.
+- `services/eo.py`: the COG reader follows the IFD chain and reads the overview pyramid (`levels`, `level_for`,
+  `read(level=…)`, `sample()`; overviews identical to GDAL). New `utm_forward_np`. Earth Search results carry every
+  band's URL.
+- API:
+  - `GET /api/v2/eo/layers`: missions, layers, legends, which renderer draws each, the farm's bounds, fields and
+    base map.
+  - `GET /api/v2/eo/render.png`: a PNG of a layer for a map view, with an `X-Imagery` header (provider, dates,
+    mosaic, scene, cloud). 150 images per user per 10 minutes and 2 at a time; daily Sentinel Hub allowances.
+  - `POST /api/v2/eo/render.png`: your own evalscript (the supervisor only, Sentinel Hub only; it must define
+    `evaluatePixel`).
+  - `GET /api/v2/eo/availability?days=30|90|180|365`: every pass and product over the farm, plus the NDVI and
+    WIOT-SAT data stored on the server and Copernicus Browser links. 30 look-ups per user per 10 minutes.
+- Satellite page (`pages/satviewer.js`, new):
+  - **Satellite viewer**: satellite, pass date (from the catalogue, with cloud cover), maximum cloud, layer cards with
+    the legend under the chosen layer, Custom (composite, index, evalscript). Above the map: opacity, field outlines,
+    Download image, Open in Copernicus Browser. The image is redrawn after each pan or zoom; the old one stays until
+    the new one has loaded.
+  - **Satellite data over this farm**: one strip per satellite with a cell per day, Sentinel-2 and Landsat coloured
+    by cloud, counts and latest dates, EUMETSAT products, data held on the server. Clicking a day opens it in the
+    viewer.
+  - Arabic texts, Day and Night views, phone layout. The service worker does not keep the images (the server cache
+    does).
+- Default behaviour: with `WIOT_SATELLITE_PROVIDER=auto` and no OAuth client, the viewer draws Sentinel-2 from the
+  open archive, and only when someone opens the Satellite page. The background NDVI update is unchanged.
+  `open` uses only the open archive, `sentinelhub` only Sentinel Hub, `off` hides the viewer.
+- Checked live on the demo farm (East Owainat):
+  - all 33 satellite / layer combinations through Sentinel Hub (1–3 s each for a farm view);
+  - Sentinel-2 from the open archive with no account;
+  - a company without farm fields opens at country scale and asks to zoom in instead of drawing all of Egypt;
+  - an own evalscript and a custom index from the page;
+  - availability for 90 days: S2 45, S1 13, OLCI 93, SLSTR 210, Landsat 20 passes; EUMETSAT MTG LST 12,999, MSG LST
+    8,675, MTG precipitation 2,505, ASCAT 146 products.
+- Manual V2.0 chapter 21 rewritten (21.1 Satellite viewer, 21.2 Satellite data over this farm, new screenshots
+  `s26a`, `s26b`); Help article updated.
+- New tests in `tests/test_r27.py` (5, and 5 more from the review below):
+  - layer catalogue and numpy renderers;
+  - COG overviews and point sampling;
+  - Sentinel Hub rendering with cache, limits and permissions;
+  - open-archive rendering;
+  - availability with a failing catalogue.
+
+## 2026-11-16 — Satellite viewer: fixes from the pre-push review (before the first commit)
+
+Four reviews (back end, front end, security, docs and tests) before the viewer was committed to the public
+repository; every finding was checked against the code before it was fixed.
+
+- **Server protection** (`eo_render.py`, `api/eo.py`):
+  - At most 2 open-archive and 4 Sentinel Hub images are drawn at once on the whole server, and 2 per user. A request
+    that finds no free slot within 15 s gets 503 with `Retry-After`. The page then waits and asks again; a busy answer
+    does not count against the user's images. Before this, about 40 large open-archive requests from one read-only
+    account could take every worker thread and several GB of memory.
+  - Open-archive images are at most 1024 px on their longest side, and the bands are read 4 at a time.
+- **The shared Copernicus account**:
+  - Daily allowances of Sentinel Hub processing units: `WIOT_VIEWER_COMPANY_DAILY_PU` (400) and
+    `WIOT_VIEWER_DAILY_PU` (1000), 0 = no limit, 429 when used up.
+  - The cost of each image is estimated like Sentinel Hub does (512 × 512 pixels and 3 input bands = 1 unit).
+  - Only cache misses are charged.
+  - Own evalscripts are for the supervisor only (`own_evalscript` in `/eo/layers`).
+- **Disk cache**:
+  - One file per image (metadata line + PNG), written to a temporary name and renamed, so readers never see half a
+    file.
+  - A clean-up that never fails a request: one at a time, files that vanish are skipped, the newest 600 within
+    `WIOT_VIEWER_CACHE_MB` (1024) are kept.
+  - Unreadable files are cache misses.
+  - Before this, renders that finished together could fail with 502 and the server's data path in the message, and
+    the `.json` sidecar files were never deleted.
+- **Errors**:
+  - Network failures give 502 "could not be reached".
+  - Unreadable remote data (IncompleteRead, DEFLATE, TIFF or JSON errors) gives 502 "could not be read" instead of
+    500 or a misleading 400 / 404.
+  - Local storage errors give 502 without any path.
+  - The viewer's own input and no-data errors stay 400 / 404.
+- **Correct results**:
+  - The cloud threshold is rounded once, so the cache key and the request agree.
+  - Dates are normalised to YYYY-MM-DD; the POST body has the same date pattern and bounds as the GET query.
+    NaN and infinite bounds are refused.
+  - The open-archive search is inclusive (`lte`; 0 % now finds cloud-free passes) and has no cloud filter for a
+    chosen date.
+  - The pass is chosen by its data footprint, not its bounding box, so swath-edge slivers are not drawn as an empty
+    latest image.
+  - `WIOT_SATELLITE_PROVIDER=open` / `sentinelhub` are respected by the viewer.
+- **Availability**:
+  - Every STAC page is followed, up to 2,000 items, on the same host, with the POST body merged when the catalogue
+    asks for it. Before this, the list stopped at 400 items, so 12 months of Sentinel-3 SLSTR showed 400 passes and
+    empty early months.
+  - The count comes from `numberMatched` when the catalogue gives it; the page shows "+" and "older passes not
+    drawn" when the list is cut.
+  - One 60 s deadline for all catalogues, and a hanging catalogue no longer holds the request.
+  - Periods are 30, 90, 180 or 365 days.
+  - One query per farm and period at a time; expired answers are dropped (at most 64 kept).
+- **Page**:
+  - An older image can no longer replace a newer one. An image that fails to load is removed and its memory freed.
+  - Satellite images have their own map pane under the field outlines.
+  - The download name matches the image shown.
+  - A typed evalscript survives re-renders.
+  - The pass-date list belongs to the chosen satellite.
+  - Only the newest availability answer is drawn. The timeline scrolls sideways on phones and has no gaps for long
+    periods.
+  - The page-leave guard uses this page's own containers.
+  - Day tooltips and the new server messages are translated into Arabic.
+  - The panel names Earth Search (AWS) as the Landsat source.
+- **Tests** (`tests/test_r27.py`):
+  - New: server protection and allowances; cache races, size limit and old files; cloud filter, footprint and
+    unreadable data; availability paging, deadline, cache and limits; the provider setting.
+  - Tighter: each layer is rendered from only the bands it declares; the open-archive test checks the chosen pass.
+- Manual V2.0 chapter 21, its troubleshooting rows and settings table, and `.env.example` updated.
+- Checked again in the browser on the demo farm (Day, Night, Arabic, phone): every layer tried draws, an own
+  evalscript and a custom index run, a busy answer is retried by the page, and the 90-day timeline fits a phone.
+- Full suite: 231 passed + 13 subtests, 1 skipped (the browser smoke test without Playwright); the browser smoke test
+  passes locally in English and Arabic. (In one run on a busy machine the analytics timing test took 30.7 s against
+  its 30 s limit; it passes on its own.)

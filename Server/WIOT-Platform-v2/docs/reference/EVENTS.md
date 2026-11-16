@@ -1,6 +1,6 @@
 # Realtime events and metrics
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
 
 ## Realtime hub events
 

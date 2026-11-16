@@ -120,6 +120,10 @@ class Settings(BaseSettings):
     eumetsat_key: str | None = None
     eumetsat_secret: SecretStr | None = None
     eo_download_max_mb: int = Field(200, ge=1, le=5000)
+    # Satellite viewer: Sentinel Hub processing units its images may use per UTC day (0 = no limit), and its disk cache
+    viewer_daily_pu: float = Field(1000, ge=0)           # viewer, Sentinel Hub units per UTC day, whole server; 0 = no limit
+    viewer_company_daily_pu: float = Field(400, ge=0)    # viewer, Sentinel Hub units per UTC day, each company; 0 = no limit
+    viewer_cache_mb: int = Field(1024, ge=10, le=100000)  # disk cache of viewer images (data/satellite/render)
 
     # --- field apps, maintenance, assistant (R2.6) ----------------------------
     web_push: bool = True  # alerts to installed dashboards / phones (VAPID key created in data/ on first use)

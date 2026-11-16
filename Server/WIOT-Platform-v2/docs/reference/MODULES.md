@@ -1,6 +1,6 @@
 # Code map
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
 
 | Module | Lines | Purpose (module docstring) | Public classes and functions |
 |---|---|---|---|
@@ -25,7 +25,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/api/commands.py` | 67 | Command submission, lifecycle timeline and pre-send delivery risk. | CommandIn, RiskIn, catalog, list_commands, get_command, submit, delivery_risk |
 | `wiot/api/crop.py` | 148 | Crop care, farm diary, yields, WaPOR, the farmer view and regional dashboards (R2.5). | crop_status, DiaryIn, diary, add_diary, delete_diary, traceability, productivity, wapor, wapor_import, farmer_today, farmer_page, regional |
 | `wiot/api/deps.py` | 95 | Request-scoped dependencies: runtime, authentication, tenant scoping. | get_runtime, authenticate, ws_authenticate, require_supervisor, require_admin, resolve_company, resolve_region |
-| `wiot/api/eo.py` | 77 | Earth observation (R2.7): Copernicus catalogue, EUMETSAT Data Store and the open Sentinel-2 archive. | eo_status, scenes, eum_collections, eum_products, DownloadIn, eum_download, downloads |
+| `wiot/api/eo.py` | 222 | Earth observation (R2.7): Copernicus catalogue, EUMETSAT Data Store and the open Sentinel-2 archive. | eo_status, scenes, eum_collections, eum_products, DownloadIn, eum_download, layers, RenderIn, render, render_script, availability, downloads |
 | `wiot/api/farm.py` | 78 | Smart-agriculture endpoints: farm map, zones, weather/ET0, satellite readiness. | ZonePatch, overview, get_layout, put_layout, patch_zone, zone_history, weather, connectivity, public_map |
 | `wiot/api/field.py` | 224 | Phone app and push alerts, commissioning, maintenance and the optional assistant (R2.6). | manifest, service_worker, SubscriptionIn, push_key, push_subscribe, push_unsubscribe, push_test, QrIn, RegisterIn, commission_parse, commission_register, commission_check, commission_clock, CompleteIn … |
 | `wiot/api/notify.py` | 135 | Custom alert rules and notification channels (R2.3, point 22). | RuleIn, rule_catalog, list_rules, create_rule, update_rule, delete_rule, preview_rule, ChannelIn, list_channels, create_channel, update_channel, delete_channel, test_channel, channel_log |
@@ -38,7 +38,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/api/telemetry.py` | 137 | Fleet, node, message history, consumption and CSV export endpoints. | fleet, node_detail, node_series, messages, regions, consumption, export_csv |
 | `wiot/api/water.py` | 172 | Irrigation planning and water accounts (R2.4). | catalog, fields, field_plan, ProfileIn, set_profile, TariffIn, tariffs, set_tariffs, costs, list_items, create_item, update_item, delete_item, schedule_log … |
 | `wiot/app.py` | 154 | FastAPI application factory. | build_csp, tile_hosts, create_app |
-| `wiot/config.py` | 214 | Typed runtime configuration loaded from environment variables and ``.env``. | Settings, get_settings |
+| `wiot/config.py` | 218 | Typed runtime configuration loaded from environment variables and ``.env``. | Settings, get_settings |
 | `wiot/domain/__init__.py` | 0 |  |  |
 | `wiot/domain/command_queue.py` | 433 | Durable command intents, bounded mailbox and correlated execution audit. | ack_timeout_for, CommandConflict, flash_request_limit, CommandQueue |
 | `wiot/domain/flash_analysis.py` | 196 | Analysis of a node's SPI-flash telemetry log, built from what the server already holds. | transfer_state, analyse |
@@ -64,7 +64,9 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/services/commissioning.py` | 115 | Commissioning wizard (R2.6, point 25): QR scan -> register -> first uplink -> clock -> checks -> certificate. | parse_qr, Commissioning |
 | `wiot/services/confwatch.py` | 102 | Configuration watch: desired versus reported node intervals (R2.2, point 15). | ConfigWatch |
 | `wiot/services/cropcare.py` | 330 | Crop care and records (R2.5, points 44, 46, 48 and 50). | disease_risks, gdd, CropCare |
-| `wiot/services/eo.py` | 506 | Earth-observation data access (R2.7): open Sentinel-2, the Copernicus catalogue and the EUMETSAT Data Store. | http_download, safe_name, utm_zone, utm_forward, Cog, polygon_mask, boa_offset, OpenSentinel2, browser_link, Catalogue, farm_bbox, utc_now, days_ago |
+| `wiot/services/eo.py` | 571 | Earth-observation data access (R2.7): open Sentinel-2, the Copernicus catalogue and the EUMETSAT Data Store. | http_download, safe_name, utm_zone, utm_forward, utm_forward_np, Cog, polygon_mask, boa_offset, OpenSentinel2, browser_link, Catalogue, farm_bbox, utc_now, days_ago |
+| `wiot/services/eo_layers.py` | 268 | Satellite layers for the Satellite viewer (R2.7): the Copernicus Browser's layers, rendered for any map view. | public_catalogue, custom_script, ramp_colors, render_numpy, bands_needed |
+| `wiot/services/eo_render.py` | 492 | Satellite viewer (R2.7): render any layer for any map view, and list every dataset available over a farm. | ViewerInputError, NoImagery, Busy, QuotaExceeded, to_mercator, from_mercator_np, processing_units, covers, SatelliteViewer, browser_url |
 | `wiot/services/farm.py` | 546 | Smart-agriculture layer: farm layout, weather/ET0, irrigation advisory, soil-moisture automation and satellite-backhaul readiness. | Site, Agronomy, Zone, Gateway, Device, FarmLayout, FarmStore, WeatherClient, FarmService |
 | `wiot/services/ingest.py` | 366 | Decoded-MQTT ingestion: validate → persist → broadcast → release commands. | IngestService |
 | `wiot/services/integrations.py` | 246 | Forward readings to other platforms (R2.3, point 29). | reading, azure_sas, IntegrationService |
@@ -79,7 +81,7 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/services/regional.py` | 75 | Regional dashboards for ministries and water authorities (R2.5, point 62). | RegionalService |
 | `wiot/services/reports.py` | 223 | Monthly operations report per company (R2.3, point 23): Excel (.xlsx), PDF and JSON. | month_bounds, previous_month, ReportService |
 | `wiot/services/runtime.py` | 229 | Composition root: builds and owns every long-lived service. | Runtime |
-| `wiot/services/satellite.py` | 423 | Satellite data (R2.5, points 49, 51 and 52). | http_raw, zone_geometry, bbox_of, detect_pivots, SatelliteService, b64png |
+| `wiot/services/satellite.py` | 455 | Satellite data (R2.5, points 49, 51 and 52). | http_raw, zone_geometry, field_share_of_bbox, bbox_of, detect_pivots, SatelliteService, b64png |
 | `wiot/services/system.py` | 169 | System health, status history and the public status page (R2.2, points 7 and 8). | SystemService |
 | `wiot/services/totp.py` | 45 | Time-based one-time passwords (RFC 6238 over RFC 4226 HOTP), standard library only. | new_secret, hotp, now_step, totp, verify, provisioning_uri |
 | `wiot/services/usage.py` | 100 | Usage metering per company (R2.3, point 28) — the basis for service plans and billing. | UsageMeter |
@@ -117,17 +119,17 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/web/assets/favicon.svg` | 1 |
 | `wiot/web/assets/forms.js` | 57 |
 | `wiot/web/assets/global.css` | 228 |
-| `wiot/web/assets/help-content.js` | 85 |
-| `wiot/web/assets/i18n.js` | 1047 |
+| `wiot/web/assets/help-content.js` | 87 |
+| `wiot/web/assets/i18n.js` | 1174 |
 | `wiot/web/assets/invite.js` | 32 |
 | `wiot/web/assets/login.js` | 65 |
-| `wiot/web/assets/ops.css` | 133 |
+| `wiot/web/assets/ops.css` | 218 |
 | `wiot/web/assets/pages/admin.js` | 97 |
 | `wiot/web/assets/pages/alerts.js` | 175 |
 | `wiot/web/assets/pages/analytics.js` | 269 |
 | `wiot/web/assets/pages/assistant.js` | 49 |
 | `wiot/web/assets/pages/commands.js` | 157 |
-| `wiot/web/assets/pages/commission.js` | 172 |
+| `wiot/web/assets/pages/commission.js` | 176 |
 | `wiot/web/assets/pages/cropcare.js` | 139 |
 | `wiot/web/assets/pages/farm.js` | 566 |
 | `wiot/web/assets/pages/flash.js` | 331 |
@@ -142,7 +144,8 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/web/assets/pages/planning.js` | 210 |
 | `wiot/web/assets/pages/regional.js` | 31 |
 | `wiot/web/assets/pages/reports.js` | 80 |
-| `wiot/web/assets/pages/satellite.js` | 180 |
+| `wiot/web/assets/pages/satellite.js` | 188 |
+| `wiot/web/assets/pages/satviewer.js` | 308 |
 | `wiot/web/assets/pages/security.js` | 212 |
 | `wiot/web/assets/pages/system.js` | 82 |
 | `wiot/web/assets/pages/usage.js` | 42 |
@@ -156,6 +159,6 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `wiot/web/invite.html` | 31 |
 | `wiot/web/login.html` | 36 |
 | `wiot/web/status.html` | 22 |
-| `wiot/web/sw.js` | 92 |
+| `wiot/web/sw.js` | 93 |
 
 Vendored libraries in `wiot/web/assets/vendor/` (served locally, no CDN): leaflet.css, leaflet.js.

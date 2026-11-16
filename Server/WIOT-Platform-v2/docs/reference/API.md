@@ -1,8 +1,8 @@
 # HTTP and WebSocket API
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
 
-169 HTTP paths, 200 operations (HEAD excluded), 1 WebSocket route(s); OpenAPI documents 160 paths. Interactive docs: `/api/docs` on a running server.
+172 HTTP paths, 204 operations (HEAD excluded), 1 WebSocket route(s); OpenAPI documents 163 paths. Interactive docs: `/api/docs` on a running server.
 
 **Dependencies** are the FastAPI dependency functions on each route; they carry authentication (`current_principal`), role checks (`require_*`, `can_*`) and CSRF checks. Read them in `wiot/api/deps.py`.
 
@@ -68,10 +68,14 @@ _Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not 
 | `/api/v2/crop/traceability` | GET | crop | `traceability` | authenticate | GlobalG.A.P.-style traceability record of one field and season (operations, sprays, PHI check). |
 | `/api/v2/crop/wapor` | GET | crop | `wapor` | authenticate |  |
 | `/api/v2/crop/wapor/import` | POST | crop | `wapor_import` | authenticate | CSV body: field,month,aeti_mm (monthly AETI exported from the FAO WaPOR portal). |
+| `/api/v2/eo/availability` | GET | eo | `availability` | authenticate | Every satellite pass and product over the farm in the last ``days`` (30, 90, 180 or 365), plus what this |
 | `/api/v2/eo/downloads` | GET | eo | `downloads` | authenticate |  |
 | `/api/v2/eo/eumetsat/collections` | GET | eo | `eum_collections` | authenticate |  |
 | `/api/v2/eo/eumetsat/download` | POST | eo | `eum_download` | authenticate | Download one product into data/eo/eumetsat (EUMETSAT API key on the server; administrators). |
 | `/api/v2/eo/eumetsat/products` | GET | eo | `eum_products` | authenticate | Products of a Data Store collection over the farm in the last ``hours`` (search is public). |
+| `/api/v2/eo/layers` | GET | eo | `layers` | authenticate | Missions and layers of the satellite viewer, which renderer draws them, and the farm's bounds. |
+| `/api/v2/eo/render.png` | GET | eo | `render` | authenticate | One picture of a layer for the current map view (PNG with transparency outside the data). |
+| `/api/v2/eo/render.png` | POST | eo | `render_script` | authenticate | Custom layer with your own Sentinel Hub evalscript (the supervisor only: it runs at Sentinel Hub on the |
 | `/api/v2/eo/scenes` | GET | eo | `scenes` | authenticate | Copernicus Data Space products over the farm (public STAC catalogue), newest first. |
 | `/api/v2/eo/status` | GET | eo | `eo_status` | authenticate |  |
 | `/api/v2/export.csv` | GET | telemetry | `export_csv` | authenticate |  |

@@ -29,6 +29,8 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 OPEN_SOURCE = "sentinel-2-open"            # sat_ndvi.source of the open-archive NDVI
+ES_BANDS = {"B01": "coastal", "B02": "blue", "B03": "green", "B04": "red", "B05": "rededge1", "B06": "rededge2",
+            "B07": "rededge3", "B08": "nir", "B8A": "nir08", "B09": "nir09", "B11": "swir16", "B12": "swir22", "SCL": "scl"}
 SCL_CLEAR = (4, 5, 6, 7, 11)               # vegetation, not vegetated, water, unclassified, snow
 CDSE_COLLECTIONS = {
     "sentinel-2-l2a": "Sentinel-2 L2A surface reflectance",
@@ -110,6 +112,22 @@ def utm_forward(lat: float, lon: float, zone: int, south: bool = False) -> tuple
     return 500000.0 + k0 * big_a * eta, k0 * big_a * xi + (10000000.0 if south else 0.0)
 
 
+def utm_forward_np(lat, lon, zone: int, south: bool = False):
+    """Vectorised utm_forward for numpy arrays of latitude / longitude."""
+    import numpy as np
+    a, f, k0 = 6378137.0, 1 / 298.257223563, 0.9996
+    n = f / (2 - f)
+    big_a = a / (1 + n) * (1 + n ** 2 / 4 + n ** 4 / 64)
+    alpha = (n / 2 - 2 * n ** 2 / 3 + 5 * n ** 3 / 16, 13 * n ** 2 / 48 - 3 * n ** 3 / 5, 61 * n ** 3 / 240)
+    phi, lam = np.radians(lat), np.radians(np.asarray(lon) - (zone * 6 - 183))
+    c = 2 * math.sqrt(n) / (1 + n)
+    t = np.sinh(np.arctanh(np.sin(phi)) - c * np.arctanh(c * np.sin(phi)))
+    xi_p, eta_p = np.arctan2(t, np.cos(lam)), np.arctanh(np.sin(lam) / np.sqrt(1 + t * t))
+    xi = xi_p + sum(alpha[j] * np.sin(2 * (j + 1) * xi_p) * np.cosh(2 * (j + 1) * eta_p) for j in range(3))
+    eta = eta_p + sum(alpha[j] * np.cos(2 * (j + 1) * xi_p) * np.sinh(2 * (j + 1) * eta_p) for j in range(3))
+    return 500000.0 + k0 * big_a * eta, k0 * big_a * xi + (10000000.0 if south else 0.0)
+
+
 # ======================================================================= Cloud-optimised GeoTIFF
 _TYPES = {1: ("B", 1), 2: ("c", 1), 3: ("H", 2), 4: ("I", 4), 5: ("I", 8), 6: ("b", 1), 7: ("B", 1), 8: ("h", 2),
           9: ("i", 4), 10: ("i", 8), 11: ("f", 4), 12: ("d", 8), 16: ("Q", 8), 17: ("q", 8), 18: ("Q", 8)}
@@ -138,7 +156,8 @@ class Cog:
             self.big, first = True, struct.unpack(self.e + "Q", self._head[8:16])[0]
         else:
             raise ValueError("Not a TIFF file")
-        t = self.tags = self._ifd(first)
+        t, nxt = self._ifd_next(first)
+        self.tags = t
         if 322 not in t or 324 not in t:
             raise ValueError("Only tiled GeoTIFFs (COG) are supported")
         self.width, self.height = int(t[256][0]), int(t[257][0])
@@ -163,6 +182,19 @@ class Cog:
         self.origin = (float(tp[3]) - float(tp[0]) * sx, float(tp[4]) + float(tp[1]) * sy)
         self.epsg = self._epsg(t.get(34735))
         self.tiles_across = -(-self.width // self.tw)
+        self.levels = [{"width": self.width, "height": self.height, "tw": self.tw, "th": self.th,
+                        "offsets": self.offsets, "counts": self.counts, "res": self.res}]
+        for _ in range(12):                                   # reduced-resolution overviews (COG pyramid)
+            if not nxt:
+                break
+            tags, nxt = self._ifd_next(nxt)
+            kind = int(tags.get(254, [0])[0])
+            if kind & 1 and not kind & 4 and 322 in tags and 324 in tags:
+                w = int(tags[256][0])
+                f = self.width / w
+                self.levels.append({"width": w, "height": int(tags[257][0]), "tw": int(tags[322][0]),
+                                    "th": int(tags[323][0]), "offsets": tags[324], "counts": tags[325],
+                                    "res": (sx * f, sy * f)})
 
     # -------------------------------------------------- low level
     def _range(self, start: int, n: int) -> bytes:
@@ -177,6 +209,10 @@ class Cog:
         return self._head[off:off + n] if off + n <= len(self._head) else self._range(off, n)
 
     def _ifd(self, off: int) -> dict[int, list]:
+        return self._ifd_next(off)[0]
+
+    def _ifd_next(self, off: int) -> tuple[dict[int, list], int]:
+        """Tags of the IFD at ``off`` and the offset of the next IFD (0 at the end of the chain)."""
         e = self.e
         if self.big:
             count, size, start, inline, ptr = struct.unpack(e + "Q", self._bytes(off, 8))[0], 20, off + 8, 8, "Q"
@@ -204,7 +240,8 @@ class Cog:
                 tags[tag] = [nums[k] / nums[k + 1] if nums[k + 1] else 0.0 for k in range(0, 2 * cnt, 2)]
             else:
                 tags[tag] = list(struct.unpack(e + code * cnt, data))
-        return tags
+        nxt = struct.unpack(e + ptr, self._bytes(start + count * size, 8 if self.big else 4))[0]
+        return tags, nxt
 
     @staticmethod
     def _epsg(keys: list | None) -> int | None:
@@ -213,14 +250,16 @@ class Cog:
         found = {int(keys[k]): int(keys[k + 3]) for k in range(4, len(keys) - 3, 4) if int(keys[k + 1]) == 0}
         return found.get(3072) or found.get(2048)
 
-    def _tile(self, i: int):
+    def _tile(self, i: int, level: int = 0):
         import numpy as np
-        if i >= len(self.offsets) or self.counts[i] == 0:
-            return np.zeros((self.th, self.tw), self.dtype)
-        raw = self._range(int(self.offsets[i]), int(self.counts[i]))
+        lv = self.levels[level]
+        tw, th = lv["tw"], lv["th"]
+        if i >= len(lv["offsets"]) or lv["counts"][i] == 0:
+            return np.zeros((th, tw), self.dtype)
+        raw = self._range(int(lv["offsets"][i]), int(lv["counts"][i]))
         if self.compression in (8, 32946):
             raw = zlib.decompress(raw)
-        a = np.frombuffer(raw, dtype=self.dtype, count=self.tw * self.th).reshape(self.th, self.tw)
+        a = np.frombuffer(raw, dtype=self.dtype, count=tw * th).reshape(th, tw)
         if self.predictor == 2:
             a = np.cumsum(a, axis=1, dtype=a.dtype)          # integer wrap-around undoes the differencing
         return a.astype(a.dtype.newbyteorder("="))
@@ -233,21 +272,48 @@ class Cog:
         r0, r1 = math.floor((self.origin[1] - ymax) / ry), math.ceil((self.origin[1] - ymin) / ry)
         return c0, r0, c1 - c0, r1 - r0
 
-    def read(self, col0: int, row0: int, w: int, h: int):
-        """Pixels of a window; parts outside the image are 0 (no data)."""
+    def level_for(self, pixel_m: float) -> int:
+        """The coarsest overview whose pixels are still at least as fine as ``pixel_m`` (0 = full resolution)."""
+        best = 0
+        for i, lv in enumerate(self.levels):
+            if lv["res"][0] <= pixel_m * 1.001:
+                best = i
+        return best
+
+    def read(self, col0: int, row0: int, w: int, h: int, level: int = 0):
+        """Pixels of a window (in the pixel grid of ``level``); parts outside the image are 0 (no data)."""
         import numpy as np
+        lv = self.levels[level]
+        tw, th = lv["tw"], lv["th"]
+        across = -(-lv["width"] // tw)
         out = np.zeros((h, w), dtype=np.dtype(self.dtype).newbyteorder("="))
         xa, ya = max(col0, 0), max(row0, 0)
-        xb, yb = min(col0 + w, self.width), min(row0 + h, self.height)
+        xb, yb = min(col0 + w, lv["width"]), min(row0 + h, lv["height"])
         if xa >= xb or ya >= yb:
             return out
-        for ty in range(ya // self.th, (yb - 1) // self.th + 1):
-            for tx in range(xa // self.tw, (xb - 1) // self.tw + 1):
-                tile = self._tile(ty * self.tiles_across + tx)
-                x0, y0 = max(xa, tx * self.tw), max(ya, ty * self.th)
-                x1, y1 = min(xb, (tx + 1) * self.tw), min(yb, (ty + 1) * self.th)
-                out[y0 - row0:y1 - row0, x0 - col0:x1 - col0] = \
-                    tile[y0 - ty * self.th:y1 - ty * self.th, x0 - tx * self.tw:x1 - tx * self.tw]
+        for ty in range(ya // th, (yb - 1) // th + 1):
+            for tx in range(xa // tw, (xb - 1) // tw + 1):
+                tile = self._tile(ty * across + tx, level)
+                x0, y0 = max(xa, tx * tw), max(ya, ty * th)
+                x1, y1 = min(xb, (tx + 1) * tw), min(yb, (ty + 1) * th)
+                out[y0 - row0:y1 - row0, x0 - col0:x1 - col0] = tile[y0 - ty * th:y1 - ty * th, x0 - tx * tw:x1 - tx * tw]
+        return out
+
+    def sample(self, x, y, level: int = 0):
+        """Values at the points (x, y) in the file's coordinates (nearest pixel of ``level``; 0 outside)."""
+        import numpy as np
+        lv = self.levels[level]
+        rx, ry = lv["res"]
+        cols = np.floor((np.asarray(x) - self.origin[0]) / rx).astype(np.int64)
+        rows = np.floor((self.origin[1] - np.asarray(y)) / ry).astype(np.int64)
+        inside = (cols >= 0) & (rows >= 0) & (cols < lv["width"]) & (rows < lv["height"])
+        out = np.zeros(cols.shape, dtype=np.dtype(self.dtype).newbyteorder("="))
+        if not inside.any():
+            return out
+        c0, c1 = int(cols[inside].min()), int(cols[inside].max())
+        r0, r1 = int(rows[inside].min()), int(rows[inside].max())
+        win = self.read(c0, r0, c1 - c0 + 1, r1 - r0 + 1, level)
+        out[inside] = win[rows[inside] - r0, cols[inside] - c0]
         return out
 
 
@@ -285,9 +351,12 @@ class OpenSentinel2:
     def __init__(self, settings, http):
         self.settings, self.http = settings, http
 
-    def search(self, bbox: list[float], start: date, end: date, max_cloud: float) -> list[dict]:
-        body = {"collections": ["sentinel-2-l2a"], "bbox": bbox, "datetime": f"{start}T00:00:00Z/{end}T23:59:59Z",
-                "query": {"eo:cloud_cover": {"lt": max_cloud}}, "limit": 200}
+    def search(self, bbox: list[float], start: date, end: date, max_cloud: float | None) -> list[dict]:
+        """Passes with at most ``max_cloud`` % scene cloud (``None`` or 100: every pass), oldest first."""
+        body: dict = {"collections": ["sentinel-2-l2a"], "bbox": bbox, "datetime": f"{start}T00:00:00Z/{end}T23:59:59Z",
+                      "limit": 200}
+        if max_cloud is not None and max_cloud < 100:
+            body["query"] = {"eo:cloud_cover": {"lte": max_cloud}}
         status, raw = self.http("POST", self.settings.earthsearch_url.rstrip("/") + "/search",
                                 {"Content-Type": "application/json", "Accept": "application/geo+json"},
                                 json.dumps(body).encode())
@@ -301,9 +370,10 @@ class OpenSentinel2:
             epsg = p.get("proj:epsg") or int(str(p.get("proj:code") or "EPSG:0").split(":")[-1] or 0)
             out.append({"id": f["id"], "date": p["datetime"][:10], "datetime": p["datetime"],
                         "cloud": p.get("eo:cloud_cover"), "tile": p.get("s2:mgrs_tile") or f["id"].split("_")[1],
-                        "epsg": int(epsg), "bbox": f.get("bbox"), "offset": boa_offset(p),
+                        "epsg": int(epsg), "bbox": f.get("bbox"), "geometry": f.get("geometry"), "offset": boa_offset(p),
                         "platform": p.get("platform", ""),
-                        "hrefs": {k: a[k]["href"] for k in ("red", "green", "blue", "nir", "scl", "thumbnail") if k in a}})
+                        "hrefs": {k: a[k]["href"] for k in ("red", "green", "blue", "nir", "scl", "thumbnail") if k in a},
+                        "bands": {band: a[key]["href"] for band, key in ES_BANDS.items() if key in a}})
         return sorted(out, key=lambda s: s["datetime"])
 
     @staticmethod

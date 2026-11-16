@@ -1,6 +1,6 @@
 # Configuration (environment variables)
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-15. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
 
 All settings are environment variables with the `WIOT_` prefix, read by pydantic-settings from the process environment and `.env` (see `.env.example`). Secret values are never shown here.
 
@@ -76,6 +76,9 @@ All settings are environment variables with the `WIOT_` prefix, read by pydantic
 | `WIOT_EUMETSAT_KEY` | str \| None | — (secret; set in `.env`) |  |
 | `WIOT_EUMETSAT_SECRET` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
 | `WIOT_EO_DOWNLOAD_MAX_MB` | int | `200` |  |
+| `WIOT_VIEWER_DAILY_PU` | float | `1000` | viewer, Sentinel Hub units per UTC day, whole server; 0 = no limit |
+| `WIOT_VIEWER_COMPANY_DAILY_PU` | float | `400` | viewer, Sentinel Hub units per UTC day, each company; 0 = no limit |
+| `WIOT_VIEWER_CACHE_MB` | int | `1024` | disk cache of viewer images (data/satellite/render) |
 | `WIOT_WEB_PUSH` | bool | `True` | alerts to installed dashboards / phones (VAPID key created in data/ on first use) |
 | `WIOT_ASSISTANT_ENABLED` | bool | `False` |  |
 | `WIOT_ASSISTANT_API_KEY` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |
