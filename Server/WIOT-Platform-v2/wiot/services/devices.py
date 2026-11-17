@@ -21,7 +21,7 @@ import json
 import logging
 import threading
 import time
-from collections import OrderedDict, deque
+from collections import OrderedDict
 
 from ..domain.ext_metrics import (apply_mapping, auto_mapping, flatten, parse_chirpstack, parse_time, parse_ttn,
                                   verify_signature)
