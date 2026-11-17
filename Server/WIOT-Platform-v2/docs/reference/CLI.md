@@ -1,6 +1,6 @@
 # Command-line interface
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-17. Do not edit by hand._
 
 ```
 usage: wiot [-h]
@@ -230,5 +230,5 @@ options:
                         publish (e.g. broker.hivemq.com)
   --bridge-topic FILTER
                         topic filter to bridge both ways; repeatable (default:
-                        wiot/Company_1/#)
+                        wiot/Company_1/# and wiotx/Company_1/#)
 ```

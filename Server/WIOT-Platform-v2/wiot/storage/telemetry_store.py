@@ -227,6 +227,8 @@ class TelemetryStore:
         migrate_region_storage(db)
         db.execute("CREATE INDEX IF NOT EXISTS idx_v2_messages_time ON messages(region, timestamp)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_v2_messages_node_time ON messages(region, node_id, type, timestamp)")
+        from .device_store import ext_schema          # third-party device readings (Track G, point 53)
+        ext_schema(db)
 
     # ------------------------------------------------------------------ write
     def save_message(self, *, company: str, region: str, received_at: int, msg_type: str,

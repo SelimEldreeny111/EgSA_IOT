@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
-from ..protocol.topics import SUBSCRIPTIONS
+from ..protocol.topics import JSON_ROOT, SUBSCRIPTIONS
 from ..protocol.transport import MqttNodeClient
 from .metrics import BROKER_READY
 from .realtime import LogBuffer, RealtimeHub
@@ -46,10 +46,12 @@ class BrokerParams:
 
 class BrokerManager:
     def __init__(self, hub: RealtimeHub, logs: LogBuffer,
-                 on_plaintext: Callable[[str, bytes], None]):
+                 on_plaintext: Callable[[str, bytes], None],
+                 on_json: Callable[[str, bytes], None] | None = None):
         self.hub = hub
         self.logs = logs
         self.on_plaintext = on_plaintext
+        self.on_json = on_json          # third-party devices: plain JSON under wiotx/ (Track G)
         self.client: MqttNodeClient | None = None
         self.params: BrokerParams | None = None
         self.connected_since: float | None = None
@@ -67,6 +69,7 @@ class BrokerManager:
                 broker_host=params.host, broker_port=params.port, aes_key_16=params.aes_key,
                 client_id=client_id, subscribe_topics=list(SUBSCRIPTIONS),
                 on_plaintext=self._on_plaintext, on_status=self._on_status,
+                on_json=self._on_json if self.on_json else None, json_root=JSON_ROOT,
             )
             if params.username:
                 client.client.username_pw_set(params.username, params.password or None)
@@ -100,6 +103,10 @@ class BrokerManager:
     def _on_plaintext(self, topic: str, plaintext: bytes) -> None:
         self.last_rx_at = time.time()
         self.on_plaintext(topic, plaintext)
+
+    def _on_json(self, topic: str, payload: bytes) -> None:
+        self.last_rx_at = time.time()
+        self.on_json(topic, payload)
 
     def _on_status(self, message: str) -> None:
         if not message or message.startswith(("[RX#", "[TX#", "MQTT frame", "Frame header")):

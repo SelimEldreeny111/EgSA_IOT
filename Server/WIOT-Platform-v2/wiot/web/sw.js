@@ -1,7 +1,7 @@
 // WIOT service worker (R2.6, point 24): installable app, offline technician mode, map tiles, push alerts.
 // App shell and assets: stale-while-revalidate. API reads: network first, the last good answer when offline
 // (marked with X-WIOT-Offline). Map tiles: cache first (saved per farm from Commissioning > Field tools).
-const SHELL = "wiot-shell-v1", API = "wiot-api-v1", TILES = "wiot-tiles-v1", TILE_LIMIT = 3000;
+const SHELL = "wiot-shell-v2", API = "wiot-api-v1", TILES = "wiot-tiles-v1", TILE_LIMIT = 3000;
 const NO_CACHE_API = ["/api/v2/auth/", "/api/v2/ws", "/api/v2/push/", "/api/v2/assistant", "/api/v2/commission/",
   "/api/v2/eo/render.png"];                                  // satellite images: one per map view, cached on the server
 
@@ -10,8 +10,18 @@ self.addEventListener("install", (e) => {
     "/assets/farm.css", "/assets/app.js", "/assets/api.js", "/assets/charts.js", "/assets/i18n.js", "/assets/theme.js",
     "/assets/favicon.svg", "/assets/icon-192.png"]).catch(() => {})).then(() => self.skipWaiting()));
 });
+async function carryOver(keys) {                     // page modules of the old shell cache, until revalidated
+  const now = await caches.open(SHELL);
+  for (const k of keys.filter((n) => n.startsWith("wiot-shell-") && n !== SHELL)) {
+    const old = await caches.open(k);
+    for (const req of await old.keys()) {
+      if (!(await now.match(req))) { const res = await old.match(req); if (res) await now.put(req, res); }
+    }
+  }
+}
 self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => ![SHELL, API, TILES].includes(k)).map((k) => caches.delete(k))))
+  e.waitUntil(caches.keys().then((keys) => carryOver(keys).catch(() => {}).then(() =>
+    Promise.all(keys.filter((k) => ![SHELL, API, TILES].includes(k)).map((k) => caches.delete(k)))))
     .then(() => self.clients.claim()));
 });
 

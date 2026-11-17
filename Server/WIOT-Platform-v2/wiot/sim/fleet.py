@@ -8,6 +8,7 @@ behaviour the delivery-risk model learns from field data.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import math
 import random
@@ -171,10 +172,54 @@ class VirtualNode:
         return msg
 
 
+class VirtualDevice:
+    """A third-party device (Track G) publishing plain JSON to wiotx/{company}/{device}/up."""
+
+    def __init__(self, company: str, device_id: str, period_s: float, rng: random.Random):
+        self.company, self.device_id, self.period_s, self.rng = company, device_id, period_s, rng
+        self.next_report = 0.0
+        self.level = rng.uniform(55, 90)          # tank level %
+        self.moisture = rng.uniform(30, 40)       # substrate moisture %
+
+    @property
+    def topic(self) -> str:
+        return f"wiotx/{self.company}/{self.device_id}/up"
+
+    def payload(self, now: float) -> dict:
+        hour = (now / 3600 + 2) % 24                                   # Egypt local time
+        day = max(0.0, math.sin(math.pi * (hour - 6) / 12))           # 0 at night, 1 at noon
+        noise = self.rng.gauss
+        warm = 1.5 if "GH2" in self.device_id else 0.0
+        if self.device_id.endswith("CLIMATE"):
+            return {"ts": int(now), "temperature": round(19 + warm + 9 * day + noise(0, 0.3), 1),
+                    "humidity": round(82 - 25 * day + noise(0, 1.2), 1), "co2": round(950 - 520 * day + noise(0, 18)),
+                    "par": round(1350 * day * self.rng.uniform(0.9, 1.0)), "battery": 96}
+        if self.device_id.endswith("SUBSTRATE"):
+            self.moisture -= self.rng.uniform(0.02, 0.12) * (1 + day)
+            if self.moisture < 28:
+                self.moisture = self.rng.uniform(38, 42)               # irrigation pulse
+            return {"ts": int(now), "water_SOIL": round(self.moisture, 1), "temp_SOIL": round(20 + 3 * day + noise(0, 0.2), 1),
+                    "conduct_SOIL": round(2100 + 300 * day + noise(0, 40)), "BatV": 3.61}
+        self.level -= self.rng.uniform(0.05, 0.3) * (1 + day)
+        if self.level < 22:
+            self.level = self.rng.uniform(92, 96)                      # refill
+        return {"ts": int(now), "level_pct": round(self.level, 1), "distance": round(300 + (100 - self.level) * 30),
+                "batv": 3.58}
+
+
+def ext_devices(companies: list[str], report_s: float, seed: int) -> list[VirtualDevice]:
+    from .demo_greenhouses import DEMO_COMPANY, DEVICES
+    if DEMO_COMPANY not in companies:
+        return []
+    return [VirtualDevice(DEMO_COMPANY, d["device_id"], max(15.0, report_s * 3), random.Random(seed * 7 + i))
+            for i, d in enumerate(DEVICES)]
+
+
 class FleetSimulator:
     def __init__(self, host: str, port: int, key: bytes, nodes: list[VirtualNode],
-                 drop_rate: float = 0.02, stagger_s: float = 0.7):
+                 drop_rate: float = 0.02, stagger_s: float = 0.7, devices: list[VirtualDevice] | None = None):
         self.stagger_s = stagger_s  # delay between the first reports of consecutive nodes
+        self.devices = list(devices or [])
         self.nodes = {(n.company, n.region, n.node_id): n for n in nodes}
         self.drop_rate = drop_rate
         topics = sorted({f"wiot/{n.company}/{n.region}/{n.node_id}/cmd" for n in nodes}
@@ -257,9 +302,19 @@ class FleetSimulator:
         now = time.time()
         for i, node in enumerate(self.nodes.values()):
             node.next_report = now + 1 + i * self.stagger_s
-        log.info("Simulating %d nodes", len(self.nodes))
+        for i, dev in enumerate(self.devices):
+            dev.next_report = now + 2 + i
+        log.info("Simulating %d nodes and %d third-party devices", len(self.nodes), len(self.devices))
         while not self._stop.is_set():
             now = time.time()
+            for dev in self.devices:
+                if now >= dev.next_report:
+                    dev.next_report = now + dev.period_s * dev.rng.uniform(0.95, 1.05)
+                    try:
+                        self.client.publish_raw(dev.topic, json.dumps(dev.payload(now)).encode(), note="json device")
+                        self.sent += 1
+                    except RuntimeError:
+                        pass                      # broker briefly unreachable: like a lost uplink
             for node in self.nodes.values():
                 if now < node.next_report:
                     continue
@@ -325,9 +380,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s sim %(message)s")
-    nodes = default_fleet([c.strip() for c in args.companies.split(",") if c.strip()], args.region,
-                          args.report_seconds, args.seed)
-    sim = FleetSimulator(args.host, args.port, bytes.fromhex(args.aes_key), nodes, args.drop_rate)
+    companies = [c.strip() for c in args.companies.split(",") if c.strip()]
+    nodes = default_fleet(companies, args.region, args.report_seconds, args.seed)
+    sim = FleetSimulator(args.host, args.port, bytes.fromhex(args.aes_key), nodes, args.drop_rate,
+                         devices=ext_devices(companies, args.report_seconds, args.seed))
     signal.signal(signal.SIGINT, sim.stop)
     sim.run()
 

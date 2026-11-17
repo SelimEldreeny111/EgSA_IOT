@@ -433,7 +433,8 @@ table.data tr.clickable { cursor: pointer; }
   .rail { position: fixed; bottom: 0; top: auto; height: 60px; width: 100%; flex-direction: row; justify-content: space-around; align-items: center;
     padding: 6px; border-right: 0; border-top: 1px solid var(--sidebar-line); }
   .rail .sb-brand, .rail .spacer, .rail .sb-group, .rail .sb-user, .rail .sb-collapse, .rail a.nav span { display: none; }
-  .rail a.nav { padding: 0 10px; }
+  .rail a.nav { padding: 0 10px; flex: 0 0 auto; }
+  .rail { overflow-x: auto; overflow-y: hidden; justify-content: flex-start; scroll-snap-type: x proximity; scrollbar-width: none; }
   .rail a.nav.active::before { display: none; }
   main { padding: 0 12px 84px; }
   .g-4 { grid-template-columns: minmax(0, 1fr); }

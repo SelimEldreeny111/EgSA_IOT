@@ -1,8 +1,8 @@
 # HTTP and WebSocket API
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-17. Do not edit by hand._
 
-172 HTTP paths, 204 operations (HEAD excluded), 1 WebSocket route(s); OpenAPI documents 163 paths. Interactive docs: `/api/docs` on a running server.
+172 HTTP paths, 204 operations (HEAD excluded), 1 WebSocket route(s); OpenAPI documents 175 paths. Interactive docs: `/api/docs` on a running server.
 
 **Dependencies** are the FastAPI dependency functions on each route; they carry authentication (`current_principal`), role checks (`require_*`, `can_*`) and CSRF checks. Read them in `wiot/api/deps.py`.
 

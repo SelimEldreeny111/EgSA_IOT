@@ -1,6 +1,6 @@
 # Configuration (environment variables)
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-17. Do not edit by hand._
 
 All settings are environment variables with the `WIOT_` prefix, read by pydantic-settings from the process environment and `.env` (see `.env.example`). Secret values are never shown here.
 
@@ -43,6 +43,8 @@ All settings are environment variables with the `WIOT_` prefix, read by pydantic
 | `WIOT_STATUS_PUBLIC` | bool | `True` | public /status page (service health only, no company data) |
 | `WIOT_CONFIG_WATCH` | bool | `True` | re-send SRATE/STRAN when a node reports other intervals than intended |
 | `WIOT_PUBLIC_URL` | str \| None | — | e.g. https://wiot.example.org (links in e-mails, SSO redirect) |
+| `WIOT_DEVICE_MQTT_HOST` | str \| None | — |  |
+| `WIOT_DEVICE_MQTT_PORT` | int \| None | — |  |
 | `WIOT_OIDC_ISSUER` | str \| None | — |  |
 | `WIOT_OIDC_CLIENT_ID` | str \| None | — |  |
 | `WIOT_OIDC_CLIENT_SECRET` | pydantic.types.SecretStr \| None | — (secret; set in `.env`) |  |

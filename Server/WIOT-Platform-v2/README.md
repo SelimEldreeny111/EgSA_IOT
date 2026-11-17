@@ -70,9 +70,9 @@ Field gateways publish to the broker in their firmware (`kMqttServer` in
 `Node/IoT_Node_Encrypted/src/config/AppConfig.cpp`, currently `broker.hivemq.com`).
 A server pointed at the local `devbroker` (`WIOT_MQTT_HOST=127.0.0.1`) sees none of
 that traffic unless the broker bridges it. `run-dev.ps1` therefore starts the
-development broker with `--bridge broker.hivemq.com:1883 --bridge-topic wiot/Company_1/#`:
-uplinks (status, data, command ACKs) are copied down, and the server's commands are
-copied back up to the gateway. The simulated tenants never leave the PC. Pass
+development broker with `--bridge broker.hivemq.com:1883 --bridge-topic wiot/Company_1/#
+--bridge-topic wiotx/Company_1/#`: uplinks (status, data, command ACKs) and third-party device JSON
+are copied down, and the server's commands are copied back up to the gateway. The simulated tenants never leave the PC. Pass
 `-Bridge ""` to run offline, or more `-BridgeTopic` filters for other companies.
 
 The server decrypts with `WIOT_MQTT_AES_KEY_HEX`, which must be the same 16 bytes as
@@ -81,7 +81,7 @@ frame fail with `Invalid frame padding` and nothing appears for that company. Th
 simulator encrypts with whatever key the server uses, so demo tenants work with either.
 
 In production either point `WIOT_MQTT_HOST` at the managed broker directly or bridge
-with Mosquitto (`connection` + `topic wiot/# both 1`).
+with Mosquitto (`connection` + `topic wiot/# both 1` + `topic wiotx/# in 1`).
 
 ## CLI
 
@@ -99,7 +99,7 @@ with Mosquitto (`connection` + `topic wiot/# both 1`).
 | `python -m wiot loadtest --nodes 1000 --rate 2 --minutes 3` | load test on a throw-away data folder, local broker and spare ports |
 | `python -m wiot analyze` | run the analytics + ML pipeline into `data/analytics/` |
 | `python -m wiot devbroker` | local development MQTT broker (amqtt) |
-| `python -m wiot devbroker --bridge broker.hivemq.com --bridge-topic "wiot/Company_1/#"` | same, plus a two-way bridge so real gateways on the upstream broker appear beside the simulator |
+| `python -m wiot devbroker --bridge broker.hivemq.com --bridge-topic "wiot/Company_1/#" --bridge-topic "wiotx/Company_1/#"` | same, plus a two-way bridge so real gateways on the upstream broker appear beside the simulator |
 | `python -m wiot simulate --companies Demo_Utility,Demo_AgriFarm` | encrypted virtual fleet that obeys power modes and ACKs commands only while awake |
 
 ## Configuration
@@ -371,7 +371,7 @@ pipeline from the UI. See `data/analytics/REPORT.md` for the full write-up.
   `wiot_repeated_frames_total{kind}`, HTTP latency.
 * **Docker** — `docker compose up -d --build` starts Mosquitto and the platform.
 
-## Releases 2.2 – 2.6 at a glance
+## Releases 2.2 – 2.8 at a glance
 
 | Area | Pages and endpoints | Notes |
 |---|---|---|
@@ -383,6 +383,7 @@ pipeline from the UI. See `data/analytics/REPORT.md` for the full write-up.
 | Agronomy | Irrigation planning (FAO-56 calendar, soil, FAO-29 salinity, deficit programmes, 7-day forecast, schedules, canal rotations), Water accounts (quotas, wells, costs, utility districts) | schedules act through the command journal |
 | Crop records | Crop care (degree days, disease risk, diary, GlobalG.A.P. traceability, yields, WaPOR), Satellite (Sentinel-2 NDVI, pivot detection, WIOT-SAT), Regional dashboard, Farmer view `/farmer` | Sentinel-2 needs `WIOT_SENTINEL_CLIENT_ID/SECRET` |
 | Earth observation (2.7) | Satellite page: open Sentinel-2 NDVI without an account, Copernicus catalogue (Sentinel-1/2/3), EUMETSAT Data Store search and downloads; `GET /api/v2/eo/*` | `WIOT_SATELLITE_PROVIDER=open`; downloads need `WIOT_EUMETSAT_KEY/SECRET` |
+| Greenhouses and third-party devices (2.8, Track G points 53 and 58) | Devices page: sensors from other makers over MQTT JSON (`wiotx/<company>/<device>/up`, HMAC-signed by default because the field broker is public) or LoRaWAN through The Things Stack v3 / ChirpStack v4 webhooks (`POST /api/v2/ingest/ttn`, `/ingest/chirpstack`, per-company connection key); metric catalog, payload mapping, silent-device alerts. Greenhouses page: houses, zones and benches on the map with attached sensors and their latest readings; `GET/PUT /api/v2/greenhouses/layout` (versioned) | set `WIOT_PUBLIC_URL` behind a proxy so the webhook addresses shown are public; demo data on Demo_AgriFarm, published by `python -m wiot simulate` |
 | Field | installable app with offline mode and push alerts, Commissioning wizard, Maintenance (work orders, photos, calibrations), Assistant (optional, Claude) | assistant: `pip install -e ".[assistant]"` and `WIOT_ASSISTANT_ENABLED=true` |
 
 ## Tests

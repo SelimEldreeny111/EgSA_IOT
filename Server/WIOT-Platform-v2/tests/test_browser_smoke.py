@@ -15,7 +15,7 @@ playwright = pytest.importorskip("playwright.sync_api")
 
 from conftest import PASSWORDS  # noqa: E402
 
-PAGES = ["farm", "planning", "water", "crop", "satellite", "regional", "maintenance", "commission", "assistant", "world", "overview", "alerts", "health", "notify", "commands", "analytics", "history", "flash", "reports",
+PAGES = ["farm", "planning", "water", "crop", "greenhouses", "satellite", "regional", "maintenance", "commission", "assistant", "world", "overview", "alerts", "health", "devices", "notify", "commands", "analytics", "history", "flash", "reports",
          "org", "security", "integrations", "usage", "help",
          "admin", "system"]
 

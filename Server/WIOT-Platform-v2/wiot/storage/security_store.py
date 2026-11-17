@@ -21,7 +21,7 @@ from ..services import totp
 
 SESSION_TOUCH_S = 60
 INVITE_TTL_S = 7 * 86400
-PAGES = ("farm", "planning", "crop", "satellite", "regional", "maintenance", "commission", "assistant", "world", "overview", "alerts", "health", "notify", "commands", "analytics", "history",
+PAGES = ("farm", "planning", "crop", "satellite", "regional", "maintenance", "commission", "assistant", "devices", "greenhouses", "world", "overview", "alerts", "health", "notify", "commands", "analytics", "history",
          "flash", "reports", "water", "org", "admin", "security", "usage", "integrations", "help")
 
 

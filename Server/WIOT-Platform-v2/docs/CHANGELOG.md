@@ -566,3 +566,85 @@ servers' journals of the same day.
     followed when the radio was free.
   - A GOSTM to an RTC_PERIODIC node waited for its next Status (+6 s) and was answered at +7 s.
 - Full suite: 240 passed + 13 subtests, 1 skipped (the browser smoke test without Playwright).
+
+## 2026-11-17 — Track G: third-party devices and greenhouse layouts (version 2.8.0)
+
+Points 53 and 58 of the development plan (Track G, phase G2), server only: no firmware change.
+
+**Third-party devices (point 53)**: off-the-shelf climate, soil, water-quality and tank sensors next to the WIOT nodes.
+- **MQTT JSON** on the same broker session as the nodes, topic `wiotx/<company>/<device_id>/up` (added to the
+  subscriptions; `transport.py` hands `wiotx/` messages to the device service before AES framing). The field broker is
+  public, so a device is **signed** by default: `{"p": "<JSON text>", "sig": "<hex>"}` with
+  `sig = HMAC-SHA256(device secret, topic + "\n" + p)` and `ts` (Unix seconds) inside `p`. A message must be newer than
+  the last one stored (replays refused, also after a restart) and at most 7 days old. The secret is sealed with
+  `WIOT_SECRET_KEY` and shown once (create or "New secret"). **Unsigned** devices publish plain JSON; their readings are
+  stored but marked untrusted.
+- **LoRaWAN** through The Things Stack v3 (webhook, `POST /api/v2/ingest/ttn`) or ChirpStack v4 (HTTP integration, JSON,
+  `POST /api/v2/ingest/chirpstack?event=up|status`), with a per-company **connection key** (`wiotsrc_…`, stored as a
+  SHA-256 hash, shown once, revocable; never usable as an API token). Devices are matched by DevEUI; RSSI and SNR of the
+  best gateway are stored with each uplink; ChirpStack status events add the battery level.
+- **Metric catalog** (`wiot/domain/ext_metrics.py`, 26 metrics in 5 groups, one SI unit and a valid range each). A
+  device's **payload mapping** (field → metric, scale, offset) turns vendor fields into metrics; without a mapping,
+  common field names (temperature, humidity, co2, par, battery …) map automatically. Out-of-range values are rejected.
+- **Storage** per company (`ext_readings` raw, `ext_hourly` count/sum/min/max, `ext_latest`); duplicates ignored;
+  raw rows follow the company's retention (at least 365 days), hourly summaries are kept. Live hub event
+  `device_reading`; each uplink counts as a message in Usage.
+- **Alerts**: `device_silent_<id>` (warning, site level) after 3 missed reports (at least 15 min), cleared by the next
+  reading; shown with the device name on the Alerts page and in e-mail/SMS/Telegram/Teams texts.
+- **Devices page** (Operations → Devices): tiles, device list with live readings and status, editor with payload
+  mapping and the last payload (Map buttons), secret box with a ready-to-run Python example, readings chart
+  (24 h … 1 year; hourly mean with min/max band), "Heard but not registered" list with one-click Register, LoRaWAN
+  connections tab with set-up steps, set-up guide with the catalog. Read-only users see everything except secrets
+  and keys; API tokens cannot create devices, secrets or keys.
+- API: `GET/POST /api/v2/devices`, `PATCH/DELETE /devices/{id}`, `POST /devices/{id}/secret`,
+  `GET /devices/{id}/series`, `GET /devices/catalog`, `GET/POST /devices/sources`, `DELETE /devices/sources/{id}`.
+
+**Greenhouse layout editor (point 58)**: Operations → Greenhouses.
+- One layout per company: houses (glass, plastic, net, tunnel, shade, other) → zones → benches, as polygons on the
+  satellite map, each with attached sensors (third-party devices or WIOT nodes). Kept separate from the Smart-farm
+  layout, whose zones are irrigated fields.
+- Editor (hand-written on Leaflet): 3-click rectangles (any rotation) and polygons, corner/midpoint/move handles,
+  snapping, **Bench rows…** generator (width, path, margin, direction, live preview), undo/redo, keyboard shortcuts,
+  drafts kept in the browser tab, containment warnings. Saving is versioned: a save based on an older version is
+  refused (409) instead of overwriting; other open editors reload, or warn when they have unsaved edits
+  (hub event `greenhouse_layout`).
+- Latest readings per house, zone and bench (mean of fresh readings over the element's subtree, last 3 h).
+- API: `GET/PUT /api/v2/greenhouses/layout` (up to 2 MB, 5,000 benches), `GET /greenhouses/live`,
+  `GET /greenhouses/attachables`.
+
+**Demo**: Demo_AgriFarm gets two greenhouses (66 benches) west of the pivots and four unsigned devices (two climate
+sensors, a substrate probe with a µS/cm → dS/m mapping, a tank level sensor); `python -m wiot simulate` publishes their
+JSON. `run-dev.ps1` and `devbroker --bridge` now also bridge `wiotx/Company_1/#`.
+
+**Shell**: new icons, page-access keys `devices` and `greenhouses`, help articles, tour steps and What's new 2.8,
+service-worker shell cache `wiot-shell-v2`, Arabic for every new string. Phone fixes for all pages: no more 16 px
+sideways scroll (top-bar background), and Leaflet maps no longer paint over the bottom navigation or the sticky top bar.
+
+**Review before commit.** Five independent reviewers (security, back end, Devices page, greenhouse editor,
+integration), each finding checked by a skeptical second agent: 56 reported, 52 confirmed, all fixed. The main ones:
+- Signed MQTT devices are rate-limited only after their signature is checked, so junk published to their topic on the
+  public broker cannot block them (allowance 500 messages, then one per second, room for a buffered backlog).
+- Field names that cannot be encoded (lone surrogates), integers too large for a float, nesting bombs and malformed
+  TTN/ChirpStack bodies are ignored or answered with 4xx; webhook keys are checked before the body is parsed.
+- Company names cached for the MQTT path (no query per message); registry cache cannot be refilled with stale rows;
+  a device deleted while one of its messages is being stored does not get readings back.
+- Deleting, disabling or moving a device publishes the "resolved" event of its silence alert.
+- The demo devices are seeded once only; deleting them is final.
+- Greenhouse readings: unsigned readings are counted and flagged ("untrusted"), a future unsigned time stamp is
+  clamped, a sensor attached at two levels counts once, Sondas probes of WIOT nodes are included; layout warnings are
+  computed once per save; at most 50,000 corners per layout.
+- New settings `WIOT_DEVICE_MQTT_HOST/PORT` (the broker shown to devices); the page warns when the broker or the
+  webhook address is not reachable from outside (set `WIOT_PUBLIC_URL`).
+- Windows Mosquitto bridge (`deploy/windows/mosquitto.conf`) now carries `wiotx/Company_1/#`.
+- Raw series keep the newest 20,000 points (`truncated` flag).
+- Shell: a page left while it was loading no longer replaces the current page's clean-up (listener and timer leak);
+  sign-out clears greenhouse drafts; the service worker keeps the old shell's files across the cache rename (offline
+  start); the phone navigation scrolls sideways; map overlays stay under the sticky top bar.
+- Devices page: exact scale/offset kept on save, live points only inside the chart window, gaps for silent periods,
+  side panel refreshed live without touching the form, keyboard focus kept, secret box kept after Save, interval shown
+  to the second, stale list responses ignored. Greenhouse editor: drafts survive a re-render, keyboard shortcuts
+  right after drawing, saves in flight across re-renders, slanted-slot bench rows, readings only when the saved
+  layout matches, corner drags that would collapse a shape are undone, size check in UTF-8 bytes, drafts per user.
+- Help texts corrected (Bench rows fields, Latest readings, drafts kept per tab).
+
+Tests: new `tests/test_trackg.py` (12). Full suite: 252 passed; browser smoke test (every page incl. Devices and Greenhouses, English and Arabic) passed.

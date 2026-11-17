@@ -71,8 +71,10 @@ def alert_text(company: str, data: dict) -> tuple[str, str]:
     d = data.get("details") or {}
     title = (d.get("rule") if kind.startswith("rule_") else f"Water quota {d.get('quota', '')}".strip() if kind.startswith("quota_")
              else f"Calibration overdue: {d.get('asset', '')}".strip(": ") if kind.startswith("calibration_due_")
+             else f"Device silent: {d.get('name') or d.get('device_id', '')}" if kind.startswith("device_silent_")
              else TITLES.get(kind, kind.replace("_", " ").capitalize()))
-    where = f"{node_tag(data.get('node_id'))} · {company}/{data.get('region', '')}"
+    tag = f"DEVICE {d['device_id']}" if kind.startswith("device_silent_") and d.get("device_id") else node_tag(data.get("node_id"))
+    where = f"{tag} · {company}/{data.get('region', '')}"
     sev = "Resolved" if resolved else str(data.get("severity", "")).capitalize()
     facts = []
     if kind.startswith("rule_"):
@@ -81,7 +83,7 @@ def alert_text(company: str, data: dict) -> tuple[str, str]:
                        ("tmax_c", "maximum {} °C"), ("date", "on {}"), ("cmd", "command {}")):
         if d.get(key) is not None:
             facts.append(label.format(d[key]))
-    subject = f"[WIOT] {sev}: {title} — {node_tag(data.get('node_id'))}"
+    subject = f"[WIOT] {sev}: {title} — {tag}"
     body = f"{sev}: {title}\n{where}\n" + ("; ".join(facts) + "\n" if facts else "") + \
         time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
     return subject, body

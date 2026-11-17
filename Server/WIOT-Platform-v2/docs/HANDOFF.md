@@ -1,6 +1,6 @@
 # WIOT Platform v2 — hand-over for the next agent
 
-**Date:** 15 November 2026 · **Version:** 2.7.0 (`wiot/__init__.py`; releases R2.1–R2.7 committed and pushed) · **Owner:** EgSA R&D IoT team
+**Date:** 17 November 2026 · **Version:** 2.8.0 (`wiot/__init__.py`; releases R2.1–R2.7 committed and pushed; Track G points 53 and 58 added as 2.8.0) · **Owner:** EgSA R&D IoT team
 (lead researcher Selim Eldreeny; supervisor Dr. Haitham Akah).
 
 This is the entry point. Read §1 before touching anything. The other documents:
@@ -9,7 +9,7 @@ This is the entry point. Read §1 before touching anything. The other documents:
 |---|---|
 | `docs/CHANGELOG.md` | Everything done on the server, by date |
 | `README.md` | Feature guide: quick start, CLI, configuration, security, Flash data, farm, organization, alerts, operations |
-| `docs/reference/API.md` | Every HTTP route: method, module, handler, dependencies, description (85 operations) |
+| `docs/reference/API.md` | Every HTTP route: method, module, handler, dependencies, description (204 operations) |
 | `docs/reference/CONFIG.md` | Every `WIOT_*` setting with type and default |
 | `docs/reference/CLI.md` | Every `python -m wiot` command and option |
 | `docs/reference/DATABASE.md` | Schema of every SQLite database |
@@ -17,7 +17,7 @@ This is the entry point. Read §1 before touching anything. The other documents:
 | `docs/reference/TESTS.md` | Every test file and test |
 | `docs/reference/EVENTS.md` | Realtime hub events and Prometheus metrics |
 | `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0` (project root) | **The work plan:** all 62 improvement points in releases R2.1–R2.6 and Track G, with dates, prerequisites, quality gates and risks |
-| `Documentation/ServerSoftware/` (project root) | Server Description and User Manual V2.0 (81 pp, 15 Nov 2026, server 2.7.0); System Analysis & Design (34 pp) and Test Report (25 pp) V1.1 of 11 Nov 2026 (Phase 0 and R2.1); earlier versions kept |
+| `Documentation/ServerSoftware/` (project root) | Server Description and User Manual V2.1 (90 pp, 17 Nov 2026, server 2.8.0; V2.0 kept); System Analysis & Design (34 pp) and Test Report (25 pp) V1.1 of 11 Nov 2026 (Phase 0 and R2.1); earlier versions kept |
 | `Documentation/Flowcharts/` (project root) | Flowcharts; F31–F41 are the server |
 | `data/analytics/REPORT.md` | Data-analysis report (8 Nov 2026) |
 
@@ -243,9 +243,12 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
   15 Nov 2026 (R2.7 = Earth observation: open Sentinel-2, Copernicus catalogue, EUMETSAT; on 15–16 Nov the satellite viewer
   with the Copernicus Browser layers and the satellite data over the farm, reviewed before its push: daily Sentinel Hub
   allowances `WIOT_VIEWER_*_PU`, drawing slots, own evalscripts for the supervisor only) — see `docs/CHANGELOG.md`,
-  last entries. Track G (points 53–60) is not started, by decision. The CI workflow (with the `lint` and `browser` jobs)
+  last entries. After R2.7: the Smart-farm "no probe" fix (`cf2118e`) and the command-delivery fix (one command per
+  gateway radio, `cb4fe72`), 16 Nov. **Track G, 17 Nov 2026 (2.8.0):** point 53 (third-party devices over MQTT JSON and
+  LoRaWAN — The Things Stack / ChirpStack —, Devices page) and point 58 (greenhouse layout editor, Greenhouses page) are
+  done; points 54–57, 59 and 60 wait for the pilot sensors (plan phases G3–G4). The CI workflow (with the `lint` and `browser` jobs)
   is committed at the worktree root; keep the final-copy root `.github/workflows/server-v2-tests.yml` in step with it.
-- Tests: 241 (240 pass + the browser smoke test, which runs in English and Arabic; see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
+- Tests: 252 pass + the browser smoke test, which runs in English and Arabic (17 Nov 2026; see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
   run it locally with the Video tooling's Playwright appended to the path:
   `.venv\Scripts\python -c "import sys; sys.path.append(r'..\..\Video\.venv\Lib\site-packages'); import pytest;
   sys.exit(pytest.main(['tests/test_browser_smoke.py']))"`.
@@ -261,9 +264,10 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 - Field: node 2 (Company_1) last behaved normally in LORA_WOR_STOP; its flash log holds data that has not been
   downloaded (downloads fail, see OI-01).
 - Documents in `Documentation/ServerSoftware/` (not in git):
-  - **Server Description and User Manual V2.0** (15 Nov 2026, 81 pp, server 2.7.0, every page). Its screenshots
-    were made with `capture_manual_v2.py` against a demonstration copy (port 8010, local broker without a bridge,
-    simulator for the Demo companies only).
+  - **Server Description and User Manual V2.1** (17 Nov 2026, 90 pp, server 2.8.0: new chapters 7 Greenhouses and
+    12 Devices, later chapters renumbered; V2.0 of 15 Nov kept). Its screenshots were made with `capture_manual_v2.py`
+    and, for the Track G pictures and the sidebar, `capture_manual_v21.py`, against a demonstration copy (port 8010,
+    local broker without a bridge, simulator for the Demo companies only). Build with `build_docs.py User_Manual_V2.1`.
   - System Analysis & Design and Test Report V1.1 (Phase 0 + R2.1); V1.0 kept.
   - Remote-sensing course: `RemoteSensing/` next to `Server/`.
 
@@ -282,12 +286,16 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 | — | Repository is public | User's decision (GitHub → Settings → General → Change visibility) |
 | — | Starlette deprecation warning for `httpx` in the test client | Harmless; revisit when upgrading |
 | — | Company_1 site coordinates came from Wikipedia | User to confirm |
+| TG-01 | Third-party devices: the "Heard but not registered" list, message counts and last payload are kept in memory and start again after a restart | By design (diagnostics only); persist if users need them |
+| TG-02 | No alert rules on third-party metrics yet (only "device silent"); no downlinks to LoRaWAN devices | Plan points 55, 59 and 60 (G4) add the thresholds; downlinks when actuators are chosen (point 56) |
+| TG-03 | Unsigned MQTT devices on the public broker can be impersonated | Readings are marked untrusted; use signed devices or a private broker (OI-05) |
 
 ## 10. Roadmap
 
-**Status:** R2.1 committed; R2.2–R2.6 done (12 Nov 2026, version 2.6.0, not committed). **Next:** user acceptance
-of the new pages on real data, the external accounts listed in §8, then Track G (greenhouses and new sensors) when the
-user decides.
+**Status:** R2.1–R2.7 committed and pushed; Track G points 53 and 58 done (17 Nov 2026, version 2.8.0). **Next:**
+user acceptance of the new pages on real data, the external accounts listed in §8, then Track G phase G1 (choose the
+pilot greenhouse, pond or tank and its sensors; Route A — third-party devices through point 53 — or Route B — node
+Modbus drivers) and the remaining Track G points (54–57, 59, 60) on the pilot data.
 
 **Current plan (11 Nov 2026): `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0`** (Markdown, Word
 and PDF in the project root's documentation folder). It schedules all 62 agreed improvement points: server releases

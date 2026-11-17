@@ -21,8 +21,8 @@ administrator runs them; nothing here is run automatically. Linux and Docker use
 4. In `.env`: `WIOT_MQTT_HOST=127.0.0.1`, `WIOT_MQTT_PORT=1883`, `WIOT_MQTT_AUTOCONNECT=true`.
 5. Check: the platform's `/readyz` reports the broker ready, and node data from the field appears.
 
-The gateways keep publishing to `broker.hivemq.com`; only `wiot/Company_1/#` (add more companies in the file) is
-bridged. Moving the gateways to a private broker needs a firmware change and is not part of this release.
+The gateways keep publishing to `broker.hivemq.com`; only `wiot/Company_1/#` and, for third-party MQTT devices
+(Devices page), `wiotx/Company_1/#` are bridged (add more companies in the file, one line of each per company). Moving the gateways to a private broker needs a firmware change and is not part of this release.
 
 ## 2. HTTPS (point 4)
 

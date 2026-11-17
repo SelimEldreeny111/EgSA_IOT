@@ -105,6 +105,12 @@ table.data tr.dim td { opacity: .55; }
 :root[dir="rtl"] .shell.collapsed .sb-collapse svg { transform: none; }
 :root[dir="rtl"] .shell.collapsed .rail a.nav[data-tip]:hover::after { margin-left: 0; margin-right: 58px; }
 :root[dir="rtl"] .topbar::before { inset: 0 -28px; }
+/* Phone: the top bar's full-bleed background follows main's 12 px side padding (it caused a sideways scroll). */
+@media (max-width: 700px) {
+  .topbar::before, :root[dir="rtl"] .topbar::before { inset: 0 -12px; }
+}
+/* Keep Leaflet's internal layers (z-index 200-800) inside the map, under the sticky top bar and the phone navigation. */
+.leaflet-container, .map-panel, .sv-mapbox { isolation: isolate; }   /* their glass overlays (z-index 500) too */
 
 /* Node type selector (Organization → Nodes) */
 .type-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

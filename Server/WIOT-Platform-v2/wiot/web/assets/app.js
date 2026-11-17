@@ -29,15 +29,19 @@ import * as regional from "./pages/regional.js";
 import * as commission from "./pages/commission.js";
 import * as maintenance from "./pages/maintenance.js";
 import * as assistant from "./pages/assistant.js";
+import * as devices from "./pages/devices.js";
+import * as greenhouses from "./pages/greenhouses.js";
 
 const ROUTES = {
   farm: { mod: farm, label: "Smart farm", icon: ICONS.farm, group: "Operations" },
   planning: { mod: planning, label: "Irrigation planning", icon: ICONS.drop, group: "Operations" },
   crop: { mod: cropcare, label: "Crop care", icon: ICONS.thermo, group: "Operations" },
+  greenhouses: { mod: greenhouses, label: "Greenhouses", icon: ICONS.greenhouse, group: "Operations" },
   world: { mod: world, label: "World operations", icon: ICONS.world, group: "Operations" },
   overview: { mod: overview, label: "Fleet overview", icon: ICONS.overview, group: "Operations" },
   alerts: { mod: alerts, label: "Alerts", icon: ICONS.bell, group: "Operations" },
   health: { mod: health, label: "Node health", icon: ICONS.node, group: "Operations" },
+  devices: { mod: devices, label: "Devices", icon: ICONS.device, group: "Operations" },
   notify: { mod: notify, label: "Rules & notifications", icon: ICONS.hook, group: "Operations" },
   commands: { mod: commands, label: "Command center", icon: ICONS.commands, group: "Operations" },
   maintenance: { mod: maintenance, label: "Maintenance", icon: ICONS.edit, group: "Operations" },
@@ -58,7 +62,7 @@ const ROUTES = {
   system: { mod: system, label: "System health", icon: ICONS.system, group: "Settings", supervisor: true },
   help: { mod: help, label: "Help", icon: ICONS.history, group: "Settings", always: true },
 };
-let cleanup = null, fleetSummary = null;
+let cleanup = null, fleetSummary = null, routeSeq = 0;
 
 async function boot() {
   const me = await api("/auth/me");
@@ -151,6 +155,8 @@ function renderRail() {
   $("#logout").addEventListener("click", async (e) => {
     e.preventDefault();
     navigator.serviceWorker?.controller?.postMessage({ type: "clear-data" });   // no company data left on a shared device
+    try { Object.keys(sessionStorage).filter((k) => k.startsWith("wiot.gh.draft.")).forEach((k) => sessionStorage.removeItem(k)); }
+    catch { /* storage blocked */ }
     await api("/auth/logout", { method: "POST" }).catch(() => {});
     location.href = "/login";
   });
@@ -280,7 +286,11 @@ function route() {
   const title = $("#page-title"); if (title) { title.textContent = r.label; const g = document.querySelector(".crumbs span"); if (g) g.textContent = r.group; }
   const root = $("#page"); root.innerHTML = "";
   document.title = `${t(r.label)} · ${t("WIOT Control Center")}`;
-  Promise.resolve(r.mod.render(root, { fleetSummary })).then((fn) => { cleanup = fn || null; })
+  const seq = ++routeSeq;
+  Promise.resolve(r.mod.render(root, { fleetSummary })).then((fn) => {
+    if (seq === routeSeq) { cleanup = fn || null; return; }
+    try { if (typeof fn === "function") fn(); } catch { /* superseded page */ }   // the user already moved on
+  })
     .catch((err) => { root.innerHTML = `<div class="panel"><div class="empty">${esc(err.message)}</div></div>`; toast(err.message, "error"); });
 }
 

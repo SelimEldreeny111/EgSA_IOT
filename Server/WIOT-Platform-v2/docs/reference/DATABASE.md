@@ -1,6 +1,6 @@
 # Databases
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-17. Do not edit by hand._
 
 Schemas read (read-only) from the live databases in `data/`. One `messages_dbs/<Company>.db` per tenant has the same schema; one is shown. No data values are included.
 
@@ -151,12 +151,63 @@ Indexes: `CREATE INDEX crop_diary_by_zone ON crop_diary(company, zone_id, date)`
 | `rain_mm` | REAL |  |  |  |
 | `et0_mm` | REAL |  |  |  |
 
+### `ext_devices`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT | yes |  | 1 |
+| `device_id` | TEXT | yes |  | 2 |
+| `name` | TEXT | yes |  |  |
+| `protocol` | TEXT | yes |  |  |
+| `auth` | TEXT | yes | 'hmac' |  |
+| `secret` | TEXT |  |  |  |
+| `dev_eui` | TEXT |  |  |  |
+| `region` | TEXT |  |  |  |
+| `model` | TEXT | yes | '' |  |
+| `lat` | REAL |  |  |  |
+| `lon` | REAL |  |  |  |
+| `mapping` | TEXT | yes | '[]' |  |
+| `interval_s` | INTEGER | yes | 900 |  |
+| `enabled` | INTEGER | yes | 1 |  |
+| `notes` | TEXT | yes | '' |  |
+| `created_at` | INTEGER | yes |  |  |
+| `created_by` | TEXT | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+
+Indexes: `CREATE UNIQUE INDEX ux_ext_devices_eui ON ext_devices(company, dev_eui) WHERE dev_eui IS NOT NULL`
+
+### `ext_sources`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `company` | TEXT | yes |  |  |
+| `name` | TEXT | yes |  |  |
+| `kind` | TEXT | yes |  |  |
+| `key_hash` | TEXT | yes |  |  |
+| `prefix` | TEXT | yes |  |  |
+| `created_by` | TEXT | yes |  |  |
+| `created_at` | INTEGER | yes |  |  |
+| `last_used_at` | INTEGER |  |  |  |
+| `revoked_at` | INTEGER |  |  |  |
+| `uplinks` | INTEGER | yes | 0 |  |
+
 ### `farm_layouts`
 
 | Column | Type | Not null | Default | PK |
 |---|---|---|---|---|
 | `company` | TEXT |  |  | 1 |
 | `layout` | TEXT | yes |  |  |
+| `updated_at` | INTEGER | yes |  |  |
+| `updated_by` | TEXT | yes |  |  |
+
+### `greenhouse_layouts`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `company` | TEXT |  |  | 1 |
+| `layout` | TEXT | yes |  |  |
+| `version` | INTEGER | yes |  |  |
 | `updated_at` | INTEGER | yes |  |  |
 | `updated_by` | TEXT | yes |  |  |
 
@@ -710,6 +761,44 @@ Indexes: `CREATE INDEX pending_by_node                 ON pending_commands(compa
 | `region` | TEXT | yes | 'Region_1' |  |
 
 Indexes: `CREATE INDEX idx_region_periods ON consumption_periods(region,node_id,sensor_id,period_type,period_key)`; `CREATE INDEX idx_consumption_periods_lookup                  ON consumption_periods(node_id, sensor_id, period_type, period_key)`
+
+### `ext_hourly`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `device_id` | TEXT | yes |  | 1 |
+| `metric` | TEXT | yes |  | 2 |
+| `hour` | INTEGER | yes |  | 3 |
+| `n` | INTEGER | yes |  |  |
+| `sum` | REAL | yes |  |  |
+| `min` | REAL | yes |  |  |
+| `max` | REAL | yes |  |  |
+
+### `ext_latest`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `device_id` | TEXT | yes |  | 1 |
+| `metric` | TEXT | yes |  | 2 |
+| `ts` | INTEGER | yes |  |  |
+| `received_at` | INTEGER | yes |  |  |
+| `value` | REAL | yes |  |  |
+| `trusted` | INTEGER | yes | 1 |  |
+
+### `ext_readings`
+
+| Column | Type | Not null | Default | PK |
+|---|---|---|---|---|
+| `id` | INTEGER |  |  | 1 |
+| `device_id` | TEXT | yes |  |  |
+| `metric` | TEXT | yes |  |  |
+| `ts` | INTEGER | yes |  |  |
+| `received_at` | INTEGER | yes |  |  |
+| `value` | REAL | yes |  |  |
+| `trusted` | INTEGER | yes | 1 |  |
+| `source` | TEXT | yes | '' |  |
+
+Indexes: `CREATE INDEX idx_ext_readings_ts ON ext_readings(ts)`
 
 ### `messages`
 

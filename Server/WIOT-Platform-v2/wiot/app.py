@@ -15,8 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import (admin, alerts, auth, commands, crop, eo, farm, field, notify, operations, org, reports, satellite, stream,
-                  system, telemetry, water)
+from .api import (admin, alerts, auth, commands, crop, devices, eo, farm, field, greenhouses, notify, operations, org,
+                  reports, satellite, stream, system, telemetry, water)
 from .config import Settings, get_settings
 from .logging_setup import configure_logging, request_id_var
 from .security import SESSION_COOKIE
@@ -30,6 +30,7 @@ MAX_BODY = 64 * 1024
 UPLOAD_PATHS = ("/api/v2/satellite/pivots/detect", "/api/v2/satellite/products", "/api/v2/crop/wapor/import")
 UPLOAD_PREFIX = "/api/v2/maintenance/orders/"     # work-order photos (R2.6)
 MAX_UPLOAD = 16 * 1024 * 1024  # images and satellite products (R2.5)
+MAX_LAYOUT = 2 * 1024 * 1024   # greenhouse layouts with thousands of benches (Track G)
 
 def build_csp(settings: Settings) -> str:
     """Strict CSP; the only third-party origins are the configured map tile hosts."""
@@ -87,7 +88,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         started = time.perf_counter()
         length = request.headers.get("content-length")
         path_ = request.url.path
-        limit = MAX_UPLOAD if path_ in UPLOAD_PATHS or (path_.startswith(UPLOAD_PREFIX) and path_.endswith("/photos")) else MAX_BODY
+        limit = (MAX_UPLOAD if path_ in UPLOAD_PATHS or (path_.startswith(UPLOAD_PREFIX) and path_.endswith("/photos"))
+                 else MAX_LAYOUT if path_ == greenhouses.LAYOUT_PATH else MAX_BODY)
         if length and length.isdigit() and int(length) > limit:
             request_id_var.reset(token)
             return _error(413, "Request body too large")
@@ -148,8 +150,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # --------------------------------------------------------------- routers
     for module in (auth, admin, telemetry, commands, farm, operations, org, alerts, system, notify, reports, water, crop,
-                   satellite, eo, field):
+                   satellite, eo, field, devices, greenhouses):
         app.include_router(module.router, prefix=API_PREFIX)
+    app.include_router(devices.ingest_router, prefix=API_PREFIX)
     app.include_router(farm.public_router)
     app.include_router(system.public_router)
     app.include_router(crop.public_router)

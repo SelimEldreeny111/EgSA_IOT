@@ -91,6 +91,8 @@ class MqttNodeClient:
         on_plaintext: Optional[Callable[[str, bytes], None]] = None,
         on_status: Optional[Callable[[str], None]] = None,
         debug: bool = False,
+        on_json: Optional[Callable[[str, bytes], None]] = None,
+        json_root: Optional[str] = None,
     ):
         # Broker / framing settings injected from the GUI.
         self.broker_host = broker_host
@@ -100,6 +102,9 @@ class MqttNodeClient:
         self.on_plaintext = on_plaintext
         self.on_status = on_status
         self.debug = debug
+        # Plain-JSON topics (third-party devices) skip AES framing and go to their own handler.
+        self.on_json = on_json
+        self._json_prefix = (json_root + "/") if json_root and on_json else None
 
         # Lock is used because MQTT callbacks and GUI actions may touch counters concurrently.
         self._lock = threading.Lock()
@@ -529,6 +534,10 @@ class MqttNodeClient:
         - decrypt errors are also logged to RX
         """
         raw = msg.payload
+        if self._json_prefix and msg.topic.startswith(self._json_prefix):
+            if self.is_connected():
+                self.on_json(msg.topic, raw)
+            return
         if not 33 <= len(raw) <= 4129:
             if self.on_status:
                 self.on_status('[MQTT] Dropped empty/oversized encrypted frame')

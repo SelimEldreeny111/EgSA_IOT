@@ -4,8 +4,8 @@ import { api, state, ago, badge, toast, ICONS, $, $$ } from "../api.js";
 import { esc, fmtDateTime } from "../charts.js";
 import { formHtml, readForm, download, copy, uaLabel } from "../forms.js";
 
-const PAGES = [["farm", "Smart farm"], ["planning", "Irrigation planning"], ["crop", "Crop care"], ["satellite", "Satellite"], ["maintenance", "Maintenance"], ["commission", "Commissioning"], ["assistant", "Assistant"], ["world", "World operations"], ["overview", "Fleet overview"], ["alerts", "Alerts"],
-  ["health", "Node health"], ["notify", "Rules & notifications"], ["commands", "Command center"], ["analytics", "Data science"],
+const PAGES = [["farm", "Smart farm"], ["planning", "Irrigation planning"], ["crop", "Crop care"], ["greenhouses", "Greenhouses"], ["satellite", "Satellite"], ["maintenance", "Maintenance"], ["commission", "Commissioning"], ["assistant", "Assistant"], ["world", "World operations"], ["overview", "Fleet overview"], ["alerts", "Alerts"],
+  ["health", "Node health"], ["devices", "Devices"], ["notify", "Rules & notifications"], ["commands", "Command center"], ["analytics", "Data science"],
   ["history", "Message history"], ["flash", "Flash data"], ["reports", "Reports"], ["water", "Water accounts"], ["org", "Organization"],
   // pages that also need a role (admin or national account): the role still decides; listed so a page list keeps them
   ["regional", "Regional dashboard"], ["admin", "Administration"], ["integrations", "Integrations"], ["usage", "Usage"]];

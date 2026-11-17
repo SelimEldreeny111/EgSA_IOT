@@ -181,7 +181,7 @@ def cmd_loadtest(args) -> None:
 def cmd_devbroker(args) -> None:
     from .sim import devbroker
     devbroker.main(args.host, args.port, bridge=args.bridge,
-                   bridge_topics=args.bridge_topic or (["wiot/Company_1/#"] if args.bridge else None))
+                   bridge_topics=args.bridge_topic or (["wiot/Company_1/#", "wiotx/Company_1/#"] if args.bridge else None))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -272,7 +272,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--bridge", metavar="HOST[:PORT]",
                    help="also bridge to an upstream broker where field gateways publish (e.g. broker.hivemq.com)")
     p.add_argument("--bridge-topic", action="append", metavar="FILTER",
-                   help="topic filter to bridge both ways; repeatable (default: wiot/Company_1/#)")
+                   help="topic filter to bridge both ways; repeatable (default: wiot/Company_1/# and wiotx/Company_1/#)")
     p.set_defaults(func=cmd_devbroker)
 
     args = parser.parse_args(argv)

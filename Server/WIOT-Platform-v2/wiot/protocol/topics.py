@@ -2,8 +2,9 @@
 import re
 
 DEFAULT_REGION = 'Region_1'
+JSON_ROOT = 'wiotx'   # third-party devices publish plain JSON to wiotx/{company}/{device}/up
 SUBSCRIPTIONS = ['wiot/+/+/+/data', 'wiot/+/+/+/status',
-                 'wiot/+/+/+/cmd', 'wiot/+/+/broadcast']
+                 'wiot/+/+/+/cmd', 'wiot/+/+/broadcast', JSON_ROOT + '/+/+/up']
 
 
 def region_id(value):

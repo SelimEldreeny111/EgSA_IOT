@@ -77,6 +77,9 @@ class Settings(BaseSettings):
 
     # --- security, notifications, reports, integrations (R2.3) ---------------
     public_url: str | None = None  # e.g. https://wiot.example.org (links in e-mails, SSO redirect)
+    # Broker third-party MQTT devices publish to (Devices page examples); default: the server's own broker.
+    device_mqtt_host: str | None = None
+    device_mqtt_port: int | None = Field(None, ge=1, le=65535)
     # OpenID Connect single sign-on (Entra ID, Google, Keycloak, Okta ...); off until issuer + client id are set
     oidc_issuer: str | None = None
     oidc_client_id: str | None = None

@@ -39,6 +39,8 @@ from .commissioning import Commissioning
 from .maintenance_module import MaintenanceModule
 from .push import PushService
 from .webhooks import WebhookService
+from .devices import DeviceService
+from .greenhouse import GreenhouseService, GreenhouseStore
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +53,7 @@ class Runtime:
         self.telemetry = TelemetryStore(settings.messages_dir, self.main.company_names, settings.ingest_batch_ms)
         self.hub = RealtimeHub()
         self.logs = LogBuffer(self.hub)
-        self.broker = BrokerManager(self.hub, self.logs, on_plaintext=self._on_plaintext)
+        self.broker = BrokerManager(self.hub, self.logs, on_plaintext=self._on_plaintext, on_json=self._on_json)
         self.commands = CommandService(
             settings.command_db, settings.legacy_command_db, self.broker, self.hub, self.logs,
             history_writer=self._write_command_history)
@@ -119,12 +121,27 @@ class Runtime:
         self.alerts.company_hooks.append(self.maint.check_alerts)
         self.commissioning = Commissioning(self.telemetry, self.org, self.commands, self.maint, self.main.audit)
         self.assistant = Assistant(settings, self)
+        # ---- Track G: third-party devices (point 53) and greenhouse layouts (point 58)
+        self.devices = DeviceService(self.main, self.telemetry, self.hub, self.logs, secret, self.main.company_names,
+                                     alert_store=self.alert_store)
+        self.devices.usage = self.usage
+        self.devices.monitor = self.alerts
+        self.alerts.company_hooks.append(self.devices.check_alerts)
+        self.greenhouses = GreenhouseService(settings, GreenhouseStore(settings.main_db), self.telemetry, self.devices,
+                                             self.farm, self.org)
         self.commands.power_mode = self.telemetry.latest_power_mode
         self.commands.risk = lambda c, r, n, t: self.analytics.predict_live(c, r, n, t)
         self.throttle = LoginThrottle(settings.login_max_attempts, settings.login_window_seconds)
 
     def _maintenance_extra(self, report: dict, daily: bool) -> None:
         if daily:
+            for company in self.main.company_names():
+                try:
+                    deleted = self.devices.retention(company, self.maintenance.retention_days(company))
+                    if deleted:
+                        report.setdefault("device_readings_deleted", {})[company] = deleted
+                except Exception:
+                    log.exception("Device reading retention failed for %s", company)
             self.usage.backfill()
         self.usage.flush()
         self.integrations.flush_stats()
@@ -174,6 +191,9 @@ class Runtime:
     def _on_plaintext(self, topic: str, plaintext: bytes) -> None:
         self.ingest.on_plaintext(topic, plaintext)
 
+    def _on_json(self, topic: str, payload: bytes) -> None:
+        self.devices.on_mqtt(topic, payload)
+
     def _write_command_history(self, company, region, node_id, details, request_id) -> None:
         self.ingest.write_command_history(company, region, node_id, details, request_id)
 
@@ -213,6 +233,10 @@ class Runtime:
         self.push.init_schema()
         self.maint.init_schema()
         self.assistant.init_schema()
+        self.devices.init_schema()
+        self.greenhouses.init_schema()
+        if self.devices.seed_demo(self.main.company_names()) | self.greenhouses.seed_demo(self.main.company_names()):
+            log.info("Seeded demo greenhouses and third-party devices for Demo_AgriFarm")
         if s.web_push:
             self.push.start()
         self.notifier.start()

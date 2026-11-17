@@ -1,6 +1,6 @@
 # Realtime events and metrics
 
-_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-16. Do not edit by hand._
+_Generated from the code by `docs/tools/gen_reference.py` on 2026-11-17. Do not edit by hand._
 
 ## Realtime hub events
 
@@ -9,10 +9,12 @@ Published on the internal hub, delivered to WebSocket clients of the same tenant
 | Event | Published at |
 |---|---|
 | `alert` | `wiot/api/alerts.py:46` |
+| `greenhouse_layout` | `wiot/api/greenhouses.py:46` |
 | `alert` | `wiot/services/alerts.py:319` |
-| `broker` | `wiot/services/broker.py:97` |
-| `broker` | `wiot/services/broker.py:118` |
+| `broker` | `wiot/services/broker.py:100` |
+| `broker` | `wiot/services/broker.py:125` |
 | `command` | `wiot/services/commands.py:416` |
+| `device_reading` | `wiot/services/devices.py:311` |
 | `automation` | `wiot/services/farm.py:564` |
 | `telemetry` | `wiot/services/ingest.py:330` |
 | `telemetry` | `wiot/services/ingest.py:346` |

@@ -3,10 +3,11 @@
 # The local broker also bridges the real fleet (Company_1) from the broker the field
 # gateways publish to, so live hardware shows next to the simulated demo tenants.
 #   -Bridge ""                         run fully offline (simulator only)
-#   -BridgeTopic "wiot/Company_1/#","wiot/Company_2/#"   bridge more companies
+#   -BridgeTopic "wiot/Company_1/#","wiotx/Company_1/#","wiot/Company_2/#","wiotx/Company_2/#"   more companies
+#   (wiotx/<company>/# carries third-party MQTT JSON devices, Track G)
 param(
   [string]$Bridge = "broker.hivemq.com:1883",
-  [string[]]$BridgeTopic = @("wiot/Company_1/#")
+  [string[]]$BridgeTopic = @("wiot/Company_1/#", "wiotx/Company_1/#")
 )
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
