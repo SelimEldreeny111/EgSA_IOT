@@ -1,5 +1,7 @@
 # EgSA WIOT
 
+The 18 November update adds [gateway heartbeat monitoring](Documentation/GatewayHeartbeat/WIOT_Gateway_Heartbeat_Design_and_Test.md), including a gateway life table independent of sensor traffic. The [SPI flash explanation](Documentation/FlashStorage/WIOT_SPI_Flash_Explained.md) describes the interface, exact record bytes, capacity, retention, recovery and server commands.
+
 The [project handover](Documentation/ProjectHandover/README.md) brings together
 the system report, implementation map, verification, flashing manual, editable
 flowcharts and narrated walkthrough.

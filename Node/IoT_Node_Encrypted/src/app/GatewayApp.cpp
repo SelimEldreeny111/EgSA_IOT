@@ -4,6 +4,7 @@
 #include "GatewayApp.h"
 
 #include "../comm/MQTT.h"
+#include "../comm/PacketCodec.h"
 #include "../config/AppConfig.h"
 #include "../platform/Watchdog.h"
 #include "../radio/LoraLink.h"
@@ -15,6 +16,79 @@ extern HardwareSerial SerialMon;
 
 namespace
 {
+uint64_t g_uptimeMs = 0;
+uint64_t g_lastNodeUptimeMs = 0;
+uint32_t g_previousTickMs = 0;
+uint32_t g_receivedNodeFrames = 0;
+uint32_t g_forwardedNodeFrames = 0;
+uint32_t g_forwardFailures = 0;
+bool g_hasNodeUplink = false;
+
+/** @brief Send the newest gateway health snapshot between radio transactions.
+ * Uses uptime and server receive time, so no gateway RTC commissioning is required.
+ * A failed send is retried after five seconds. Connection recovery sends a fresh
+ * heartbeat immediately. Heartbeats are QoS 0 and are never retained or queued.
+ */
+void serviceGatewayHeartbeat()
+{
+#if APP_ENABLE_GATEWAY_HEARTBEAT
+  static uint32_t lastAttemptMs = 0;
+  static uint32_t lastSuccessMs = 0;
+  static uint32_t publishedConnection = 0;
+  static uint32_t sequence = 0;
+  static bool attempted = false;
+  static bool published = false;
+  const uint32_t now = millis();
+  const uint32_t connection = mqttConnectionGeneration();
+  if ((attempted && now - lastAttemptMs < 5000UL) ||
+      (published && connection == publishedConnection &&
+       now - lastSuccessMs < APP_GATEWAY_HEARTBEAT_SECONDS * 1000UL)) return;
+  attempted = true;
+  lastAttemptMs = now;
+
+  char topic[160];
+  const int written = snprintf(topic, sizeof(topic), "%s/gateway/%u/status",
+      kMqttCompanyTopicPrefix, static_cast<unsigned>(APP_GATEWAY_ID));
+  if (written <= 0 || static_cast<size_t>(written) >= sizeof(topic))
+  {
+    APP_LOG_ERROR("Heartbeat topic is too long");
+    return;
+  }
+  Gateway_Status status = Gateway_Status_init_zero;
+  status.gateway_id = APP_GATEWAY_ID;
+  status.uptime_seconds = g_uptimeMs / 1000U;
+  status.heartbeat_sequence = ++sequence;
+  status.heartbeat_interval_seconds = APP_GATEWAY_HEARTBEAT_SECONDS;
+#if defined(USE_SIM800)
+  status.uplink_transport = 2;
+#else
+  status.uplink_transport = 1;
+#endif
+  status.received_node_frames = g_receivedNodeFrames;
+  status.forwarded_node_frames = g_forwardedNodeFrames;
+  status.forward_failures = g_forwardFailures;
+  status.has_node_uplink = g_hasNodeUplink;
+  status.last_node_age_seconds = g_hasNodeUplink ? (g_uptimeMs - g_lastNodeUptimeMs) / 1000U : 0;
+  status.wdt_reset_count = hardwareWatchdogResetCount();
+  status.power_reset_count = powerResetCount();
+  status.lora_aux_high = digitalRead(AppConfig::kLoraAuxPin) == HIGH;
+  uint8_t payload[AppConfig::kCodecBufferSize];
+  size_t length = 0;
+  const bool accepted = encodeEncryptedMessage(Gateway_Status_fields, &status,
+      payload, sizeof(payload), length) && publishMqttPayload(topic, payload, length);
+  if (accepted)
+  {
+    published = true;
+    publishedConnection = connection;
+    lastSuccessMs = millis();
+  }
+  APP_LOG_EVENT("heartbeat gateway=%u sequence=%lu uptime_s=%llu bytes=%lu local_write=%u",
+      APP_GATEWAY_ID, static_cast<unsigned long>(sequence),
+      static_cast<unsigned long long>(status.uptime_seconds),
+      static_cast<unsigned long>(length), accepted);
+#endif
+}
+
 /** @brief Format a node-scoped MQTT topic, rejecting a truncated result. */
 bool buildNodeMqttTopic(uint16_t nodeId, const char* suffix, char* topic, size_t topicSize)
 {
@@ -59,6 +133,10 @@ void gatewayLoop()
 {
   static uint32_t lastHeartbeatMs = 0;
   static bool previousLoraPriority = false;
+  const uint32_t now = millis();
+  g_uptimeMs += static_cast<uint32_t>(now - g_previousTickMs);
+  g_previousTickMs = now;
+  bool mqttReady = false;
 
   // Drain the AS32 UART into the larger software buffer before any ESP-AT or
   // MQTT operation can block the loop. Frame processing continues below.
@@ -75,7 +153,7 @@ void gatewayLoop()
 
   if (!loraPriority)
   {
-    ensureMqttConnection();
+    mqttReady = ensureMqttConnection();
     mqttLoop();
     serviceHardwareWatchdog();
   }
@@ -102,6 +180,9 @@ void gatewayLoop()
     }
 
     char publishTopic[128];
+    ++g_receivedNodeFrames;
+    g_hasNodeUplink = true;
+    g_lastNodeUptimeMs = g_uptimeMs;
     if (!buildNodeMqttTopic(frame.sourceNodeId, topicSuffix, publishTopic, sizeof(publishTopic)))
     {
       APP_LOG_ERROR("Gateway MQTT topic build failed");
@@ -110,12 +191,14 @@ void gatewayLoop()
 
     if (publishMqttPayload(publishTopic, frame.payload, frame.payloadLength))
     {
+      ++g_forwardedNodeFrames;
       APP_LOG_EVENT("uplink source=%u type=%s bytes=%lu topic=%s stage=modem_write_accepted server_receipt=unconfirmed",
           frame.sourceNodeId, WiotDebug::frameName(static_cast<uint8_t>(frame.type)),
           static_cast<unsigned long>(frame.payloadLength), publishTopic);
     }
     else
     {
+      ++g_forwardFailures;
       APP_LOG_ERROR("uplink_failed source=%u bytes=%lu topic=%s", frame.sourceNodeId,
           static_cast<unsigned long>(frame.payloadLength), publishTopic);
     }
@@ -128,6 +211,12 @@ void gatewayLoop()
   {
     asyncPublishStep();
     serviceHardwareWatchdog();
+    if (mqttReady && !mqttCommandWorkPending() && !isAsyncPublishBusy() &&
+        !isLoraReceiveTransactionActive())
+    {
+      serviceGatewayHeartbeat();
+      serviceHardwareWatchdog();
+    }
   }
 
   if (AppConfig::kEnableGatewayHeartbeatLogs && millis() - lastHeartbeatMs >= 5000UL)

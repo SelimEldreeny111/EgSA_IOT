@@ -3,7 +3,7 @@ import re
 
 DEFAULT_REGION = 'Region_1'
 SUBSCRIPTIONS = ['wiot/+/+/+/data', 'wiot/+/+/+/status',
-                 'wiot/+/+/+/cmd', 'wiot/+/+/broadcast']
+                 'wiot/+/+/+/cmd', 'wiot/+/+/broadcast', 'wiot/+/+/gateway/+/status']
 
 
 def region_id(value):

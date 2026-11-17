@@ -196,6 +196,27 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #endif
 
 /**************** APPLICATION ROLE + ROUTING ****************/
+// Gateway life indication is independent of incoming node traffic and debug.
+// Give gateways in the same company/region distinct IDs.
+#ifndef APP_ENABLE_GATEWAY_HEARTBEAT
+#define APP_ENABLE_GATEWAY_HEARTBEAT true
+#endif
+#ifndef APP_GATEWAY_ID
+#define APP_GATEWAY_ID 1
+#endif
+#ifndef APP_GATEWAY_HEARTBEAT_SECONDS
+#define APP_GATEWAY_HEARTBEAT_SECONDS 60UL
+#endif
+#if APP_ENABLE_GATEWAY_HEARTBEAT != 0 && APP_ENABLE_GATEWAY_HEARTBEAT != 1
+#error "APP_ENABLE_GATEWAY_HEARTBEAT must be true or false"
+#endif
+#if APP_GATEWAY_ID < 1 || APP_GATEWAY_ID > 65535
+#error "APP_GATEWAY_ID must be within 1..65535"
+#endif
+#if APP_GATEWAY_HEARTBEAT_SECONDS < 10 || APP_GATEWAY_HEARTBEAT_SECONDS > 86400
+#error "APP_GATEWAY_HEARTBEAT_SECONDS must be within 10..86400"
+#endif
+
 #define APP_ROLE_SENSOR_NODE 1
 #define APP_ROLE_LORA_GATEWAY 2
 

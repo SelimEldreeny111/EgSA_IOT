@@ -41,6 +41,8 @@ void restoreMqttTransportAfterPowerDownAbort();
 void initializeMqttClient();
 /** @brief Connect or reconnect the broker within the configured retry policy. @return True when MQTT is connected. */
 bool ensureMqttConnection();
+/** @brief Successful MQTT connection/subscription generation; cached, no AT I/O. */
+uint32_t mqttConnectionGeneration();
 /** @brief Service MQTT keepalive and inbound packets on the active transport. */
 void mqttLoop();
 /** @brief Establish the selected Wi-Fi or cellular network link. @return True when the underlying network is usable. */

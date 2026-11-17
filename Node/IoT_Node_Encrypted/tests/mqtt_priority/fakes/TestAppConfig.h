@@ -1,6 +1,7 @@
 #pragma once
 #include "Arduino.h"
 #define APP_CONFIG_H
+#define APP_GATEWAY_ID 1
 #if defined(TEST_ESP8266)
 #define USE_ESP8266
 #else

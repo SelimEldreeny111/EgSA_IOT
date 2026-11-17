@@ -513,6 +513,12 @@ class MqttNodeClient:
         - decrypt errors are also logged to RX
         """
         raw = msg.payload
+        # Gateway life is proved by a new heartbeat, never by an old retained copy.
+        parts = msg.topic.split('/')
+        if getattr(msg, 'retain', False) and len(parts) == 6 and parts[3] == 'gateway' and parts[5] == 'status':
+            if self.on_status:
+                self.on_status('[GATEWAY] Ignored retained heartbeat; waiting for a fresh report')
+            return
         if not 33 <= len(raw) <= 4129:
             if self.on_status:
                 self.on_status('[MQTT] Dropped empty/oversized encrypted frame')

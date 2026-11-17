@@ -37,6 +37,7 @@ from flow_schema import (
 from mqtt_impl import MqttNodeClient
 from command_queue import CommandQueue
 from flash_archive import FlashArchive, FLASH_COMMANDS, HISTORY_ACK
+from gateway_status import GatewayStatusStore
 from input_validation import company_id, integer, parse_topic, validate_message, MAX_PROTO_BYTES
 from tenant_storage import database_path, storage_id, preflight as tenant_preflight
 
@@ -120,6 +121,12 @@ mqtt_client = None
 _command_queue = None
 _flash_archive = None
 _command_dispatch_lock = threading.RLock()
+_gateway_observation_started = time.time()
+
+
+def gateway_status_store():
+    """Store gateway state beside the main DB, outside sensor-history databases."""
+    return GatewayStatusStore(os.path.join(os.path.dirname(MAIN_DB_FILE), 'gateway_status.db'))
 
 
 def flash_archive_store():
@@ -967,12 +974,14 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
 
 def on_mqtt_status(msg: str):
     """Handle MQTT status messages from the MqttNodeClient."""
+    global _gateway_observation_started
     if msg:
         log_event(msg)
         logging.info(f"[MQTT_STATUS] {msg}")
         
         # Parse connection status and emit to clients
         if '[MQTT] Ready -' in msg:
+            _gateway_observation_started = time.time()
             socketio.emit('broker_status', {'connected': True, 'status': 'Subscriptions ready'})
         elif 'Connected rc=0' in msg:
             socketio.emit('broker_status', {'connected': False, 'status': 'Waiting for SUBACK'})
@@ -1011,7 +1020,12 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
     logging.info(f"[PLAINTEXT] Parsing - parts={topic_parts} company={company}")
 
     try:
-        if topic_kind == 'status':
+        if topic_kind == 'gateway_status':
+            msg = messages_pb2.Gateway_Status.FromString(plaintext)
+            gateway_status_store().accept(company, region, topic_node_id, msg)
+            log_event(f'[GATEWAY] {company}/{region}/{msg.gateway_id} heartbeat '
+                      f'sequence={msg.heartbeat_sequence} uptime_s={msg.uptime_seconds}', company=company)
+        elif topic_kind == 'status':
             log_event(f"[PLAINTEXT] Parsing as Status_Message...")
             msg = messages_pb2.Status_Message()
             msg.ParseFromString(plaintext)
@@ -1854,7 +1868,21 @@ def api_regions():
     path = ensure_message_db(company)
     with closing(sqlite3.connect(path)) as db:
         regions = sorted({DEFAULT_REGION} | {row[0] for row in db.execute('SELECT DISTINCT region FROM messages')})
+    regions = sorted(set(regions) | gateway_status_store().regions(company))
     return jsonify(company=company, regions=regions)
+
+
+@app.route('/api/gateways', methods=['GET'])
+@login_required
+def api_gateways():
+    """Tenant-scoped gateway life, available even when sensor history is empty."""
+    company = request.args.get('company', '').strip() or session.get('company') or 'Unknown'
+    if session.get('username') not in ('EgSA_Supervisor', 'Super_User'):
+        company = session.get('company') or 'Unknown'
+    region = region_id(request.args.get('region', DEFAULT_REGION))
+    observing = mqtt_client is not None and mqtt_client.is_connected()
+    gateways = gateway_status_store().list(company, region, observing, _gateway_observation_started)
+    return jsonify(company=company, region=region, observing=observing, gateways=gateways)
 
 
 @app.route('/api/node_latest', methods=['GET'])

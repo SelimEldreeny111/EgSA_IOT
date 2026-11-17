@@ -10,6 +10,22 @@
 #endif
 
 /* Struct definitions */
+typedef struct _Gateway_Status {
+    uint32_t gateway_id;
+    uint64_t uptime_seconds;
+    uint32_t heartbeat_sequence;
+    uint32_t heartbeat_interval_seconds;
+    uint32_t uplink_transport;
+    uint32_t received_node_frames;
+    uint32_t forwarded_node_frames;
+    uint32_t forward_failures;
+    bool has_node_uplink;
+    uint64_t last_node_age_seconds;
+    uint32_t wdt_reset_count;
+    uint32_t power_reset_count;
+    bool lora_aux_high;
+} Gateway_Status;
+
 typedef struct _FlashLogInfo {
     uint32_t state;
     uint32_t jedec_id;
@@ -176,12 +192,14 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
+#define Gateway_Status_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlashLogInfo_init_default                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define HistoryInfo_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define Status_Message_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define CMD_Message_init_default                 {0, 0, 0, 0}
 #define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlashLogInfo_init_default, false, HistoryInfo_init_default, 0, 0, 0, 0}
+#define Gateway_Status_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlashLogInfo_init_zero                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define HistoryInfo_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -190,6 +208,19 @@ extern "C" {
 #define Telemetry_init_zero                      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlashLogInfo_init_zero, false, HistoryInfo_init_zero, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define Gateway_Status_gateway_id_tag            1
+#define Gateway_Status_uptime_seconds_tag        2
+#define Gateway_Status_heartbeat_sequence_tag    3
+#define Gateway_Status_heartbeat_interval_seconds_tag 4
+#define Gateway_Status_uplink_transport_tag      5
+#define Gateway_Status_received_node_frames_tag  6
+#define Gateway_Status_forwarded_node_frames_tag 7
+#define Gateway_Status_forward_failures_tag      8
+#define Gateway_Status_has_node_uplink_tag       9
+#define Gateway_Status_last_node_age_seconds_tag 10
+#define Gateway_Status_wdt_reset_count_tag       11
+#define Gateway_Status_power_reset_count_tag     12
+#define Gateway_Status_lora_aux_high_tag         13
 #define FlashLogInfo_state_tag                   1
 #define FlashLogInfo_jedec_id_tag                2
 #define FlashLogInfo_capacity_bytes_tag          3
@@ -330,6 +361,23 @@ extern "C" {
 #define Telemetry_live_fallback_tag              51
 
 /* Struct field encoding specification for nanopb */
+#define Gateway_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   gateway_id,        1) \
+X(a, STATIC,   SINGULAR, UINT64,   uptime_seconds,    2) \
+X(a, STATIC,   SINGULAR, UINT32,   heartbeat_sequence,   3) \
+X(a, STATIC,   SINGULAR, UINT32,   heartbeat_interval_seconds,   4) \
+X(a, STATIC,   SINGULAR, UINT32,   uplink_transport,   5) \
+X(a, STATIC,   SINGULAR, UINT32,   received_node_frames,   6) \
+X(a, STATIC,   SINGULAR, UINT32,   forwarded_node_frames,   7) \
+X(a, STATIC,   SINGULAR, UINT32,   forward_failures,   8) \
+X(a, STATIC,   SINGULAR, BOOL,     has_node_uplink,   9) \
+X(a, STATIC,   SINGULAR, UINT64,   last_node_age_seconds,  10) \
+X(a, STATIC,   SINGULAR, UINT32,   wdt_reset_count,  11) \
+X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  12) \
+X(a, STATIC,   SINGULAR, BOOL,     lora_aux_high,    13)
+#define Gateway_Status_CALLBACK NULL
+#define Gateway_Status_DEFAULT NULL
+
 #define FlashLogInfo_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   state,             1) \
 X(a, STATIC,   SINGULAR, UINT32,   jedec_id,          2) \
@@ -496,6 +544,7 @@ X(a, STATIC,   SINGULAR, BOOL,     live_fallback,    51)
 #define Telemetry_flash_log_MSGTYPE FlashLogInfo
 #define Telemetry_history_MSGTYPE HistoryInfo
 
+extern const pb_msgdesc_t Gateway_Status_msg;
 extern const pb_msgdesc_t FlashLogInfo_msg;
 extern const pb_msgdesc_t HistoryInfo_msg;
 extern const pb_msgdesc_t FlowReading_msg;
@@ -504,6 +553,7 @@ extern const pb_msgdesc_t CMD_Message_msg;
 extern const pb_msgdesc_t Telemetry_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
+#define Gateway_Status_fields &Gateway_Status_msg
 #define FlashLogInfo_fields &FlashLogInfo_msg
 #define HistoryInfo_fields &HistoryInfo_msg
 #define FlowReading_fields &FlowReading_msg
@@ -515,6 +565,7 @@ extern const pb_msgdesc_t Telemetry_msg;
 #define CMD_Message_size                         29
 #define FlashLogInfo_size                        96
 #define FlowReading_size                         91
+#define Gateway_Status_size                      80
 #define HistoryInfo_size                         56
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size
 #define Status_Message_size                      333

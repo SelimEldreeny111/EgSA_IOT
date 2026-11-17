@@ -3,6 +3,24 @@ syntax = "proto3";
 // Arduino/nanopb wire schema. Field numbers are part of the deployed V1
 // protocol and must never be renumbered or reused.
 
+// Gateway-owned MQTT heartbeat. Routed separately from sensor-node messages.
+// Counters restart at gateway boot. Uptime remains valid without RTC sync.
+message Gateway_Status {
+  uint32 gateway_id = 1;
+  uint64 uptime_seconds = 2;
+  uint32 heartbeat_sequence = 3;
+  uint32 heartbeat_interval_seconds = 4;
+  uint32 uplink_transport = 5; // 1=ESP8266 Wi-Fi, 2=SIM800 cellular.
+  uint32 received_node_frames = 6;
+  uint32 forwarded_node_frames = 7; // Complete local modem write accepted.
+  uint32 forward_failures = 8;
+  bool has_node_uplink = 9;
+  uint64 last_node_age_seconds = 10;
+  uint32 wdt_reset_count = 11;
+  uint32 power_reset_count = 12;
+  bool lora_aux_high = 13; // Pin snapshot, not an RF-link test.
+}
+
 // Storage state: 0=disabled,1=missing,2=unformatted,3=recovering,4=ready,5=full,6=fault.
 message FlashLogInfo {
   uint32 state = 1;

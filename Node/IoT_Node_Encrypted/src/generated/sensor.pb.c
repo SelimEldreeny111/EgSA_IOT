@@ -6,6 +6,9 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+PB_BIND(Gateway_Status, Gateway_Status, AUTO)
+
+
 PB_BIND(FlashLogInfo, FlashLogInfo, AUTO)
 
 

@@ -37,6 +37,7 @@ namespace {
 uint32_t g_lastMqttActivityMs = 0;
 uint32_t g_lastReconnectAttemptMs = 0;
 uint8_t g_mqttConnectFailureCount = 0;
+uint32_t g_connectionGeneration = 0;
 PriorityPublishQueue<AppConfig::kCodecBufferSize, 4U> g_publishQueue;
 AsyncPublishResult g_asyncResult = AsyncPublishResult::None;
 bool g_modemOperationActive = false;
@@ -489,7 +490,20 @@ bool ensureMqttConnection()
   }
 
   serviceHardwareWatchdog(WatchdogStage::MqttConnect);
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  // Distinct from sensor-node clients even when AppConfig.cpp uses the same ID.
+  char gatewayClientId[128];
+  const int clientIdLength = snprintf(gatewayClientId, sizeof(gatewayClientId),
+      "%s-gateway-%u", kMqttClientId, static_cast<unsigned>(APP_GATEWAY_ID));
+  if (clientIdLength <= 0 || static_cast<size_t>(clientIdLength) >= sizeof(gatewayClientId))
+  {
+    APP_LOG_ERROR("Gateway MQTT client ID is too long");
+    return false;
+  }
+  const bool mqttConnected = mqtt.connect(gatewayClientId);
+#else
   const bool mqttConnected = mqtt.connect(kMqttClientId);
+#endif
   serviceHardwareWatchdog();
   if (!mqttConnected)
   {
@@ -548,7 +562,13 @@ bool ensureMqttConnection()
     APP_DEBUG_PRINTLN(kMqttBroadcastTopic);
   }
 
+  ++g_connectionGeneration;
   return true;
+}
+
+uint32_t mqttConnectionGeneration()
+{
+  return g_connectionGeneration;
 }
 
 void mqttLoop()

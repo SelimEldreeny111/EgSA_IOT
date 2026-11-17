@@ -44,7 +44,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_all_three_proto_sources_match(self):
         expected = schema(NODE / "src/generated/sensor.proto")
-        self.assertEqual(set(expected), {"FlowReading", "Status_Message", "Telemetry", "CMD_Message", "FlashLogInfo", "HistoryInfo"})
+        self.assertEqual(set(expected), {"FlowReading", "Status_Message", "Telemetry", "CMD_Message", "FlashLogInfo", "HistoryInfo", "Gateway_Status"})
         for filename in ("sensor.proto", "messages.proto"):
             with self.subTest(filename=filename):
                 self.assertEqual(expected, schema(SERVER / filename))
