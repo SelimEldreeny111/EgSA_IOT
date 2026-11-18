@@ -17,7 +17,7 @@ This is the entry point. Read §1 before touching anything. The other documents:
 | `docs/reference/TESTS.md` | Every test file and test |
 | `docs/reference/EVENTS.md` | Realtime hub events and Prometheus metrics |
 | `Documentation/ServerSoftware/WIOT_Platform_Development_Plan_V1.0` (project root) | **The work plan:** all 62 improvement points in releases R2.1–R2.6 and Track G, with dates, prerequisites, quality gates and risks |
-| `Documentation/ServerSoftware/` (project root) | Server Description and User Manual V2.1 (90 pp, 17 Nov 2026, server 2.8.0; V2.0 kept); System Analysis & Design (34 pp) and Test Report (25 pp) V1.1 of 11 Nov 2026 (Phase 0 and R2.1); earlier versions kept |
+| `Documentation/ServerSoftware/` (project root) | Server Description and User Manual V2.1 (89 pp, 17 Nov 2026, server 2.8.0; V2.0 kept); System Analysis & Design (34 pp) and Test Report (25 pp) V1.1 of 11 Nov 2026 (Phase 0 and R2.1); earlier versions kept |
 | `Documentation/Flowcharts/` (project root) | Flowcharts; F31–F41 are the server |
 | `data/analytics/REPORT.md` | Data-analysis report (8 Nov 2026) |
 
@@ -248,7 +248,7 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
   LoRaWAN — The Things Stack / ChirpStack —, Devices page) and point 58 (greenhouse layout editor, Greenhouses page) are
   done; points 54–57, 59 and 60 wait for the pilot sensors (plan phases G3–G4). The CI workflow (with the `lint` and `browser` jobs)
   is committed at the worktree root; keep the final-copy root `.github/workflows/server-v2-tests.yml` in step with it.
-- Tests: 252 pass + the browser smoke test, which runs in English and Arabic (17 Nov 2026; see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
+- Tests: 253 pass + the browser smoke test, which runs in English and Arabic (18 Nov 2026; see the CHANGELOG). The browser smoke test is skipped where Playwright is missing (the server `.venv`);
   run it locally with the Video tooling's Playwright appended to the path:
   `.venv\Scripts\python -c "import sys; sys.path.append(r'..\..\Video\.venv\Lib\site-packages'); import pytest;
   sys.exit(pytest.main(['tests/test_browser_smoke.py']))"`.
@@ -264,7 +264,7 @@ production and publications). R2.1 added `WIOT_TLS_CERTFILE` / `KEYFILE`, `WIOT_
 - Field: node 2 (Company_1) last behaved normally in LORA_WOR_STOP; its flash log holds data that has not been
   downloaded (downloads fail, see OI-01).
 - Documents in `Documentation/ServerSoftware/` (not in git):
-  - **Server Description and User Manual V2.1** (17 Nov 2026, 90 pp, server 2.8.0: new chapters 7 Greenhouses and
+  - **Server Description and User Manual V2.1** (17 Nov 2026, 89 pp, server 2.8.0: new chapters 7 Greenhouses and
     12 Devices, later chapters renumbered; V2.0 of 15 Nov kept). Its screenshots were made with `capture_manual_v2.py`
     and, for the Track G pictures and the sidebar, `capture_manual_v21.py`, against a demonstration copy (port 8010,
     local broker without a bridge, simulator for the Demo companies only). Build with `build_docs.py User_Manual_V2.1`.

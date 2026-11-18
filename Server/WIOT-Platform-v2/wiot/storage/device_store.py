@@ -329,9 +329,13 @@ class DeviceStore:
                 db.execute("INSERT INTO ext_hourly(device_id,metric,hour,n,sum,min,max) VALUES(?,?,?,1,?,?,?) "
                            "ON CONFLICT(device_id,metric,hour) DO UPDATE SET n=n+1, sum=sum+excluded.sum, "
                            "min=MIN(min,excluded.min), max=MAX(max,excluded.max)", (device_id, metric, hour, value, value, value))
+                # the newest measurement wins; received_at always advances, so a device whose clock stepped back
+                # (older ts) still counts as reporting and does not turn silent
                 db.execute("INSERT INTO ext_latest(device_id,metric,ts,received_at,value,trusted) VALUES(?,?,?,?,?,?) "
-                           "ON CONFLICT(device_id,metric) DO UPDATE SET ts=excluded.ts, received_at=excluded.received_at, "
-                           "value=excluded.value, trusted=excluded.trusted WHERE excluded.ts>=ext_latest.ts",
+                           "ON CONFLICT(device_id,metric) DO UPDATE SET "
+                           "value=CASE WHEN excluded.ts>=ext_latest.ts THEN excluded.value ELSE ext_latest.value END, "
+                           "trusted=CASE WHEN excluded.ts>=ext_latest.ts THEN excluded.trusted ELSE ext_latest.trusted END, "
+                           "ts=MAX(ext_latest.ts, excluded.ts), received_at=MAX(ext_latest.received_at, excluded.received_at)",
                            (device_id, metric, ts, received_at, value, int(trusted)))
         return added
 

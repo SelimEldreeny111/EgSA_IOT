@@ -161,10 +161,10 @@ export async function render(root) {
             <div id="dv-empty"></div>
           </section>
           <section class="panel" id="dv-unknown" hidden></section>
+          <section class="panel dv-chart" id="dv-chart" hidden></section>
         </div>
         <section class="panel dv-side" id="dv-side"></section>
       </div>
-      <section class="panel" id="dv-chart" hidden></section>
     </div>
     ${canEdit ? `<div class="dv-pane" data-pane="sources" role="tabpanel" hidden></div>` : ""}
     <div class="dv-pane" data-pane="guide" role="tabpanel" hidden></div>`;

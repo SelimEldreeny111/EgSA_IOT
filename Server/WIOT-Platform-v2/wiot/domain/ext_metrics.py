@@ -195,8 +195,9 @@ def apply_mapping(fields: dict[str, float], mapping: list[dict]) -> tuple[dict[s
             continue
         v = raw * m.get("scale", 1.0) + m.get("offset", 0.0)
         label, _unit, lo, hi, dec, _group = METRICS[m["metric"]]
-        if not lo <= v <= hi:
-            rejected.append({"field": m["field"], "metric": m["metric"], "value": round(v, 4)})
+        if not math.isfinite(v) or not lo <= v <= hi:     # a huge value times the scale overflows to inf
+            rejected.append({"field": m["field"], "metric": m["metric"],
+                             "value": round(v, 4) if math.isfinite(v) else None})
             continue
         values[m["metric"]] = round(v, max(dec + 2, 2))
     return values, rejected

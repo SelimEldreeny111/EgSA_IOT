@@ -648,3 +648,26 @@ integration), each finding checked by a skeptical second agent: 56 reported, 52 
 - Help texts corrected (Bench rows fields, Latest readings, drafts kept per tab).
 
 Tests: new `tests/test_trackg.py` (12). Full suite: 252 passed; browser smoke test (every page incl. Devices and Greenhouses, English and Arabic) passed.
+
+## 2026-11-18 — Track G: second review (2.8.0)
+
+A fresh, independent review of the pushed Track G code (`cb4fe72..5e086cf`) found five more defects, all fixed and
+covered by `tests/test_trackg.py::test_overflow_clock_step_radio_range_and_alert_race` (each assertion was checked to
+fail on the old code):
+- A huge value times a mapping scale overflowed to infinity; the rejected value was kept for **Last payload** and the
+  whole device list then failed with 400 ("not JSON compliant") until the device's next message. Non-finite results
+  are now rejected with no value.
+- A device whose clock stepped back (older `ts`, accepted for unsigned devices) stayed "heard" only at its previous
+  message, so it turned **Silent** and raised `device_silent` while still reporting. The latest value still follows
+  the newest measurement; the time of arrival now always advances.
+- A silence sweep that had already read a device could reopen its alert after the device was deleted or moved to
+  another region, and that alert was never resolved. The sweep and the clean-up now take one lock.
+- RSSI and SNR from a network server skipped the metric range check; out-of-range values are now rejected like any
+  mapped value.
+- A page that failed after the user had already moved on (slow network) replaced the new page with its error.
+
+Devices page: the **Readings** chart now sits under the device list, beside the editor, instead of below both (no
+empty column on wide screens); on narrow screens the order is unchanged (list, editor, chart). Manual V2.1 rebuilt
+with the new Devices screenshot (89 pp).
+
+Tests: full suite 253 passed.

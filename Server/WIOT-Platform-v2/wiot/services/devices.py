@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import threading
 import time
 from collections import OrderedDict
 
-from ..domain.ext_metrics import (apply_mapping, auto_mapping, flatten, parse_chirpstack, parse_time, parse_ttn,
-                                  verify_signature)
+from ..domain.ext_metrics import (METRICS, apply_mapping, auto_mapping, flatten, parse_chirpstack, parse_time,
+                                  parse_ttn, verify_signature)
 from ..protocol.topics import DEFAULT_REGION
 from ..protocol.validation import company_id
 from ..storage.device_store import DeviceStore
@@ -70,6 +71,7 @@ class DeviceService:
         self.hub, self.logs, self.companies, self.alert_store = hub, logs, companies, alert_store
         self.usage = None                              # UsageMeter, injected by the runtime
         self._lock = threading.Lock()
+        self._alert_lock = threading.Lock()            # a silence sweep and a delete/move never interleave
         self._buckets: dict[tuple, _Bucket] = {}
         self._last: dict[tuple[str, str], tuple[int, str]] = {}      # (company, device) -> (ts, sig) of last signed msg
         self.unknown: dict[str, OrderedDict] = {}                     # company -> key -> {...} heard but not registered
@@ -293,7 +295,12 @@ class DeviceService:
         device_id = device["device_id"]
         values, rejected = apply_mapping(fields, mapping if mapping is not None else device["mapping"])
         for metric, v in (radio or {}).items():
-            values.setdefault(metric, v)
+            spec = METRICS.get(metric)
+            if spec and isinstance(v, (int, float)) and math.isfinite(v) and spec[2] <= v <= spec[3]:
+                values.setdefault(metric, v)
+            elif spec:
+                rejected.append({"field": metric, "metric": metric,
+                                 "value": round(v, 4) if isinstance(v, (int, float)) and math.isfinite(v) else None})
         now = int(time.time())
         with self._lock:
             self.payloads[(company, device_id)] = {"at": now, "fields": dict(list(fields.items())[:60]),
@@ -344,6 +351,10 @@ class DeviceService:
     # ------------------------------------------------------------------ alerts
     def check_alerts(self, monitor, company: str, now: int) -> list[dict]:
         """Alert-monitor hook: ``device_silent_<id>`` opens after 3 missed reports, clears on the next one."""
+        with self._alert_lock:                          # snapshot and alerts in one step (see close_alerts)
+            return self._check_alerts(monitor, company, now)
+
+    def _check_alerts(self, monitor, company: str, now: int) -> list[dict]:
         devices = self.store.list(company)
         if not devices:
             return []
@@ -368,10 +379,11 @@ class DeviceService:
         Through the alert monitor when there is one, so channels, webhooks and open pages get the "resolved" event."""
         kind, region, now = f"device_silent_{device_id}", region or DEFAULT_REGION, int(time.time())
         try:
-            if self.monitor is not None:
-                self.monitor._resolve(company, region, {"node_id": 0, "timestamp": None}, kind, now)
-            elif self.alert_store is not None:
-                self.alert_store.resolve(company, region, 0, kind, now)
+            with self._alert_lock:                      # waits for a sweep that saw the old device to finish
+                if self.monitor is not None:
+                    self.monitor._resolve(company, region, {"node_id": 0, "timestamp": None}, kind, now)
+                elif self.alert_store is not None:
+                    self.alert_store.resolve(company, region, 0, kind, now)
         except Exception:
             log.exception("Could not clear the silence alert of %s/%s", company, device_id)
 

@@ -226,6 +226,8 @@
 .dv-split { grid-template-columns: minmax(0, 1fr) minmax(340px, 430px); }      /* a fixed editor leaves the table room */
 @media (max-width: 1250px) { .dv-split { grid-template-columns: minmax(0, 1fr); } }
 .dv-col { display: grid; gap: 18px; min-width: 0; align-content: start; }
+/* the readings chart sits under the table beside the editor; one column: table, editor, chart */
+@media (max-width: 1250px) { .dv-col { display: contents; } .dv-split > .dv-col > .dv-chart { order: 1; } }
 .dv code { font: 12px/1.5 var(--mono); color: var(--text); overflow-wrap: anywhere; direction: ltr; unicode-bidi: isolate; }
 .dv-num { direction: ltr; unicode-bidi: isolate; white-space: nowrap; }      /* "24.5 °C" keeps its order in Arabic */
 .dv-num b { font-weight: inherit; }

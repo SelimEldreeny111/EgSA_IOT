@@ -344,3 +344,57 @@ def test_live_rollup_counts_each_sensor_once_and_flags_untrusted(supervisor):
     assert live["n"] == 1 and live["untrusted"] == 1 and live["ts"] <= int(time.time())      # future stamp clamped
     cat = supervisor.get(f"{API}/devices/catalog", params=Q).json()
     assert cat["mqtt"]["public"] is True and cat["webhooks"]["public"] is False   # broker.hivemq.com; http test client
+
+
+def test_overflow_clock_step_radio_range_and_alert_race(supervisor, monkeypatch):
+    """Second review: inf never reaches JSON, an older ts still counts as heard, radio values are range-checked,
+    and a silence sweep cannot reopen the alert of a device deleted meanwhile."""
+    import threading
+
+    from fastapi.testclient import TestClient
+    from wiot.protocol.topics import DEFAULT_REGION
+    rt = _rt(supervisor)
+    # a huge value times the scale overflows to inf: rejected, and the device list still answers
+    _device(supervisor, auth="none", mapping=[{"field": "hum", "metric": "air_rh_pct", "scale": 100}])
+    rt.devices.on_mqtt("wiotx/Company_1/GH1-CLIMATE/up", b'{"hum": 1e307}')
+    r = supervisor.get(f"{API}/devices", params=Q)
+    assert r.status_code == 200, r.text
+    assert r.json()["devices"][0]["last_payload"]["rejected"] == [{"field": "hum", "metric": "air_rh_pct", "value": None}]
+    # a reading measured earlier than the stored one (clock stepped back) keeps the device online
+    now = int(time.time())
+    rt.devices.store.save("Company_1", "GH1-CLIMATE", now - 4000, now - 4000, {"air_rh_pct": 60}, False, "mqtt")
+    rt.devices.store.save("Company_1", "GH1-CLIMATE", now - 5000, now, {"air_rh_pct": 55}, False, "mqtt")
+    dev = supervisor.get(f"{API}/devices", params=Q).json()["devices"][0]
+    assert dev["state"] == "online" and dev["last_seen"] == now
+    assert dev["values"]["air_rh_pct"]["value"] == 60 and dev["values"]["air_rh_pct"]["ts"] == now - 4000
+    # RSSI outside its valid range is not stored
+    _device(supervisor, device_id="SOIL-7", name="Bed 7 soil", protocol="lorawan", dev_eui="A840410000000007")
+    key = supervisor.post(f"{API}/devices/sources", params=Q, json={"name": "TTN", "kind": "ttn"}).json()["key"]
+    out = TestClient(supervisor.app).post(f"{API}/ingest/ttn", headers={"Authorization": f"Bearer {key}"},
+                                          json=_ttn("A840410000000007", {"soil_moisture": 30}, rssi=12.0)).json()
+    assert out["accepted"] and "rssi_dbm" in [x["metric"] for x in out["rejected"]]
+    soil = [d for d in supervisor.get(f"{API}/devices", params=Q).json()["devices"] if d["device_id"] == "SOIL-7"][0]
+    assert "rssi_dbm" not in soil["values"] and soil["values"]["snr_db"]["value"] == 7.5
+    # a sweep that saw the device before it was deleted must not leave an alert open for it
+    rt.devices.store.save("Company_1", "GH1-CLIMATE", now - 9000, now - 9000, {"co2_ppm": 600}, False, "mqtt")
+    later = now + 6000
+    original, entered, gate = rt.devices.store.latest, threading.Event(), threading.Event()
+
+    def slow_latest(company):
+        out = original(company)
+        entered.set()
+        gate.wait(5)
+        return out
+    monkeypatch.setattr(rt.devices.store, "latest", slow_latest)
+    sweep = threading.Thread(target=rt.devices.check_alerts, args=(rt.alerts, "Company_1", later))
+    sweep.start()
+    assert entered.wait(5)
+    deleting = threading.Thread(target=rt.devices.delete, args=("Company_1", "GH1-CLIMATE"))
+    deleting.start()
+    time.sleep(0.3)
+    gate.set()
+    sweep.join(5)
+    deleting.join(5)
+    monkeypatch.undo()
+    assert rt.devices.store.get("Company_1", "GH1-CLIMATE") is None
+    assert rt.alerts.store.get_open("Company_1", DEFAULT_REGION, 0, "device_silent_GH1-CLIMATE") is None

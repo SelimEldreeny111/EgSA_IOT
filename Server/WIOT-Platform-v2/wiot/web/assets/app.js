@@ -291,7 +291,10 @@ function route() {
     if (seq === routeSeq) { cleanup = fn || null; return; }
     try { if (typeof fn === "function") fn(); } catch { /* superseded page */ }   // the user already moved on
   })
-    .catch((err) => { root.innerHTML = `<div class="panel"><div class="empty">${esc(err.message)}</div></div>`; toast(err.message, "error"); });
+    .catch((err) => {
+      if (seq !== routeSeq) return;                     // superseded: the current page owns #page now
+      root.innerHTML = `<div class="panel"><div class="empty">${esc(err.message)}</div></div>`; toast(err.message, "error");
+    });
 }
 
 boot().catch((err) => { if (err.status !== 401) document.body.innerHTML = `<div class="empty">${esc(err.message)}</div>`; });
