@@ -4,7 +4,8 @@
 #include <sstream>
 
 #define PC13 45
-enum { PA0, PA4, PA5, PA6, PA7, PA8, PA9, PA10, PA11, PA12, PB0, PB1, PB2, PB7, PB8, PB9, PB15, HEX=16 };
+enum { PA0, PA4, PA5, PA6, PA7, PA8, PA9, PA10, PA11, PA12, PB0, PB1, PB2, PB7, PB8, PB9, PB12, PB15 };
+constexpr int HEX = 16;
 struct SoftwareReset {};
 [[noreturn]] inline void NVIC_SystemReset() { throw SoftwareReset{}; }
 
