@@ -216,9 +216,7 @@ void setup()
   initializeHardwareWatchdog();
   serviceHardwareWatchdog(WatchdogStage::Setup);
 #if APP_ENABLE_SERIAL_CONFIG
-  SerialConfig::begin(offerConfigWindow);
-  if (offerConfigWindow && configLoad == RuntimeConfig::LoadResult::Invalid)
-    SerialMon.println("WIOT configuration was invalid. Firmware defaults loaded.");
+  SerialConfig::begin(offerConfigWindow, configLoad == RuntimeConfig::LoadResult::Invalid);
 #endif
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   gatewaySetup();

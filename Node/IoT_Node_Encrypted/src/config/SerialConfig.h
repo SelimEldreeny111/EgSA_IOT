@@ -5,10 +5,10 @@
 
 namespace SerialConfig {
 #if APP_ENABLE_SERIAL_CONFIG
-void begin(bool offerBootWindow);
+void begin(bool offerBootWindow, bool invalidSavedConfig = false);
 bool service();
 #else
-inline void begin(bool) {}
+inline void begin(bool, bool = false) {}
 inline bool service() { return false; }
 #endif
 }

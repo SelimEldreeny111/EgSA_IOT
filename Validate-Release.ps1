@@ -54,6 +54,8 @@ try {
     }
     Write-Host 'Node host suite: debug_logging'
     Invoke-ReleaseNative $Python @((Join-Path $releaseNode 'tests/debug_logging/run_tests.py'), '--compiler', $Compiler)
+    Write-Host 'Node host suite: serial_config'
+    & (Join-Path $releaseNode 'tests/serial_config/run_tests.ps1') -Compiler $Compiler
     foreach ($releaseSimulator in @('Multi Sensor RS485 Simulator','TUF2000B Flow meter/simulator','Supmea Flow meter/simulator')) {
         Invoke-ReleasePythonTests (Join-Path $releaseRoot "SENSORS/$releaseSimulator")
     }

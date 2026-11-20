@@ -55,7 +55,9 @@ with tempfile.TemporaryDirectory(prefix='wiot-debug-') as temporary:
     print('PASS 30 production MQTT command-priority/reply/failure scenarios across SIM/WiFi and full/lite/off')
     owned=[node/'IoT_Node_Encrypted.ino']+list((node/'src').rglob('*.cpp'))+list((node/'src').rglob('*.h'))
     for file in owned:
-        if 'third_party' in file.parts or file.name=='DebugLog.h':
+        # Commissioning is an independent UART client, governed by
+        # APP_ENABLE_SERIAL_CONFIG instead of the diagnostic log level.
+        if 'third_party' in file.parts or file.name=='DebugLog.h' or file==node/'src/config/SerialConfig.cpp':
             continue
         assert not re.search(r'\bSerialMon\.(print\w*|write|begin|flush)\s*\(',file.read_text(encoding='utf-8-sig')),file
     print('PASS silent binary drops debug literals; all owned diagnostic outputs use the master switch')

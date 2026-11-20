@@ -5,6 +5,7 @@
 #define PB7 23
 #define PB8 24
 #define PB9 25
+#define PB12 28
 #define PB15 31
 #define PC13 45
 #define PA0 0
@@ -20,11 +21,13 @@
 #include "../../src/config/AppConfig.h"
 static_assert(AppConfig::kValveAin1Pin == PB9 && AppConfig::kValveAin2Pin == PB15,
     "Agreed polarity pins must remain PB9/PB15");
-static_assert(AppConfig::kOpenCloseNodeGpio == PC13 && !AppConfig::kOpenCloseNodeActiveLow,
-    "Original valve pin must be active-high TB6612 STBY");
+static_assert(!AppConfig::kOpenCloseNodeActiveLow, "TB6612 STBY must be active-high");
+static_assert(AppConfig::kOpenCloseNodeGpio == PC13 ||
+    AppConfig::kOpenCloseNodeGpio == PB12, "Expected factory or bench STBY pin");
 static_assert(AppConfig::kEnableOpenCloseNodeOutput ==
-    bool(APP_HAS_SENSORS && APP_ENABLE_LATCHING_VALVE && !APP_HAS_LORA),
-    "No valve GPIO access on disabled/gateway/PC13 AUX builds");
+    bool(APP_HAS_SENSORS && APP_ENABLE_LATCHING_VALVE &&
+        (!APP_HAS_LORA || AppConfig::kOpenCloseNodeGpio != AppConfig::kLoraAuxPin)),
+    "LoRa uses AUX; an enabled valve needs a separate STBY pin");
 static_assert(AppConfig::kValveEepromAddress == 212U, "Preserve EEPROM layout");
 #ifndef TEST_COMMISSIONED
 static_assert(AppConfig::kValveOpenPulseMs == 0 && AppConfig::kValveClosePulseMs == 0 &&

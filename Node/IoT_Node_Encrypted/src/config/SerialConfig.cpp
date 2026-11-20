@@ -373,10 +373,12 @@ bool service()
     return open;
 }
 
-void begin(bool offerBootWindow)
+void begin(bool offerBootWindow, bool invalidSavedConfig)
 {
     SerialMon.begin(115200);
     if (!offerBootWindow) return;
+    if (invalidSavedConfig)
+        SerialMon.println("WIOT configuration was invalid. Firmware defaults loaded.");
     SerialMon.println("WIOT serial configuration - send config and Enter.");
     const uint32_t started = millis();
     while (service() || millis() - started < kBootWindowMs) {
