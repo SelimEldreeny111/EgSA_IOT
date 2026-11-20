@@ -32,6 +32,7 @@
             <li class="nav-section">Monitoring</li>
             <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#LiveStatus" type="button" role="tab"><i class="bi bi-activity"></i> Live Status</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#WaterOperations" id="operations-tab" type="button" role="tab" aria-controls="WaterOperations"><i class="bi bi-droplet"></i> Water Operations</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#WaterPlanning" id="planning-tab" type="button" role="tab" aria-controls="WaterPlanning"><i class="bi bi-calendar3"></i> Water Planning</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#LiveGraphs" type="button" role="tab"><i class="bi bi-graph-up"></i> Live Graphs</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#NodeLocation" type="button" role="tab"><i class="bi bi-geo-alt"></i> Node Location</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#TabularData" type="button" role="tab" id="tab-btn-tabular"><i class="bi bi-table"></i> Historical DB</button></li>
@@ -398,6 +399,7 @@
 
             <!-- LIVE GRAPHS -->
             {% include "_water_operations.html" %}
+            {% include "_water_planning.html" %}
             <div class="tab-pane fade" id="LiveGraphs" role="tabpanel">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -946,5 +948,6 @@
 <script src="/static/js/flash_archive.js?v=20261112-1"></script>
 <script src="/static/js/gateway_status.js?v=20261118-1"></script>
 <script src="/static/js/water_operations.js?v=20261120-1"></script>
+<script src="/static/js/water_planning.js?v=20261120-1"></script>
 </body>
 </html>

@@ -1,0 +1,73 @@
+<div class="tab-pane fade" id="WaterPlanning" role="tabpanel" aria-labelledby="planning-tab">
+    <div class="d-flex justify-content-end align-items-center gap-3 mb-3">
+        <span id="planning-status" role="status" class="status-note"></span>
+        <button type="button" id="planning-refresh" class="btn btn-sm btn-outline-secondary">Refresh</button>
+    </div>
+    <section class="card mb-4">
+        <div class="card-header"><h2 class="h5 mb-0">Water budgets</h2></div>
+        <div class="card-body">
+            <div class="table-scroll"><table class="table table-wiot mb-0">
+                <caption class="visually-hidden">Reported water use against configured period budgets</caption>
+                <thead><tr><th>Line / Meter</th><th>Period</th><th>Used / Budget</th><th>Remaining</th>
+                    <th>Projected total</th><th>Condition / Evidence</th></tr></thead>
+                <tbody id="planning-budgets"></tbody>
+            </table></div>
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-header"><h2 class="h5 mb-0">Irrigation advisory</h2></div>
+        <div class="card-body">
+            <p class="status-note">Use locally verified moisture limits. Confirm field conditions before watering.</p>
+            <div class="table-scroll"><table class="table table-wiot mb-0">
+                <caption class="visually-hidden">Soil readings and operator advice</caption>
+                <thead><tr><th>Line / Sensor</th><th>Moisture</th><th>Change</th><th>Advisory</th><th>Measured</th></tr></thead>
+                <tbody id="planning-soil"></tbody>
+            </table></div>
+        </div>
+    </section>
+    <section class="card mb-4">
+        <div class="card-header"><h2 class="h5 mb-0">Automatic archive backfill</h2></div>
+        <div class="card-body">
+            <p class="status-note">After a missed reporting window, the server can recover samples from the current retained node day.</p>
+            <div class="table-scroll"><table class="table table-wiot mb-0">
+                <caption class="visually-hidden">Automatic history requests and persisted records</caption>
+                <thead><tr><th>Line / Node</th><th>Status</th><th>Report gap</th><th>Request / Records</th>
+                    {% if role == 'admin' %}<th>Archive / Settings</th>{% endif %}</tr></thead>
+                <tbody id="planning-recovery"></tbody>
+            </table></div>
+        </div>
+    </section>
+    {% if role == 'admin' %}
+    <details class="card mb-4" id="planning-settings">
+        <summary class="card-header">Configure a field plan</summary>
+        <div class="card-body">
+            <form id="planning-form" class="row g-3">
+                <label class="col-sm-3">Node ID<input name="node" type="number" min="1" max="65535" required class="form-control"></label>
+                <label class="col-sm-5">Field / line name<input name="name" maxlength="80" required class="form-control"></label>
+                <label class="col-sm-4">Node time zone<input name="timezone" value="Africa/Cairo" maxlength="64" required class="form-control"></label>
+                <label class="col-sm-3">Status interval (s)<input name="report_seconds" type="number" min="5" max="86400" required class="form-control"></label>
+                <label class="col-sm-3">Flow sensor ID<input name="sensor_id" type="number" value="1" min="0" max="65535" required class="form-control"></label>
+                <label class="col-sm-3">Flow meter<select name="meter" class="form-select"><option value="1">TUF</option><option value="2">Supmea</option></select></label>
+                <label class="col-sm-3">Budget warning (%)<input name="warning_percent" type="number" min="1" max="99" value="80" required class="form-control"></label>
+                {% for period in ('Day', 'Month', 'Year') %}
+                <label class="col-sm-4">{{ period }} budget (m³)<input name="{{ period|lower }}_m3" type="number" min="0.001" step="any" class="form-control"></label>
+                {% endfor %}
+                <label class="col-sm-4">Soil sensor<select name="soil" class="form-select"><option value="disabled">Disabled</option>
+                    <option value="hnda">HNDA</option><option value="sondas">Sondas</option></select></label>
+                <label class="col-sm-4">Dry at or below (%)<input name="dry_percent" type="number" min="0" max="100" step="any" class="form-control"></label>
+                <label class="col-sm-4">Wet at or above (%)<input name="wet_percent" type="number" min="0" max="100" step="any" class="form-control"></label>
+                <label class="col-sm-4">Automatic download record threshold<input name="max_records" type="number" min="1" max="128" value="24" required class="form-control"></label>
+                <div class="col-sm-8 d-flex align-items-end pb-2">
+                    <label class="form-check"><input class="form-check-input" type="checkbox" name="backfill">
+                        <span class="form-check-label">Enable automatic backfill for this node</span></label>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-2">
+                    <button type="submit" class="btn btn-primary">Save field plan</button>
+                    <button type="reset" class="btn btn-outline-secondary">New field plan</button>
+                    <span id="planning-result" role="status" class="status-note"></span>
+                </div>
+            </form>
+        </div>
+    </details>
+    {% endif %}
+</div>

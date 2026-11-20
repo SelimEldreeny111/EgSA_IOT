@@ -76,6 +76,8 @@ class CommandQueue:
             db.execute('CREATE INDEX IF NOT EXISTS command_region_scope ON pending_commands(company,region,node_id,state)')
             if 'mqtt_mid' not in {r['name'] for r in db.execute('PRAGMA table_info(command_attempts)')}:
                 db.execute('ALTER TABLE command_attempts ADD COLUMN mqtt_mid INTEGER')
+            if 'automatic' not in {r['name'] for r in db.execute('PRAGMA table_info(pending_commands)')}:
+                db.execute('ALTER TABLE pending_commands ADD COLUMN automatic INTEGER NOT NULL DEFAULT 0')
         if legacy_path and Path(legacy_path).is_file():
             self._import_legacy(legacy_path)
 
@@ -178,7 +180,8 @@ class CommandQueue:
             self._event(db, row['request_id'], state, now, reason)
 
     def enqueue(self, company, node_id, cmd_id, cmd_type, cmd_data, request_id=None,
-                ttl_seconds=DEFAULT_TTL_SECONDS, now=None, *, actor='', delivery='next_wake', broadcast=False, region=DEFAULT_REGION):
+                ttl_seconds=DEFAULT_TTL_SECONDS, now=None, *, actor='', delivery='next_wake',
+                broadcast=False, region=DEFAULT_REGION, automatic=False):
         company_id(company)
         region_id(region)
         node_id = integer(node_id, 1, 65535, 'Node ID')
@@ -196,6 +199,8 @@ class CommandQueue:
             raise ValueError("Command TTL must be 60..604800 seconds")
         if delivery not in ('now', 'next_wake') or not isinstance(broadcast, bool) or (broadcast and delivery != 'now'):
             raise ValueError('Invalid delivery/broadcast policy')
+        if automatic and (cmd_id not in (10, 12) or delivery != 'next_wake'):
+            raise ValueError('Automatic requests must be queued read-only archive commands')
         now = int(time.time() if now is None else now)
         target = 0 if broadcast else node_id
         with self._db() as db:
@@ -225,14 +230,16 @@ class CommandQueue:
                     self._event(db, row['request_id'], 'superseded', now, request_id)
             count = db.execute("""SELECT COUNT(*) FROM pending_commands WHERE company=? AND region=? AND node_id=?
                 AND state IN ('pending','dispatched','waiting_retry','broadcast_partial')""", (company, region, target)).fetchone()[0]
+            if automatic and count:
+                raise ValueError('Node already has active commands')
             if count >= MAX_PENDING_PER_NODE:
                 raise ValueError('Node command window full; wait for completion/expiry')
             db.execute("""INSERT INTO pending_commands
                 (request_id,company,region,node_id,cmd_id,cmd_type,cmd_data,actor,delivery,broadcast,
-                 created_at,expires_at,next_attempt_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                 created_at,expires_at,next_attempt_at,automatic)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (request_id, company, region, target, cmd_id, cmd_type, cmd_data, str(actor)[:80], delivery,
-                 int(broadcast), now, now + ttl_seconds, now))
+                 int(broadcast), now, now + ttl_seconds, now, int(automatic)))
             self._event(db, request_id, 'accepted', now, delivery)
         return {'request_id': request_id, 'expires_at': now + ttl_seconds, 'node_id': target, 'region': region}
 
@@ -255,15 +262,31 @@ class CommandQueue:
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._refresh(db, now)
-            row = db.execute("""SELECT * FROM pending_commands
+            row = db.execute("""SELECT * FROM pending_commands AS candidate
                 WHERE company=? AND region=? AND node_id=? AND delivery='next_wake'
                   AND state IN ('pending','dispatched','waiting_retry')
                   AND next_attempt_at<=? AND expires_at>?
                   AND (attempts=0 OR (cmd_type IN ('SRATE','STRAN') AND attempts<?))
-                ORDER BY CASE WHEN cmd_type='VALVE' THEN 0 ELSE 1 END,
+                  AND (automatic=0 OR NOT EXISTS (SELECT 1 FROM pending_commands AS operator
+                      WHERE operator.company=candidate.company AND operator.region=candidate.region
+                      AND operator.node_id=candidate.node_id AND operator.automatic=0
+                      AND operator.state IN ('pending','dispatched','waiting_retry','broadcast_partial')))
+                ORDER BY automatic, CASE WHEN cmd_type='VALVE' THEN 0 ELSE 1 END,
                          CASE WHEN attempts=0 THEN 0 ELSE 1 END,id LIMIT 1""",
                 (company, region_id(region), node_id, now, now, MAX_ATTEMPTS)).fetchone()
             return self._claim(db, row, now) if row else None
+
+    def withdraw_automatic(self, company, region, node_id, now):
+        """Only withdraw pending automatic work; a published request may complete."""
+        with self._db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            ids = db.execute("""SELECT request_id FROM pending_commands WHERE company=? AND region=?
+                    AND node_id=? AND automatic=1 AND state='pending' AND attempts=0""",
+                    (company, region, node_id)).fetchall()
+            for row in ids:
+                db.execute("UPDATE pending_commands SET state='cancelled',reason='Automatic archive withdrawn' "
+                           "WHERE request_id=?", (row['request_id'],))
+                self._event(db, row['request_id'], 'cancelled', now, 'Automatic archive withdrawn')
 
     def claim_immediate(self, request_id, now=None):
         now = int(time.time() if now is None else now)

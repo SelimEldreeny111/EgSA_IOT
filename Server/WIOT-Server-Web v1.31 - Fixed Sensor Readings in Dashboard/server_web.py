@@ -40,6 +40,8 @@ from command_queue import CommandQueue
 from flash_archive import FlashArchive, FLASH_COMMANDS, HISTORY_ACK
 from gateway_status import GatewayStatusStore
 from water_operations import OperationsStore, SELECT_REPORTS, BATCH_SIZE, validate_settings
+from water_planning import PlanningStore, planning_metrics, validate_plan
+from archive_recovery import ACTIVE as ACTIVE_RECOVERY, run_recovery_pass
 from input_validation import company_id, integer, parse_topic, validate_message, MAX_PROTO_BYTES
 from tenant_storage import database_path, storage_id, preflight as tenant_preflight
 
@@ -123,6 +125,7 @@ mqtt_client = None
 _command_queue = None
 _flash_archive = None
 _command_dispatch_lock = threading.RLock()
+_planning_lock = threading.Lock()
 _gateway_observation_started = time.time()
 
 
@@ -184,7 +187,31 @@ def operations_worker():
             run_operations_pass()
         except Exception:
             logging.exception('Water operations worker could not complete its pass')
+        try:
+            run_site_recovery()
+        except Exception:
+            logging.exception('Automatic archive worker could not complete its pass')
         socketio.sleep(5)
+
+
+@lru_cache(maxsize=4)
+def _planning_store(path):
+    return PlanningStore(path)
+
+
+def planning_store():
+    return _planning_store(operations_store().path)
+
+
+def run_site_recovery(now=None):
+    with _planning_lock:
+        store = planning_store()
+        if not any(cfg['backfill'] or state.get('state') in ACTIVE_RECOVERY
+                   for _, cfg, state in store.plans()):
+            return
+        observing = mqtt_client is not None and mqtt_client.is_connected()
+        now = int(time.time()) if now is None else now
+        run_recovery_pass(store, flash_archive_store(), command_mailbox(), get_company_db_path, now, observing)
 
 
 def flash_archive_store():
@@ -696,6 +723,10 @@ def ensure_message_db(company: str) -> str:
     c.execute('''CREATE INDEX IF NOT EXISTS idx_consumption_periods_lookup
                  ON consumption_periods(node_id, sensor_id, period_type, period_key)''')
     migrate_region_storage(conn)
+    if 'live_fallback' not in {row[1] for row in conn.execute('PRAGMA table_info(meter_samples)')}:
+        c.execute('ALTER TABLE meter_samples ADD COLUMN live_fallback INTEGER')
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_meter_planning_receive
+                 ON meter_samples(region,node_id,sensor_id,flow_meter_type,received_at DESC,id DESC)''')
     conn.commit()
     conn.close()
     _initialized_company_dbs.add(company)
@@ -983,8 +1014,8 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                           forward_total_liters, reverse_total_liters, net_total_liters,
                           flow_live_valid, period_totals_valid, cumulative_totals_valid,
                           rtc_valid, period_source, period_quality, alarm_flags,
-                          sample_fingerprint, region)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                          sample_fingerprint, region, live_fallback)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                       (epoch_ts, measured_epoch, time_source, m_type,
                        n_id, str(s_id), metadata["flow_meter_type"],
                        sample["flow_rate"], sample["velocity"],
@@ -1000,7 +1031,7 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        metadata.get("flow_period_source", 0),
                        metadata.get("flow_period_quality", 0),
                        metadata.get("flow_meter_alarm_flags", 0),
-                       fingerprint, region))
+                       fingerprint, region, operations_fallback))
 
             for period in sample["period_rows"]:
                 c.execute('''INSERT INTO consumption_periods
@@ -1202,7 +1233,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
                          secondary_flow=secondary_flow,
-                         power_info=power_info, region=region)
+                         power_info=power_info, region=region, operations_fallback=msg.live_fallback)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Telemetry", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -2006,6 +2037,50 @@ def api_operations_export():
         return jsonify(error='Cannot export another company'), 403
     return Response(operations_store().csv_rows(company, region), mimetype='text/csv',
                     headers={'Content-Disposition': 'attachment; filename="wiot-incidents.csv"'})
+
+
+@app.route('/api/planning')
+@login_required
+def api_planning():
+    company, region = _operations_scope()
+    if not can_manage_company(company) and session.get('username') != 'Super_User':
+        return jsonify(error='Cannot read another company'), 403
+    if company not in known_companies():
+        return jsonify(error='Unknown company'), 404
+    rows = []
+    now = int(time.time())
+    with closing(sqlite3.connect(ensure_message_db(company))) as db:
+        db.row_factory = sqlite3.Row
+        for scope, cfg, state in planning_store().plans(company, region):
+            node = scope[2]
+            metrics = planning_metrics(db, region, node, cfg, now)
+            recovery = {key: state.get(key) for key in
+                        ('state', 'reason', 'request_id', 'gap_from', 'gap_to', 'updated_at', 'received',
+                         'total', 'gap_records')}
+            rows.append(dict(node=node, settings=cfg, recovery=recovery, **metrics))
+    return jsonify(company=company, region=region, plans=rows)
+
+
+@app.route('/api/planning/profiles/<int:node>', methods=['PUT'])
+@admin_required
+def api_planning_profile(node):
+    company, region = _operations_scope()
+    if not can_manage_company(company):
+        return jsonify(error='Cannot configure another company'), 403
+    if company not in known_companies():
+        return jsonify(error='Unknown company'), 404
+    node = integer(node, 1, 65535, 'Node ID')
+    settings = validate_plan(request.get_json())
+    with _planning_lock, _command_dispatch_lock:
+        with closing(sqlite3.connect(ensure_message_db(company))) as db:
+            cursor = db.execute('SELECT COALESCE(MAX(id),0) FROM messages WHERE region=? AND node_id=?',
+                                (region, node)).fetchone()[0]
+        now = int(time.time())
+        scope = company, region, node
+        changed = planning_store().configure(scope, settings, session['username'], now, cursor)
+        if changed:
+            command_mailbox().withdraw_automatic(*scope, now)
+    return jsonify(success=True)
 
 
 @app.route('/api/node_latest', methods=['GET'])

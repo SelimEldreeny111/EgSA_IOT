@@ -42,6 +42,10 @@ class FlashArchive:
                     PRIMARY KEY(company,region,node,request,idx),
                     UNIQUE(company,region,node,request,sequence));
             ''')
+            if 'request' not in {row[1] for row in db.execute('PRAGMA table_info(flash_status)')}:
+                db.execute('ALTER TABLE flash_status ADD COLUMN request INTEGER NOT NULL DEFAULT 0')
+            if 'day' not in {row[1] for row in db.execute('PRAGMA table_info(flash_transfers)')}:
+                db.execute('ALTER TABLE flash_transfers ADD COLUMN day INTEGER NOT NULL DEFAULT 0')
             db.commit()
 
     def _db(self):
@@ -95,8 +99,10 @@ class FlashArchive:
         with closing(self._db()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             if status is not None:
-                db.execute('INSERT OR REPLACE INTO flash_status VALUES(?,?,?,?,?)',
-                           (*scope, now, json.dumps(status)))
+                probe = msg.command_ack_request_id if msg.command_ack_cmd_id == FLASH_COMMANDS['FLASH_STATUS'] else 0
+                db.execute('INSERT OR REPLACE INTO flash_status (company,region,node,received,info,request) '
+                           'VALUES(?,?,?,?,?,?)',
+                           (*scope, now, json.dumps(status), probe))
             if h and h.phase == 2:
                 sample = type(msg)()
                 sample.CopyFrom(msg)
@@ -119,6 +125,8 @@ class FlashArchive:
                                       'AND node=? AND request=?', transfer_key).fetchone()
                 if previous and previous['generation'] != h.generation:
                     raise ValueError('Transfer generation changed')
+                if previous and previous['day'] and h.day_key and previous['day'] != h.day_key:
+                    raise ValueError('Transfer day changed')
                 if previous and previous['phase'] >= 2 and h.phase >= 2 and previous['total'] != h.total:
                     raise ValueError('Transfer total changed')
                 if h.phase == 2:
@@ -138,8 +146,10 @@ class FlashArchive:
                 phase = max(h.phase, previous['phase'] if previous else 0)
                 result = previous['result'] if previous and previous['phase'] > h.phase else h.result
                 complete = phase == 3 and result in (0, 1) and received == total
-                db.execute('INSERT OR REPLACE INTO flash_transfers VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                           (*transfer_key, h.generation, total, received, phase, result, int(complete), now))
+                day = h.day_key or (previous['day'] if previous else 0)
+                db.execute('INSERT OR REPLACE INTO flash_transfers (company,region,node,request,generation,total,'
+                           'received,phase,result,complete,updated,day) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+                           (*transfer_key, h.generation, total, received, phase, result, int(complete), now, day))
                 if h.ack_required and h.phase in (2, 3):
                     ack = (h.request_id, (h.phase << 32) | h.index)
         return {'Company': company, 'Region': region, 'Node ID': node,
@@ -149,11 +159,13 @@ class FlashArchive:
     def summary(self, company, region, node):
         scope = self.scope(company, region, node)
         with closing(self._db()) as db:
-            status = db.execute('SELECT received,info FROM flash_status WHERE company=? AND region=? AND node=?', scope).fetchone()
+            status = db.execute('SELECT received,info,request FROM flash_status WHERE company=? AND region=? AND node=?',
+                                scope).fetchone()
             transfers = db.execute('SELECT * FROM flash_transfers WHERE company=? AND region=? AND node=? '
                                    'ORDER BY updated DESC LIMIT 20', scope).fetchall()
         return {'memory': json.loads(status['info']) if status else None,
                 'received_at': status['received'] if status else None,
+                'status_request': status['request'] if status else None,
                 'transfers': [dict(row) for row in transfers]}
 
     def records(self, company, region, node, limit=200, offset=0):
@@ -165,3 +177,31 @@ class FlashArchive:
                               'company=? AND region=? AND node=? ORDER BY generation DESC,sequence '
                               'LIMIT ? OFFSET ?', (*scope, limit, offset)).fetchall()
         return [dict(row, data=json.loads(row['data'])) for row in rows]
+
+    def recovery_progress(self, scope, request, day, generation, first, max_rows):
+        """Return only the persisted prefix confirmed for this request and day."""
+        with closing(self._db()) as db:
+            transfer = db.execute("""SELECT * FROM flash_transfers WHERE company=? AND region=?
+                                       AND node=? AND request=?""", (*scope, request)).fetchone()
+            if not transfer:
+                return None, first, 0
+            rows = db.execute("""SELECT tr.idx,tr.sequence,r.day FROM flash_transfer_rows tr
+                JOIN flash_records r ON r.company=tr.company AND r.region=tr.region AND r.node=tr.node
+                    AND r.generation=? AND r.sequence=tr.sequence
+                WHERE tr.company=? AND tr.region=? AND tr.node=? AND tr.request=?
+                ORDER BY tr.idx LIMIT ?""", (generation, *scope, request, max_rows + 1)).fetchall()
+        cursor = first
+        count = 0
+        if transfer['generation'] == generation:
+            for index, row in enumerate(rows, 1):
+                if row['idx'] != index or row['sequence'] < cursor or row['day'] != day:
+                    break
+                cursor = row['sequence'] + 1
+                count += 1
+        return dict(transfer), cursor, count
+
+    def gap_records(self, scope, generation, day, start, end):
+        with closing(self._db()) as db:
+            return db.execute("""SELECT COUNT(*) FROM flash_records WHERE company=? AND region=?
+                AND node=? AND generation=? AND day=? AND epoch>? AND epoch<?""",
+                (*scope, generation, day, start, end)).fetchone()[0]

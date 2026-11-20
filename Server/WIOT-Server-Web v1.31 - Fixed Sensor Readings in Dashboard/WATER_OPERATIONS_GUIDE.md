@@ -1,5 +1,8 @@
 # WIOT water operations
 
+For period budgets, irrigation advice and automatic flash recovery, see the
+[water planning and recovery guide](WATER_PLANNING_GUIDE.md).
+
 The **Water Operations** tab monitors each configured water line using the node's
 existing Status reports. It works through Wi-Fi, SIM800L and LoRa gateway paths
 that publish the current regional MQTT topics. This release runs in the web
