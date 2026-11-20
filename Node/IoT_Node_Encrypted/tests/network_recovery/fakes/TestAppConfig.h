@@ -25,6 +25,7 @@ AppRuntimeState& appState(); void refreshEnabledSensorSummary(); void refreshBat
 void initializeHndaSensor(); void initializeSondasSensor();
 namespace AppConfig {
 constexpr uint16_t kNodeId=2;
+constexpr bool kEnableCommandAckReplies=APP_ENABLE_COMMAND_ACK_REPLIES;
 constexpr uint8_t kNetworkRetriesPerStage=10;
 constexpr bool kEnableWifiCredentialStore=true, kEnableOpenCloseNodeOutput=false, kOpenCloseNodeActiveLow=false;
 constexpr bool kEnableTufSensor=false,kEnableSupmeaSensor=false,kEnableHndaSensor=false,kEnableSondasSensor=false;
