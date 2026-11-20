@@ -1,0 +1,77 @@
+<div class="tab-pane fade" id="WaterOperations" role="tabpanel" aria-labelledby="operations-tab">
+    <section class="card mb-4">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 class="h5 mb-0">Water operations</h2>
+            <button type="button" class="btn btn-sm btn-outline-light" id="operations-refresh">Refresh</button>
+        </div>
+        <div class="card-body">
+            <p id="operations-observation" class="status-note mb-3" role="status"></p>
+            <div class="table-scroll">
+                <table class="table table-wiot mb-0">
+                    <caption class="visually-hidden">Monitored water lines and node health</caption>
+                    <thead><tr>
+                        <th>Site / Node</th><th>Reporting</th><th>Last report</th><th>Meter / Time</th>
+                        <th>Battery</th><th>WDT / Power resets</th><th>Gateway</th>
+                        {% if role == 'admin' %}<th>Settings</th>{% endif %}
+                    </tr></thead>
+                    <tbody id="operations-nodes"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    {% if role == 'admin' %}
+    <details class="card mb-4" id="operations-settings">
+        <summary class="card-header">Configure a monitored line</summary>
+        <div class="card-body">
+            <p class="status-note">Enter the normal Status reporting interval. A blank limit disables its alert.</p>
+            <form id="operations-form" class="row g-3">
+                <label class="col-sm-3 col-md-2">Node ID<input name="node" type="number" min="1" max="65535" required class="form-control"></label>
+                <label class="col-sm-5 col-md-4">Site / line name<input name="name" maxlength="80" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Reporting meter
+                    <select name="meter" class="form-select"><option value="1">TUF</option><option value="2">Supmea</option></select>
+                </label>
+                <label class="col-sm-4 col-md-3">Gateway ID (optional)<input name="gateway" type="number" min="1" max="65535" class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Report interval (s)<input name="expected_seconds" type="number" min="5" max="604800" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Maximum sample gap (s)<input name="max_gap_seconds" type="number" min="5" max="1209600" placeholder="Twice the report interval" class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Alert hold (s)<input name="hold_seconds" type="number" min="1" max="604800" value="60" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Recovery hold (s)<input name="recovery_seconds" type="number" min="1" max="604800" value="30" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Site time zone<input name="timezone" value="Africa/Cairo" maxlength="64" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Quiet hours start<input name="quiet_start" type="time" value="00:00" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Quiet hours end<input name="quiet_end" type="time" value="05:00" required class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Quiet-hours flow (m³/h)<input name="quiet_flow_m3h" type="number" min="0" step="any" class="form-control"></label>
+                <label class="col-sm-4 col-md-3">High flow (m³/h)<input name="high_flow_m3h" type="number" min="0" step="any" class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Reverse flow (m³/h)<input name="reverse_flow_m3h" type="number" min="0" step="any" class="form-control"></label>
+                <label class="col-sm-4 col-md-3">Low battery (V)<input name="battery_min_v" type="number" min="0" step="any" class="form-control"></label>
+                <div class="col-sm-4 col-md-3 d-flex align-items-end pb-2">
+                    <label class="form-check"><input class="form-check-input" type="checkbox" name="enabled" checked><span class="form-check-label">Monitoring enabled</span></label>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-2">
+                    <button type="submit" class="btn btn-primary">Save monitoring settings</button>
+                    <button type="reset" class="btn btn-outline-secondary">New line</button>
+                    <span id="operations-save-result" class="status-note" role="status"></span>
+                </div>
+            </form>
+        </div>
+    </details>
+    {% endif %}
+    <section class="card">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h2 class="h5 mb-0">Incident history</h2>
+            <a class="btn btn-sm btn-outline-light" id="operations-export" href="/api/operations/export">Export CSV</a>
+        </div>
+        <div class="card-body">
+            <div class="table-scroll">
+                <table class="table table-wiot mb-0">
+                    <caption class="visually-hidden">Water and equipment incidents</caption>
+                    <thead><tr><th>Incident</th><th>Node</th><th>State</th><th>Opened</th><th>Latest evidence</th><th>Acknowledgement</th></tr></thead>
+                    <tbody id="operations-incidents"></tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="operations-newest" disabled>Newest</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="operations-older" disabled>Older</button>
+            </div>
+            <p id="operations-action-result" class="status-note mb-0" role="status"></p>
+        </div>
+    </section>
+</div>

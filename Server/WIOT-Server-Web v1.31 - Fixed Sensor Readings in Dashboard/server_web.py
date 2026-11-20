@@ -9,9 +9,10 @@ import secrets
 import glob
 import re
 import threading
+from hashlib import sha256
 from io import StringIO
 from datetime import datetime
-from functools import wraps
+from functools import lru_cache, wraps
 from contextlib import closing
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, send_file
 from flask_socketio import SocketIO, join_room, leave_room
@@ -38,6 +39,7 @@ from mqtt_impl import MqttNodeClient
 from command_queue import CommandQueue
 from flash_archive import FlashArchive, FLASH_COMMANDS, HISTORY_ACK
 from gateway_status import GatewayStatusStore
+from water_operations import OperationsStore, SELECT_REPORTS, BATCH_SIZE, validate_settings
 from input_validation import company_id, integer, parse_topic, validate_message, MAX_PROTO_BYTES
 from tenant_storage import database_path, storage_id, preflight as tenant_preflight
 
@@ -127,6 +129,62 @@ _gateway_observation_started = time.time()
 def gateway_status_store():
     """Store gateway state beside the main DB, outside sensor-history databases."""
     return GatewayStatusStore(os.path.join(os.path.dirname(MAIN_DB_FILE), 'gateway_status.db'))
+
+
+@lru_cache(maxsize=4)
+def _operations_store(path):
+    return OperationsStore(path)
+
+
+def operations_store():
+    return _operations_store(os.path.join(os.path.dirname(os.path.abspath(MAIN_DB_FILE)),
+                                          'water_operations.db'))
+
+
+def run_operations_pass(now=None):
+    """Consume committed Status rows outside MQTT dispatch. Each batch is bounded."""
+    now = int(time.time()) if now is None else now
+    observing = mqtt_client is not None and mqtt_client.is_connected()
+    since = int(_gateway_observation_started)
+    store = operations_store()
+    paths, gateways = {}, {}
+    for target in store.targets():
+        company, region, node = target['company'], target['region'], target['node']
+        try:
+            if company not in paths:
+                paths[company] = get_company_db_path(company)
+            if not os.path.isfile(paths[company]):
+                continue
+            with closing(sqlite3.connect(paths[company], timeout=2)) as db:
+                db.row_factory = sqlite3.Row
+                reports = db.execute(SELECT_REPORTS,
+                    (region, node, target['cursor'], BATCH_SIZE)).fetchall()
+            cfg = json.loads(target['settings'])
+            gateway_state = None
+            if cfg['gateway']:
+                key = company, region
+                if key not in gateways:
+                    gateways[key] = {item['gateway_id']: item['state'] for item in
+                                     gateway_status_store().list(*key, observing, since, now=now)}
+                gateway_state = gateways[key].get(cfg['gateway'], 'unobserved')
+            # A full batch may hide a more recent report. Wait for the next pass
+            # before evaluating missing reports against an incomplete cursor.
+            if len(reports) == BATCH_SIZE:
+                store.process(target, reports, now, False, since, gateway_state)
+            else:
+                store.process(target, reports, now, observing, since, gateway_state)
+        except (sqlite3.Error, ValueError, OSError):
+            logging.exception('Water operations data processing failed for %s/%s/%s',
+                              company, region, node)
+
+
+def operations_worker():
+    while True:
+        try:
+            run_operations_pass()
+        except Exception:
+            logging.exception('Water operations worker could not complete its pass')
+        socketio.sleep(5)
 
 
 def flash_archive_store():
@@ -514,6 +572,8 @@ def ensure_message_db(company: str) -> str:
         ("battery_voltage", "REAL"),
         ("measured_at", "INTEGER"),
         ("time_source", "TEXT"),
+        ("operations_digest", "TEXT"),
+        ("operations_fallback", "INTEGER NOT NULL DEFAULT 0"),
         ("flow_meter_type", "INTEGER DEFAULT 0"),
         ("flow_period_source", "INTEGER DEFAULT 0"),
         ("flow_live_valid", "INTEGER DEFAULT 0"),
@@ -848,7 +908,7 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                  active_sensors=1, sensor_mask=1, battery_voltage=None,
                  flow_metadata=None, measured_at=None, time_source="server_received",
                  sample_fingerprint=None, period_rows=None, secondary_flow=None,
-                 power_info=None, region=DEFAULT_REGION):
+                 power_info=None, region=DEFAULT_REGION, operations_digest=None, operations_fallback=False):
     conn = None
     try:
         region_id(region)
@@ -872,8 +932,9 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                        flow_cumulative_totals_valid, rtc_valid, forward_total_liters, reverse_total_liters,
                        net_total_liters, flow_period_quality, flow_meter_alarm_flags, legacy_flow_schema,
                        secondary_flow_json, power_mode, power_state,
-                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count, power_reset_count, region)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                       wake_remaining_seconds, wake_command_ack, wake_request_id, wdt_reset_count, power_reset_count, region,
+                       operations_digest, operations_fallback)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                   (epoch_ts, m_type, n_id, str(s_id), flow, vel, fday, fmonth, fyear, det, company, node_status,
                    soil_temp, soil_moist, soil_valid, ec_temp, ec_moist, ec_cond, ec_valid, active_sensors, sensor_mask,
                    battery_voltage, measured_epoch, time_source,
@@ -896,7 +957,7 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                    power_info.get("wake_command_ack", 0),
                    power_info.get("wake_request_id", 0),
                    power_info.get("wdt_reset_count", 0),
-                   power_info.get("power_reset_count", 0), region))
+                   power_info.get("power_reset_count", 0), region, operations_digest, operations_fallback))
 
         samples = [{
             "metadata": flow_metadata,
@@ -1054,7 +1115,8 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
                          secondary_flow=secondary_flow,
-                         power_info=power_info, region=region)
+                         power_info=power_info, region=region, operations_digest=sha256(plaintext).hexdigest(),
+                         operations_fallback=msg.live_fallback)
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Status", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -1885,6 +1947,67 @@ def api_gateways():
     return jsonify(company=company, region=region, observing=observing, gateways=gateways)
 
 
+def _operations_scope():
+    company = company_id(request.args.get('company') or session.get('company', 'Unknown'))
+    return company, region_id(request.args.get('region', DEFAULT_REGION))
+
+
+@app.route('/api/operations')
+@login_required
+def api_operations():
+    company, region = _operations_scope()
+    if not can_manage_company(company) and session.get('username') != 'Super_User':
+        return jsonify(error='Cannot read another company'), 403
+    before_arg = request.args.get('before')
+    before = integer(before_arg, 1, 2**63 - 1, 'Incident cursor') if before_arg else None
+    observing = mqtt_client is not None and mqtt_client.is_connected()
+    result = operations_store().dashboard(company, region, observing, before)
+    result['gateways'] = gateway_status_store().list(
+        company, region, observing, _gateway_observation_started)
+    return jsonify(result)
+
+
+@app.route('/api/operations/profiles/<int:node>', methods=['PUT'])
+@admin_required
+def api_operations_profile(node):
+    company, region = _operations_scope()
+    if not can_manage_company(company):
+        return jsonify(error='Cannot configure another company'), 403
+    if company not in known_companies():
+        return jsonify(error='Unknown company'), 404
+    node = integer(node, 1, 65535, 'Node ID')
+    settings = validate_settings(request.get_json())
+    with closing(sqlite3.connect(ensure_message_db(company))) as db:
+        cursor = db.execute('SELECT COALESCE(MAX(id),0) FROM messages WHERE region=? AND node_id=?',
+                            (region, node)).fetchone()[0]
+    operations_store().configure(company, region, node, settings,
+                                 session['username'], int(time.time()), cursor)
+    return jsonify(success=True)
+
+
+@app.route('/api/operations/incidents/<int:incident>/acknowledge', methods=['POST'])
+@admin_required
+def api_operations_acknowledge(incident):
+    company, region = _operations_scope()
+    if not can_manage_company(company):
+        return jsonify(error='Cannot acknowledge another company'), 403
+    incident = integer(incident, 1, 2**63 - 1, 'Incident ID')
+    if not operations_store().acknowledge(company, region, incident, session['username'],
+                                          int(time.time())):
+        return jsonify(error='Incident not found in this region'), 404
+    return jsonify(success=True)
+
+
+@app.route('/api/operations/export')
+@login_required
+def api_operations_export():
+    company, region = _operations_scope()
+    if not can_manage_company(company) and session.get('username') != 'Super_User':
+        return jsonify(error='Cannot export another company'), 403
+    return Response(operations_store().csv_rows(company, region), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename="wiot-incidents.csv"'})
+
+
 @app.route('/api/node_latest', methods=['GET'])
 @login_required
 def api_node_latest():
@@ -2046,4 +2169,5 @@ def export_log():
 
 if __name__ == '__main__':
     print("Running Web Server on http://127.0.0.1:8000")
+    socketio.start_background_task(operations_worker)
     socketio.run(app, debug=False, host="127.0.0.1", port=8000, allow_unsafe_werkzeug=True)
