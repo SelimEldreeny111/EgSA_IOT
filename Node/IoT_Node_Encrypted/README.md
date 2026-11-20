@@ -1,5 +1,9 @@
 # IoT Node Encrypted
 
+Send `config` on the debug UART to commission the node or gateway. Use the
+[serial configuration guide](SERIAL_CONFIGURATION_GUIDE.md) for the menu,
+persistence, and recovery from a sleep or network fault.
+
 For profile selection, Arduino/ST-Link flashing, recovery and twenty bench test
 groups, use the [STM32 flashing and test manual](../../Documentation/FlashingAndTesting/README.md).
 

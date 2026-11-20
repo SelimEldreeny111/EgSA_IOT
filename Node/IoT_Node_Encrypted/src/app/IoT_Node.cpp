@@ -3,6 +3,7 @@
 #define APP_LOG_MODULE "BOOT"
 #include "../platform/DebugLog.h"
 #include "../config/AppConfig.h"
+#include "../config/RuntimeConfig.h"
 #include "IoT_Node.h"
 #include "FlowMeterManager.h"
 #include "NetworkRetryPolicy.h"
@@ -361,7 +362,12 @@ bool connectNetwork()
         APP_DEBUG_PRINTLN("Network connected, connecting GPRS...");
         serviceHardwareWatchdog(WatchdogStage::GprsAttach);
         const bool gprsReady =
+#if APP_ENABLE_SERIAL_CONFIG
+            modem.gprsConnect(RuntimeConfig::active().apn[0] ? RuntimeConfig::active().apn : kApn,
+                kNetworkUser, kNetworkPassword);
+#else
             modem.gprsConnect(kApn, kNetworkUser, kNetworkPassword);
+#endif
         serviceHardwareWatchdog();
         if (!gprsReady)
         {
@@ -380,14 +386,18 @@ bool connectNetwork()
     return false; // Each failed inner attempt was already counted.
 
 #elif defined(USE_ESP8266)
-    // Connection priority is intentional:
-    //   1. Credentials compiled into AppConfig.cpp.
-    //   2. Independently stored fallback credentials in EEPROM/flash.
-    //   3. One operator-provisioned fallback through the serial monitor.
-    // A successful configured connection must not overwrite the saved
-    // fallback; otherwise both choices become identical after the first boot.
-    APP_DEBUG_PRINTLN("WiFi priority: configured firmware -> saved flash fallback -> operator fallback.");
+    // Explicit commissioning takes precedence when configured. A successful
+    // configured connection does not overwrite the separate saved fallback.
+#if APP_ENABLE_SERIAL_CONFIG
+    const auto& configured = RuntimeConfig::active();
+    if (configured.ssid[0]) {
+        APP_DEBUG_PRINTLN("Trying the serial-configured network first.");
+        if (connectWifiWithCredentials("serial configured", configured.ssid, configured.password))
+            return recordNetworkConnectionSuccess();
+    }
+#endif
 
+    APP_DEBUG_PRINTLN("WiFi priority: configured firmware -> saved flash fallback -> operator fallback.");
     if (connectWifiWithCredentials("configured firmware", kWifiSsid, kWifiPassword))
     {
         APP_DEBUG_PRINTLN("Configured WiFi connected; saved flash fallback remains unchanged.");
@@ -454,10 +464,12 @@ void setup_Init()
 {
     AppRuntimeState& state = appState();
 
+#if !APP_ENABLE_SERIAL_CONFIG
     APP_DEBUG_BEGIN(115200);
+#endif
     APP_LOG_EVENT("boot role=SENSOR node=%u topics=%s debug=%s raw_frames=%u command_ack=%u",
-        AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_LITE ? "LITE" : "FULL",
-        APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
+        AppConfig::kNodeId, WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix), APP_DEBUG_LITE ? "LITE" : "FULL",
+        APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES, AppConfig::kEnableCommandAckReplies);
     watchdogDelay(1000);
     reportHardwareWatchdogStatus();
     serviceHardwareWatchdog(WatchdogStage::Setup);

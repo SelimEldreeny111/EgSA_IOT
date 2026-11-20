@@ -3,6 +3,7 @@
 #include "../platform/DebugLog.h"
 #include "LoraLink.h"
 #include "../config/AppConfig.h"
+#include "../config/RuntimeConfig.h"
 #include "../platform/Watchdog.h"
 #include "AS32_Config.h"
 
@@ -1340,7 +1341,9 @@ bool resumeLoraFromWakeOnRadio(uint32_t timeoutMs)
 
 bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* payload, size_t length)
 {
-#if APP_ROLE == APP_ROLE_LORA_GATEWAY && APP_LORA_GATEWAY_WOR_TX
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && (APP_ENABLE_SERIAL_CONFIG || APP_LORA_GATEWAY_WOR_TX)
+  if (!WIOT_ACTIVE_VALUE(APP_LORA_GATEWAY_WOR_TX, gatewayWor))
+    return sendLoraFrame(type, AppConfig::kGatewayNodeId, payload, length);
   if (type != LoraPayloadType::Command && type != LoraPayloadType::BroadcastCommand)
     return false;
   if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin,

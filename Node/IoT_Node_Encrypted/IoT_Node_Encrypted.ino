@@ -49,6 +49,8 @@
 #include "src/comm/PacketCodec.h"
 #include "src/comm/TelemetryPayload.h"
 #include "src/config/AppConfig.h"
+#include "src/config/RuntimeConfig.h"
+#include "src/config/SerialConfig.h"
 #include "src/devices/HndaSensor.h"
 #include "src/devices/SondasSensor.h"
 #include "src/devices/ValveController.h"
@@ -200,12 +202,24 @@ void setup()
   // hook must run before the independent watchdog is armed so the IWDG still
   // protects every active operation without running through long Standby time.
   captureHardwareResetCause(); // Snapshot Standby flag before PowerManager clears it.
+#if APP_ENABLE_SERIAL_CONFIG
+  const auto configLoad = RuntimeConfig::load();
+  __HAL_RCC_PWR_CLK_ENABLE();
+  const bool offerConfigWindow = __HAL_PWR_GET_FLAG(PWR_FLAG_SB) == RESET;
+  appState().samplingPeriodMs = RuntimeConfig::active().sampleSeconds * 1000UL;
+  appState().transmissionPeriodMs = RuntimeConfig::active().transmitSeconds * 1000UL;
+#endif
   powerManagerEarlyBoot();
 
   // Arm the independent hardware watchdog before radio or network setup so a
   // modem/library call that never returns is covered during boot as well.
   initializeHardwareWatchdog();
   serviceHardwareWatchdog(WatchdogStage::Setup);
+#if APP_ENABLE_SERIAL_CONFIG
+  SerialConfig::begin(offerConfigWindow);
+  if (offerConfigWindow && configLoad == RuntimeConfig::LoadResult::Invalid)
+    SerialMon.println("WIOT configuration was invalid. Firmware defaults loaded.");
+#endif
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   gatewaySetup();
 #else
@@ -230,6 +244,7 @@ void loop()
 {
   // This checkpoint means the previous Arduino loop iteration completed.
   serviceHardwareWatchdog(WatchdogStage::MainLoop);
+  if (SerialConfig::service()) return;
   static bool watchdogMainLoopSelfTestChecked = false;
   if (!watchdogMainLoopSelfTestChecked)
   {
@@ -245,14 +260,15 @@ void loop()
 
   // Reachable-idle is CPU Sleep, never Standby. Short foreground passes still
   // service radio/MQTT keepalive and IWDG; RX interrupts or SysTick resume WFI.
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  servicePowerManager();
-  if (!powerManagerShouldRunApplication())
+  if (WIOT_ACTIVE_VALUE(APP_CONTROLLER_POWER_MODE, powerMode) == APP_COMPONENT_MODE_REMOTE_WAKE)
   {
-    powerManagerIdleCpu();
-    return;
+    servicePowerManager();
+    if (!powerManagerShouldRunApplication())
+    {
+      powerManagerIdleCpu();
+      return;
+    }
   }
-#endif
 
   // Command reception and queued replies are the first foreground work.
   // Queued publishes no longer seize the UART or disable TinyGSM reception.

@@ -130,6 +130,9 @@ StoredFlowState encodeState(const RuntimeFlowState& state)
         stored.yearVolumeLow,
         stored.yearVolumeHigh);
     stored.dayKey = state.dayKey;
+#if APP_ENABLE_SERIAL_CONFIG
+    stored.reserved = AppConfig::kSupmeaSensorModbusAddress;
+#endif
     stored.checksum = stateChecksum(stored);
     return stored;
 }
@@ -147,6 +150,10 @@ bool decodeState(const StoredFlowState& stored, RuntimeFlowState& state)
     if (stored.magic != kStateMagic ||
         version != kStateVersion ||
         meterType != FlowMeterType::Supmea ||
+#if APP_ENABLE_SERIAL_CONFIG
+        (stored.reserved ? stored.reserved : AppConfig::kSupmeaSensorModbusAddressDefault) !=
+            AppConfig::kSupmeaSensorModbusAddress ||
+#endif
         (flags & kInitializedFlag) == 0U ||
         qualityValue > static_cast<uint8_t>(FlowPeriodQuality::TimeUncertain) ||
         stored.lastEpoch < AppConfig::kPowerMinimumValidRtcEpoch ||

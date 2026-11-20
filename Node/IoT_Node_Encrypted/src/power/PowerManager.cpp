@@ -15,14 +15,33 @@
 
 #include <Arduino.h>
 #include <stm32f4xx_hal.h>
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+#include "../config/RuntimeConfig.h"
+
+// Include only profiles supported by the built transport and board wiring.
+#if APP_ENABLE_SERIAL_CONFIG
+#define WIOT_POWER_HAS_WOR (APP_HAS_SENSORS && APP_HAS_LORA)
+#define WIOT_POWER_HAS_REMOTE_WAKE APP_HAS_SENSORS
+#if defined(USE_ESP8266)
+#define WIOT_POWER_HAS_STANDBY APP_HAS_SENSORS
+#else
+#define WIOT_POWER_HAS_STANDBY (APP_HAS_SENSORS && APP_HAS_LORA)
+#endif
+#define WIOT_POWER_HAS_WAKE_LEASE (WIOT_POWER_HAS_WOR || WIOT_POWER_HAS_STANDBY)
+#else
+#define WIOT_POWER_HAS_WOR (APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR)
+#define WIOT_POWER_HAS_REMOTE_WAKE (APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE)
+#define WIOT_POWER_HAS_STANDBY APP_CONTROLLER_USES_STANDBY
+#define WIOT_POWER_HAS_WAKE_LEASE (APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || WIOT_POWER_HAS_WOR)
+#endif
+
+#if WIOT_POWER_HAS_WOR
 #include "WorWakeInput.h"
 #endif
 
 extern HardwareSerial SerialMon;
 extern HardwareSerial SerialAT;
 extern HardwareSerial SerialLoRa;
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+#if WIOT_POWER_HAS_WOR
 extern STM32RTC& rtc;
 extern "C" void SystemClock_Config(void);
 #endif
@@ -30,15 +49,25 @@ extern "C" void SystemClock_Config(void);
 namespace
 {
 void scheduleFreshSensorCycle();
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
+
+uint8_t controllerPowerMode()
+{
+  return WIOT_ACTIVE_VALUE(APP_CONTROLLER_POWER_MODE, powerMode);
+}
+
+bool standbySelected()
+{
+  return controllerPowerMode() == APP_COMPONENT_MODE_POWER_DOWN ||
+      controllerPowerMode() == APP_COMPONENT_MODE_QUEUED;
+}
+#if WIOT_POWER_HAS_REMOTE_WAKE
 RemoteWakeCycle g_remoteWakeCycle;
 bool g_remoteSensorCycleActive = false;
 uint32_t g_lastRemotePollMs = 0U;
 uint32_t g_lastWakeRequestId = 0U;
 uint64_t g_lastWakeRequestSeconds = 0U;
 #endif
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
-    APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+#if WIOT_POWER_HAS_WAKE_LEASE
 uint32_t g_queuedWakeStartedMs = 0U;
 uint32_t g_queuedWakeDurationMs = 0U;
 uint32_t g_queuedWakeRequestId = 0U;
@@ -51,7 +80,7 @@ bool queuedWakeActive()
 }
 #endif
 
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+#if WIOT_POWER_HAS_WOR
 #if APP_LORA_WOR_WAKE_SOURCE == APP_LORA_WOR_WAKE_SOURCE_UART_RX
 constexpr uint32_t kWorWakePin = AppConfig::kLoraRxPin;
 constexpr const char* kWorWakeSource = "UART_RX";
@@ -226,7 +255,7 @@ void runLoraWorStopCycle()
   if (worNextWorkDelayMs() == 0U) return;
 #else
   if (g_worNextReportEpoch <= nowEpoch ||
-      g_worNextReportEpoch - nowEpoch > AppConfig::kPowerSleepSeconds + 5UL)
+      g_worNextReportEpoch - nowEpoch > WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds) + 5UL)
   {
     g_worCommandWindow = false;
     scheduleFreshSensorCycle();
@@ -504,7 +533,7 @@ void printComponentMode(
   APP_DEBUG_PRINTLN(selected ? " [ACTIVE]" : " [NOT SELECTED]");
 }
 
-#if APP_CONTROLLER_USES_STANDBY
+#if WIOT_POWER_HAS_STANDBY
 constexpr uint32_t kSleepStateMagic = 0x50444E31UL; // "PDN1"
 constexpr uint32_t kBackupMagicRegister = RTC_BKP_DR15;
 constexpr uint32_t kBackupRequestEpochRegister = RTC_BKP_DR16;
@@ -795,7 +824,7 @@ PowerDownRequestOutcome requestPowerDownCycle()
     return PowerDownRequestOutcome::RetrySleepPreparation;
   }
 
-  uint32_t deadlineEpoch = requestEpoch + AppConfig::kPowerSleepSeconds;
+  uint32_t deadlineEpoch = requestEpoch + WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds);
   const uint32_t storageDeadline = TelemetryArchive::expiry();
   if (storageDeadline > requestEpoch + 5U && storageDeadline < deadlineEpoch)
     deadlineEpoch = storageDeadline;
@@ -850,101 +879,104 @@ void reportEarlyBootEvent()
       break;
   }
 }
-#else
-bool g_stalePeriodicRequestCleared = false;
 #endif
+bool g_stalePeriodicRequestCleared = false;
 }
 
 void powerManagerEarlyBoot()
 {
-#if APP_CONTROLLER_USES_STANDBY
-  __HAL_RCC_PWR_CLK_ENABLE();
-  const bool resumedFromStandby =
-      __HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET;
-
-  PersistentSleepState state = {};
-  const PersistentStateStatus stateStatus =
-      loadPersistentSleepState(state);
-
-  if (resumedFromStandby)
+#if WIOT_POWER_HAS_STANDBY
+  if (standbySelected())
   {
-    clearPowerWakeFlags();
-    if (stateStatus == PersistentStateStatus::Valid)
+    __HAL_RCC_PWR_CLK_ENABLE();
+    const bool resumedFromStandby =
+        __HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET;
+
+    PersistentSleepState state = {};
+    const PersistentStateStatus stateStatus =
+        loadPersistentSleepState(state);
+
+    if (resumedFromStandby)
     {
-      initializeRtc();
-      g_previousRequestEpoch = state.requestEpoch;
-      g_previousDeadlineEpoch = state.deadlineEpoch;
-      g_previousWakeEpoch = getEpochTime();
-      cancelRtcWakeAlarm();
-      clearPersistentSleepState();
-      g_earlyBootEvent = EarlyBootEvent::ScheduledStandbyWake;
-    }
-    else
-    {
-      if (stateStatus == PersistentStateStatus::Corrupt)
+      clearPowerWakeFlags();
+      if (stateStatus == PersistentStateStatus::Valid)
       {
+        initializeRtc();
+        g_previousRequestEpoch = state.requestEpoch;
+        g_previousDeadlineEpoch = state.deadlineEpoch;
+        g_previousWakeEpoch = getEpochTime();
+        cancelRtcWakeAlarm();
         clearPersistentSleepState();
+        g_earlyBootEvent = EarlyBootEvent::ScheduledStandbyWake;
       }
-      g_earlyBootEvent = EarlyBootEvent::UnexpectedStandbyWake;
+      else
+      {
+        if (stateStatus == PersistentStateStatus::Corrupt)
+        {
+          clearPersistentSleepState();
+        }
+        g_earlyBootEvent = EarlyBootEvent::UnexpectedStandbyWake;
+      }
+      return;
     }
-    return;
-  }
 
-  if (stateStatus == PersistentStateStatus::Empty)
-  {
-    return;
-  }
+    if (stateStatus == PersistentStateStatus::Empty)
+    {
+      return;
+    }
 
-  if (stateStatus == PersistentStateStatus::Corrupt)
-  {
+    if (stateStatus == PersistentStateStatus::Corrupt)
+    {
+      clearPersistentSleepState();
+      g_earlyBootEvent = EarlyBootEvent::CorruptSleepStateRejected;
+      return;
+    }
+
+    assertEarlySleepPins();
+    initializeRtc();
+    const uint32_t nowEpoch = getEpochTime();
+    if (state.deadlineEpoch <= nowEpoch + kSleepEntryMinimumLeadSeconds)
+    {
+      clearPersistentSleepState();
+      g_earlyBootEvent = EarlyBootEvent::ExpiredSleepStateRejected;
+      return;
+    }
+
+    if (!pendingStateMatchesRtc(state, nowEpoch))
+    {
+      clearPersistentSleepState();
+      g_earlyBootEvent = EarlyBootEvent::RtcSleepStateRejected;
+      return;
+    }
+
+    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
+    clearPowerWakeFlags();
+    if (!scheduleRtcWakeAlarm(state.deadlineEpoch))
+    {
+      clearPersistentSleepState();
+      g_earlyBootEvent = EarlyBootEvent::StandbyEntryFailed;
+      return;
+    }
+
+    // No active application timing is needed on this pre-IWDG boot path. Stop
+    // SysTick and clear a pending tick so it cannot make WFI return immediately
+    // instead of committing the Standby transition.
+    HAL_SuspendTick();
+    SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
+    __DSB();
+    __ISB();
+    HAL_PWR_EnterSTANDBYMode();
+
+    // Standby exits through a reset. Returning here is a hardware/HAL failure,
+    // so invalidate the request and allow setup() to recover in awake mode.
+    HAL_ResumeTick();
+    cancelRtcWakeAlarm();
     clearPersistentSleepState();
-    g_earlyBootEvent = EarlyBootEvent::CorruptSleepStateRejected;
-    return;
-  }
-
-  assertEarlySleepPins();
-  initializeRtc();
-  const uint32_t nowEpoch = getEpochTime();
-  if (state.deadlineEpoch <= nowEpoch + kSleepEntryMinimumLeadSeconds)
-  {
-    clearPersistentSleepState();
-    g_earlyBootEvent = EarlyBootEvent::ExpiredSleepStateRejected;
-    return;
-  }
-
-  if (!pendingStateMatchesRtc(state, nowEpoch))
-  {
-    clearPersistentSleepState();
-    g_earlyBootEvent = EarlyBootEvent::RtcSleepStateRejected;
-    return;
-  }
-
-  HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
-  clearPowerWakeFlags();
-  if (!scheduleRtcWakeAlarm(state.deadlineEpoch))
-  {
-    clearPersistentSleepState();
+    clearPowerWakeFlags();
     g_earlyBootEvent = EarlyBootEvent::StandbyEntryFailed;
     return;
   }
-
-  // No active application timing is needed on this pre-IWDG boot path. Stop
-  // SysTick and clear a pending tick so it cannot make WFI return immediately
-  // instead of committing the Standby transition.
-  HAL_SuspendTick();
-  SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
-  __DSB();
-  __ISB();
-  HAL_PWR_EnterSTANDBYMode();
-
-  // Standby exits through a reset. Returning here is a hardware/HAL failure,
-  // so invalidate the request and allow setup() to recover in awake mode.
-  HAL_ResumeTick();
-  cancelRtcWakeAlarm();
-  clearPersistentSleepState();
-  clearPowerWakeFlags();
-  g_earlyBootEvent = EarlyBootEvent::StandbyEntryFailed;
-#else
+#endif
   // Returning to normal mode is also an explicit recovery operation. Remove
   // only this feature's own magic-tagged backup record so re-enabling periodic
   // mode later cannot honor an old, still-future deadline.
@@ -960,31 +992,38 @@ void powerManagerEarlyBoot()
     HAL_RTCEx_BKUPWrite(&handle, RTC_BKP_DR18, 0U);
     g_stalePeriodicRequestCleared = true;
   }
-#endif
 }
 
 void initializePowerManagerAfterSetup()
 {
   APP_DEBUG_PRINTLN("Power configuration:");
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  APP_DEBUG_PRINTLN("  STM32 controller: REMOTE_WAKE [ACTIVE]");
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  APP_DEBUG_PRINTLN("  STM32 controller: LORA_WOR_STOP [ACTIVE]");
-#else
-  printComponentMode(
-      "STM32 controller",
-      AppConfig::kControllerPowerDown,
-      true);
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    APP_DEBUG_PRINTLN("  STM32 controller: REMOTE_WAKE [ACTIVE]");
+  }
 #endif
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  APP_DEBUG_PRINTLN("  LoRa module: E32 MODE_2_WAKE_ON_RADIO [ACTIVE]");
-#else
-  printComponentMode("LoRa module", AppConfig::kLoraPowerDown, APP_HAS_LORA != 0);
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    APP_DEBUG_PRINTLN("  STM32 controller: LORA_WOR_STOP [ACTIVE]");
+  }
 #endif
+  if (controllerPowerMode() != APP_COMPONENT_MODE_REMOTE_WAKE &&
+      controllerPowerMode() != APP_COMPONENT_MODE_LORA_WOR)
+    printComponentMode("STM32 controller", standbySelected(), true);
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    APP_DEBUG_PRINTLN("  LoRa module: E32 MODE_2_WAKE_ON_RADIO [ACTIVE]");
+  }
+#endif
+  if (controllerPowerMode() != APP_COMPONENT_MODE_LORA_WOR)
+    printComponentMode("LoRa module", APP_HAS_LORA && standbySelected(), APP_HAS_LORA != 0);
 #if defined(USE_ESP8266)
   printComponentMode(
       "ESP8266",
-      AppConfig::kWifiPowerDown,
+      APP_HAS_IP_UPLINK && standbySelected(),
       APP_HAS_IP_UPLINK != 0);
   printComponentMode("SIM800L", AppConfig::kSimPowerDown, false);
 #else
@@ -995,404 +1034,502 @@ void initializePowerManagerAfterSetup()
       APP_HAS_IP_UPLINK != 0);
 #endif
 
-#if APP_CONTROLLER_USES_STANDBY
-  reportEarlyBootEvent();
-  APP_DEBUG_PRINT(AppConfig::kQueuedCommands
-      ? "Power cycle: RTC_QUEUED, sleep="
-      : "Power cycle: RTC_PERIODIC, sleep=");
-  APP_DEBUG_PRINT(AppConfig::kPowerSleepSeconds);
-  APP_DEBUG_PRINT(" s, command window=");
-  APP_DEBUG_PRINT(AppConfig::kQueuedCommands
-      ? AppConfig::kQueuedCommandWindowMs
-      : AppConfig::kPowerCommandWindowMs);
-  APP_DEBUG_PRINTLN(" ms");
+#if WIOT_POWER_HAS_STANDBY
+  if (standbySelected())
+  {
+    reportEarlyBootEvent();
+    APP_DEBUG_PRINT((controllerPowerMode() == APP_COMPONENT_MODE_QUEUED)
+        ? "Power cycle: RTC_QUEUED, sleep="
+        : "Power cycle: RTC_PERIODIC, sleep=");
+    APP_DEBUG_PRINT(WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds));
+    APP_DEBUG_PRINT(" s, command window=");
+    APP_DEBUG_PRINT((controllerPowerMode() == APP_COMPONENT_MODE_QUEUED)
+        ? AppConfig::kQueuedCommandWindowMs
+        : AppConfig::kPowerCommandWindowMs);
+    APP_DEBUG_PRINTLN(" ms");
 #if APP_HAS_LORA
-  APP_DEBUG_PRINTLN(
-      "Power hardware check: E32 M0/M1 need external pull-ups; RS485 DE needs a pull-down");
+    APP_DEBUG_PRINTLN(
+        "Power hardware check: E32 M0/M1 need external pull-ups; RS485 DE needs a pull-down");
 #elif APP_HAS_IP_UPLINK && defined(USE_ESP8266)
-  APP_DEBUG_PRINTLN(
-      "Power hardware: ESP8266 wakes through PB8/ESP_RST; server commands wait for the active window");
+    APP_DEBUG_PRINTLN(
+        "Power hardware: ESP8266 wakes through PB8/ESP_RST; server commands wait for the active window");
 #endif
 
-  // Make one fresh sample and one telemetry send due on the first loop after
-  // every cold boot or RTC wake. Unsigned arithmetic keeps millis() rollover safe.
-  scheduleFreshSensorCycle();
-  g_commandWindowActive = false;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  APP_DEBUG_PRINTLN("Power mode: REMOTE_WAKE (CPU Sleep; selected radio remains NORMAL)");
-  if (AppConfig::kRemoteWakeUsesAppSchedule)
-    APP_DEBUG_PRINT("Power: SRATE/STRAN scheduled idle; no fixed sleep interval; default WAKE lease=");
-  else
-  {
-    APP_DEBUG_PRINT("Power: legacy reachable idle interval=");
-    APP_DEBUG_PRINT(AppConfig::kPowerSleepSeconds);
-    APP_DEBUG_PRINT(" s; default WAKE lease=");
+    // Make one fresh sample and one telemetry send due on the first loop after
+    // every cold boot or RTC wake. Unsigned arithmetic keeps millis() rollover safe.
+    scheduleFreshSensorCycle();
+    g_commandWindowActive = false;
+    return;
   }
-  APP_DEBUG_PRINT(AppConfig::kRemoteWakeDefaultSeconds);
-  APP_DEBUG_PRINTLN(" s; watchdog remains armed");
-  g_remoteWakeCycle.begin(millis(), AppConfig::kPowerSleepSeconds * 1000UL,
-                         AppConfig::kPowerCommandWindowMs, AppConfig::kRemoteWakeUsesAppSchedule);
-  g_remoteSensorCycleActive = false;
-  g_lastRemotePollMs = millis();
-  scheduleFreshSensorCycle();
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-#if APP_LORA_WOR_USE_APP_SCHEDULE
-  APP_DEBUG_PRINT("Power: WOR follows independent SRATE/STRAN; APP_POWER_SLEEP_SECONDS ignored; IWDG RTC heartbeat=");
-#else
-  APP_DEBUG_PRINT("Power: RTC report interval=");
-  APP_DEBUG_PRINT(AppConfig::kPowerSleepSeconds);
-  APP_DEBUG_PRINT(" s, IWDG RTC heartbeat=");
 #endif
-  APP_DEBUG_PRINT(AppConfig::kLoraWorWatchdogWakeSeconds);
-  APP_DEBUG_PRINTLN(" s; gateway must enable Mode-1 wake probe");
-  APP_DEBUG_PRINT("Power: WOR wake source=");
-  APP_DEBUG_PRINT(kWorWakeSource);
-  APP_DEBUG_PRINTLN("; AUX retained for radio readiness");
-  initializeRtc();
-  scheduleFreshSensorCycle();
-  g_worCommandWindow = false;
-#if APP_LORA_WOR_USE_APP_SCHEDULE
-  g_worSensorCycleActive = false;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    APP_DEBUG_PRINTLN("Power mode: REMOTE_WAKE (CPU Sleep; selected radio remains NORMAL)");
+    if (AppConfig::kRemoteWakeUsesAppSchedule)
+      APP_DEBUG_PRINT("Power: SRATE/STRAN scheduled idle; no fixed sleep interval; default WAKE lease=");
+    else
+    {
+      APP_DEBUG_PRINT("Power: legacy reachable idle interval=");
+      APP_DEBUG_PRINT(WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds));
+      APP_DEBUG_PRINT(" s; default WAKE lease=");
+    }
+    APP_DEBUG_PRINT(AppConfig::kRemoteWakeDefaultSeconds);
+    APP_DEBUG_PRINTLN(" s; watchdog remains armed");
+    g_remoteWakeCycle.begin(millis(), WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds) * 1000UL,
+                           AppConfig::kPowerCommandWindowMs, AppConfig::kRemoteWakeUsesAppSchedule);
+    g_remoteSensorCycleActive = false;
+    g_lastRemotePollMs = millis();
+    scheduleFreshSensorCycle();
+    return;
+  }
 #endif
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    APP_DEBUG_PRINT("Power: WOR follows independent SRATE/STRAN; APP_POWER_SLEEP_SECONDS ignored; IWDG RTC heartbeat=");
 #else
+    APP_DEBUG_PRINT("Power: RTC report interval=");
+    APP_DEBUG_PRINT(WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds));
+    APP_DEBUG_PRINT(" s, IWDG RTC heartbeat=");
+#endif
+    APP_DEBUG_PRINT(AppConfig::kLoraWorWatchdogWakeSeconds);
+    APP_DEBUG_PRINTLN(" s; gateway must enable Mode-1 wake probe");
+    APP_DEBUG_PRINT("Power: WOR wake source=");
+    APP_DEBUG_PRINT(kWorWakeSource);
+    APP_DEBUG_PRINTLN("; AUX retained for radio readiness");
+    initializeRtc();
+    scheduleFreshSensorCycle();
+    g_worCommandWindow = false;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    g_worSensorCycleActive = false;
+#endif
+    return;
+  }
+#endif
   APP_DEBUG_PRINTLN("Power mode: NORMAL (continuous operation; Standby disabled)");
   if (g_stalePeriodicRequestCleared)
   {
     APP_DEBUG_PRINTLN("Power: stale periodic sleep request cleared during normal-mode boot");
   }
-#endif
 }
 
 void notifyPowerManagerSensorCycle(bool active)
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  g_remoteSensorCycleActive = active;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR && APP_LORA_WOR_USE_APP_SCHEDULE
-  g_worSensorCycleActive = active;
-#else
-  (void)active;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    g_remoteSensorCycleActive = active;
+    return;
+  }
 #endif
+#if WIOT_POWER_HAS_WOR && APP_LORA_WOR_USE_APP_SCHEDULE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    g_worSensorCycleActive = active;
+    return;
+  }
+#endif
+  (void)active;
 }
 
 bool powerManagerAllowsSensorWork()
 {
-#if APP_CONTROLLER_USES_STANDBY || APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  // A long history download defers sleep, not the sampling/report deadlines.
-  if (TelemetryArchive::transferring()) return true;
+#if WIOT_POWER_HAS_STANDBY || WIOT_POWER_HAS_WOR
+  if (standbySelected() || controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    // A long history download defers sleep, not the sampling/report deadlines.
+    if (TelemetryArchive::transferring()) return true;
+  }
 #endif
-#if APP_CONTROLLER_USES_STANDBY
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
-  if (queuedWakeActive()) return true;
+#if WIOT_POWER_HAS_STANDBY
+  if (standbySelected())
+  {
+#if WIOT_POWER_HAS_WAKE_LEASE
+    if (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED && queuedWakeActive()) return true;
 #endif
-  return !g_commandWindowActive;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  return g_remoteWakeCycle.active();
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
+    return !g_commandWindowActive;
+  }
+#endif
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    return g_remoteWakeCycle.active();
+  }
+#endif
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
 #if APP_LORA_WOR_USE_APP_SCHEDULE
-  // The receive window delays Stop, never independent application deadlines.
-  return true;
+    // The receive window delays Stop, never independent application deadlines.
+    return true;
 #else
-  return queuedWakeActive() || !g_worCommandWindow;
+    return queuedWakeActive() || !g_worCommandWindow;
 #endif
-#else
+  }
+#endif
   return true;
-#endif
 }
 
 void notifyPowerManagerTelemetryResult(bool delivered)
 {
-#if APP_CONTROLLER_USES_STANDBY
-  if (!delivered || g_commandWindowActive)
+#if WIOT_POWER_HAS_STANDBY
+  if (standbySelected())
   {
-    if (!delivered)
+    if (!delivered || g_commandWindowActive)
     {
-      APP_DEBUG_PRINTLN("Power: telemetry not delivered; node remains awake and will retry");
+      if (!delivered)
+      {
+        APP_DEBUG_PRINTLN("Power: telemetry not delivered; node remains awake and will retry");
+      }
+      return;
+    }
+
+    g_commandWindowActive = true;
+    g_commandWindowStartedMs = millis();
+    g_lastSleepDelayLogMs = 0U;
+    APP_DEBUG_PRINT("Power: telemetry delivered; listening for ");
+#if APP_HAS_LORA
+    APP_DEBUG_PRINT("LoRa");
+#else
+    APP_DEBUG_PRINT("server");
+#endif
+    APP_DEBUG_PRINT(" commands for ");
+    APP_DEBUG_PRINT((controllerPowerMode() == APP_COMPONENT_MODE_QUEUED)
+        ? AppConfig::kQueuedCommandWindowMs
+        : AppConfig::kPowerCommandWindowMs);
+    APP_DEBUG_PRINTLN(" ms");
+    return;
+  }
+#endif
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    if (delivered) g_remoteWakeCycle.telemetryDelivered(millis());
+    else APP_LOG_ERROR("Power: report failed; radio remains connected for retry");
+    return;
+  }
+#endif
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    if (delivered)
+    {
+      g_worCommandWindow = true;
+      g_worWindowStartedMs = millis();
+#if !APP_LORA_WOR_USE_APP_SCHEDULE
+      const uint32_t now = getEpochTime();
+      g_worNextReportEpoch = now + WIOT_ACTIVE_VALUE(AppConfig::kPowerSleepSeconds, sleepSeconds);
+#endif
+      APP_DEBUG_PRINTLN("Power: report delivered; LoRa command window opened");
+    }
+    else
+    {
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+      g_worCommandWindow = false;
+      APP_LOG_ERROR("Power: report failed; retry at next STRAN deadline");
+#else
+      APP_LOG_ERROR("Power: report failed; staying awake for retry");
+#endif
     }
     return;
   }
-
-  g_commandWindowActive = true;
-  g_commandWindowStartedMs = millis();
-  g_lastSleepDelayLogMs = 0U;
-  APP_DEBUG_PRINT("Power: telemetry delivered; listening for ");
-#if APP_HAS_LORA
-  APP_DEBUG_PRINT("LoRa");
-#else
-  APP_DEBUG_PRINT("server");
 #endif
-  APP_DEBUG_PRINT(" commands for ");
-  APP_DEBUG_PRINT(AppConfig::kQueuedCommands
-      ? AppConfig::kQueuedCommandWindowMs
-      : AppConfig::kPowerCommandWindowMs);
-  APP_DEBUG_PRINTLN(" ms");
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  if (delivered) g_remoteWakeCycle.telemetryDelivered(millis());
-  else APP_LOG_ERROR("Power: report failed; radio remains connected for retry");
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  if (delivered)
-  {
-    g_worCommandWindow = true;
-    g_worWindowStartedMs = millis();
-#if !APP_LORA_WOR_USE_APP_SCHEDULE
-    const uint32_t now = getEpochTime();
-    g_worNextReportEpoch = now + AppConfig::kPowerSleepSeconds;
-#endif
-    APP_DEBUG_PRINTLN("Power: report delivered; LoRa command window opened");
-  }
-  else
-  {
-#if APP_LORA_WOR_USE_APP_SCHEDULE
-    g_worCommandWindow = false;
-    APP_LOG_ERROR("Power: report failed; retry at next STRAN deadline");
-#else
-    APP_LOG_ERROR("Power: report failed; staying awake for retry");
-#endif
-  }
-#else
   (void)delivered;
-#endif
 }
 
 void servicePowerManager()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  bool transportIdle = true;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    bool transportIdle = true;
 #if APP_HAS_IP_UPLINK
-  transportIdle = !isAsyncPublishBusy();
+    transportIdle = !isAsyncPublishBusy();
 #elif APP_HAS_LORA
-  transportIdle = isLoraIdleForPowerDown();
+    transportIdle = isLoraIdleForPowerDown();
 #endif
-  transportIdle = transportIdle && !TelemetryArchive::blocking();
-  const uint32_t nowMs = millis();
-  const AppRuntimeState& state = appState();
-  const bool applicationDue = nowMs - state.lastReadMs >= state.samplingPeriodMs ||
-      nowMs - state.lastSendMs >= state.transmissionPeriodMs;
-  const auto transition = g_remoteWakeCycle.advance(nowMs, transportIdle,
-      applicationDue, g_remoteSensorCycleActive);
-  if (transition == RemoteWakeCycle::Transition::EnteredIdle)
-  {
-    APP_DEBUG_PRINTLN(AppConfig::kRemoteWakeUsesAppSchedule ?
-        "Power: REACHABLE_IDLE; waiting for SRATE/STRAN or commands; radio/WDT serviced" :
-        "Power: REACHABLE_IDLE; sensor work paused, radio and watchdog remain active");
-  }
-  else if (transition == RemoteWakeCycle::Transition::PeriodicWake)
-  {
-    APP_DEBUG_PRINTLN("Power: periodic wake from reachable idle; sampling/reporting");
-    scheduleFreshSensorCycle();
-  }
-  else if (transition == RemoteWakeCycle::Transition::ScheduledWake)
-  {
-    // Do not reset timestamps: only the independent work that is due may run.
-    APP_DEBUG_PRINTLN("Power: scheduled work/reply pending; resume without forcing other deadlines");
-  }
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  if (TelemetryArchive::blocking()) return;
-#if APP_LORA_WOR_USE_APP_SCHEDULE
-  // Uncommissioned RTC stays awake. Repeated loop passes must not spam Stop
-  // preparation/logging before a server STIME establishes trusted time.
-#if APP_ENABLE_DEBUG
-  static bool reportedUntrustedRtc = false;
-  if (!isRtcTrusted()) {
-    if (!reportedUntrustedRtc) APP_LOG_EVENT_WARN("sleep_deferred reason=RTC_UNTRUSTED action=send_STIME");
-    reportedUntrustedRtc = true;
-  } else if (reportedUntrustedRtc) {
-    APP_LOG_INFO("sleep_permitted rtc=trusted scheduler=SRATE_STRAN");
-    reportedUntrustedRtc = false;
-  }
-#endif
-  if (!isRtcTrusted() || g_worSensorCycleActive || queuedWakeActive() ||
-      worNextWorkDelayMs() == 0U || !isLoraIdleForPowerDown()) return;
-  if (g_worCommandWindow &&
-      millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs) return;
-#else
-  if (!g_worCommandWindow || queuedWakeActive() ||
-      millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs ||
-      !isLoraIdleForPowerDown()) return;
-#endif
-  runLoraWorStopCycle();
-#elif APP_CONTROLLER_USES_STANDBY
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
-  if (queuedWakeActive()) return;
-#endif
-  const uint32_t commandWindowMs = AppConfig::kQueuedCommands
-      ? AppConfig::kQueuedCommandWindowMs
-      : AppConfig::kPowerCommandWindowMs;
-  if (!g_commandWindowActive ||
-      millis() - g_commandWindowStartedMs < commandWindowMs)
-  {
-    return;
-  }
-
-  if (!activeTransportIsIdleForPowerDown())
-  {
+    transportIdle = transportIdle && !TelemetryArchive::blocking();
     const uint32_t nowMs = millis();
-    if (g_lastSleepDelayLogMs == 0U ||
-        nowMs - g_lastSleepDelayLogMs >= kSleepDelayLogPeriodMs)
+    const AppRuntimeState& state = appState();
+    const bool applicationDue = nowMs - state.lastReadMs >= state.samplingPeriodMs ||
+        nowMs - state.lastSendMs >= state.transmissionPeriodMs;
+    const auto transition = g_remoteWakeCycle.advance(nowMs, transportIdle,
+        applicationDue, g_remoteSensorCycleActive);
+    if (transition == RemoteWakeCycle::Transition::EnteredIdle)
     {
-      g_lastSleepDelayLogMs = nowMs;
-#if APP_HAS_LORA
-      APP_DEBUG_PRINTLN("Power: waiting for LoRa receive/command activity to finish");
-#else
-      APP_DEBUG_PRINTLN("Power: waiting for MQTT publish/command activity to finish");
-#endif
+      APP_DEBUG_PRINTLN(AppConfig::kRemoteWakeUsesAppSchedule ?
+          "Power: REACHABLE_IDLE; waiting for SRATE/STRAN or commands; radio/WDT serviced" :
+          "Power: REACHABLE_IDLE; sensor work paused, radio and watchdog remain active");
+    }
+    else if (transition == RemoteWakeCycle::Transition::PeriodicWake)
+    {
+      APP_DEBUG_PRINTLN("Power: periodic wake from reachable idle; sampling/reporting");
+      scheduleFreshSensorCycle();
+    }
+    else if (transition == RemoteWakeCycle::Transition::ScheduledWake)
+    {
+      // Do not reset timestamps: only the independent work that is due may run.
+      APP_DEBUG_PRINTLN("Power: scheduled work/reply pending; resume without forcing other deadlines");
     }
     return;
   }
-
-  if (requestPowerDownCycle() == PowerDownRequestOutcome::AbortActiveCycle)
+#endif
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
   {
-    // Resume the normal active scheduler after an unrecoverable preparation
-    // error. This prevents a bad RTC/backup domain from freezing the node in
-    // an awake-but-no-more-samples state.
-    g_commandWindowActive = false;
-    AppRuntimeState& state = appState();
-    const uint32_t nowMs = millis();
-    state.lastReadMs = nowMs;
-    state.lastSendMs = nowMs;
-    APP_DEBUG_PRINTLN("Power: periodic sleep cycle aborted; active scheduling resumed");
+    if (TelemetryArchive::blocking()) return;
+#if APP_LORA_WOR_USE_APP_SCHEDULE
+    // Uncommissioned RTC stays awake. Repeated loop passes must not spam Stop
+    // preparation/logging before a server STIME establishes trusted time.
+#if APP_ENABLE_DEBUG
+    static bool reportedUntrustedRtc = false;
+    if (!isRtcTrusted()) {
+      if (!reportedUntrustedRtc) APP_LOG_EVENT_WARN("sleep_deferred reason=RTC_UNTRUSTED action=send_STIME");
+      reportedUntrustedRtc = true;
+    } else if (reportedUntrustedRtc) {
+      APP_LOG_INFO("sleep_permitted rtc=trusted scheduler=SRATE_STRAN");
+      reportedUntrustedRtc = false;
+    }
+#endif
+    if (!isRtcTrusted() || g_worSensorCycleActive || queuedWakeActive() ||
+        worNextWorkDelayMs() == 0U || !isLoraIdleForPowerDown()) return;
+    if (g_worCommandWindow &&
+        millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs) return;
+#else
+    if (!g_worCommandWindow || queuedWakeActive() ||
+        millis() - g_worWindowStartedMs < AppConfig::kLoraWorCommandWindowMs ||
+        !isLoraIdleForPowerDown()) return;
+#endif
+    runLoraWorStopCycle();
+    return;
+  }
+#endif
+#if WIOT_POWER_HAS_STANDBY
+  if (standbySelected())
+  {
+#if WIOT_POWER_HAS_WAKE_LEASE
+    if (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED && queuedWakeActive()) return;
+#endif
+    const uint32_t commandWindowMs = (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED)
+        ? AppConfig::kQueuedCommandWindowMs
+        : AppConfig::kPowerCommandWindowMs;
+    if (!g_commandWindowActive ||
+        millis() - g_commandWindowStartedMs < commandWindowMs)
+    {
+      return;
+    }
+
+    if (!activeTransportIsIdleForPowerDown())
+    {
+      const uint32_t nowMs = millis();
+      if (g_lastSleepDelayLogMs == 0U ||
+          nowMs - g_lastSleepDelayLogMs >= kSleepDelayLogPeriodMs)
+      {
+        g_lastSleepDelayLogMs = nowMs;
+#if APP_HAS_LORA
+        APP_DEBUG_PRINTLN("Power: waiting for LoRa receive/command activity to finish");
+#else
+        APP_DEBUG_PRINTLN("Power: waiting for MQTT publish/command activity to finish");
+#endif
+      }
+      return;
+    }
+
+    if (requestPowerDownCycle() == PowerDownRequestOutcome::AbortActiveCycle)
+    {
+      // Resume the normal active scheduler after an unrecoverable preparation
+      // error. This prevents a bad RTC/backup domain from freezing the node in
+      // an awake-but-no-more-samples state.
+      g_commandWindowActive = false;
+      AppRuntimeState& state = appState();
+      const uint32_t nowMs = millis();
+      state.lastReadMs = nowMs;
+      state.lastSendMs = nowMs;
+      APP_DEBUG_PRINTLN("Power: periodic sleep cycle aborted; active scheduling resumed");
+    }
+    return;
   }
 #endif
 }
 
 bool requestRemoteWake(uint64_t seconds, uint32_t requestId)
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  if (requestId != 0U && requestId == g_lastWakeRequestId)
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
   {
-    // QoS retransmission: acknowledge the same active lease without resetting
-    // its timer or scheduling another sample. Reject changed/expired repeats.
-    if (seconds != g_lastWakeRequestSeconds || !g_remoteWakeCycle.active() ||
-        g_remoteWakeCycle.remainingSeconds(millis()) == 0U)
+    if (requestId != 0U && requestId == g_lastWakeRequestId)
     {
-      APP_LOG_EVENT_WARN("WAKE rejected: changed or expired duplicate request");
+      // QoS retransmission: acknowledge the same active lease without resetting
+      // its timer or scheduling another sample. Reject changed/expired repeats.
+      if (seconds != g_lastWakeRequestSeconds || !g_remoteWakeCycle.active() ||
+          g_remoteWakeCycle.remainingSeconds(millis()) == 0U)
+      {
+        APP_LOG_EVENT_WARN("WAKE rejected: changed or expired duplicate request");
+        return false;
+      }
+      APP_DEBUG_PRINTLN("Power: duplicate WAKE acknowledged; original deadline unchanged");
+      return true;
+    }
+    if (!g_remoteWakeCycle.requestWake(millis(), seconds, AppConfig::kRemoteWakeDefaultSeconds))
+    {
+      APP_LOG_EVENT_WARN("WAKE rejected: duration must be 0 (default) or 1..86400 seconds");
       return false;
     }
-    APP_DEBUG_PRINTLN("Power: duplicate WAKE acknowledged; original deadline unchanged");
+    g_lastWakeRequestId = requestId;
+    g_lastWakeRequestSeconds = seconds;
+    scheduleFreshSensorCycle();
+    APP_DEBUG_PRINT("Power: WAKE accepted; ACTIVE for ");
+    APP_DEBUG_PRINT(g_remoteWakeCycle.remainingSeconds(millis()));
+    APP_DEBUG_PRINTLN(" seconds (no controller reset)");
     return true;
   }
-  if (!g_remoteWakeCycle.requestWake(millis(), seconds, AppConfig::kRemoteWakeDefaultSeconds))
+#endif
+#if WIOT_POWER_HAS_WAKE_LEASE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED || controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
   {
-    APP_LOG_EVENT_WARN("WAKE rejected: duration must be 0 (default) or 1..86400 seconds");
-    return false;
+    const uint64_t acceptedSeconds = seconds == 0U
+        ? AppConfig::kRemoteWakeDefaultSeconds : seconds;
+    if (acceptedSeconds == 0U || acceptedSeconds > AppConfig::kRemoteWakeMaximumSeconds)
+    {
+      return false;
+    }
+    if (requestId != 0U && requestId == g_queuedWakeRequestId)
+    {
+      return seconds == g_queuedWakeRequestSeconds && queuedWakeActive();
+    }
+    g_queuedWakeRequestId = requestId;
+    g_queuedWakeRequestSeconds = seconds;
+    g_queuedWakeStartedMs = millis();
+    g_queuedWakeDurationMs = static_cast<uint32_t>(acceptedSeconds * 1000ULL);
+    scheduleFreshSensorCycle();
+    APP_DEBUG_PRINT("Power: WAKE accepted for ");
+    APP_DEBUG_PRINT(static_cast<uint32_t>(acceptedSeconds));
+    APP_DEBUG_PRINTLN(" seconds; low-power entry postponed");
+    return true;
   }
-  g_lastWakeRequestId = requestId;
-  g_lastWakeRequestSeconds = seconds;
-  scheduleFreshSensorCycle();
-  APP_DEBUG_PRINT("Power: WAKE accepted; ACTIVE for ");
-  APP_DEBUG_PRINT(g_remoteWakeCycle.remainingSeconds(millis()));
-  APP_DEBUG_PRINTLN(" seconds (no controller reset)");
-  return true;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
-      APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  const uint64_t acceptedSeconds = seconds == 0U
-      ? AppConfig::kRemoteWakeDefaultSeconds : seconds;
-  if (acceptedSeconds == 0U || acceptedSeconds > AppConfig::kRemoteWakeMaximumSeconds)
-  {
-    return false;
-  }
-  if (requestId != 0U && requestId == g_queuedWakeRequestId)
-  {
-    return seconds == g_queuedWakeRequestSeconds && queuedWakeActive();
-  }
-  g_queuedWakeRequestId = requestId;
-  g_queuedWakeRequestSeconds = seconds;
-  g_queuedWakeStartedMs = millis();
-  g_queuedWakeDurationMs = static_cast<uint32_t>(acceptedSeconds * 1000ULL);
-  scheduleFreshSensorCycle();
-  APP_DEBUG_PRINT("Power: WAKE accepted for ");
-  APP_DEBUG_PRINT(static_cast<uint32_t>(acceptedSeconds));
-  APP_DEBUG_PRINTLN(" seconds; low-power entry postponed");
-  return true;
-#else
+#endif
   (void)seconds;
   (void)requestId;
   APP_LOG_EVENT_WARN("WAKE rejected: select controller REMOTE_WAKE; NORMAL/RTC_PERIODIC are unchanged");
   return false;
-#endif
 }
 
 bool powerManagerShouldRunApplication()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  if (g_remoteWakeCycle.active() || TelemetryArchive::blocking()) return true;
-  bool uartReady = false;
-#if APP_HAS_IP_UPLINK
-  uartReady = SerialAT.available() > 0;
-#elif APP_HAS_LORA
-  uartReady = SerialLoRa.available() > 0;
-#endif
-  const uint32_t nowMs = millis();
-  if (uartReady || nowMs - g_lastRemotePollMs >= AppConfig::kRemoteWakePollIntervalMs)
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
   {
-    g_lastRemotePollMs = nowMs;
-    return true;
-  }
-  return false;
-#else
-  return true;
+    if (g_remoteWakeCycle.active() || TelemetryArchive::blocking()) return true;
+    bool uartReady = false;
+#if APP_HAS_IP_UPLINK
+    uartReady = SerialAT.available() > 0;
+#elif APP_HAS_LORA
+    uartReady = SerialLoRa.available() > 0;
 #endif
+    const uint32_t nowMs = millis();
+    if (uartReady || nowMs - g_lastRemotePollMs >= AppConfig::kRemoteWakePollIntervalMs)
+    {
+      g_lastRemotePollMs = nowMs;
+      return true;
+    }
+    return false;
+  }
+#endif
+  return true;
 }
 
 void powerManagerIdleCpu()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  if (!g_remoteWakeCycle.active() && !TelemetryArchive::blocking())
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
   {
-    // Keep SysTick and UART interrupts running. The 1-ms tick bounds a lost
-    // wake-edge race; regular application checkpoints feed IWDG, never an ISR.
-    SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
-    __DSB();
-    __WFI();
+    if (!g_remoteWakeCycle.active() && !TelemetryArchive::blocking())
+    {
+      // Keep SysTick and UART interrupts running. The 1-ms tick bounds a lost
+      // wake-edge race; regular application checkpoints feed IWDG, never an ISR.
+      SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+      __DSB();
+      __WFI();
+    }
+    return;
   }
 #endif
 }
 
 uint32_t powerManagerMode()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  return 3U;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED
-  return 4U;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  return 5U;
-#elif APP_CONTROLLER_USES_STANDBY
-  return 2U;
-#else
-  return 1U;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    return 3U;
+  }
 #endif
+#if WIOT_POWER_HAS_STANDBY
+  if (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED)
+  {
+    return 4U;
+  }
+#endif
+#if WIOT_POWER_HAS_WOR
+  if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    return 5U;
+  }
+#endif
+#if WIOT_POWER_HAS_STANDBY
+  if (standbySelected())
+  {
+    return 2U;
+  }
+#endif
+  return 1U;
 }
 
 uint32_t powerManagerState()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  return g_remoteWakeCycle.active() ? 1U : 2U;
-#else
-  return 1U;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    return g_remoteWakeCycle.active() ? 1U : 2U;
+  }
 #endif
+  return 1U;
 }
 
 uint32_t powerManagerWakeRemainingSeconds()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  return g_remoteWakeCycle.remainingSeconds(millis());
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
-      APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  return queuedWakeActive()
-      ? (g_queuedWakeDurationMs - (millis() - g_queuedWakeStartedMs) + 999U) / 1000U
-      : 0U;
-#else
-  return 0U;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    return g_remoteWakeCycle.remainingSeconds(millis());
+  }
 #endif
+#if WIOT_POWER_HAS_WAKE_LEASE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED || controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    return queuedWakeActive()
+        ? (g_queuedWakeDurationMs - (millis() - g_queuedWakeStartedMs) + 999U) / 1000U
+        : 0U;
+  }
+#endif
+  return 0U;
 }
 
 uint32_t powerManagerWakeRequestId()
 {
-#if APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_REMOTE_WAKE
-  return g_lastWakeRequestId;
-#elif APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_QUEUED || \
-      APP_CONTROLLER_POWER_MODE == APP_COMPONENT_MODE_LORA_WOR
-  return g_queuedWakeRequestId;
-#else
-  return 0U;
+#if WIOT_POWER_HAS_REMOTE_WAKE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_REMOTE_WAKE)
+  {
+    return g_lastWakeRequestId;
+  }
 #endif
+#if WIOT_POWER_HAS_WAKE_LEASE
+  if (controllerPowerMode() == APP_COMPONENT_MODE_QUEUED || controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
+  {
+    return g_queuedWakeRequestId;
+  }
+#endif
+  return 0U;
 }

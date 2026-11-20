@@ -5,6 +5,7 @@
 #include "MQTT.h"
 
 #include "../config/AppConfig.h"
+#include "../config/RuntimeConfig.h"
 #include "../app/AppState.h"
 #include "PacketCodec.h"
 #include "CommandHandler.h"
@@ -109,7 +110,7 @@ void logMqttStateDetails(int state)
 /** @brief Validate gateway command-topic structure and extract node/broadcast routing. */
 bool parseGatewayNodeCommandTopic(const char* topic, uint16_t& topicNodeId, bool& isBroadcastTopic)
 {
-  return MqttTopicRouting::parseCommand(topic, kMqttCompanyTopicPrefix,
+  return MqttTopicRouting::parseCommand(topic, WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix),
                                         topicNodeId, isBroadcastTopic);
 }
 #endif
@@ -304,7 +305,7 @@ void restoreMqttTransportAfterPowerDownAbort()
 void initializeMqttClient()
 {
   mqtt.setClient(bufferedClient);
-  mqtt.setServer(kMqttServer, AppConfig::kMqttPort);
+  mqtt.setServer(WIOT_ACTIVE_VALUE(kMqttServer, broker), AppConfig::kMqttPort);
   mqtt.setCallback(mqttCallback);
   mqtt.setKeepAlive(AppConfig::kMqttKeepAliveSeconds);
   mqtt.setSocketTimeout(AppConfig::kMqttSocketTimeoutSeconds);
@@ -328,8 +329,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   bool isBroadcastTopic = false;
   const bool isNodeTopic = parseGatewayNodeCommandTopic(topic, topicNodeId, isBroadcastTopic);
 #else
-  const bool isNodeTopic = (strcmp(topic, kMqttCommandTopic) == 0);
-  const bool isBroadcastTopic = (strcmp(topic, kMqttBroadcastTopic) == 0);
+  const bool isNodeTopic = (strcmp(topic, WIOT_ACTIVE_TOPIC(kMqttCommandTopic, command)) == 0);
+  const bool isBroadcastTopic = (strcmp(topic, WIOT_ACTIVE_TOPIC(kMqttBroadcastTopic, broadcast)) == 0);
 #endif
 
   if (AppConfig::kEnableVerboseMqttLogs) {
@@ -494,7 +495,7 @@ bool ensureMqttConnection()
   // Distinct from sensor-node clients even when AppConfig.cpp uses the same ID.
   char gatewayClientId[128];
   const int clientIdLength = snprintf(gatewayClientId, sizeof(gatewayClientId),
-      "%s-gateway-%u", kMqttClientId, static_cast<unsigned>(APP_GATEWAY_ID));
+      "%s-gateway-%u", WIOT_ACTIVE_TOPIC(kMqttClientId, clientId), static_cast<unsigned>(WIOT_ACTIVE_VALUE(APP_GATEWAY_ID, gatewayId)));
   if (clientIdLength <= 0 || static_cast<size_t>(clientIdLength) >= sizeof(gatewayClientId))
   {
     APP_LOG_ERROR("Gateway MQTT client ID is too long");
@@ -502,7 +503,7 @@ bool ensureMqttConnection()
   }
   const bool mqttConnected = mqtt.connect(gatewayClientId);
 #else
-  const bool mqttConnected = mqtt.connect(kMqttClientId);
+  const bool mqttConnected = mqtt.connect(WIOT_ACTIVE_TOPIC(kMqttClientId, clientId));
 #endif
   serviceHardwareWatchdog();
   if (!mqttConnected)
@@ -534,14 +535,14 @@ bool ensureMqttConnection()
   g_mqttConnectFailureCount = 0;
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  const char* const commandTopic = kMqttGatewayCommandWildcardTopic;
+  const char* const commandTopic = WIOT_ACTIVE_TOPIC(kMqttGatewayCommandWildcardTopic, gatewayCommands);
 #else
-  const char* const commandTopic = kMqttCommandTopic;
+  const char* const commandTopic = WIOT_ACTIVE_TOPIC(kMqttCommandTopic, command);
 #endif
   const bool nodeSubscribed = mqtt.subscribe(commandTopic);
   const bool nodeFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
-  const bool broadcastSubscribed = mqtt.subscribe(kMqttBroadcastTopic);
+  const bool broadcastSubscribed = mqtt.subscribe(WIOT_ACTIVE_TOPIC(kMqttBroadcastTopic, broadcast));
   const bool broadcastFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
   const bool subscriptionsSent = nodeSubscribed && nodeFlushed &&
@@ -559,7 +560,7 @@ bool ensureMqttConnection()
     APP_DEBUG_PRINT("Command subscription sent: ");
     APP_DEBUG_PRINTLN(commandTopic);
     APP_DEBUG_PRINT("Command subscription sent: ");
-    APP_DEBUG_PRINTLN(kMqttBroadcastTopic);
+    APP_DEBUG_PRINTLN(WIOT_ACTIVE_TOPIC(kMqttBroadcastTopic, broadcast));
   }
 
   ++g_connectionGeneration;
@@ -703,7 +704,7 @@ void asyncPublishStep()
   const auto& packet = g_publishQueue.front();
   g_modemOperationActive = true;
   const bool accepted = sendCheckedMqttPayload(
-      reply ? kMqttPublishTopicTlm : kMqttPublishTopicStatus, packet.bytes, packet.length);
+      reply ? WIOT_ACTIVE_TOPIC(kMqttPublishTopicTlm, telemetry) : WIOT_ACTIVE_TOPIC(kMqttPublishTopicStatus, status), packet.bytes, packet.length);
   g_modemOperationActive = false;
   if (accepted) {
     g_publishQueue.pop();

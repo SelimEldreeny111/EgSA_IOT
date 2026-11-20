@@ -6,6 +6,7 @@
 #include "../comm/MQTT.h"
 #include "../comm/PacketCodec.h"
 #include "../config/AppConfig.h"
+#include "../config/RuntimeConfig.h"
 #include "../platform/Watchdog.h"
 #include "../radio/LoraLink.h"
 
@@ -31,7 +32,8 @@ bool g_hasNodeUplink = false;
  */
 void serviceGatewayHeartbeat()
 {
-#if APP_ENABLE_GATEWAY_HEARTBEAT
+#if APP_ENABLE_SERIAL_CONFIG || APP_ENABLE_GATEWAY_HEARTBEAT
+  if (!WIOT_ACTIVE_VALUE(APP_ENABLE_GATEWAY_HEARTBEAT, gatewayHeartbeat)) return;
   static uint32_t lastAttemptMs = 0;
   static uint32_t lastSuccessMs = 0;
   static uint32_t publishedConnection = 0;
@@ -42,23 +44,23 @@ void serviceGatewayHeartbeat()
   const uint32_t connection = mqttConnectionGeneration();
   if ((attempted && now - lastAttemptMs < 5000UL) ||
       (published && connection == publishedConnection &&
-       now - lastSuccessMs < APP_GATEWAY_HEARTBEAT_SECONDS * 1000UL)) return;
+       now - lastSuccessMs < WIOT_ACTIVE_VALUE(APP_GATEWAY_HEARTBEAT_SECONDS, heartbeatSeconds) * 1000UL)) return;
   attempted = true;
   lastAttemptMs = now;
 
   char topic[160];
   const int written = snprintf(topic, sizeof(topic), "%s/gateway/%u/status",
-      kMqttCompanyTopicPrefix, static_cast<unsigned>(APP_GATEWAY_ID));
+      WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix), static_cast<unsigned>(WIOT_ACTIVE_VALUE(APP_GATEWAY_ID, gatewayId)));
   if (written <= 0 || static_cast<size_t>(written) >= sizeof(topic))
   {
     APP_LOG_ERROR("Heartbeat topic is too long");
     return;
   }
   Gateway_Status status = Gateway_Status_init_zero;
-  status.gateway_id = APP_GATEWAY_ID;
+  status.gateway_id = WIOT_ACTIVE_VALUE(APP_GATEWAY_ID, gatewayId);
   status.uptime_seconds = g_uptimeMs / 1000U;
   status.heartbeat_sequence = ++sequence;
-  status.heartbeat_interval_seconds = APP_GATEWAY_HEARTBEAT_SECONDS;
+  status.heartbeat_interval_seconds = WIOT_ACTIVE_VALUE(APP_GATEWAY_HEARTBEAT_SECONDS, heartbeatSeconds);
 #if defined(USE_SIM800)
   status.uplink_transport = 2;
 #else
@@ -83,7 +85,7 @@ void serviceGatewayHeartbeat()
     lastSuccessMs = millis();
   }
   APP_LOG_EVENT("heartbeat gateway=%u sequence=%lu uptime_s=%llu bytes=%lu local_write=%u",
-      APP_GATEWAY_ID, static_cast<unsigned long>(sequence),
+      WIOT_ACTIVE_VALUE(APP_GATEWAY_ID, gatewayId), static_cast<unsigned long>(sequence),
       static_cast<unsigned long long>(status.uptime_seconds),
       static_cast<unsigned long>(length), accepted);
 #endif
@@ -96,7 +98,7 @@ bool buildNodeMqttTopic(uint16_t nodeId, const char* suffix, char* topic, size_t
       topic,
       topicSize,
       "%s/%u/%s",
-      kMqttCompanyTopicPrefix,
+      WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix),
       static_cast<unsigned>(nodeId),
       suffix);
   return written > 0 && static_cast<size_t>(written) < topicSize;
@@ -105,15 +107,17 @@ bool buildNodeMqttTopic(uint16_t nodeId, const char* suffix, char* topic, size_t
 
 void gatewaySetup()
 {
+#if !APP_ENABLE_SERIAL_CONFIG
   APP_DEBUG_BEGIN(115200);
+#endif
   watchdogDelay(1000);
   reportHardwareWatchdogStatus();
   serviceHardwareWatchdog();
 
   APP_DEBUG_PRINTLN("=============== EgSA LoRa MQTT Gateway ===============");
   APP_LOG_EVENT("boot role=GATEWAY node=%u topics=%s debug=%s raw_frames=%u command_ack=%u",
-      AppConfig::kNodeId, kMqttCompanyTopicPrefix, APP_DEBUG_LITE ? "LITE" : "FULL",
-        APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES, APP_ENABLE_COMMAND_ACK_REPLIES);
+      AppConfig::kNodeId, WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix), APP_DEBUG_LITE ? "LITE" : "FULL",
+        APP_DEBUG_FULL_ENABLED && APP_DEBUG_RAW_FRAMES, AppConfig::kEnableCommandAckReplies);
 
   initializeLoraLink();
   serviceHardwareWatchdog();

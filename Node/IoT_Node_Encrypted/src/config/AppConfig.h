@@ -10,9 +10,17 @@
 #ifndef APP_CONFIG_H
 #define APP_CONFIG_H
 
+// Local configuration uses the debug UART independently of diagnostic output.
+#ifndef APP_ENABLE_SERIAL_CONFIG
+#define APP_ENABLE_SERIAL_CONFIG true
+#endif
+#if APP_ENABLE_SERIAL_CONFIG != 0 && APP_ENABLE_SERIAL_CONFIG != 1
+#error "APP_ENABLE_SERIAL_CONFIG must be true or false"
+#endif
+
 /**************** DEBUG CONFIGURATION - START HERE ****************/
 // true: timestamped diagnostics on PA2/TX at 115200 baud.
-// false: compile out diagnostic calls/arguments and leave the debug UART off.
+// false: compile out diagnostic calls/arguments. The configuration console is independent.
 // Radio/modem UARTs, command ACKs and telemetry continue normally.
 #ifndef APP_ENABLE_DEBUG
 #define APP_ENABLE_DEBUG true
@@ -448,7 +456,12 @@ static_assert(MqttTopicRouting::validNodeLiteral(APP_MQTT_STRINGIFY(APP_NODE_ID)
 #define APP_SENSOR_ID 1
 #endif
 
-constexpr uint16_t kNodeId = APP_NODE_ID;
+constexpr uint16_t kNodeIdDefault = APP_NODE_ID;
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint16_t kNodeId;
+#else
+constexpr uint16_t kNodeId = kNodeIdDefault;
+#endif
 constexpr uint16_t kGatewayNodeId = 0;
 constexpr uint16_t kSensorId = APP_SENSOR_ID;
 
@@ -456,7 +469,12 @@ constexpr uint16_t kSensorId = APP_SENSOR_ID;
 #define APP_LORA_NETWORK_ID 0x4547
 #endif
 static_assert(APP_LORA_NETWORK_ID > 0 && APP_LORA_NETWORK_ID <= 65535, "LoRa network ID must be 1..65535");
-constexpr uint16_t kLoraNetworkId = APP_LORA_NETWORK_ID; // this is for the  "EG"
+constexpr uint16_t kLoraNetworkIdDefault = APP_LORA_NETWORK_ID; // this is for the  "EG"
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint16_t kLoraNetworkId;
+#else
+constexpr uint16_t kLoraNetworkId = kLoraNetworkIdDefault;
+#endif
 constexpr uint32_t kLoraMd0Pin = PB2;
 constexpr uint32_t kLoraMd1Pin = PB1;
 constexpr uint32_t kLoraAuxPin = PC13;
@@ -546,40 +564,80 @@ constexpr bool kHndaSensorRequested = APP_ENABLE_HNDA_SENSOR;
 constexpr bool kSupmeaSensorRequested = APP_ENABLE_SUPMEA_SENSOR;
 constexpr bool kSondasSensorRequested = APP_ENABLE_SONDAS_SENSOR;
 
-constexpr bool kEnableTufSensor = APP_HAS_SENSORS && kTufSensorRequested;
-constexpr bool kEnableSupmeaSensor = APP_HAS_SENSORS && kSupmeaSensorRequested;
-constexpr bool kEnableHndaSensor = APP_HAS_SENSORS && kHndaSensorRequested;
-constexpr bool kEnableSondasSensor = APP_HAS_SENSORS && kSondasSensorRequested;
+constexpr bool kEnableTufSensorDefault = APP_HAS_SENSORS && kTufSensorRequested;
+#if APP_ENABLE_SERIAL_CONFIG
+extern bool kEnableTufSensor;
+#else
+constexpr bool kEnableTufSensor = kEnableTufSensorDefault;
+#endif
+constexpr bool kEnableSupmeaSensorDefault = APP_HAS_SENSORS && kSupmeaSensorRequested;
+#if APP_ENABLE_SERIAL_CONFIG
+extern bool kEnableSupmeaSensor;
+#else
+constexpr bool kEnableSupmeaSensor = kEnableSupmeaSensorDefault;
+#endif
+constexpr bool kEnableHndaSensorDefault = APP_HAS_SENSORS && kHndaSensorRequested;
+#if APP_ENABLE_SERIAL_CONFIG
+extern bool kEnableHndaSensor;
+#else
+constexpr bool kEnableHndaSensor = kEnableHndaSensorDefault;
+#endif
+constexpr bool kEnableSondasSensorDefault = APP_HAS_SENSORS && kSondasSensorRequested;
+#if APP_ENABLE_SERIAL_CONFIG
+extern bool kEnableSondasSensor;
+#else
+constexpr bool kEnableSondasSensor = kEnableSondasSensorDefault;
+#endif
 
-constexpr uint8_t kTufModbusAddress = APP_TUF_SENSOR_MODBUS_ADDRESS;
-constexpr uint8_t kSupmeaSensorModbusAddress =
+constexpr uint8_t kTufModbusAddressDefault = APP_TUF_SENSOR_MODBUS_ADDRESS;
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint8_t kTufModbusAddress;
+#else
+constexpr uint8_t kTufModbusAddress = kTufModbusAddressDefault;
+#endif
+constexpr uint8_t kSupmeaSensorModbusAddressDefault =
     APP_SUPMEA_SENSOR_MODBUS_ADDRESS;
-constexpr uint8_t kHndaModbusAddress = APP_HNDA_SENSOR_MODBUS_ADDRESS;
-constexpr uint8_t kSondasModbusAddress = APP_SONDAS_SENSOR_MODBUS_ADDRESS;
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint8_t kSupmeaSensorModbusAddress;
+#else
+constexpr uint8_t kSupmeaSensorModbusAddress = kSupmeaSensorModbusAddressDefault;
+#endif
+constexpr uint8_t kHndaModbusAddressDefault = APP_HNDA_SENSOR_MODBUS_ADDRESS;
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint8_t kHndaModbusAddress;
+#else
+constexpr uint8_t kHndaModbusAddress = kHndaModbusAddressDefault;
+#endif
+constexpr uint8_t kSondasModbusAddressDefault = APP_SONDAS_SENSOR_MODBUS_ADDRESS;
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint8_t kSondasModbusAddress;
+#else
+constexpr uint8_t kSondasModbusAddress = kSondasModbusAddressDefault;
+#endif
 
 static_assert(
-    !(kEnableTufSensor && kEnableSupmeaSensor &&
-      kTufModbusAddress == kSupmeaSensorModbusAddress),
+    !(kEnableTufSensorDefault && kEnableSupmeaSensorDefault &&
+      kTufModbusAddressDefault == kSupmeaSensorModbusAddressDefault),
     "TUF and Supmea must use different Modbus addresses");
 static_assert(
-    !(kEnableTufSensor && kEnableHndaSensor &&
-      kTufModbusAddress == kHndaModbusAddress),
+    !(kEnableTufSensorDefault && kEnableHndaSensorDefault &&
+      kTufModbusAddressDefault == kHndaModbusAddressDefault),
     "TUF and HNDA must use different Modbus addresses");
 static_assert(
-    !(kEnableTufSensor && kEnableSondasSensor &&
-      kTufModbusAddress == kSondasModbusAddress),
+    !(kEnableTufSensorDefault && kEnableSondasSensorDefault &&
+      kTufModbusAddressDefault == kSondasModbusAddressDefault),
     "TUF and Sondas must use different Modbus addresses");
 static_assert(
-    !(kEnableSupmeaSensor && kEnableHndaSensor &&
-      kSupmeaSensorModbusAddress == kHndaModbusAddress),
+    !(kEnableSupmeaSensorDefault && kEnableHndaSensorDefault &&
+      kSupmeaSensorModbusAddressDefault == kHndaModbusAddressDefault),
     "Supmea and HNDA must use different Modbus addresses");
 static_assert(
-    !(kEnableSupmeaSensor && kEnableSondasSensor &&
-      kSupmeaSensorModbusAddress == kSondasModbusAddress),
+    !(kEnableSupmeaSensorDefault && kEnableSondasSensorDefault &&
+      kSupmeaSensorModbusAddressDefault == kSondasModbusAddressDefault),
     "Supmea and Sondas must use different Modbus addresses");
 static_assert(
-    !(kEnableHndaSensor && kEnableSondasSensor &&
-      kHndaModbusAddress == kSondasModbusAddress),
+    !(kEnableHndaSensorDefault && kEnableSondasSensorDefault &&
+      kHndaModbusAddressDefault == kSondasModbusAddressDefault),
     "HNDA and Sondas must use different Modbus addresses");
 
 constexpr uint16_t kSensorMaskTuf = 0x0001;
@@ -796,10 +854,20 @@ constexpr uint32_t kDefaultSamplingPeriodMs = 10000UL;
 constexpr uint32_t kDefaultTransmissionPeriodMs = 15000UL;
 
 constexpr uint32_t kDefaultRtcEpoch = 1704067200UL;
-constexpr uint16_t kMqttPort = 1883;
+constexpr uint16_t kMqttPortDefault = 1883;
+#if APP_ENABLE_SERIAL_CONFIG
+extern uint16_t kMqttPort;
+#else
+constexpr uint16_t kMqttPort = kMqttPortDefault;
+#endif
 constexpr uint16_t kMqttKeepAliveSeconds = 45;
 constexpr uint16_t kMqttSocketTimeoutSeconds = 8;
-constexpr bool kEnableCommandAckReplies = APP_ENABLE_COMMAND_ACK_REPLIES;
+constexpr bool kEnableCommandAckRepliesDefault = APP_ENABLE_COMMAND_ACK_REPLIES;
+#if APP_ENABLE_SERIAL_CONFIG
+extern bool kEnableCommandAckReplies;
+#else
+constexpr bool kEnableCommandAckReplies = kEnableCommandAckRepliesDefault;
+#endif
 constexpr uint32_t kMqttReconnectIntervalMs = 3000UL;
 
 constexpr uint32_t kMinimumRateSeconds = 10UL;
