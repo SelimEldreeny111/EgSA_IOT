@@ -39,7 +39,7 @@ int main()
     flash[232] = 0x31;
     assert(RuntimeConfig::load() == RuntimeConfig::LoadResult::Defaults);
     const auto original = RuntimeConfig::active();
-    const std::string originalTopic = RuntimeConfig::topics().command;
+    const std::string originalTopic = RuntimeConfig::topics().prefix;
     SerialConfig::begin(true);
     assert(SerialMon.baud == 115200 && now >= 2500);
 
@@ -76,8 +76,11 @@ int main()
     assert(send("17\r\nLab Unit 2\r\ntest-secret\r\n"));
     assert(SerialMon.output.str().find("test-secret") == std::string::npos);
 #endif
+#if APP_HAS_IP_UPLINK && defined(USE_SIM800)
+    assert(send("23\nlab.apn\n"));
+#endif
     assert(send("2\nABCDEFGHIJKLMNOPQRSTUVWX\n3\nabcdefghijklmnopqrstuvwx\n"));
-    assert(RuntimeConfig::topics().command == originalTopic);
+    assert(RuntimeConfig::topics().prefix == originalTopic);
     try {
         send("save\r\n");
         assert(false);
@@ -85,21 +88,27 @@ int main()
     assert(commits == 1 && flash[232] == 0x31);
     assert(RuntimeConfig::load() == RuntimeConfig::LoadResult::Saved);
     assert(strlen(RuntimeConfig::topics().prefix) == 54);
+#if APP_HAS_IP_UPLINK && defined(USE_SIM800)
+    assert(!strcmp(RuntimeConfig::active().apn, "lab.apn"));
+#endif
 #if APP_HAS_SENSORS
     assert(AppConfig::kNodeId == 7 && !AppConfig::kEnableCommandAckReplies);
     assert(RuntimeConfig::active().sampleSeconds == 120 && RuntimeConfig::active().transmitSeconds == 240);
     assert(RuntimeConfig::active().powerMode == APP_COMPONENT_MODE_REMOTE_WAKE);
     assert(RuntimeConfig::active().retentionSeconds == 0 &&
            AppConfig::kSupmeaSensorModbusAddress == 2);
+#if APP_HAS_IP_UPLINK
     assert(std::string(RuntimeConfig::topics().command).substr(54) == "/7/cmd");
+#endif
 #else
+    assert(std::string(RuntimeConfig::topics().gatewayCommands).substr(54) == "/+/cmd");
     assert(RuntimeConfig::active().gatewayId == 20 && RuntimeConfig::active().gatewayWor == 1);
     assert(!RuntimeConfig::active().gatewayHeartbeat && RuntimeConfig::active().heartbeatSeconds == 100);
 #endif
     assert(RuntimeConfig::save(RuntimeConfig::active()) && commits == 1);
     flash[264] ^= 1;
     assert(RuntimeConfig::load() == RuntimeConfig::LoadResult::Invalid);
-    assert(RuntimeConfig::topics().command == originalTopic);
+    assert(RuntimeConfig::topics().prefix == originalTopic);
     assert(AppConfig::kNodeId == original.nodeId);
     std::cout << "PASS: console edits, validation, reset, persistence, routing and CRC fallback\n";
 }

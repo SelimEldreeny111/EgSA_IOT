@@ -14,6 +14,14 @@ using RuntimeConfig::Settings;
 constexpr uint32_t kBootWindowMs = 2500U;
 constexpr uint32_t kIdleTimeoutMs = 180000U;
 constexpr size_t kInputBytesPerPass = 96U;
+constexpr bool kGateway = APP_ROLE == APP_ROLE_LORA_GATEWAY;
+#if defined(USE_ESP8266)
+constexpr bool kWifi = APP_HAS_IP_UPLINK;
+constexpr bool kSim = false;
+#else
+constexpr bool kWifi = false;
+constexpr bool kSim = APP_HAS_IP_UPLINK;
+#endif
 
 enum Field : uint8_t {
     Menu, Node, Company, Region, Sample, Transmit, Power, Sleep, Tuf, Supmea, Hnda,
@@ -48,20 +56,9 @@ bool available(Field field)
     case Retention: return APP_HAS_SENSORS && APP_ENABLE_SPI_FLASH;
     case Network: return APP_HAS_LORA;
     case Broker: case Port: return APP_HAS_IP_UPLINK;
-    case WifiSsid:
-#if defined(USE_ESP8266)
-        return APP_HAS_IP_UPLINK;
-#else
-        return false;
-#endif
-    case SimApn:
-#if defined(USE_SIM800)
-        return APP_HAS_IP_UPLINK;
-#else
-        return false;
-#endif
-    case Gateway: case GatewayWor: case Heartbeat: case HeartbeatPeriod:
-        return APP_ROLE == APP_ROLE_LORA_GATEWAY;
+    case WifiSsid: case WifiPassword: return kWifi;
+    case SimApn: return kSim;
+    case Gateway: case GatewayWor: case Heartbeat: case HeartbeatPeriod: return kGateway;
     default: return true;
     }
 }
@@ -69,7 +66,7 @@ bool available(Field field)
 void showValue(Field field)
 {
     switch (field) {
-    case Node: SerialMon.print(draft.nodeId); break;
+    case Node: if (APP_HAS_SENSORS) { SerialMon.print(draft.nodeId); } break;
     case Company: SerialMon.print(draft.company); break;
     case Region: SerialMon.print(draft.region); break;
     case Sample: SerialMon.print(draft.sampleSeconds); break;
@@ -85,15 +82,15 @@ void showValue(Field field)
     }
     case Ack: SerialMon.print(draft.commandReplies ? "on" : "off"); break;
     case Retention: SerialMon.print(draft.retentionSeconds); break;
-    case Network: SerialMon.print("0x"); SerialMon.print(draft.networkId, HEX); break;
-    case Broker: SerialMon.print(draft.broker); break;
-    case Port: SerialMon.print(draft.brokerPort); break;
-    case WifiSsid: SerialMon.print(draft.ssid[0] ? draft.ssid : "(firmware network)"); break;
-    case Gateway: SerialMon.print(draft.gatewayId); break;
-    case GatewayWor: SerialMon.print(draft.gatewayWor ? "on" : "off"); break;
-    case Heartbeat: SerialMon.print(draft.gatewayHeartbeat ? "on" : "off"); break;
-    case HeartbeatPeriod: SerialMon.print(draft.heartbeatSeconds); break;
-    case SimApn: SerialMon.print(draft.apn[0] ? draft.apn : "(firmware APN)"); break;
+    case Network: if (APP_HAS_LORA) { SerialMon.print("0x"); SerialMon.print(draft.networkId, HEX); } break;
+    case Broker: if (APP_HAS_IP_UPLINK) { SerialMon.print(draft.broker); } break;
+    case Port: if (APP_HAS_IP_UPLINK) { SerialMon.print(draft.brokerPort); } break;
+    case WifiSsid: if (kWifi) { SerialMon.print(draft.ssid[0] ? draft.ssid : "(firmware network)"); } break;
+    case Gateway: if (kGateway) { SerialMon.print(draft.gatewayId); } break;
+    case GatewayWor: if (kGateway) { SerialMon.print(draft.gatewayWor ? "on" : "off"); } break;
+    case Heartbeat: if (kGateway) { SerialMon.print(draft.gatewayHeartbeat ? "on" : "off"); } break;
+    case HeartbeatPeriod: if (kGateway) { SerialMon.print(draft.heartbeatSeconds); } break;
+    case SimApn: if (kSim) { SerialMon.print(draft.apn[0] ? draft.apn : "(firmware APN)"); } break;
     default: break;
     }
 }
@@ -147,20 +144,30 @@ template<size_t Size> bool readText(char (&value)[Size], const char* text)
 
 bool edit(Field field, const char* value)
 {
-    uint32_t n;
+    uint32_t n = 0;
     switch (field) {
-    case Node: case Gateway: case Network: case Port:
-        if (!readNumber(value, 65535U, n, field == Network) || !n) return false;
-        if (field == Node) draft.nodeId = n;
-        else if (field == Gateway) draft.gatewayId = n;
-        else if (field == Network) draft.networkId = n;
-        else draft.brokerPort = n;
+    case Node:
+        if (!APP_HAS_SENSORS || !readNumber(value, 65535U, n) || !n) return false;
+        draft.nodeId = n;
+        return true;
+    case Gateway:
+        if (!kGateway || !readNumber(value, 65535U, n) || !n) return false;
+        draft.gatewayId = n;
+        return true;
+    case Network:
+        if (!APP_HAS_LORA || !readNumber(value, 65535U, n, true) || !n) return false;
+        draft.networkId = n;
+        return true;
+    case Port:
+        if (!APP_HAS_IP_UPLINK || !readNumber(value, 65535U, n) || !n) return false;
+        draft.brokerPort = n;
         return true;
     case Company:
         return MqttTopicRouting::validSegment(value) && readText(draft.company, value);
     case Region:
         return MqttTopicRouting::validSegment(value) && readText(draft.region, value);
     case Broker: case SimApn: {
+        if (!APP_HAS_IP_UPLINK) return false;
         constexpr char kHostChars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-";
         if (strspn(value, kHostChars) != strlen(value)) return false;
         return field == Broker ? *value && readText(draft.broker, value) : readText(draft.apn, value);
@@ -195,18 +202,18 @@ bool edit(Field field, const char* value)
     case Retention:
         return readNumber(value, UINT32_MAX, draft.retentionSeconds);
     case HeartbeatPeriod:
-        if (!readNumber(value, 86400U, n) || n < 10U) return false;
+        if (!kGateway || !readNumber(value, 86400U, n) || n < 10U) return false;
         draft.heartbeatSeconds = n;
         return true;
     case WifiSsid:
-        if (!readText(proposedSsid, value)) return false;
+        if (!kWifi || !readText(proposedSsid, value)) return false;
         if (!proposedSsid[0]) {
             memset(draft.ssid, 0, sizeof(draft.ssid));
             memset(draft.password, 0, sizeof(draft.password));
         }
         return true;
     case WifiPassword:
-        if (!readText(draft.password, value)) return false;
+        if (!kWifi || !readText(draft.password, value)) return false;
         return readText(draft.ssid, proposedSsid);
     default: return false;
     }
@@ -227,10 +234,10 @@ void prompt(Field field)
     case Tuf: case Supmea: case Hnda: case Sondas: SerialMon.println(" (1..247 enables, 'off' disables)"); break;
     case Ack: case GatewayWor: case Heartbeat: SerialMon.println(" (0 = off, 1 = on)"); break;
     case Network: SerialMon.println(" (1..65535 or 0x0001..0xFFFF)"); break;
-    case WifiSsid: SerialMon.println(" (blank selects firmware network)"); break;
-    case WifiPassword: SerialMon.println(" (blank for open network, input is hidden)"); break;
+    case WifiSsid: if (kWifi) SerialMon.println(" (blank selects firmware network)"); break;
+    case WifiPassword: if (kWifi) SerialMon.println(" (blank for open network, input is hidden)"); break;
     case Retention: SerialMon.println(" (0 = manual clear only)"); break;
-    case SimApn: SerialMon.println(" (blank selects firmware APN)"); break;
+    case SimApn: if (kSim) SerialMon.println(" (blank selects firmware APN)"); break;
     default: SerialMon.println(); break;
     }
     SerialMon.println("Send Esc to return to the menu.");
@@ -273,7 +280,7 @@ void line(char* value)
             prompt(field);
             return;
         }
-        if (field == WifiSsid && proposedSsid[0]) {
+        if (kWifi && field == WifiSsid && proposedSsid[0]) {
             pending = WifiPassword;
             prompt(pending);
             return;
@@ -331,7 +338,7 @@ bool service()
         }
         skipLineFeed = c == '\r';
         if (c == 27 && open) {
-            memset(proposedSsid, 0, sizeof(proposedSsid));
+            if (kWifi) memset(proposedSsid, 0, sizeof(proposedSsid));
             pending = Menu;
             memset(input, 0, sizeof(input));
             length = 0;

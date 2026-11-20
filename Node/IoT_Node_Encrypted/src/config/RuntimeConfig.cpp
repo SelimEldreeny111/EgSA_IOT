@@ -83,14 +83,16 @@ void apply(const Settings& s)
     AppConfig::kSondasModbusAddress = s.sensors[3].address;
     AppConfig::kMqttPort = s.brokerPort;
     AppConfig::kEnableCommandAckReplies = s.commandReplies;
-    const unsigned id = s.nodeId;
     snprintf(routing.prefix, sizeof(routing.prefix), "wiot/%s/%s", s.company, s.region);
+#if APP_HAS_IP_UPLINK
+    const unsigned id = s.nodeId;
     snprintf(routing.clientId, sizeof(routing.clientId), "wiot-%s-%s-%u", s.company, s.region, id);
     snprintf(routing.status, sizeof(routing.status), "%s/%u/status", routing.prefix, id);
     snprintf(routing.telemetry, sizeof(routing.telemetry), "%s/%u/data", routing.prefix, id);
     snprintf(routing.command, sizeof(routing.command), "%s/%u/cmd", routing.prefix, id);
     snprintf(routing.broadcast, sizeof(routing.broadcast), "%s/broadcast", routing.prefix);
     snprintf(routing.gatewayCommands, sizeof(routing.gatewayCommands), "%s/+/cmd", routing.prefix);
+#endif
 }
 
 bool validBroker(const char* host)
