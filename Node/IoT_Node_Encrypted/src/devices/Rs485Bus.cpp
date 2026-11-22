@@ -7,6 +7,7 @@
 
 #include "../config/AppConfig.h"
 #include "../platform/Watchdog.h"
+#include "../third_party/ModbusMaster/ModbusMaster.h"
 
 extern HardwareSerial SerialMon;
 
@@ -18,6 +19,29 @@ constexpr uint32_t kMinimumSilentIntervalUs = 4000U;
 void (*g_commandService)() = nullptr;
 uint32_t g_lastCommandServiceMs = 0U;
 constexpr uint32_t kCommandServiceIntervalMs = 100U;
+
+#if APP_ENABLE_DEBUG && APP_DEBUG_RS485_RX
+/** @brief Log the received ADU in wire order, including incomplete or invalid replies. */
+void logModbusResponse(uint8_t unit, uint8_t function, uint8_t result,
+                       const uint8_t* bytes, uint8_t length)
+{
+    char label[68];
+    snprintf(label, sizeof(label), "modbus_rx unit=%u function=0x%02X result=0x%02X",
+             static_cast<unsigned>(unit), static_cast<unsigned>(function), static_cast<unsigned>(result));
+    WiotDebug::hex(APP_LOG_MODULE, label, bytes, length);
+}
+#endif
+}
+
+void configureRs485Modbus(ModbusMaster& sensor, uint8_t address)
+{
+    sensor.begin(address, Serial1);
+    sensor.preTransmission(rs485PreTransmission);
+    sensor.postTransmission(rs485PostTransmission);
+    sensor.idle(rs485ServiceCommands);
+#if APP_ENABLE_DEBUG && APP_DEBUG_RS485_RX
+    sensor.onResponse(logModbusResponse);
+#endif
 }
 
 void setRs485CommandService(void (*service)())

@@ -881,5 +881,9 @@ digitalWrite(__MODBUSMASTER_DEBUG_PIN_B__, false);
   _u8TransmitBufferIndex = 0;
   u16TransmitBufferLength = 0;
   _u8ResponseBufferIndex = 0;
+  if (_responseCallback)
+  {
+    _responseCallback(_u8MBSlave, u8MBFunction, u8MBStatus, u8ModbusADU, u8ModbusADUSize);
+  }
   return u8MBStatus;
 }

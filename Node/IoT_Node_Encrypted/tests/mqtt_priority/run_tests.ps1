@@ -58,7 +58,7 @@ try {
         (Join-Path $mqttTestNode 'src/third_party/ModbusMaster/ModbusMaster.cpp') `
         (Join-Path $PSScriptRoot 'modbus_command_wait_test.cpp') '-o' $modbusExe
     if($LASTEXITCODE -ne 0) { throw 'Actual Modbus host build failed' }
-    foreach($scenario in @('response_after_command','offline','bad_crc')) {
+    foreach($scenario in @('response_after_command','offline','bad_crc','exception','truncated','wrong_unit')) {
         & $modbusExe $scenario
         if($LASTEXITCODE -ne 0) { throw "Modbus command wait failed: $scenario" }
     }

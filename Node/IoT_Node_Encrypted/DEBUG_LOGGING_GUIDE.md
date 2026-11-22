@@ -81,8 +81,8 @@ conditions, and `ERROR` identifies failed operations. Optional raw byte rows use
 `TRACE`. Related events carry identities such as node, request, message or
 sample sequence rather than relying on screen position.
 
-The following table describes FULL diagnostics; LITE keeps only the important
-events described above.
+The following table describes FULL diagnostics. LITE keeps the important
+events described above. RS485 traces have a separate switch.
 
 | Module | Information |
 |---|---|
@@ -100,6 +100,24 @@ events described above.
 
 The four-sensor acquisition and numeric reading logs retain their familiar
 field names and units, now with a consistent module/timestamp prefix.
+
+### Capture RS485 sensor responses
+
+Set `APP_ENABLE_DEBUG=true` and `APP_DEBUG_RS485_RX=true` in
+`src/config/AppConfig.h`. Rebuild and flash the sensor node, then open its
+debug port at **115200 baud, 8N1**. The switch works in LITE and FULL modes.
+It covers TUF, Supmea, HNDA and Sondas and defaults to `false` in the repository.
+
+```text
+[tick_ms=1234][TRACE][RS485] modbus_rx unit=1 function=0x03 result=0x00 bytes=7
+[tick_ms=1234][TRACE][RS485] 0000: 01 03 02 00 7B F8 67
+```
+
+The header identifies the requested unit and function. The hex row gives
+the bytes in capture order. In this example, `01` is the responding unit,
+`03` is the function, `02` is the data length, `00 7B` is one register,
+and `F8 67` is the wire CRC. A failed transaction prints the bytes the
+parser reached before it stopped. A timeout with no data shows `bytes=0`.
 
 An example command/reply sequence is:
 

@@ -36,6 +36,13 @@
 #ifndef APP_DEBUG_RAW_FRAMES
 #define APP_DEBUG_RAW_FRAMES false
 #endif
+// Bench diagnostics for Modbus replies on the debug UART, in either lite or full mode.
+#ifndef APP_DEBUG_RS485_RX
+#define APP_DEBUG_RS485_RX false
+#endif
+#if APP_DEBUG_RS485_RX != 0 && APP_DEBUG_RS485_RX != 1
+#error "APP_DEBUG_RS485_RX must be true or false"
+#endif
 #if (APP_ENABLE_DEBUG != 0 && APP_ENABLE_DEBUG != 1) || \
     (APP_DEBUG_RAW_FRAMES != 0 && APP_DEBUG_RAW_FRAMES != 1)
 #error "APP_ENABLE_DEBUG and APP_DEBUG_RAW_FRAMES must be true or false"

@@ -25,14 +25,6 @@ constexpr uint16_t kLiveRegisterCount = 10U;  // 98-107
 constexpr uint32_t kInterRequestDelayMs = 100UL;
 constexpr uint8_t kMaxReadAttempts = 2U;
 
-/** @brief Bind half-duplex direction callbacks to the Supmea Modbus client. */
-void attachRs485DirectionCallbacks(ModbusMaster& sensor)
-{
-    sensor.preTransmission(rs485PreTransmission);
-    sensor.postTransmission(rs485PostTransmission);
-    sensor.idle(rs485ServiceCommands);
-}
-
 /** @brief Read a register block with configured retry count and watchdog service. */
 uint8_t readHoldingRegistersWithRetry(uint16_t address, uint16_t count)
 {
@@ -95,10 +87,7 @@ void initializeSupmeaSensor()
     APP_DEBUG_PRINT("SUP-FMC240 slave address: ");
     APP_DEBUG_PRINTLN(AppConfig::kSupmeaSensorModbusAddress);
 
-    supmeaSensor.begin(
-        AppConfig::kSupmeaSensorModbusAddress,
-        Serial1);
-    attachRs485DirectionCallbacks(supmeaSensor);
+    configureRs485Modbus(supmeaSensor, AppConfig::kSupmeaSensorModbusAddress);
 
     const uint8_t result = readHoldingRegistersWithRetry(
         kFlowRateRegister,

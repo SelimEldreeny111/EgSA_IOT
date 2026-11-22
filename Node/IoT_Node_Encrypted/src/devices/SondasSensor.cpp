@@ -24,24 +24,13 @@ float scaledUnsignedRegister(uint16_t value, float scale)
 {
     return static_cast<float>(value) / scale;
 }
-
-/** @brief Bind the shared RS485 driver-enable callbacks to this Modbus client. */
-void attachRs485DirectionCallbacks(ModbusMaster& sensor)
-{
-    sensor.preTransmission(rs485PreTransmission);
-    sensor.postTransmission(rs485PostTransmission);
-    sensor.idle(rs485ServiceCommands);
-}
 }
 
 void initializeSondasSensor()
 {
     APP_DEBUG_PRINTLN("Initializing Sondas moisture/temperature/EC sensor...");
 
-    sondasSensor.begin(
-        AppConfig::kSondasModbusAddress,
-        Serial1);
-    attachRs485DirectionCallbacks(sondasSensor);
+    configureRs485Modbus(sondasSensor, AppConfig::kSondasModbusAddress);
 
     const uint8_t result = sondasSensor.readHoldingRegisters(
         AppConfig::kSondasTemperatureRegister,

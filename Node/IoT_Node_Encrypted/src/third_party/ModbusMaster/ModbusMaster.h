@@ -198,6 +198,13 @@ class ModbusMaster
     uint8_t available(void);
     uint16_t receive(void);
 
+    /** @brief Optional observer called at transaction end with the expected unit,
+     * requested function, result and bytes consumed by the RTU parser.
+     * The byte buffer is valid only during the callback.
+     */
+    using ResponseCallback = void (*)(uint8_t unit, uint8_t function, uint8_t result,
+                                      const uint8_t* bytes, uint8_t length);
+    void onResponse(ResponseCallback callback) { _responseCallback = callback; }
 
     uint8_t  readCoils(uint16_t, uint16_t);
     uint8_t  readDiscreteInputs(uint16_t, uint16_t);
@@ -256,6 +263,7 @@ class ModbusMaster
     void (*_preTransmission)();
     // postTransmission callback function; gets called after a Modbus message has been sent
     void (*_postTransmission)();
+    ResponseCallback _responseCallback = nullptr;
 };
 
 #endif

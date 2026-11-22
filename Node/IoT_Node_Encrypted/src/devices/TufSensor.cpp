@@ -102,11 +102,7 @@ void initializeTufSensor()
 {
     APP_DEBUG_PRINTLN("Initializing TUF RS485 Modbus sensor...");
 
-    tufSensor.begin(AppConfig::kTufModbusAddress, Serial1);
-
-    tufSensor.preTransmission(rs485PreTransmission);
-    tufSensor.postTransmission(rs485PostTransmission);
-    tufSensor.idle(rs485ServiceCommands);
+    configureRs485Modbus(tufSensor, AppConfig::kTufModbusAddress);
 
     APP_DEBUG_PRINT("Modbus test... ");
     const uint8_t res = readHoldingRegistersWithRetry(kErrorCodeRegister, 1U);
