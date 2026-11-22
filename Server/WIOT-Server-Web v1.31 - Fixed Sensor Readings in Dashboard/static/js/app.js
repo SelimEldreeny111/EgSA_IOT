@@ -172,7 +172,8 @@ function updateCommandAvailability() {
 
 function saveBrokerConfig(settings) {
     try {
-        const {aes_key, ...publicSettings} = settings;
+        const {broker, port, client_id, transport} = settings;
+        const publicSettings = {broker, port, client_id, transport};
         localStorage.setItem(BROKER_STORAGE_KEY, JSON.stringify(publicSettings));
     } catch (err) {
         console.warn('Unable to persist broker config', err);
@@ -185,7 +186,8 @@ function loadBrokerConfig() {
             JSON.parse(localStorage.getItem('broker_config')) || null;
         if (saved) saveBrokerConfig(saved);
         localStorage.removeItem('broker_config');
-        return saved ? {broker: saved.broker, port: saved.port, client_id: saved.client_id} : null;
+        return saved ? {broker: saved.broker, port: saved.port, client_id: saved.client_id,
+            transport: saved.transport} : null;
     } catch {
         return null;
     }
@@ -198,8 +200,10 @@ function restoreBrokerConfig() {
     const brokerInput = document.getElementById('cfg-broker');
     const portInput = document.getElementById('cfg-port');
     const clientInput = document.getElementById('cfg-client');
-    if (brokerInput) brokerInput.value = saved.broker || brokerInput.value;
-    if (portInput) portInput.value = saved.port || portInput.value;
+    if ((saved.transport || 'plain') === portInput?.dataset.transport) {
+        if (brokerInput) brokerInput.value = saved.broker || brokerInput.value;
+        if (portInput) portInput.value = saved.port || portInput.value;
+    }
     // Do not persist keys in browser storage. Remove previous-release copies.
     saveBrokerConfig(saved);
     localStorage.removeItem('broker_config');
@@ -679,11 +683,11 @@ async function refreshBrokerReadiness() {
 async function connect() {
     if (!CAN_MANAGE_BROKER) return { success: false, error: 'Supervisor controls MQTT' };
     const brokerField = document.getElementById('cfg-broker');
-    if (brokerField && !brokerField.value) brokerField.value = 'broker.hivemq.com';
-
+    const portField = document.getElementById('cfg-port');
     const data = {
-        broker: document.getElementById('cfg-broker').value,
-        port: parseInt(document.getElementById('cfg-port').value),
+        broker: brokerField.value,
+        port: parseInt(portField.value, 10),
+        transport: portField.dataset.transport,
         company: getSelectedCompany(),
         region: getSelectedRegion(),
         aes_key: document.getElementById('cfg-aes').value,

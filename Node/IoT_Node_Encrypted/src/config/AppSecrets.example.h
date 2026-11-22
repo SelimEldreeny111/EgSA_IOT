@@ -1,5 +1,10 @@
 #pragma once
 
+// Optional broker credentials for a TLS gateway. Use a per-gateway account.
+#define WIOT_MQTT_CREDENTIAL_HOST "mqtt.example.com"
+#define WIOT_MQTT_USERNAME ""
+#define WIOT_MQTT_PASSWORD ""
+
 // Copy this file to AppSecrets.h and replace every byte with the production
 // AES-128 key. AppSecrets.h is intentionally ignored by Git.
 #define WIOT_AES_KEY_BYTES \

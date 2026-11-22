@@ -71,6 +71,22 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Supmea polling host build failed' }
     & $supmeaPollExe
     if($LASTEXITCODE -ne 0) { throw 'Supmea polling failed' }
+    $tlsProfiles = @(
+        @{Name='sim'; Defines=@('-DAPP_MQTT_TLS_DEDICATED_CA_PROVISIONED=1')},
+        @{Name='sim_unprovisioned'; Defines=@('-DAPP_MQTT_TLS_DEDICATED_CA_PROVISIONED=0')},
+        @{Name='esp_legacy'; Defines=@('-DTEST_ESP8266','-DAPP_MQTT_TLS_ESP_LEGACY=1','-DAPP_MQTT_TLS_DEDICATED_CA_PROVISIONED=1')},
+        @{Name='esp_modern'; Defines=@('-DTEST_ESP8266','-DAPP_MQTT_TLS_ESP_LEGACY=0')}
+    )
+    foreach ($profile in $tlsProfiles) {
+        $tlsExe = Join-Path $mqttTestBuild ("gateway_tls_" + $profile.Name + '.exe')
+        $tlsDefines = $profile.Defines
+        & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' @tlsDefines `
+            '-I' $mqttTestFakes '-include' (Join-Path $mqttTestFakes 'TestAppConfig.h') `
+            (Join-Path $PSScriptRoot 'gateway_tls_test.cpp') '-o' $tlsExe
+        if ($LASTEXITCODE -ne 0) { throw "Gateway TLS host build failed: $($profile.Name)" }
+        & $tlsExe
+        if ($LASTEXITCODE -ne 0) { throw "Gateway TLS host test failed: $($profile.Name)" }
+    }
     if(!(Test-Path -LiteralPath (Join-Path $PubSubClientSource 'PubSubClient.cpp'))) {
         throw 'Provide -PubSubClientSource to run the actual installed library test'
     }

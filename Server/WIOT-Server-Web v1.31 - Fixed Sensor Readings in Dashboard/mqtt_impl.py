@@ -21,6 +21,7 @@ Main integration points:
 """
 
 import os
+import ssl
 import threading
 import logging
 import time
@@ -36,6 +37,18 @@ import messages_pb2
 
 BLOCK_SIZE = 16
 logger = logging.getLogger(__name__)
+
+
+class _BrokerTlsSocket(ssl.SSLSocket):
+    """Close a failed handshake before Paho takes ownership of the socket."""
+
+    def do_handshake(self, block=False):
+        try:
+            super().do_handshake(block)
+        except OSError:
+            self.close()
+            raise
+
 
 CMD_NAMES = {
     0: "NA",
@@ -84,10 +97,16 @@ class MqttNodeClient:
         on_plaintext: Optional[Callable[[str, bytes], None]] = None,
         on_status: Optional[Callable[[str], None]] = None,
         debug: bool = False,
+        *,
+        use_tls: bool = False,
+        ca_file: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
     ):
         # Broker / framing settings injected from the GUI.
         self.broker_host = broker_host
         self.broker_port = int(broker_port)
+        self.use_tls = use_tls
         self.aes_key_16 = aes_key_16
         self.subscribe_topics = subscribe_topics
         self.on_plaintext = on_plaintext
@@ -112,6 +131,15 @@ class MqttNodeClient:
 
         # Underlying paho-mqtt client and its callback wiring.
         self.client = mqtt.Client(client_id=client_id)
+        if use_tls:
+            context = ssl.create_default_context(cafile=ca_file or None)
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
+            context.sslsocket_class = _BrokerTlsSocket
+            self.client.tls_set_context(context)
+        if username or password:
+            if not use_tls or not username:
+                raise ValueError('MQTT credentials require TLS and a username')
+            self.client.username_pw_set(username, password)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         self.client.on_disconnect = self._on_disconnect

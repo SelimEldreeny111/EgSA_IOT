@@ -23,8 +23,23 @@ extern HardwareSerial SerialAT;
 
 /** @brief TinyGSM modem bound to the selected IP uplink UART. */
 TinyGsm modem(SerialAT);
+#if APP_GATEWAY_MQTT_TLS
+#include "../config/AppSecrets.h"
+#include "GatewayMqttTlsClient.h"
+#ifndef WIOT_MQTT_CREDENTIAL_HOST
+#define WIOT_MQTT_CREDENTIAL_HOST ""
+#endif
+#ifndef WIOT_MQTT_USERNAME
+#define WIOT_MQTT_USERNAME ""
+#endif
+#ifndef WIOT_MQTT_PASSWORD
+#define WIOT_MQTT_PASSWORD ""
+#endif
+GatewayMqttTlsClient gsmClient(modem);
+#else
 #include "CachedTinyGsmClient.h"
 CachedTinyGsmClient gsmClient(modem);
+#endif
 
 #include "VerifiedBufferedClient.h"
 #include "PriorityPublishQueue.h"
@@ -304,6 +319,11 @@ void restoreMqttTransportAfterPowerDownAbort()
 
 void initializeMqttClient()
 {
+#if APP_GATEWAY_MQTT_TLS
+  APP_LOG_EVENT("Gateway MQTT transport=TLS port=%u", static_cast<unsigned>(AppConfig::kMqttPort));
+#elif APP_ROLE == APP_ROLE_LORA_GATEWAY
+  APP_LOG_EVENT("Gateway MQTT transport=plain TCP port=%u", static_cast<unsigned>(AppConfig::kMqttPort));
+#endif
   mqtt.setClient(bufferedClient);
   mqtt.setServer(WIOT_ACTIVE_VALUE(kMqttServer, broker), AppConfig::kMqttPort);
   mqtt.setCallback(mqttCallback);
@@ -501,7 +521,24 @@ bool ensureMqttConnection()
     APP_LOG_ERROR("Gateway MQTT client ID is too long");
     return false;
   }
+#if APP_GATEWAY_MQTT_TLS
+  const char* const username = WIOT_MQTT_USERNAME;
+  const char* const password = WIOT_MQTT_PASSWORD;
+  if (!*username && *password)
+  {
+    APP_LOG_ERROR("Gateway MQTT requires a username when a password is configured");
+    return false;
+  }
+  if (*username && strcmp(WIOT_ACTIVE_VALUE(kMqttServer, broker), WIOT_MQTT_CREDENTIAL_HOST) != 0)
+  {
+    APP_LOG_ERROR("Gateway MQTT broker does not match the configured credential host");
+    return false;
+  }
+  const bool mqttConnected = *username ? mqtt.connect(gatewayClientId, username, password)
+                                        : mqtt.connect(gatewayClientId);
+#else
   const bool mqttConnected = mqtt.connect(gatewayClientId);
+#endif
 #else
   const bool mqttConnected = mqtt.connect(WIOT_ACTIVE_TOPIC(kMqttClientId, clientId));
 #endif
@@ -509,6 +546,9 @@ bool ensureMqttConnection()
   if (!mqttConnected)
   {
     bufferedClient.flush();
+#if APP_GATEWAY_MQTT_TLS
+    APP_LOG_EVENT_WARN("Gateway MQTT/TLS connection failed, mqtt_state=%d", mqtt.state());
+#endif
     ++g_mqttConnectFailureCount;
     if (AppConfig::kEnableVerboseMqttLogs) {
       APP_DEBUG_PRINT(" FAILED, mqtt state=");

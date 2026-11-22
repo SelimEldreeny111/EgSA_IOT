@@ -88,6 +88,30 @@ class ServerValidationTests(unittest.TestCase):
                 mqtt.assert_not_called()
                 self.assertEqual(client.post('/api/disconnect').status_code, 403)
 
+    def test_supervisor_connect_uses_server_transport_policy(self):
+        client = self.client(username='EgSA_Supervisor')
+        for tls in (False, True):
+            with self.subTest(tls=tls), patch.dict(self.server.app.config, MQTT_USE_TLS=tls), \
+                    patch.dict(os.environ, WIOT_MQTT_BROKER_HOST='private.example',
+                               WIOT_MQTT_USERNAME='test-user', WIOT_MQTT_PASSWORD='test-only'), \
+                    patch.object(self.server, 'mqtt_client', None), \
+                    patch.object(self.server, 'MqttNodeClient') as mqtt:
+                response = client.post('/api/connect', json={'aes_key': '00' * 16,
+                    'transport': 'plain' if tls else 'tls', 'company': 'Company_1'})
+                self.assertTrue(response.get_json()['success'])
+                kwargs = mqtt.call_args.kwargs
+                self.assertEqual(kwargs['use_tls'], tls)
+                self.assertEqual(kwargs['broker_port'], 8883 if tls else 1883)
+                self.assertEqual(kwargs['broker_host'], 'private.example')
+                self.assertEqual(kwargs['username'], 'test-user' if tls else None)
+                self.assertEqual(kwargs['password'], 'test-only' if tls else None)
+                mqtt.return_value.connect.assert_called_once_with()
+                if tls:
+                    mqtt.reset_mock()
+                    rejected = client.post('/api/connect', json={'aes_key': '00' * 16, 'broker': 'other.example'})
+                    self.assertEqual(rejected.status_code, 400)
+                    mqtt.assert_not_called()
+
     def test_shared_log_export_is_supervisor_only(self):
         self.assertEqual(self.client().get('/export_log').status_code, 403)
 

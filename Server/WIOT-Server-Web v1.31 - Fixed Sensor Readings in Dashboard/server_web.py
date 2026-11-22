@@ -45,6 +45,12 @@ from archive_recovery import ACTIVE as ACTIVE_RECOVERY, run_recovery_pass
 from input_validation import company_id, integer, parse_topic, validate_message, MAX_PROTO_BYTES
 from tenant_storage import database_path, storage_id, preflight as tenant_preflight
 
+# Broker transport selector. Override with WIOT_MQTT_USE_TLS=true or false.
+APP_MQTT_USE_TLS = False
+_mqtt_tls_setting = os.getenv('WIOT_MQTT_USE_TLS', str(APP_MQTT_USE_TLS)).strip().lower()
+if _mqtt_tls_setting not in ('true', 'false', '1', '0'):
+    raise ValueError('WIOT_MQTT_USE_TLS must be true or false')
+
 MAIN_DB_FILE = 'iot_data.db'
 MESSAGE_DB_DIR = 'messages_dbs'
 _initialized_company_dbs = set()  # track which company DBs are already set up
@@ -52,7 +58,7 @@ _initialized_company_dbs = set()  # track which company DBs are already set up
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('WIOT_FLASK_SECRET_KEY') or secrets.token_hex(32)
 app.config.update(MAX_CONTENT_LENGTH=64 * 1024, SESSION_COOKIE_HTTPONLY=True,
-                  SESSION_COOKIE_SAMESITE='Lax')
+                  SESSION_COOKIE_SAMESITE='Lax', MQTT_USE_TLS=_mqtt_tls_setting in ('true', '1'))
 # Default same-origin checking; do not allow arbitrary sites to open sockets.
 socketio = SocketIO(app, async_mode='threading')
 
@@ -1414,7 +1420,10 @@ def dashboard():
         username=session.get('username', 'Unknown'),
         company=session.get('company', 'Company_1'),
         users=users,
-        allow_company_edit=allow_company_edit
+        allow_company_edit=allow_company_edit,
+        mqtt_transport='tls' if app.config['MQTT_USE_TLS'] else 'plain',
+        mqtt_broker=os.getenv('WIOT_MQTT_BROKER_HOST', '' if app.config['MQTT_USE_TLS'] else 'broker.hivemq.com'),
+        mqtt_port=8883 if app.config['MQTT_USE_TLS'] else 1883,
     )
 
 # USER MANAGEMENT APIS
@@ -1574,9 +1583,13 @@ def api_connect():
         return jsonify(success=False, error='JSON object required'), 400
     
     # Parse and validate connection parameters
+    use_tls = app.config['MQTT_USE_TLS']
+    transport = 'TLS' if use_tls else 'plain TCP'
     try:
-        broker = (data.get("broker") or "broker.hivemq.com").strip()
-        port = integer(data.get("port", 1883), 1, 65535, 'Port')
+        configured_host = os.getenv('WIOT_MQTT_BROKER_HOST', '').strip()
+        default_host = configured_host or ('' if use_tls else 'broker.hivemq.com')
+        broker = (data.get("broker") or default_host).strip()
+        port = integer(data.get("port", 8883 if use_tls else 1883), 1, 65535, 'Port')
         company = (data.get("company") or "Company_ID").strip()
         base_id = (data.get("client_id") or "iot_server").strip() or "iot_server"
         client_id = f"{base_id}_{int(time.time())}"
@@ -1584,6 +1597,10 @@ def api_connect():
         if (not re.fullmatch(r'[A-Za-z0-9.:-]{1,253}', broker) or
                 not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', base_id)):
             raise ValueError('Invalid broker hostname or client ID')
+        username = (os.getenv('WIOT_MQTT_USERNAME') or None) if use_tls else None
+        password = os.getenv('WIOT_MQTT_PASSWORD') if use_tls else None
+        if (username or password) and broker.casefold() != configured_host.casefold():
+            raise ValueError('MQTT credentials require the configured WIOT_MQTT_BROKER_HOST')
         
         if not key_hex:
             err = "AES key (hex) is required"
@@ -1604,7 +1621,7 @@ def api_connect():
             return jsonify({"success": False, "error": err}), 400
             
     except ValueError as e:
-        err = f"Invalid port number: {e}"
+        err = str(e)
         logging.error(f"[CONNECT] {err}")
         log_event(f"[CONNECT] ERROR: {err}")
         return jsonify({"success": False, "error": err}), 400
@@ -1619,6 +1636,18 @@ def api_connect():
     topics = list(SUBSCRIPTIONS)
     log_event('[CONNECT] Shared ingestion - all companies; tenant-scoped views')
 
+    try:
+        candidate = MqttNodeClient(
+            broker_host=broker, broker_port=port, aes_key_16=aes_key,
+            client_id=client_id, subscribe_topics=topics, on_plaintext=on_mqtt_plaintext,
+            on_status=on_mqtt_status, use_tls=use_tls,
+            ca_file=os.getenv('WIOT_MQTT_CA_FILE') or None,
+            username=username, password=password,
+        )
+    except (ValueError, OSError) as error:
+        logging.warning('[CONNECT] Invalid MQTT transport configuration (%s)', type(error).__name__)
+        return jsonify(success=False, error='MQTT transport configuration failed. Check the CA file and credentials.'), 400
+
     # Disconnect any existing client
     if mqtt_client:
         try:
@@ -1628,14 +1657,11 @@ def api_connect():
             logging.warning(f"[CONNECT] Error disconnecting old client: {e}")
     
     # Create and connect new client
-    log_event(f"[CONNECT] Creating client and connecting to {broker}:{port} (client_id={client_id})...")
+    log_event(f"[CONNECT] Connecting via {transport} to {broker}:{port} (client_id={client_id})...")
     log_event(f"[CONNECT] Topics: {', '.join(topics)}")
     logging.info(f"[CONNECT] Broker={broker}:{port}, Company={company}, ClientID={client_id}, Topics={len(topics)}")
     
-    mqtt_client = MqttNodeClient(
-        broker_host=broker, broker_port=port, aes_key_16=aes_key,
-        client_id=client_id, subscribe_topics=topics, on_plaintext=on_mqtt_plaintext, on_status=on_mqtt_status
-    )
+    mqtt_client = candidate
     
     try:
         mqtt_client.connect()
@@ -1688,6 +1714,7 @@ def api_broker_status():
         return jsonify({
             "connected": is_connected,
             "status": "Connected" if is_connected else "Disconnected",
+            "transport": "tls" if mqtt_client.use_tls else "plain",
             "broker": f"{mqtt_client.broker_host}:{mqtt_client.broker_port}",
             "topics_subscribed": len(getattr(mqtt_client, '_confirmed_subscriptions', set())),
             "broker_connected": getattr(mqtt_client, 'connected', False),

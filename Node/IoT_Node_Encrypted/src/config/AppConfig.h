@@ -10,6 +10,28 @@
 #ifndef APP_CONFIG_H
 #define APP_CONFIG_H
 
+/**************** MQTT TRANSPORT CONFIGURATION ****************/
+// For LoRa gateway builds: false selects plain TCP, true selects native modem TLS.
+#ifndef APP_MQTT_USE_TLS
+#define APP_MQTT_USE_TLS false
+#endif
+// true for ESP8266 Non-OS AT 1.7.x. false for ESP-AT with per-link CA, CN and SNI.
+#ifndef APP_MQTT_TLS_ESP_LEGACY
+#define APP_MQTT_TLS_ESP_LEGACY true
+#endif
+// Required for SIM800L and legacy ESP8266. Set after provisioning the modem
+// with a trust root that issues certificates solely for the WIOT broker.
+#ifndef APP_MQTT_TLS_DEDICATED_CA_PROVISIONED
+#define APP_MQTT_TLS_DEDICATED_CA_PROVISIONED false
+#endif
+#if (APP_MQTT_USE_TLS != 0 && APP_MQTT_USE_TLS != 1) || \
+    (APP_MQTT_TLS_ESP_LEGACY != 0 && APP_MQTT_TLS_ESP_LEGACY != 1) || \
+    (APP_MQTT_TLS_DEDICATED_CA_PROVISIONED != 0 && APP_MQTT_TLS_DEDICATED_CA_PROVISIONED != 1)
+#error "MQTT TLS switches must be true or false"
+#endif
+#define APP_GATEWAY_MQTT_TLS (APP_MQTT_USE_TLS && APP_ROLE == APP_ROLE_LORA_GATEWAY)
+/****************************************************************/
+
 // Local configuration uses the debug UART independently of diagnostic output.
 #ifndef APP_ENABLE_SERIAL_CONFIG
 #define APP_ENABLE_SERIAL_CONFIG true
@@ -869,7 +891,7 @@ constexpr uint32_t kDefaultSamplingPeriodMs = 10000UL;
 constexpr uint32_t kDefaultTransmissionPeriodMs = 15000UL;
 
 constexpr uint32_t kDefaultRtcEpoch = 1704067200UL;
-constexpr uint16_t kMqttPortDefault = 1883;
+constexpr uint16_t kMqttPortDefault = APP_GATEWAY_MQTT_TLS ? 8883U : 1883U;
 #if APP_ENABLE_SERIAL_CONFIG
 extern uint16_t kMqttPort;
 #else

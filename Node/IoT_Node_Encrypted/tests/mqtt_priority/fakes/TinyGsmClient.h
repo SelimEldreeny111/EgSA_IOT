@@ -2,6 +2,7 @@
 #include "Client.h"
 #include <deque>
 #include <functional>
+#include <sstream>
 class TinyGsm {
 public:
     explicit TinyGsm(HardwareSerial&) {}
@@ -18,6 +19,19 @@ public:
         ++joinCalls; joinedSsids.emplace_back(ssid); return joinSuccess;
     }
     int getSignalQuality() { return 20; }
+    std::vector<std::string> atCommands;
+    int atFailure = -1, secureConnectCalls = 0, secureTimeout = 0, securePort = 0;
+    std::string secureHost;
+    bool secureConnectSuccess = true;
+    template<class... Args> void sendAT(const Args&... args) {
+        std::ostringstream text;
+        int parts[] = {0, ((text << args), 0)...};
+        (void)parts;
+        atCommands.push_back(text.str());
+    }
+    int waitResponse(uint32_t timeout) {
+        return timeout == 1000 && static_cast<int>(atCommands.size()) != atFailure ? 1 : 0;
+    }
 };
 class TinyGsmClient:public Client {
 protected:
@@ -47,4 +61,19 @@ public:
         if(onSend && accepted==length) onSend(sent.back());
         return accepted;
     }
+};
+class TinyGsmClientSecure : public TinyGsmClient {
+public:
+    explicit TinyGsmClientSecure(TinyGsm& modem) : TinyGsmClient(modem), modem_(modem) {}
+    int connect(const char* host, uint16_t port, int timeout) {
+        ++modem_.secureConnectCalls;
+        modem_.secureHost = host;
+        modem_.securePort = port;
+        modem_.secureTimeout = timeout;
+        live = modem_.secureConnectSuccess;
+        return live;
+    }
+    void stop(uint32_t) { TinyGsmClient::stop(); }
+private:
+    TinyGsm& modem_;
 };
