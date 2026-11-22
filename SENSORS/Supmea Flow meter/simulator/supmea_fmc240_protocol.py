@@ -42,14 +42,8 @@ VOLUMETRIC_TO_M3_PER_HOUR = {
 REG_FORWARD_TOTAL = 90
 REG_REVERSE_TOTAL = 92
 REG_NET_TOTAL = 94
-REG_TOTALIZER_RESET = 96
 REG_FLOW_RATE = 98
 REG_VELOCITY = 100
-REG_FLOW_RATIO = 102
-REG_EPD_VALUE = 104
-REG_FLOW_RATE_UNIT = 105
-REG_EPD_ALARM = 106
-REG_EXCITATION_ALARM = 107
 
 
 @dataclass(frozen=True)
@@ -61,11 +55,7 @@ class Fmc240Values:
     net_total_m3: float = 1225.50
     flow_rate: float = 35.0
     velocity_mps: float = 1.25
-    flow_ratio_percent: float = 42.5
-    epd_percent: int = 0
-    flow_rate_unit: int = 3
-    epd_alarm: int = 0
-    excitation_alarm: int = 0
+    flow_rate_unit: int = 3  # Local totalizer setting, outside the register map.
 
 
 @dataclass(frozen=True)
@@ -183,15 +173,8 @@ def registers_to_float(high_word: int, low_word: int) -> float:
     return struct.unpack(">f", packed)[0]
 
 
-def _validate_u16(name: str, value: int) -> int:
-    parsed = int(value)
-    if not 0 <= parsed <= 0xFFFF:
-        raise ValueError(f"{name} must be between 0 and 65535")
-    return parsed
-
-
 def build_register_map(values: Fmc240Values) -> dict[int, int]:
-    """Build the documented FMC240 live/frequently-used register map."""
+    """Build the FMC240 subset used by the STM32 node."""
 
     if not 0 <= int(values.flow_rate_unit) < len(FLOW_UNIT_NAMES):
         raise ValueError("Flow-rate unit code must be between 0 and 11")
@@ -206,17 +189,8 @@ def build_register_map(values: Fmc240Values) -> dict[int, int]:
     put_float(REG_FORWARD_TOTAL, values.forward_total_m3)
     put_float(REG_REVERSE_TOTAL, values.reverse_total_m3)
     put_float(REG_NET_TOTAL, values.net_total_m3)
-    registers[REG_TOTALIZER_RESET] = 0
-    registers[REG_TOTALIZER_RESET + 1] = 0
     put_float(REG_FLOW_RATE, values.flow_rate)
     put_float(REG_VELOCITY, values.velocity_mps)
-    put_float(REG_FLOW_RATIO, values.flow_ratio_percent)
-    registers[REG_EPD_VALUE] = _validate_u16("EPD value", values.epd_percent)
-    registers[REG_FLOW_RATE_UNIT] = int(values.flow_rate_unit)
-    registers[REG_EPD_ALARM] = _validate_u16("EPD alarm", values.epd_alarm)
-    registers[REG_EXCITATION_ALARM] = _validate_u16(
-        "Excitation-current alarm", values.excitation_alarm
-    )
     return registers
 
 

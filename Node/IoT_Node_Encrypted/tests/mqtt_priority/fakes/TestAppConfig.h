@@ -38,6 +38,8 @@ constexpr uint16_t kMqttPort=1883, kMqttKeepAliveSeconds=45, kMqttSocketTimeoutS
 constexpr uint32_t kMqttReconnectIntervalMs=3000;
 constexpr bool kEnablePublishTimingLogs=false, kEnableVerboseMqttLogs=false;
 constexpr uint16_t kNodeId=1;
+constexpr uint8_t kSupmeaSensorModbusAddress=2;
+constexpr uint16_t kSupmeaFlowUnitCode=3;
 constexpr uint32_t kSimResetPin=16, kSimResetPulseMs=250, kSimBootDelayMs=3000;
 constexpr uint32_t kEspEnablePin=7, kEspResetPin=8, kEspResetPulseMs=100, kEspBootDelayMs=3000;
 constexpr bool kEspEnableActiveHigh=true, kEspResetActiveLow=true;

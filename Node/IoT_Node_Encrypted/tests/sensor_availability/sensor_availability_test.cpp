@@ -51,7 +51,7 @@ int main() {
     initializeConfiguredFlowMeter();
     // Good sample followed by a complete timeout, then recovery.
     tuf={12,2,3,4,5,0,true,true,true,true,true,true};
-    supmea={100,2,98,36,1,0,0,3,0,0,0,0,true,true,true};
+    supmea={100,2,98,36,1,0,0,true,true,true};
     sampleConfiguredFlowMeter();
     updateHndaMetrics({22,55,true}); updateSondasMetrics({23,56,1500,true});
     Status_Message good=Status_Message_init_zero;
@@ -72,7 +72,7 @@ int main() {
     checkZero(status); checkZero(telemetry);
     // Restore a real counter: lost communication must not discard history.
     tuf={8,1,6,7,8,0,true,true,true,true,true,true};
-    supmea={101,2,99,40,2,0,0,3,0,0,0,0,true,true,true};
+    supmea={101,2,99,40,2,0,0,true,true,true};
     sampleConfiguredFlowMeter();
     updateHndaMetrics({24,60,true}); updateSondasMetrics({25,61,1600,true});
     populateSensorPayloadFields(status,appState());

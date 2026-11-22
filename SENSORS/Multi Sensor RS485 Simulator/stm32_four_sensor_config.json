@@ -14,8 +14,7 @@
       "enabled": true, "auto_totalizers": true, "time_multiplier": 1.0,
       "signals": {
         "flow_rate": {"mode": "fixed", "value": 38.0}, "flow_rate_unit": {"mode": "fixed", "value": 3},
-        "velocity_mps": {"mode": "fixed", "value": 4.0}, "epd_alarm": {"mode": "fixed", "value": 0},
-        "excitation_alarm": {"mode": "fixed", "value": 0}
+        "velocity_mps": {"mode": "fixed", "value": 4.0}
       }
     },
     {

@@ -1,4 +1,5 @@
 import pathlib
+import struct
 import sys
 import unittest
 
@@ -13,7 +14,6 @@ from supmea_fmc240_protocol import (  # noqa: E402
     bytes_to_hex,
     frame_has_valid_crc,
     handle_request,
-    registers_to_float,
     reset_totalizers,
 )
 
@@ -31,30 +31,15 @@ class SupmeaFmc240ProtocolTests(unittest.TestCase):
             "01 03 04 42 0C 00 00 2E 48",
         )
 
-    def test_live_block_matches_high_word_first_float_layout(self):
-        request = append_crc(bytes.fromhex("04 03 00 62 00 0A"))
-        values = Fmc240Values(
-            flow_rate=12.5,
-            velocity_mps=1.75,
-            flow_ratio_percent=22.0,
-            epd_percent=7,
-            flow_rate_unit=3,
-            epd_alarm=1,
-            excitation_alarm=0,
-        )
-        response = handle_request(request, 4, values).response
-        self.assertIsNotNone(response)
-        assert response is not None
-        self.assertTrue(frame_has_valid_crc(response))
-        self.assertEqual(response[2], 20)
-        registers = [
-            (response[index] << 8) | response[index + 1]
-            for index in range(3, 23, 2)
-        ]
-        self.assertAlmostEqual(registers_to_float(registers[0], registers[1]), 12.5)
-        self.assertAlmostEqual(registers_to_float(registers[2], registers[3]), 1.75)
-        self.assertAlmostEqual(registers_to_float(registers[4], registers[5]), 22.0)
-        self.assertEqual(registers[6:], [7, 3, 1, 0])
+    def test_two_blocks_match_high_word_first_float_layout(self):
+        values = Fmc240Values(flow_rate=12.5, velocity_mps=1.75, flow_rate_unit=2)
+        for start, count, readings in ((90, 6, (1250.75, 25.25, 1225.5)), (98, 4, (12.5, 1.75))):
+            with self.subTest(start=start):
+                request = append_crc(struct.pack(">BBHH", 4, 3, start, count))
+                response = handle_request(request, 4, values).response
+                self.assertTrue(frame_has_valid_crc(response))
+                self.assertEqual(response[:3], bytes((4, 3, count * 2)))
+                self.assertEqual(struct.unpack(">" + "f" * len(readings), response[3:-2]), readings)
 
     def test_wrong_slave_is_ignored(self):
         request = append_crc(bytes.fromhex("01 03 00 62 00 02"))
@@ -66,12 +51,12 @@ class SupmeaFmc240ProtocolTests(unittest.TestCase):
         self.assertIsNone(handle_request(bytes(request), 4, Fmc240Values()).response)
 
     def test_illegal_address_returns_modbus_exception(self):
-        request = append_crc(bytes.fromhex("04 03 00 6C 00 01"))
-        response = handle_request(request, 4, Fmc240Values()).response
-        self.assertIsNotNone(response)
-        assert response is not None
-        self.assertEqual(response[:3], bytes((4, 0x83, 0x02)))
-        self.assertTrue(frame_has_valid_crc(response))
+        for start, count in ((98, 10), (102, 2), (105, 1), (108, 1)):
+            with self.subTest(start=start, count=count):
+                request = append_crc(struct.pack(">BBHH", 4, 3, start, count))
+                response = handle_request(request, 4, Fmc240Values()).response
+                self.assertEqual(response[:3], bytes((4, 0x83, 0x02)))
+                self.assertTrue(frame_has_valid_crc(response))
 
     def test_totalizer_advances_forward_volume_in_m3_per_hour(self):
         values = Fmc240Values(

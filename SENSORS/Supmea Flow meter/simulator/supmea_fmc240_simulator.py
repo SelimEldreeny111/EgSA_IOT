@@ -202,10 +202,6 @@ class SimulatorGui:
             "net_total_m3": tk.StringVar(value=str(defaults.net_total_m3)),
             "flow_rate": tk.StringVar(value=str(defaults.flow_rate)),
             "velocity_mps": tk.StringVar(value=str(defaults.velocity_mps)),
-            "flow_ratio_percent": tk.StringVar(value=str(defaults.flow_ratio_percent)),
-            "epd_percent": tk.StringVar(value=str(defaults.epd_percent)),
-            "epd_alarm": tk.StringVar(value=str(defaults.epd_alarm)),
-            "excitation_alarm": tk.StringVar(value=str(defaults.excitation_alarm)),
         }
         self.unit_var = tk.StringVar(value="3 - m3/h")
 
@@ -284,10 +280,6 @@ class SimulatorGui:
             ("Net total (m3)", "net_total_m3"),
             ("Flow rate", "flow_rate"),
             ("Velocity (m/s)", "velocity_mps"),
-            ("Flow ratio (%)", "flow_ratio_percent"),
-            ("EPD value (%)", "epd_percent"),
-            ("EPD alarm", "epd_alarm"),
-            ("Excitation alarm", "excitation_alarm"),
         )
         for index, (label, key) in enumerate(fields):
             row = index // 3
@@ -299,8 +291,8 @@ class SimulatorGui:
                 row=row, column=pair + 1, sticky=tk.EW, padx=(6, 18), pady=4
             )
 
-        ttk.Label(values_frame, text="Flow-rate unit").grid(
-            row=3, column=0, sticky=tk.W, pady=(8, 0)
+        ttk.Label(values_frame, text="Flow-rate unit (local)").grid(
+            row=2, column=0, sticky=tk.W, pady=(8, 0)
         )
         ttk.Combobox(
             values_frame,
@@ -308,9 +300,9 @@ class SimulatorGui:
             values=tuple(f"{index} - {name}" for index, name in enumerate(FLOW_UNIT_NAMES)),
             state="readonly",
             width=16,
-        ).grid(row=3, column=1, sticky=tk.EW, padx=(6, 18), pady=(8, 0))
+        ).grid(row=2, column=1, sticky=tk.EW, padx=(6, 18), pady=(8, 0))
         ttk.Button(values_frame, text="Apply values", command=self._apply_values).grid(
-            row=3, column=4, columnspan=2, sticky=tk.E, pady=(8, 0)
+            row=2, column=4, columnspan=2, sticky=tk.E, pady=(8, 0)
         )
 
         ttk.Checkbutton(
@@ -318,9 +310,9 @@ class SimulatorGui:
             text="Advance cumulative totals from flow rate",
             variable=self.auto_totalizer_var,
             command=self._restart_totalizer_clock,
-        ).grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        ).grid(row=3, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
         ttk.Label(values_frame, text="Time acceleration").grid(
-            row=4, column=2, sticky=tk.E, pady=(10, 0)
+            row=3, column=2, sticky=tk.E, pady=(10, 0)
         )
         ttk.Combobox(
             values_frame,
@@ -328,12 +320,12 @@ class SimulatorGui:
             values=("1", "60", "3600"),
             state="readonly",
             width=9,
-        ).grid(row=4, column=3, sticky=tk.W, padx=(6, 18), pady=(10, 0))
+        ).grid(row=3, column=3, sticky=tk.W, padx=(6, 18), pady=(10, 0))
         ttk.Button(
             values_frame,
             text="Reset meter totals",
             command=self._reset_totalizers,
-        ).grid(row=4, column=4, columnspan=2, sticky=tk.E, pady=(10, 0))
+        ).grid(row=3, column=4, columnspan=2, sticky=tk.E, pady=(10, 0))
 
         ref = ttk.LabelFrame(outer, text="Independent RTC comparison — NOT sent on RS485", padding=8)
         ref.pack(fill=tk.X, pady=(8, 0))
@@ -399,16 +391,12 @@ class SimulatorGui:
             net_total_m3=float(self.value_vars["net_total_m3"].get()),
             flow_rate=float(self.value_vars["flow_rate"].get()),
             velocity_mps=float(self.value_vars["velocity_mps"].get()),
-            flow_ratio_percent=float(self.value_vars["flow_ratio_percent"].get()),
-            epd_percent=int(self.value_vars["epd_percent"].get()),
             flow_rate_unit=unit_code,
-            epd_alarm=int(self.value_vars["epd_alarm"].get()),
-            excitation_alarm=int(self.value_vars["excitation_alarm"].get()),
         )
 
     def _validated_values(self) -> Fmc240Values:
         values = self._read_values()
-        # Build once to validate Float32 ranges, unit, and unsigned registers.
+        # Build once to validate Float32 ranges and the local unit setting.
         from supmea_fmc240_protocol import build_register_map
 
         build_register_map(values)

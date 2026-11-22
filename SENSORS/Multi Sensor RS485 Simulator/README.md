@@ -64,7 +64,7 @@ node. Modbus bytes inside a 16-bit register are big-endian.
 | TUF error | `03: 0x0047` | UInt16 error bitmap |
 | TUF totals | `03: 0x007C..0x007F`, `0x0090..0x0093` | Day/month Float32; year Int32 + Float32 fraction, low word first |
 | Supmea totals | `03: 0x005A..0x005F` | Forward/reverse/net Float32, high word first |
-| Supmea live | `03: 0x0062..0x006B` | Flow/velocity/ratio Float32 plus EPD, unit, and alarms |
+| Supmea live | `03: 0x0062..0x0065` | Flow and velocity Float32, high word first |
 | Sondas | `03: 0x0000..0x0002` | Temperature x10, moisture x10, EC x1 |
 
 The supplied Sondas document describes an SDI-12 product and does not provide a
@@ -161,8 +161,8 @@ rates on that same open port.
 | Two-level step | Alternates between minimum and maximum at the period |
 
 Each virtual device has its own random generator and seed. The same
-configuration therefore produces repeatable random sequences. Integer alarm,
-error, unit-code, and EC fields are rounded to integer register values.
+configuration therefore produces repeatable random sequences. Error and EC
+fields are rounded to integer register values.
 
 ### Flow totalizers
 
@@ -172,7 +172,9 @@ For TUF, automatic totalization adds:
 flow_m3_per_hour * simulated_elapsed_seconds / 3600
 ```
 
-to the day, month, and year totals. For Supmea, volumetric unit codes 0-5 are
+to the day, month, and year totals. Match the simulator's local Supmea flow unit
+to `APP_SUPMEA_FLOW_UNIT_CODE` in the node. The default is code 3 (m³/h).
+Volumetric unit codes 0-5 are
 converted to m3/h before forward, reverse, and net totals are updated. Mass-flow
 codes 6-11 cannot be integrated into cubic metres and leave these totals
 unchanged. Use the time multiplier, for example `3600x`, to make one real

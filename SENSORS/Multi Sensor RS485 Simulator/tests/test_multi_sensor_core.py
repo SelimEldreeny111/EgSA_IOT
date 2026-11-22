@@ -10,6 +10,7 @@ sys.path.insert(0, str(SIMULATOR_DIR))
 
 from multi_sensor_core import (  # noqa: E402
     BusSettings,
+    SensorDevice,
     SensorRegistry,
     SensorType,
     SignalMode,
@@ -98,7 +99,8 @@ class MultiSensorCoreTests(unittest.TestCase):
         cases = (
             (1, 0x0000, 2),
             (10, 0x0000, 6),
-            (20, 0x005A, 18),
+            (20, 0x005A, 6),
+            (20, 0x0062, 4),
             (30, 0x0000, 3),
         )
         for address, start, count in cases:
@@ -157,21 +159,27 @@ class MultiSensorCoreTests(unittest.TestCase):
         device = create_device(SensorType.SUPMEA, 20)
         device.signals["flow_rate"].value = 35.0
         device.signals["velocity_mps"].value = 1.75
-        device.signals["flow_ratio_percent"].value = 42.5
-        device.signals["epd_percent"].value = 7
-        device.signals["flow_rate_unit"].value = 3
-        device.signals["epd_alarm"].value = 1
+        device.signals["flow_rate_unit"].value = 2
         device.reset_runtime()
-        reply = SensorRegistry([device]).dispatch(
-            read_request(20, 0x0062, 10)
-        ).response
-        self.assertIsNotNone(reply)
-        assert reply is not None
-        registers = response_registers(reply)
-        self.assertAlmostEqual(high_word_first_float(registers[0:2]), 35.0)
-        self.assertAlmostEqual(high_word_first_float(registers[2:4]), 1.75)
-        self.assertAlmostEqual(high_word_first_float(registers[4:6]), 42.5)
-        self.assertEqual(registers[6:], [7, 3, 1, 0])
+        registry = SensorRegistry([device])
+        for start, count, readings in ((90, 6, [1250.75, 25.25, 1225.5]), (98, 4, [35.0, 1.75])):
+            with self.subTest(start=start):
+                response = registry.dispatch(read_request(20, start, count)).response
+                self.assertTrue(frame_has_valid_crc(response))
+                self.assertEqual(response[:3], bytes((20, 3, count * 2)))
+                words = response_registers(response)
+                self.assertEqual([high_word_first_float(words[i:i + 2]) for i in range(0, count, 2)], readings)
+        for start, count in ((98, 10), (102, 2), (105, 1)):
+            response = registry.dispatch(read_request(20, start, count)).response
+            self.assertEqual(response[:3], bytes((20, 0x83, 2)))
+
+    def test_supmea_old_profiles_keep_measurements_and_unit(self):
+        config = create_device(SensorType.SUPMEA, 2).to_config_dict()
+        config["signals"]["epd_alarm"] = {"value": 1}
+        config["signals"]["flow_rate_unit"]["value"] = 2
+        device = SensorDevice.from_dict(config)
+        self.assertEqual(device.signals["flow_rate_unit"].value, 2)
+        self.assertNotIn("epd_alarm", device.to_config_dict()["signals"])
 
     def test_sondas_wiot_compatibility_registers(self):
         registers = build_register_map(

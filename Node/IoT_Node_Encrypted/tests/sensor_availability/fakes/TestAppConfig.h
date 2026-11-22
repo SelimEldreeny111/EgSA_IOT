@@ -22,5 +22,6 @@ constexpr bool kEnableSupmeaSensor=TEST_FLOW_CONFIG==0 || TEST_FLOW_CONFIG==2;
 constexpr bool kEnableHndaSensor=true, kEnableSondasSensor=true;
 constexpr uint16_t kSensorMaskTuf=1, kSensorMaskHnda=2, kSensorMaskSondas=4, kSensorMaskSupmea=8;
 constexpr uint16_t kSensorId=1;
+constexpr uint16_t kSupmeaFlowUnitCode=3;
 }
 #endif

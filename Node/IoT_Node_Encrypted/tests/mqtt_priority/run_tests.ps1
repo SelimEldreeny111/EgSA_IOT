@@ -62,6 +62,15 @@ try {
         & $modbusExe $scenario
         if($LASTEXITCODE -ne 0) { throw "Modbus command wait failed: $scenario" }
     }
+    $supmeaPollExe=Join-Path $mqttTestBuild 'supmea_poll_test.exe'
+    & $mqttTestCompiler '-std=c++14' '-Wall' '-Wextra' '-I' $mqttTestFakes `
+        '-include' (Join-Path $mqttTestFakes 'TestAppConfig.h') `
+        (Join-Path $mqttTestNode 'src/third_party/ModbusMaster/ModbusMaster.cpp') `
+        (Join-Path $mqttTestNode 'src/devices/SupmeaSensor.cpp') `
+        (Join-Path $PSScriptRoot 'supmea_poll_test.cpp') '-o' $supmeaPollExe
+    if($LASTEXITCODE -ne 0) { throw 'Supmea polling host build failed' }
+    & $supmeaPollExe
+    if($LASTEXITCODE -ne 0) { throw 'Supmea polling failed' }
     if(!(Test-Path -LiteralPath (Join-Path $PubSubClientSource 'PubSubClient.cpp'))) {
         throw 'Provide -PubSubClientSource to run the actual installed library test'
     }

@@ -28,12 +28,13 @@ the node:
 | 94 | 2 | Net total | IEEE-754 Float32, high word first |
 | 98 | 2 | Flow rate | IEEE-754 Float32, high word first |
 | 100 | 2 | Velocity | IEEE-754 Float32, high word first |
-| 102 | 2 | Flow ratio | IEEE-754 Float32, high word first |
-| 104-107 | 4 | EPD, unit, and alarm words | Unsigned 16-bit words |
 
 The map and byte order come from Chapter 9 of the supplied FMC240 user manual.
 The GUI also returns standard Modbus exceptions for unsupported functions,
 invalid register ranges, and invalid register counts.
+
+Set the simulator's local flow unit to match `APP_SUPMEA_FLOW_UNIT_CODE` in the
+node. Both default to code 3 (m³/h). The unit setting is local to each device.
 
 ## Wiring for the simulator
 
@@ -74,20 +75,18 @@ python -m pip install -r requirements.txt
 python supmea_fmc240_simulator.py
 ```
 
-Select the USB-RS485 COM port, keep 9600, N, and slave ID 1, then press
-**Start**. Change any measurement and press **Apply values**. The request and
-response bytes appear in the traffic log.
+Select the USB-RS485 COM port and keep 9600 baud with no parity. Set **Slave ID**
+to the address configured on the STM32, then press **Start**. Change a measurement
+and press **Apply values**. The request and response bytes appear in the traffic log.
 
 The node defaults to the same test settings:
 
 - Modbus RTU: 9600 baud, 8 data bits, no parity, 1 stop bit
-- FMC240 slave address: 1
+- FMC240 slave address: 2 in the standard STM32 configuration
 - Sampling interval: the normal node sampling interval (currently 10 seconds)
 
-The real meter's communication menu must also be set to address 1 and 9600 8N1,
-or APP_SUPMEA_SENSOR_MODBUS_ADDRESS must be changed to match it. The supplied
-manual allows configurable address, baud, and parity; the full bus must use one
-common baud/parity configuration.
+Match the real meter's address to the STM32 configuration and set it to 9600
+8N1. All devices on the bus use the same serial format.
 
 Expected node output includes:
 

@@ -535,6 +535,13 @@ constexpr uint32_t kLoraTxPin = PA11;
 #ifndef APP_SUPMEA_SENSOR_MODBUS_ADDRESS
 #define APP_SUPMEA_SENSOR_MODBUS_ADDRESS 2
 #endif
+// Match the meter or simulator. Codes 0–5 are L/h, L/min, L/s, m3/h, m3/min, m3/s.
+// Codes 6–11 are mass flow. Cumulative volume is still available in those modes.
+#ifndef APP_SUPMEA_FLOW_UNIT_CODE
+#define APP_SUPMEA_FLOW_UNIT_CODE 3
+#endif
+static_assert(APP_SUPMEA_FLOW_UNIT_CODE >= 0 && APP_SUPMEA_FLOW_UNIT_CODE <= 11,
+    "APP_SUPMEA_FLOW_UNIT_CODE must be between 0 and 11");
 #ifndef APP_HNDA_SENSOR_MODBUS_ADDRESS
 #define APP_HNDA_SENSOR_MODBUS_ADDRESS 3
 #endif
@@ -604,6 +611,7 @@ constexpr uint8_t kTufModbusAddress = kTufModbusAddressDefault;
 #endif
 constexpr uint8_t kSupmeaSensorModbusAddressDefault =
     APP_SUPMEA_SENSOR_MODBUS_ADDRESS;
+constexpr uint16_t kSupmeaFlowUnitCode = APP_SUPMEA_FLOW_UNIT_CODE;
 #if APP_ENABLE_SERIAL_CONFIG
 extern uint8_t kSupmeaSensorModbusAddress;
 #else

@@ -162,22 +162,7 @@ SIGNAL_DEFINITIONS: dict[SensorType, tuple[SignalDefinition, ...]] = {
             "velocity_mps", "Velocity", "m/s", 1.25, -20.0, 20.0, 0.1
         ),
         SignalDefinition(
-            "flow_ratio_percent", "Flow ratio", "%", 42.5, -200.0, 200.0, 1.0
-        ),
-        SignalDefinition(
-            "epd_percent", "EPD value", "%", 0, 0, 100, 1,
-            integer=True
-        ),
-        SignalDefinition(
-            "flow_rate_unit", "Flow-rate unit code", "0..11", 3, 0, 11, 1,
-            integer=True, discrete=True
-        ),
-        SignalDefinition(
-            "epd_alarm", "EPD alarm", "0/1", 0, 0, 1, 1,
-            integer=True, discrete=True
-        ),
-        SignalDefinition(
-            "excitation_alarm", "Excitation alarm", "0/1", 0, 0, 1, 1,
+            "flow_rate_unit", "Flow unit (local setting)", "0..11", 3, 0, 11, 1,
             integer=True, discrete=True
         ),
     ),
@@ -241,8 +226,8 @@ REGISTER_REFERENCE: dict[SensorType, tuple[str, ...]] = {
     ),
     SensorType.SUPMEA: (
         "0x005A..0x005F: forward, reverse, and net totals",
-        "0x0062..0x0067: flow, velocity, and flow ratio (Float32 high-word first)",
-        "0x0068..0x006B: EPD, unit code, EPD alarm, excitation alarm",
+        "0x0062..0x0065: flow and velocity (Float32 high-word first)",
+        "Match the simulator's local flow unit to the STM32 flow unit",
     ),
     SensorType.SONDAS: (
         "0x0000: temperature, signed Int16 x10",
@@ -1220,20 +1205,8 @@ def build_register_map(
         put_float(90, "forward_total_m3", False)
         put_float(92, "reverse_total_m3", False)
         put_float(94, "net_total_m3", False)
-        registers[96] = 0
-        registers[97] = 0
         put_float(98, "flow_rate", False)
         put_float(100, "velocity_mps", False)
-        put_float(102, "flow_ratio_percent", False)
-        registers[104] = _unsigned_int16_register(values["epd_percent"], 1.0)
-        unit_code = _unsigned_int16_register(values["flow_rate_unit"], 1.0)
-        if unit_code > 11:
-            raise ValueError("Supmea flow-rate unit code must be between 0 and 11")
-        registers[105] = unit_code
-        registers[106] = _unsigned_int16_register(values["epd_alarm"], 1.0)
-        registers[107] = _unsigned_int16_register(
-            values["excitation_alarm"], 1.0
-        )
         return registers
 
     raise ValueError(f"Unsupported sensor type: {parsed_type}")

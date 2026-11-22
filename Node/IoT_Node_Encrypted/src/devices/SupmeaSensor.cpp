@@ -21,7 +21,7 @@ namespace
 constexpr uint16_t kForwardTotalRegister = 90U;
 constexpr uint16_t kFlowRateRegister = 98U;
 constexpr uint16_t kTotalsRegisterCount = 6U; // 90-95
-constexpr uint16_t kLiveRegisterCount = 10U;  // 98-107
+constexpr uint16_t kLiveRegisterCount = 4U;   // 98-101: flow rate and velocity
 constexpr uint32_t kInterRequestDelayMs = 100UL;
 constexpr uint8_t kMaxReadAttempts = 2U;
 
@@ -91,7 +91,7 @@ void initializeSupmeaSensor()
 
     const uint8_t result = readHoldingRegistersWithRetry(
         kFlowRateRegister,
-        2U);
+        kLiveRegisterCount);
 
     if (result == supmeaSensor.ku8MBSuccess)
     {
@@ -143,17 +143,9 @@ SupmeaSensorData readSupmeaSensor()
     {
         data.flowRate = responseFloat(0U);
         data.velocityMps = responseFloat(2U);
-        data.flowRatioPercent = responseFloat(4U);
-        data.epdPercent = supmeaSensor.getResponseBuffer(6U);
-        data.flowRateUnitCode = supmeaSensor.getResponseBuffer(7U);
-        data.epdAlarm = supmeaSensor.getResponseBuffer(8U);
-        data.excitationCurrentAlarm =
-            supmeaSensor.getResponseBuffer(9U);
         data.liveValid =
             isFiniteMeasurement(data.flowRate) &&
-            isFiniteMeasurement(data.velocityMps) &&
-            isFiniteMeasurement(data.flowRatioPercent) &&
-            data.flowRateUnitCode <= 11U;
+            isFiniteMeasurement(data.velocityMps);
     }
     supmeaSensor.clearResponseBuffer();
 
@@ -161,7 +153,8 @@ SupmeaSensorData readSupmeaSensor()
     return data;
 }
 
-const char* supmeaFlowUnitName(uint16_t unitCode)
+#if APP_DEBUG_FULL_ENABLED
+static const char* supmeaFlowUnitName(uint16_t unitCode)
 {
     static const char* const kUnits[] =
     {
@@ -173,6 +166,7 @@ const char* supmeaFlowUnitName(uint16_t unitCode)
         ? kUnits[unitCode]
         : "unknown";
 }
+#endif
 
 void printSupmeaSensorData(const SupmeaSensorData& data)
 {
@@ -202,20 +196,10 @@ void printSupmeaSensorData(const SupmeaSensorData& data)
         APP_DEBUG_PRINT("Flow rate     : ");
         APP_DEBUG_PRINT(data.flowRate, 3);
         APP_DEBUG_PRINT(' ');
-        APP_DEBUG_PRINTLN(supmeaFlowUnitName(data.flowRateUnitCode));
+        APP_DEBUG_PRINTLN(supmeaFlowUnitName(AppConfig::kSupmeaFlowUnitCode));
         APP_DEBUG_PRINT("Velocity      : ");
         APP_DEBUG_PRINT(data.velocityMps, 3);
         APP_DEBUG_PRINTLN(" m/s");
-        APP_DEBUG_PRINT("Flow ratio    : ");
-        APP_DEBUG_PRINT(data.flowRatioPercent, 2);
-        APP_DEBUG_PRINTLN(" %");
-        APP_DEBUG_PRINT("EPD value     : ");
-        APP_DEBUG_PRINT(data.epdPercent);
-        APP_DEBUG_PRINTLN(" %");
-        APP_DEBUG_PRINT("EPD alarm     : ");
-        APP_DEBUG_PRINTLN(data.epdAlarm);
-        APP_DEBUG_PRINT("Excitation alarm: ");
-        APP_DEBUG_PRINTLN(data.excitationCurrentAlarm);
     }
     else
     {

@@ -327,10 +327,11 @@ independent bench tests, see [Network Recovery Guide](NETWORK_RECOVERY_USER_GUID
 
 ## Supmea SUP-FMC240 production integration
 
-The Supmea driver reads the FMC240 cumulative and live register blocks at the
-configured slave address. Live volumetric flow is normalized to m3/h. Day, month, and year
-consumption is calculated from changes in the cumulative forward total using
-the trusted STM32 RTC; instantaneous flow is not integrated for these totals.
+The Supmea driver reads FMC240 registers 90–95 for cumulative forward, reverse,
+and net volume. It reads registers 98–101 for flow rate and velocity. Match
+`APP_SUPMEA_FLOW_UNIT_CODE` to the meter or simulator to normalize live flow to
+m³/h. The default is code 3 (m³/h). Day, month, and year consumption uses changes
+in the cumulative forward total and the trusted STM32 RTC.
 
 The calculated state is checksummed in RTC backup registers and periodically
 checkpointed to EEPROM. Appended protobuf fields carry meter identity, source,

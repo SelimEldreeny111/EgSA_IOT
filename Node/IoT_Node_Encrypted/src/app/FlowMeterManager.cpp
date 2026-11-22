@@ -173,15 +173,12 @@ void sampleSupmea()
     metrics.cumulativeTotalsValid = false;
     metrics.periodTotalsValid = false;
     metrics.rtcValid = isRtcTrusted();
-    metrics.alarmFlags =
-        static_cast<uint32_t>(data.epdAlarm) |
-        (static_cast<uint32_t>(data.excitationCurrentAlarm) << 16U);
 
     float normalizedFlowM3h = 0.0f;
     if (data.liveValid &&
         normalizeSupmeaFlowToM3h(
             data.flowRate,
-            data.flowRateUnitCode,
+            AppConfig::kSupmeaFlowUnitCode,
             normalizedFlowM3h))
     {
         metrics.flowRateM3h = normalizedFlowM3h;

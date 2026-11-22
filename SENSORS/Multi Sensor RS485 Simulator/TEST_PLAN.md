@@ -95,9 +95,10 @@ are correct.
 ### 5.3 Supmea
 
 1. Enable Supmea address 20 and use fixed values: forward `1250.75 m3`, reverse
-   `25.25 m3`, net `1225.5 m3`, flow `35.0`, velocity `1.25 m/s`, ratio
-   `42.5%`, EPD `7%`, unit code `3`, EPD alarm `1`, excitation alarm `0`.
-2. Confirm the node reads all ten live registers and all cumulative totals.
+   `25.25 m3`, net `1225.5 m3`, flow `35.0 m3/h`, and velocity `1.25 m/s`.
+   Use local flow unit code `3` in both the node and simulator.
+2. Confirm the two function-03 requests cover registers 90–95 (6) and
+   98–101 (4). The corresponding response data lengths are 12 and 8 bytes.
 3. Enable automatic totals, retain unit code 3 (m3/h), set flow to `1.0`, and
    set time to `3600x`.
 4. Confirm forward and net rise by approximately 1 m3 per real second.
@@ -105,8 +106,8 @@ are correct.
 6. Set a mass-flow unit code (6-11) and confirm volumetric totals no longer
    integrate.
 
-Pass criteria: high-word-first Float32 decoding, unit/alarm fields, and
-directional totals are correct.
+Pass when the two blocks decode as high-word-first Float32 and the directional
+totals follow the configured flow.
 
 ### 5.4 Sondas WIOT compatibility profile
 
