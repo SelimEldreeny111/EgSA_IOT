@@ -119,6 +119,17 @@ the bytes in capture order. In this example, `01` is the responding unit,
 and `F8 67` is the wire CRC. A failed transaction prints the bytes the
 parser reached before it stopped. A timeout with no data shows `bytes=0`.
 
+Use `command_rx` on both debug ports to follow a command from the gateway's
+MQTT receive callback to the sensor node's LoRa receive callback. Match the
+request ID and target. Each line includes the decoded command ID and argument.
+These lines are available in LITE and FULL. Routing rejections and execution
+results are logged after receipt.
+
+```text
+[tick_ms=1200][INFO][MQTT] command_rx request=42 command=VALVE(5) target=3 scope=direct data=1 transport=MQTT
+[tick_ms=1240][INFO][APP] command_rx request=42 command=VALVE(5) target=3 scope=direct data=1 transport=LoRa
+```
+
 An example command/reply sequence is:
 
 ```text

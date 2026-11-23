@@ -107,9 +107,11 @@ void pollLoraCommands()
     CMD_Message cmd = CMD_Message_init_zero;
     if (!decodeEncryptedCommandPayload(frame.payload, frame.payloadLength, cmd))
     {
-      APP_LOG_ERROR("Sensor node LoRa CMD decode failed");
+      APP_LOG_ERROR("command_decode_failed transport=LoRa bytes=%lu",
+          static_cast<unsigned long>(frame.payloadLength));
       continue;
     }
+    APP_LOG_COMMAND_RX("LoRa", cmd, isBroadcastCommand);
 
     g_loraCommandHandledThisPass = true;
     if (cmd.cmd_id == CMD_HISTORY_ACK) {
@@ -118,12 +120,10 @@ void pollLoraCommands()
     }
     if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
     {
-      APP_LOG_EVENT("command_rx request=%lu command=%s target=%lu scope=%s",
-          static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
-          static_cast<unsigned long>(cmd.node_id), isBroadcastCommand ? "broadcast" : "direct");
       if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
       {
-        APP_DEBUG_PRINTLN("Telemetry request not for this LoRa node");
+        APP_LOG_EVENT_WARN("command_rejected request=%lu reason=not_for_this_node local=%u",
+            static_cast<unsigned long>(cmd.request_id), static_cast<unsigned>(AppConfig::kNodeId));
         continue;
       }
 

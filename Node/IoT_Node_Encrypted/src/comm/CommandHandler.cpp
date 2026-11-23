@@ -47,16 +47,11 @@ bool handleCommand(const CMD_Message& cmd, bool isBroadcastTopic)
   AppRuntimeState& state = appState();
   bool applied = false;
 
-  APP_LOG_EVENT("received request=%lu command=%s(%lu) target=%lu local=%u scope=%s data=%s",
-      static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
-      static_cast<unsigned long>(cmd.cmd_id), static_cast<unsigned long>(cmd.node_id),
-      AppConfig::kNodeId, isBroadcastTopic ? "broadcast" : "direct",
-      WiotDebug::Decimal64(cmd.cmd_data).text);
-
   /* ===================== NODE FILTER ===================== */
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId) 
   {
-    APP_DEBUG_PRINTLN(" Not for this node (node topic)");
+    APP_LOG_EVENT_WARN("command_rejected request=%lu reason=not_for_this_node local=%u",
+        static_cast<unsigned long>(cmd.request_id), static_cast<unsigned>(AppConfig::kNodeId));
     return false;
   }
 

@@ -163,6 +163,13 @@ inline void hex(const char* module, const char* label, const uint8_t* data, size
 #define APP_LOG_ERROR(...) do {} while (0)
 #endif
 
+// Log a decoded command at ingress in both FULL and LITE.
+#define APP_LOG_COMMAND_RX(transport, cmd, broadcast) \
+    APP_LOG_EVENT("command_rx request=%lu command=%s(%lu) target=%lu scope=%s data=%s transport=%s", \
+        static_cast<unsigned long>((cmd).request_id), ::WiotDebug::commandName((cmd).cmd_id), \
+        static_cast<unsigned long>((cmd).cmd_id), static_cast<unsigned long>((cmd).node_id), \
+        (broadcast) ? "broadcast" : "direct", ::WiotDebug::Decimal64((cmd).cmd_data).text, (transport))
+
 // Detailed calls AND their arguments disappear from lite and silent builds.
 #if APP_DEBUG_FULL_ENABLED
 #define APP_DEBUG_PRINT(...) ::WiotDebug::print(APP_LOG_MODULE, __VA_ARGS__)

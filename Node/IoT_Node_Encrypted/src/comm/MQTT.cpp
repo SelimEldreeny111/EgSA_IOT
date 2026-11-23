@@ -369,9 +369,10 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   CMD_Message cmd = CMD_Message_init_zero;
   if (!decodeEncryptedCommandPayload(payload, length, cmd))
   {
-    APP_LOG_ERROR(" CMD decode FAILED");
+    APP_LOG_ERROR("command_decode_failed transport=MQTT bytes=%u", length);
     return;
   }
+  APP_LOG_COMMAND_RX("MQTT", cmd, isBroadcastTopic);
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   if (!isBroadcastTopic && cmd.node_id != topicNodeId)
@@ -387,9 +388,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 
   const LoraPayloadType loraCommandType =
       isBroadcastTopic ? LoraPayloadType::BroadcastCommand : LoraPayloadType::Command;
-  APP_LOG_EVENT("command_rx request=%lu command=%s target=%lu scope=%s",
-      static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
-      static_cast<unsigned long>(cmd.node_id), isBroadcastTopic ? "broadcast" : "direct");
   if (sendLoraWakeCommand(loraCommandType, payload, length))
   {
     APP_LOG_EVENT("command_forwarded request=%lu target=%lu node_execution=unconfirmed",
@@ -403,7 +401,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 #else
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
   {
-    APP_LOG_EVENT_WARN("CMD rejected: topic/payload node mismatch");
+    APP_LOG_EVENT_WARN("command_rejected request=%lu reason=not_for_this_node local=%u",
+        static_cast<unsigned long>(cmd.request_id), static_cast<unsigned>(AppConfig::kNodeId));
     return;
   }
   if (cmd.cmd_id == CMD_HISTORY_ACK) {
@@ -418,14 +417,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
   }
   if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
   {
-    APP_LOG_EVENT("command_rx request=%lu command=%s target=%lu scope=%s",
-        static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
-        static_cast<unsigned long>(cmd.node_id), isBroadcastTopic ? "broadcast" : "direct");
-    if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
-    {
-      APP_DEBUG_PRINTLN("Telemetry/WAKE request not for this MQTT node");
-      return;
-    }
     const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
         handleRemoteWakeCommand(cmd, isBroadcastTopic);
     if (!shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies))

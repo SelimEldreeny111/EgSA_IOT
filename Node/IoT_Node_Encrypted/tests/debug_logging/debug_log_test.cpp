@@ -24,6 +24,11 @@ int main() {
     APP_LOG_EVENT("lite_key request=%u", ++effects);
     APP_LOG_EVENT_WARN("lite_rejection request=%u", ++effects);
     APP_LOG_ERROR("critical_code=%u", ++effects);
+    const struct { uint32_t request_id, cmd_id, node_id; uint64_t cmd_data; }
+        received{42, 14, 3, 8589934593ULL};
+    APP_LOG_COMMAND_RX("MQTT", received, false);
+    APP_LOG_COMMAND_RX("LoRa", received, true);
+    (void)received;
     const uint8_t bytes[]={0x45,0x47,0x01};
     APP_DEBUG_HEX("optional_hex", bytes, (++effects, sizeof(bytes)));
     (void)bytes;
@@ -36,6 +41,8 @@ int main() {
     assert(text.find("[INFO][TEST] lite_key request=")!=std::string::npos);
     assert(text.find("[WARN][TEST] lite_rejection request=")!=std::string::npos);
     assert(text.find("[ERROR][TEST] critical_code=")!=std::string::npos);
+    assert(text.find("command_rx request=42 command=FLASH_HISTORY_ACK(14) target=3 scope=direct data=8589934593 transport=MQTT\n")!=std::string::npos);
+    assert(text.find("command_rx request=42 command=FLASH_HISTORY_ACK(14) target=3 scope=broadcast data=8589934593 transport=LoRa\n")!=std::string::npos);
 #if APP_DEBUG_FULL_ENABLED
     assert(text.find("[tick_ms=1234][INFO][TEST] unique_debug_string_7f93a: 1\n")!=std::string::npos);
     assert(text.find("[tick_ms=1234][INFO][TEST] first\n[tick_ms=1234][INFO][TEST] second\n")!=std::string::npos);
