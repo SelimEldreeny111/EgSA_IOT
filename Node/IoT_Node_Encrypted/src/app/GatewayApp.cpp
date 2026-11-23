@@ -25,6 +25,44 @@ uint32_t g_forwardedNodeFrames = 0;
 uint32_t g_forwardFailures = 0;
 bool g_hasNodeUplink = false;
 
+#if APP_ENABLE_DEBUG
+/** @brief Inspect a complete LoRa DATA frame for reply correlation on the debug UART. */
+void logNodeReply(const LoraFrame& frame)
+{
+  Telemetry reply = Telemetry_init_zero;
+  if (!decodeEncryptedTelemetryPayload(frame.payload, frame.payloadLength, reply))
+  {
+    APP_LOG_EVENT_WARN("data_decode_failed source=%u bytes=%lu",
+        static_cast<unsigned>(frame.sourceNodeId), static_cast<unsigned long>(frame.payloadLength));
+    return;
+  }
+  if (reply.node_id != frame.sourceNodeId)
+  {
+    APP_LOG_EVENT_WARN("data_node_mismatch source=%u payload_node=%lu",
+        static_cast<unsigned>(frame.sourceNodeId), static_cast<unsigned long>(reply.node_id));
+    return;
+  }
+  if (reply.command_ack_request_id != 0U)
+  {
+    APP_LOG_EVENT("reply_rx request=%lu command=%s(%lu) source=%u result=%s bytes=%lu transport=LoRa flash=%u history=%u",
+        static_cast<unsigned long>(reply.command_ack_request_id),
+        WiotDebug::commandName(reply.command_ack_cmd_id),
+        static_cast<unsigned long>(reply.command_ack_cmd_id), static_cast<unsigned>(frame.sourceNodeId),
+        reply.command_ack_success ? "accepted" : "rejected",
+        static_cast<unsigned long>(frame.payloadLength), static_cast<unsigned>(reply.has_flash_log),
+        static_cast<unsigned>(reply.has_history));
+  }
+  else if (reply.has_history && reply.history.request_id != 0U)
+  {
+    APP_LOG_EVENT("history_rx request=%lu source=%u index=%lu total=%lu phase=%lu result=%lu bytes=%lu transport=LoRa",
+        static_cast<unsigned long>(reply.history.request_id), static_cast<unsigned>(frame.sourceNodeId),
+        static_cast<unsigned long>(reply.history.index), static_cast<unsigned long>(reply.history.total),
+        static_cast<unsigned long>(reply.history.phase), static_cast<unsigned long>(reply.history.result),
+        static_cast<unsigned long>(frame.payloadLength));
+  }
+}
+#endif
+
 /** @brief Send the newest gateway health snapshot between radio transactions.
  * Uses uptime and server receive time, so no gateway RTC commissioning is required.
  * A failed send is retried after five seconds. Connection recovery sends a fresh
@@ -84,9 +122,9 @@ void serviceGatewayHeartbeat()
     publishedConnection = connection;
     lastSuccessMs = millis();
   }
-  APP_LOG_EVENT("heartbeat gateway=%u sequence=%lu uptime_s=%llu bytes=%lu local_write=%u",
+  APP_LOG_EVENT("heartbeat gateway=%u sequence=%lu uptime_s=%s bytes=%lu local_write=%u",
       WIOT_ACTIVE_VALUE(APP_GATEWAY_ID, gatewayId), static_cast<unsigned long>(sequence),
-      static_cast<unsigned long long>(status.uptime_seconds),
+      WiotDebug::Decimal64(status.uptime_seconds).text,
       static_cast<unsigned long>(length), accepted);
 #endif
 }
@@ -176,6 +214,9 @@ void gatewayLoop()
     else if (frame.type == LoraPayloadType::SystemTelemetry)
     {
       topicSuffix = "data";
+#if APP_ENABLE_DEBUG
+      logNodeReply(frame);
+#endif
     }
     else
     {

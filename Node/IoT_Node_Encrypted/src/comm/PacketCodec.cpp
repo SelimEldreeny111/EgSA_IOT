@@ -28,14 +28,6 @@ AESLib g_aesLib;
 
 byte g_aesKey[AppConfig::kAesBlockSize] = WIOT_AES_KEY_BYTES;
 
-const byte g_legacyAesIv[AppConfig::kIvLength] = 
-{
-    0x21, 0x43, 0x65, 0x87,
-    0x09, 0xBA, 0xDC, 0xFE,
-    0x11, 0x22, 0x33, 0x44,
-    0x55, 0x66, 0x77, 0x88
-};
-
 /**
  * @brief Derive the outgoing CBC IV from runtime timer and counter values.
  * @warning This derivation is not a cryptographically secure random generator;
@@ -141,78 +133,65 @@ bool encodeEncryptedMessage(
     return true;
 }
 
-bool decodeEncryptedCommandPayload(
-    const uint8_t* payload,
-    size_t payloadLength,
-    CMD_Message& command)
+namespace {
+/** @brief Unwrap the current version/IV/CBC envelope and decode a protobuf. */
+bool decodeEncryptedMessage(const uint8_t* payload, size_t payloadLength,
+                            const pb_msgdesc_t* fields, void* message)
 {
-    if (payloadLength < 2 || payloadLength > AppConfig::kCodecBufferSize) 
-    {
-        APP_DEBUG_PRINTLN("Invalid payload length");
+    constexpr size_t envelopeHeaderSize = 1U + AppConfig::kIvLength;
+    if (!payload || payloadLength < envelopeHeaderSize + AppConfig::kAesBlockSize ||
+        payloadLength > AppConfig::kCodecBufferSize) {
+        APP_DEBUG_PRINTLN("Invalid encrypted payload length");
         return false;
     }
-
-    const uint8_t protocolVersion = payload[0];
-    if (protocolVersion != AppConfig::kProtocolVersion) {
+    if (payload[0] != AppConfig::kProtocolVersion) {
         APP_DEBUG_PRINTLN("Unsupported protocol version");
+        return false;
+    }
+    const size_t encryptedLength = payloadLength - envelopeHeaderSize;
+    if (encryptedLength % AppConfig::kAesBlockSize != 0) {
+        APP_DEBUG_PRINTLN("Invalid encrypted block length");
         return false;
     }
 
     uint8_t encrypted[AppConfig::kCodecBufferSize];
-    byte packetIv[AppConfig::kIvLength];
-    size_t encryptedOffset = 1;
-    size_t encodedOffset = 0;
-
-    if (protocolVersion == AppConfig::kProtocolVersion) {
-        if (payloadLength < (1 + AppConfig::kIvLength + AppConfig::kAesBlockSize)) {
-            APP_DEBUG_PRINTLN("Invalid v2 payload length");
-            return false;
-        }
-
-        memcpy(packetIv, payload + 1, AppConfig::kIvLength);
-        encryptedOffset += AppConfig::kIvLength;
-    } else {
-        memcpy(packetIv, g_legacyAesIv, AppConfig::kIvLength);
-        encodedOffset = AppConfig::kIvLength;
-    }
-
-    const size_t encryptedLength = payloadLength - encryptedOffset;
-    memcpy(encrypted, payload + encryptedOffset, encryptedLength);
-
+    memcpy(encrypted, payload + envelopeHeaderSize, encryptedLength);
     uint8_t decrypted[AppConfig::kCodecBufferSize];
-    const int decryptedLength = decryptBuffer(encrypted, static_cast<int>(encryptedLength), decrypted, packetIv);
-    if (decryptedLength <= 0) {
-        APP_LOG_ERROR("Decrypt FAILED");
+    const int decryptedLength = decryptBuffer(
+        encrypted, static_cast<int>(encryptedLength), decrypted, payload + 1);
+    if (decryptedLength <= 0 || static_cast<size_t>(decryptedLength) > encryptedLength) {
+        APP_DEBUG_PRINTLN("Decrypt FAILED");
         return false;
     }
 
     const uint8_t padding = decrypted[decryptedLength - 1];
-    if (padding == 0 || padding > AppConfig::kAesBlockSize) {
-        APP_DEBUG_PRINTLN("Invalid padding");
+    if (padding == 0 || padding > AppConfig::kAesBlockSize || padding >= decryptedLength) {
+        APP_DEBUG_PRINTLN("Invalid padding or empty message body");
         return false;
     }
-
-    for (int i = decryptedLength - padding; i < decryptedLength; ++i) {
+    const int dataLength = decryptedLength - padding;
+    for (int i = dataLength; i < decryptedLength; ++i) {
         if (decrypted[i] != padding) {
             APP_DEBUG_PRINTLN("Corrupted padding");
             return false;
         }
     }
 
-    const size_t unpaddedLength = static_cast<size_t>(decryptedLength - padding);
-    if (unpaddedLength <= encodedOffset) {
-        APP_DEBUG_PRINTLN("Missing message body");
-        return false;
-    }
+    pb_istream_t stream = pb_istream_from_buffer(decrypted, static_cast<size_t>(dataLength));
+    return pb_decode(&stream, fields, message);
+}
+}
 
-    const size_t dataLength = unpaddedLength - encodedOffset;
-    pb_istream_t stream = pb_istream_from_buffer(decrypted + encodedOffset, dataLength);
-
+bool decodeEncryptedCommandPayload(const uint8_t* payload, size_t payloadLength,
+                                   CMD_Message& command)
+{
     command = CMD_Message_init_zero;
-    if (!pb_decode(&stream, CMD_Message_fields, &command)) {
-        APP_LOG_ERROR("CMD decode FAILED");
-        return false;
-    }
+    return decodeEncryptedMessage(payload, payloadLength, CMD_Message_fields, &command);
+}
 
-    return true;
+bool decodeEncryptedTelemetryPayload(const uint8_t* payload, size_t payloadLength,
+                                     Telemetry& telemetry)
+{
+    telemetry = Telemetry_init_zero;
+    return decodeEncryptedMessage(payload, payloadLength, Telemetry_fields, &telemetry);
 }

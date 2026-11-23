@@ -11,6 +11,10 @@ const char kMqttCompanyTopicPrefix[] = "wiot/Company_1/Region_1";
 const pb_msgdesc_t Gateway_Status_msg = {};
 bool connected = true, radioBusy = false, commandBusy = false, publishBusy = false, sendOk = true;
 bool nodePending = false;
+LoraPayloadType nodeFrameType = LoraPayloadType::StatusTelemetry;
+uint8_t nodePayload = 0;
+uint8_t lastForwardedByte = 0;
+unsigned decodeCalls = 0;
 uint32_t connection = 1;
 std::vector<Gateway_Status> snapshots;
 std::vector<std::string> topics;
@@ -28,7 +32,9 @@ void asyncPublishStep() {}
 bool mqttCommandWorkPending() { return commandBusy; }
 bool isAsyncPublishBusy() { return publishBusy; }
 uint32_t mqttConnectionGeneration() { return connection; }
-bool publishMqttPayload(const char* topic, const uint8_t*, size_t) {
+bool publishMqttPayload(const char* topic, const uint8_t* payload, size_t length) {
+    assert(length == 1);
+    lastForwardedByte = payload[0];
     topics.emplace_back(topic);
     return sendOk;
 }
@@ -39,13 +45,37 @@ bool encodeEncryptedMessage(const pb_msgdesc_t* fields, const void* data, uint8_
     size = 1;
     return true;
 }
+bool decodeEncryptedTelemetryPayload(const uint8_t* payload, size_t length, Telemetry& reply) {
+    assert(length == 1);
+    ++decodeCalls;
+    switch (payload[0]) {
+    case 1: return false; // Cannot inspect, but still forward the original frame.
+    case 2: reply.node_id = 4; break;
+    default: reply.node_id = 3; break;
+    }
+    if (payload[0] == 3 || payload[0] == 4) {
+        reply.command_ack_request_id = 4294967294UL;
+        reply.command_ack_cmd_id = 10;
+        reply.command_ack_success = payload[0] == 3;
+        reply.has_flash_log = true;
+    }
+    if (payload[0] == 5) {
+        reply.has_history = true;
+        reply.history.request_id = 42;
+        reply.history.phase = 2;
+        reply.history.index = 1;
+        reply.history.total = 4;
+    }
+    return true;
+}
 void initializeLoraLink() {}
 void serviceLoraInput() {}
 bool isLoraReceiveTransactionActive() { return radioBusy; }
 bool receiveLoraFrame(LoraFrame& frame) {
     if (!nodePending) return false;
     nodePending = false;
-    frame.type = LoraPayloadType::StatusTelemetry;
+    frame.type = nodeFrameType;
+    frame.payload[0] = nodePayload;
     frame.sourceNodeId = 3;
     frame.payloadLength = 1;
     return true;
@@ -118,5 +148,31 @@ int main() {
     gatewayLoop();
     assert(snapshots.empty() && topics.empty());
 #endif
+    const unsigned beforeData = decodeCalls;
+    nodeFrameType = LoraPayloadType::SystemTelemetry;
+    for (nodePayload = 0; nodePayload <= 5; ++nodePayload) {
+        SerialMon.text.clear();
+        nodePending = true;
+        gatewayLoop();
+        assert(topics.back() == "wiot/Company_1/Region_1/3/data");
+        assert(lastForwardedByte == nodePayload);
+#if APP_ENABLE_DEBUG
+        const auto& log = SerialMon.text;
+        const auto replyLine = log.find("reply_rx request=4294967294 command=FLASH_STATUS(10) source=3 result=");
+        if (nodePayload == 3 || nodePayload == 4) {
+            assert(replyLine != std::string::npos);
+            assert(log.find(nodePayload == 3 ? "result=accepted" : "result=rejected", replyLine) != std::string::npos);
+        } else {
+            assert(log.find("reply_rx ") == std::string::npos);
+        }
+        assert((log.find("history_rx request=42 source=3 index=1 total=4 phase=2") != std::string::npos) ==
+               (nodePayload == 5));
+#else
+        assert(SerialMon.text.empty());
+#endif
+    }
+    assert(beforeData == 0); // STATUS frames never enter the diagnostic decoder.
+    assert(decodeCalls == (APP_ENABLE_DEBUG ? 6U : 0U));
+    std::cout << "PASS gateway reply correlation, DATA forwarding and debug gating\n";
     std::cout << "PASS gateway heartbeat without nodes, priorities, reconnect, retries, and tick wrap\n";
 }

@@ -1,9 +1,11 @@
 #pragma once
 #include "Arduino.h"
 #define APP_CONFIG_H
+#ifndef APP_ENABLE_DEBUG
 #define APP_ENABLE_DEBUG false
+#endif
 #define APP_DEBUG_FULL_ENABLED false
-#define APP_DEBUG_LITE false
+#define APP_DEBUG_LITE true
 #define APP_DEBUG_RAW_FRAMES false
 #define APP_ENABLE_COMMAND_ACK_REPLIES true
 #ifndef APP_ENABLE_GATEWAY_HEARTBEAT
@@ -21,6 +23,7 @@ constexpr size_t kCodecBufferSize = 640;
 constexpr uint16_t kNodeId = 3;
 constexpr uint32_t kLoraAuxPin = 13;
 constexpr bool kEnableGatewayHeartbeatLogs = false;
+constexpr bool kEnableCommandAckReplies = APP_ENABLE_COMMAND_ACK_REPLIES;
 }
 extern const char kMqttCompanyTopicPrefix[];
 void serviceHardwareWatchdog();
@@ -39,3 +42,4 @@ bool isAsyncPublishBusy();
 uint32_t mqttConnectionGeneration();
 bool publishMqttPayload(const char*, const uint8_t*, size_t);
 bool encodeEncryptedMessage(const pb_msgdesc_t*, const void*, uint8_t*, size_t, size_t&);
+bool decodeEncryptedTelemetryPayload(const uint8_t*, size_t, Telemetry&);

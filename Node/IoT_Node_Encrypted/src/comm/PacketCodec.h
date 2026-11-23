@@ -42,4 +42,16 @@ bool decodeEncryptedCommandPayload(
     size_t payloadLength,
     CMD_Message& command);
 
+/**
+ * @brief Decode a telemetry envelope for gateway reply diagnostics.
+ * @param payload Complete encrypted project frame.
+ * @param payloadLength Frame size in bytes.
+ * @param telemetry Receives the decoded telemetry on success.
+ * @return True when the envelope and protobuf decode successfully.
+ */
+bool decodeEncryptedTelemetryPayload(
+    const uint8_t* payload,
+    size_t payloadLength,
+    Telemetry& telemetry);
+
 #endif

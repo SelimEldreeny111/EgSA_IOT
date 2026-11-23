@@ -78,6 +78,24 @@ HardwareSerial SerialLoRa(AppConfig::kLoraRxPin, AppConfig::kLoraTxPin);
 bool g_loraCommandHandledThisPass = false;
 
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
+/** @brief Send one correlated telemetry reply and report the LoRa send result. */
+static void sendLoraCommandReply(const CMD_Message& cmd, bool applied)
+{
+  uint8_t payload[AppConfig::kCodecBufferSize];
+  size_t length = 0;
+  if (!handleGetTelemetryCommand(&cmd, payload, length, applied))
+  {
+    APP_LOG_ERROR("reply_encode_failed request=%lu", static_cast<unsigned long>(cmd.request_id));
+    return;
+  }
+  const bool sent = sendLoraFrame(LoraPayloadType::SystemTelemetry, AppConfig::kNodeId, payload, length);
+  APP_LOG_EVENT("reply_tx request=%lu command=%s(%lu) source=%u bytes=%lu transport=LoRa local_acceptance=%u server_receipt=unconfirmed",
+      static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
+      static_cast<unsigned long>(cmd.cmd_id), static_cast<unsigned>(AppConfig::kNodeId),
+      static_cast<unsigned long>(length), static_cast<unsigned>(sent));
+  (void)sent;
+}
+
 /**
  * @brief Process all complete LoRa command frames currently available.
  *
@@ -136,23 +154,7 @@ void pollLoraCommands()
       }
       if (!applied && cmd.request_id == 0U) continue;
 
-      uint8_t telemetryPayload[AppConfig::kCodecBufferSize];
-      size_t telemetryPayloadLength = 0;
-      if (handleGetTelemetryCommand(&cmd, telemetryPayload,
-                                    telemetryPayloadLength, applied) &&
-          sendLoraFrame(
-              LoraPayloadType::SystemTelemetry,
-              AppConfig::kNodeId,
-              telemetryPayload,
-              telemetryPayloadLength))
-      {
-        APP_LOG_EVENT("reply_tx request=%lu bytes=%lu local_acceptance=1 server_receipt=unconfirmed",
-            static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(telemetryPayloadLength));
-      }
-      else
-      {
-        APP_LOG_ERROR("LoRa telemetry response failed");
-      }
+      sendLoraCommandReply(cmd, applied);
       continue;
     }
 
@@ -160,19 +162,7 @@ void pollLoraCommands()
     if (shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies) &&
         (cmd.request_id != 0U || cmd.cmd_id == CMD_OPEN_CLOSE_NODE))
     {
-      uint8_t ackPayload[AppConfig::kCodecBufferSize];
-      size_t ackLength = 0U;
-      if (handleGetTelemetryCommand(&cmd, ackPayload, ackLength, applied))
-      {
-        const bool sent = sendLoraFrame(
-            LoraPayloadType::SystemTelemetry,
-            AppConfig::kNodeId,
-            ackPayload,
-            ackLength);
-        APP_LOG_EVENT("reply_tx request=%lu bytes=%lu local_acceptance=%u server_receipt=unconfirmed",
-            static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(ackLength), sent);
-        (void)sent;
-      }
+      sendLoraCommandReply(cmd, applied);
     }
     else if (!AppConfig::kEnableCommandAckReplies)
       APP_DEBUG_PRINTLN("[CMD] Automatic ACK reply disabled by configuration");

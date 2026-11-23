@@ -119,33 +119,29 @@ the bytes in capture order. In this example, `01` is the responding unit,
 and `F8 67` is the wire CRC. A failed transaction prints the bytes the
 parser reached before it stopped. A timeout with no data shows `bytes=0`.
 
-Use `command_rx` on both debug ports to follow a command from the gateway's
-MQTT receive callback to the sensor node's LoRa receive callback. Match the
-request ID and target. Each line includes the decoded command ID and argument.
-These lines are available in LITE and FULL. Routing rejections and execution
-results are logged after receipt.
+## Trace a command and its reply
 
-```text
-[tick_ms=1200][INFO][MQTT] command_rx request=42 command=VALVE(5) target=3 scope=direct data=1 transport=MQTT
-[tick_ms=1240][INFO][APP] command_rx request=42 command=VALVE(5) target=3 scope=direct data=1 transport=LoRa
-```
+Open both debug ports at **115200 baud, 8N1** with debug set to LITE or FULL.
+Send a read-only FLASH_STATUS from the server and search both serial logs for
+the same nonzero request ID. Actual lines also include active ticks and severity.
 
-An example command/reply sequence is:
+~~~text
+Gateway  [MQTT]    command_rx request=42 command=FLASH_STATUS(10) target=3 scope=direct data=0 transport=MQTT
+Node     [APP]     command_rx request=42 command=FLASH_STATUS(10) target=3 scope=direct data=0 transport=LoRa
+Node     [APP]     reply_tx request=42 command=FLASH_STATUS(10) source=3 bytes=177 transport=LoRa local_acceptance=1 server_receipt=unconfirmed
+Gateway  [GATEWAY] reply_rx request=42 command=FLASH_STATUS(10) source=3 result=accepted bytes=177 transport=LoRa flash=1 history=0
+~~~
 
-```text
-[tick_ms=1234][CMD...] received ... request=42 ...
-[tick_ms=1235][FLASH...] status request=42 ... records=24 ...
-[tick_ms=1236][CMD...] result request=42 command=FLASH_STATUS outcome=accepted
-[tick_ms=1237][CMD...] reply_ready request=42 ... bytes=177 ...
-[tick_ms=1240][LORA...] tx_begin ... type=DATA ... fragments=7 ...
-[tick_ms=1250][LORA...] tx_fragment ... part=1/7 ... attempt=1/4
-...
-[tick_ms=5000][LORA...] tx_complete ... stage=transport_acknowledged server_receipt=unconfirmed
-```
-
-The shortened prefixes above are illustrative. Actual output uses the complete
-`[tick_ms=...][LEVEL][MODULE]` prefix on every line. Frame sizes, counts and times
-depend on the real message; this example is not an expected byte-level trace.
+- The node's reply_ready event reports the encoded application result. The
+  reply_tx event reports the outcome of the LoRa send attempt.
+- The gateway logs reply_rx after receiving and decoding the complete LoRa
+  reply. The result comes from the application ACK field. Check the server's
+  command timeline separately for server receipt.
+- FLASH_TODAY record and end packets use history_tx on the node and history_rx
+  on the gateway. Match the request ID and record index for these packets.
+- Routine telemetry and legacy replies without a request ID do not produce a
+  correlated reply_rx. With debug disabled, the gateway skips reply decoding
+  for diagnostics. It forwards the original encrypted frame in every mode.
 
 ### Distinguish acceptance from completion
 
