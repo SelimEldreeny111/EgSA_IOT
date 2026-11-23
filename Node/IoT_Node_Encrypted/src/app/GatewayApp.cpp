@@ -5,6 +5,7 @@
 
 #include "../comm/MQTT.h"
 #include "../comm/PacketCodec.h"
+#include "../comm/ReplyDiagnostics.h"
 #include "../config/AppConfig.h"
 #include "../config/RuntimeConfig.h"
 #include "../platform/Watchdog.h"
@@ -60,6 +61,7 @@ void logNodeReply(const LoraFrame& frame)
         static_cast<unsigned long>(reply.history.phase), static_cast<unsigned long>(reply.history.result),
         static_cast<unsigned long>(frame.payloadLength));
   }
+  APP_DEBUG_ONLY(logReplyData("RX", reply, frame.payload, frame.payloadLength));
 }
 #endif
 

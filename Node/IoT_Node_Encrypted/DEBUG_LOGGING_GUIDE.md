@@ -143,6 +143,25 @@ Gateway  [GATEWAY] reply_rx request=42 command=FLASH_STATUS(10) source=3 result=
   correlated reply_rx. With debug disabled, the gateway skips reply decoding
   for diagnostics. It forwards the original encrypted frame in every mode.
 
+In FULL, compare the `reply_data` rows with the same `request`, `source`,
+`phase`, and `index`. `dir=TX` shows the values encoded on the node and
+`dir=RX` shows the values decoded from the received packet on the gateway.
+For example, a FLASH_STATUS reply might include:
+
+~~~text
+reply_data dir=TX request=42 source=3 phase=0 index=0 flash state=4 capacity=8388608 used=12288 free=8343552 records=24 generation=2 remaining=0
+reply_data dir=RX request=42 source=3 phase=0 index=0 flash state=4 capacity=8388608 used=12288 free=8343552 records=24 generation=2 remaining=0
+~~~
+
+The readable rows include command state, meter readings, soil readings, battery
+voltage and flash/history details when present. Readings display three decimal
+places. For a byte-for-byte comparison, enable `APP_DEBUG_REPLY_BYTES` on both
+boards with FULL debug. Match the `wire bytes` length and the hexadecimal rows
+by offset. These are the encrypted application payload bytes, including version
+and IV. Retries can reuse a request ID with a different IV, so
+compare the same packet on both ports. LoRa fragment headers and ACKs are outside this payload.
+In LITE, use the compact `reply_tx` and `reply_rx` events.
+
 ### Distinguish acceptance from completion
 
 - `sample_append ... queued_not_yet_committed` means a RAM queue accepted the

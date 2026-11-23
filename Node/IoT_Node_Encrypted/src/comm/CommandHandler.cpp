@@ -247,7 +247,6 @@ bool handleGetTelemetryCommand(const CMD_Message* cmd, uint8_t* payload,
       tlm.command_ack_success ? "accepted" : "no_success_ack",
       static_cast<unsigned long>(tlm.timestamp), static_cast<unsigned long>(payloadLength),
       static_cast<unsigned>(tlm.sensor_mask), tlm.has_flash_log, tlm.has_history);
-  APP_DEBUG_HEX("encrypted_command_reply", payload, payloadLength);
 
   return true;
 }

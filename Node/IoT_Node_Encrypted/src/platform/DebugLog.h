@@ -138,14 +138,15 @@ inline const char* frameName(uint32_t type) {
     }
 }
 /** @brief Optional bounded hexadecimal rows; master switch always wins. */
-inline void hex(const char* module, const char* label, const uint8_t* data, size_t length) {
-    event(module, "TRACE", "%s bytes=%lu", label, static_cast<unsigned long>(length));
+inline void hex(const char* module, const char* label, const uint8_t* data, size_t length,
+                bool labelEachRow = false) {
+    event(module, "TRACE", "%s%sbytes=%lu", label, labelEachRow ? "wire " : " ", static_cast<unsigned long>(length));
     for (size_t offset = 0; offset < length; offset += 16) {
         char row[80];
         int n = snprintf(row, sizeof(row), "%04lX:", static_cast<unsigned long>(offset));
         for (size_t i = offset; i < length && i < offset + 16; ++i)
             n += snprintf(row + n, sizeof(row) - static_cast<size_t>(n), " %02X", data[i]);
-        event(module, "TRACE", "%s", row);
+        event(module, "TRACE", "%s%s", labelEachRow ? label : "", row);
     }
 }
 } // namespace WiotDebug

@@ -1,4 +1,5 @@
 #include "../../src/app/GatewayApp.h"
+#include "../../src/comm/ReplyDiagnostics.h"
 #include "../../src/radio/LoraLink.h"
 #include <cassert>
 #include <iostream>
@@ -58,6 +59,9 @@ bool decodeEncryptedTelemetryPayload(const uint8_t* payload, size_t length, Tele
         reply.command_ack_cmd_id = 10;
         reply.command_ack_success = payload[0] == 3;
         reply.has_flash_log = true;
+        reply.flash_log.record_count = 17;
+        reply.battery_voltage = 3.5f;
+        reply.flow_rate = 12.5f;
     }
     if (payload[0] == 5) {
         reply.has_history = true;
@@ -167,6 +171,35 @@ int main() {
         }
         assert((log.find("history_rx request=42 source=3 index=1 total=4 phase=2") != std::string::npos) ==
                (nodePayload == 5));
+#if APP_DEBUG_FULL_ENABLED
+        if (nodePayload >= 3) {
+            assert(log.find("reply_data dir=RX") != std::string::npos);
+            if (nodePayload < 5) {
+                assert(log.find("records=17") != std::string::npos);
+                assert(log.find("flow rate=12.500") != std::string::npos);
+            }
+            const std::string received = log.substr(log.rfind("[tick_ms=", log.find("[INFO][REPLY]")));
+            Telemetry emitted = Telemetry_init_zero;
+            assert(decodeEncryptedTelemetryPayload(&nodePayload, 1, emitted));
+            --decodeCalls; // Only count invocations made by the production gateway.
+            SerialMon.text.clear();
+            logReplyData("TX", emitted, &nodePayload, 1);
+            std::string sent = SerialMon.text;
+            for (auto offset = sent.find("dir=TX"); offset != std::string::npos;
+                 offset = sent.find("dir=TX", offset + 6)) {
+                sent.replace(offset, 6, "dir=RX");
+            }
+            // Reply diagnostic lines end before the gateway's separate MQTT uplink log.
+            const auto uplink = received.find("[INFO][GATEWAY] uplink ");
+            assert(uplink != std::string::npos);
+            assert(sent == received.substr(0, received.rfind("[tick_ms=", uplink)));
+            assert(sent.find(" 0000: 0" + std::to_string(nodePayload)) != std::string::npos);
+        } else {
+            assert(log.find("reply_data ") == std::string::npos);
+        }
+#else
+        assert(log.find("reply_data ") == std::string::npos);
+#endif
 #else
         assert(SerialMon.text.empty());
 #endif

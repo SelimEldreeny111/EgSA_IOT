@@ -58,6 +58,10 @@
 #ifndef APP_DEBUG_RAW_FRAMES
 #define APP_DEBUG_RAW_FRAMES false
 #endif
+// Dump only correlated replies in FULL debug without enabling all raw-frame logs.
+#ifndef APP_DEBUG_REPLY_BYTES
+#define APP_DEBUG_REPLY_BYTES false
+#endif
 // Bench diagnostics for Modbus replies on the debug UART, in either lite or full mode.
 #ifndef APP_DEBUG_RS485_RX
 #define APP_DEBUG_RS485_RX false
@@ -68,6 +72,9 @@
 #if (APP_ENABLE_DEBUG != 0 && APP_ENABLE_DEBUG != 1) || \
     (APP_DEBUG_RAW_FRAMES != 0 && APP_DEBUG_RAW_FRAMES != 1)
 #error "APP_ENABLE_DEBUG and APP_DEBUG_RAW_FRAMES must be true or false"
+#endif
+#if (APP_DEBUG_REPLY_BYTES != 0 && APP_DEBUG_REPLY_BYTES != 1)
+#error "APP_DEBUG_REPLY_BYTES must be true or false"
 #endif
 #if APP_DEBUG_LITE != 0 && APP_DEBUG_LITE != 1
 #error "APP_DEBUG_LITE must be true or false"

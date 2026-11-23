@@ -2,6 +2,7 @@
 #define APP_LOG_MODULE "CODEC"
 #include "../platform/DebugLog.h"
 #include "PacketCodec.h"
+#include "ReplyDiagnostics.h"
 
 #include <Arduino.h>
 #include <AESLib.h>
@@ -130,6 +131,11 @@ bool encodeEncryptedMessage(
     memcpy(output + 1, packetIv, AppConfig::kIvLength);
     memcpy(output + 1 + AppConfig::kIvLength, encrypted, encryptedLength);
     outputLength = static_cast<size_t>(encryptedLength + AppConfig::kIvLength + 1);
+#if APP_DEBUG_FULL_ENABLED
+    if (fields == Telemetry_fields) {
+        logReplyData("TX", *static_cast<const Telemetry*>(srcStruct), output, outputLength);
+    }
+#endif
     return true;
 }
 
