@@ -4,7 +4,7 @@
 #define APP_CONFIG_H
 #define WIOT_TELEMETRY_ARCHIVE_H
 namespace TelemetryArchive {
-bool blocking(); bool transferring(); bool maintenanceDue(uint32_t); uint32_t expiry();
+bool blocking(); bool writePending(); bool transferring(); bool maintenanceDue(uint32_t); uint32_t expiry();
 bool prepareSleep(); void resume();
 }
 #define APP_COMPONENT_MODE_NORMAL 0

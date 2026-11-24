@@ -22,7 +22,8 @@ bool fakeRtcWritable=false;
 bool flashAsleep=false;
 namespace TelemetryArchive {
 bool blocking(){return scenario=="storage_busy"||scenario=="storage_transfer"||scenario=="app_storage_busy";}
-bool transferring(){return scenario=="storage_transfer";}
+bool transferring(){return scenario=="storage_transfer"||scenario=="app_coordinated_wait_grant";}
+bool writePending(){return scenario=="app_coordinated_flash_write";}
 uint32_t expiry(){return scenario=="storage_deadline"||scenario=="app_storage_deadline"?1800000020U:0U;}
 bool maintenanceDue(uint32_t now){return expiry()&&now>=expiry();}
 bool prepareSleep(){if(scenario=="storage_sleep_failure")return false;flashAsleep=true;return true;}
@@ -190,6 +191,23 @@ void applicationScheduleTest() {
   assert(powerManagerAllowsSensorWork()); // Receive windows never block due work.
   activeTime(10000U); // Well beyond command window; no work is yet due.
 
+#if APP_LORA_COORDINATED
+  if (scenario == "app_coordinated_wait_grant" || scenario == "app_coordinated_flash_write") {
+    state.transmissionPeriodMs = 5000U;
+    assert(reportDue() && !sampleDue());
+    const auto sendBefore = state.lastSendMs;
+    servicePowerManager();
+    if (scenario == "app_coordinated_flash_write") {
+      assert(stopCalls == 0 && state.lastSendMs == sendBefore);
+    } else {
+      assert(stopCalls > 0 && epoch == startEpoch + 100U);
+      assert(sampleDue() && reportDue()); // Sampling runs, the overdue report still waits for its grant.
+      assert(nowMs - state.lastSendMs == 100000U);
+      requireLog("reason=APPLICATION_DEADLINE");
+    }
+    return;
+  }
+#endif
   if(scenario=="app_transmission_only" || scenario=="app_failed_report") {
     state.samplingPeriodMs=300000U;state.transmissionPeriodMs=100000U;
   } else if(scenario=="app_rate_increase") {

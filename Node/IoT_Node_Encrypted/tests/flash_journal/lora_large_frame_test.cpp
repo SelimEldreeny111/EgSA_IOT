@@ -47,11 +47,62 @@ void reassemble(size_t length,bool corrupt=false){
         assert(g_fragmentAcksTx==prior+1U && !dequeuePendingFrame(result));
     }
 }
+/** Wrap test data in a real transport-fragment header for the gateway parser. */
+LoraFrame makeFragment(uint16_t source, uint8_t message, const std::vector<uint8_t>& body, uint8_t index)
+{
+    LoraFrame frame{};
+    frame.sourceNodeId = source;
+    frame.type = LoraPayloadType::TransportFragment;
+    const uint16_t crc = crc16Ccitt(body.data(), body.size());
+    const size_t offset = index * kFragmentDataLength;
+    const size_t length = std::min(body.size() - offset, kFragmentDataLength);
+    frame.payload[0] = uint8_t(LoraPayloadType::SystemTelemetry);
+    frame.payload[2] = message;
+    frame.payload[3] = index;
+    frame.payload[4] = uint8_t((body.size() + kFragmentDataLength - 1) / kFragmentDataLength);
+    frame.payload[5] = uint8_t(body.size() >> 8);
+    frame.payload[6] = uint8_t(body.size());
+    frame.payload[7] = uint8_t(crc >> 8);
+    frame.payload[8] = uint8_t(crc);
+    memcpy(frame.payload + kFragmentHeaderLength, body.data() + offset, length);
+    frame.payloadLength = kFragmentHeaderLength + length;
+    return frame;
+}
+
+void checkInterleavedAndFullQueue()
+{
+    const std::vector<uint8_t> a(52, 0x54), b(51, 0xAE), c(43, 0xB0);
+    processWireFrame(makeFragment(1, 42, a, 0));
+    processWireFrame(makeFragment(2, 42, b, 0)); // Same message ID on separate nodes.
+    processWireFrame(makeFragment(2, 42, b, 1));
+    processWireFrame(makeFragment(1, 42, a, 1));
+    assert(g_pendingCount == 2);
+
+    processWireFrame(makeFragment(1, 43, c, 0));
+    const auto last = makeFragment(1, 43, c, 1);
+    const auto before = g_fragmentAcksTx;
+    processWireFrame(last);
+    assert(g_pendingCount == 2 && g_fragmentAcksTx == before);
+    LoraFrame frame{};
+    assert(dequeuePendingFrame(frame) && frame.sourceNodeId == 2 && frame.payloadLength == b.size());
+    assert(!memcmp(frame.payload, b.data(), b.size()));
+    processWireFrame(last); // Now capacity is available for the same completed frame.
+    assert(g_fragmentAcksTx == before + 1 && g_pendingCount == 2);
+    processWireFrame(last); // Simulate loss of the final ACK.
+    assert(g_fragmentAcksTx == before + 2 && g_pendingCount == 2);
+    assert(dequeuePendingFrame(frame) && frame.sourceNodeId == 1 && frame.payloadLength == a.size());
+    assert(!memcmp(frame.payload, a.data(), a.size()));
+    assert(dequeuePendingFrame(frame) && frame.sourceNodeId == 1 && frame.payloadLength == c.size());
+    assert(!memcmp(frame.payload, c.data(), c.size()));
+    assert(!dequeuePendingFrame(frame));
+}
 int main(){
     reassemble(433); // 17 fragments: first size that broke the old uint16 mask
     reassemble(577); // largest currently generated encrypted Telemetry
     reassemble(640); // complete configured logical capacity, 24 fragments
     reassemble(640,true);
+    checkInterleavedAndFullQueue();
+    std::cout<<"PASS separate LoRa node reassembly, full-queue backpressure and lost final ACK\n";
     LoraFrame invalid={},result={};invalid.payloadLength=9;
     invalid.payload[0]=uint8_t(LoraPayloadType::SystemTelemetry);invalid.payload[2]=1;
     invalid.payload[3]=32;invalid.payload[4]=33;

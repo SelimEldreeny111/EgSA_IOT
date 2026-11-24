@@ -47,6 +47,17 @@ try {
             $worScheduleCount++
         }
     }
+    $coordinatedArgs = @('-std=c++14', '-Wall', '-Wextra', '-Werror', '-pedantic',
+        '-DAPP_LORA_COORDINATED=1', '-DAPP_LORA_WOR_WAKE_SOURCE=1', '-DAPP_LORA_WOR_USE_APP_SCHEDULE=true',
+        '-I', $worFakes, '-include', (Join-Path $worFakes 'TestAppConfig.h'),
+        (Join-Path $worNodeRoot 'src/power/PowerManager.cpp'), (Join-Path $PSScriptRoot 'wor_stop_test.cpp'),
+        '-o', $worExecutable)
+    & $worCompiler @coordinatedArgs
+    if ($LASTEXITCODE -ne 0) { throw 'Coordinated WOR host build failed' }
+    foreach ($worScenario in @('app_coordinated_wait_grant', 'app_coordinated_flash_write', 'app_command_wake')) {
+        & $worExecutable $worScenario
+        if ($LASTEXITCODE -ne 0) { throw "Coordinated WOR scenario failed: $worScenario" }
+    }
     Write-Host "$worCount production WOR scenarios passed across AUX and UART_RX."
     Write-Host "$worScheduleCount schedule-driven WOR scenarios passed across AUX and UART_RX."
 } finally { $env:PATH = $worOriginalPath }
