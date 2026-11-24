@@ -17,14 +17,12 @@ const char kMqttServer[]="test",kMqttClientId[]="test-client";
 const char kMqttCommandTopic[]="wiot/Test/Region_1/1/cmd",kMqttBroadcastTopic[]="wiot/Test/Region_1/broadcast";
 const char kMqttPublishTopicStatus[]="wiot/Test/Region_1/1/status",kMqttPublishTopicTlm[]="wiot/Test/Region_1/1/data";
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-#include "../../src/radio/LoraLink.h"
+#include "../../src/comm/GatewayDelivery.h"
 const char kMqttCompanyTopicPrefix[]="wiot/Test/Region_1";
 const char kMqttGatewayCommandWildcardTopic[]="wiot/Test/Region_1/+/cmd";
-static std::vector<LoraPayloadType> forwardedCommands;
-bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t*, size_t) {
-    forwardedCommands.push_back(type);
-    return true;
-}
+const pb_msgdesc_t Gateway_Delivery_msg = {};
+bool decodeEncryptedGatewayDelivery(const uint8_t*, size_t, Gateway_Delivery&) { return false; }
+bool encodeEncryptedMessage(const pb_msgdesc_t*, const void*, uint8_t*, size_t, size_t&) { return false; }
 #endif
 static int applied=0;
 static bool applyResult=true;
@@ -49,13 +47,26 @@ bool buildEncryptedStatusPayload(uint8_t* out,size_t,size_t& length) {
 int main(int argc,char** argv) {
     assert(argc==2);
     const std::string scenario=argv[1];
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    gsmClient.onSend=[](const std::vector<uint8_t>& wire) {
+        if (wire[0] == 0x82) {
+            assert(wire.back() == 1);
+            for (uint8_t b : {uint8_t(0x90), uint8_t(3), wire[2], wire[3], uint8_t(1)})
+                gsmClient.rx.push_back(b);
+        }
+    };
+#else
     gsmClient.pendingInput=[] { return int(mqtt.incoming.size()); };
+#endif
     initializeMqttClient();
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
     if (scenario == "gateway_broadcast") {
-        assert(ensureMqttConnection());
+        assert(!ensureMqttConnection());
+        assert(mqttConnectionGeneration() == 0);
+        mqttLoop(); mqttLoop(); mqttLoop();
+        assert(ensureMqttConnection() && mqttConnectionGeneration() == 1);
         const std::vector<std::string> expected = {
-            kMqttGatewayCommandWildcardTopic, kMqttBroadcastTopic
+            kMqttGatewayCommandWildcardTopic, kMqttBroadcastTopic, "wiot/Test/Region_1/+/receipt"
         };
         assert(mqtt.subscribedTopics == expected);
         mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_GET_TELEMETRY,41}});
@@ -63,10 +74,20 @@ int main(int argc,char** argv) {
         mqtt.incoming.push_back({kMqttCommandTopic,{2,CMD_GET_TELEMETRY,43}});
         mqtt.incoming.push_back({"wiot/Test/Region_2/broadcast",{0,CMD_REMOTE_WAKE,44}});
         for (unsigned i = 0; i < 4; ++i) mqttLoop();
-        const std::vector<LoraPayloadType> expectedForwarded = {
-            LoraPayloadType::Command, LoraPayloadType::BroadcastCommand
-        };
-        assert(forwardedCommands == expectedForwarded);
+        assert(gatewayPendingCommand() && !gatewayPendingCommand()->broadcast);
+        assert(gatewayPendingCommand()->proof.request_id == 41);
+        completeGatewayCommand(GatewayDispatched);
+        assert(gatewayPendingCommand() && gatewayPendingCommand()->broadcast);
+        assert(gatewayPendingCommand()->proof.request_id == 42);
+        completeGatewayCommand(GatewayDispatched);
+        assert(!gatewayPendingCommand());
+        mqtt.incoming.push_back({kMqttCommandTopic,{1,CMD_GET_TELEMETRY,41}});
+        mqttLoop();
+        assert(!gatewayPendingCommand()); // QoS duplicate already admitted.
+        // A short TCP read must not be passed up as 0xff or poison a later PUBLISH.
+        gsmClient.pendingInput=[] { return 1; };
+        mqttLoop();
+        assert(mqtt.state()!=0 && !gatewayPendingCommand());
     } else {
         assert(scenario == "gateway_broadcast_subscribe_failure");
         mqtt.failSubscriptionTopic = kMqttBroadcastTopic;

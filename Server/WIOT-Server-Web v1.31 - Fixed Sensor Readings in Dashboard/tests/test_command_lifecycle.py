@@ -56,6 +56,25 @@ class CommandLifecycleTests(unittest.TestCase):
         self.queue.confirm_publish(1002,1,now=1003)
         self.assertEqual(self.queue.get(1002,'Company_1',7,now=1004)['state'],'acknowledged')
 
+    def test_gateway_stage_matches_the_wire_and_keeps_the_hard_expiry(self):
+        self.immediate()
+        self.queue.record_transport_frame(1001, 1, 5804164553049868169, 33)
+        from messages_pb2 import Gateway_Delivery
+        proof = Gateway_Delivery(node_id=7, fingerprint=5804164553049868169,
+                                 wire_bytes=33, phase=3)
+        self.assertFalse(self.queue.record_gateway_progress('Company_1', 'Region_2', 1, proof, now=1004))
+        self.assertTrue(self.queue.record_gateway_progress('Company_1', 'Region_1', 1, proof, now=1004))
+        self.assertFalse(self.queue.record_gateway_progress('Company_1', 'Region_1', 1, proof, now=1005))
+        proof.request_id = 1001
+        proof.phase = 2
+        self.assertTrue(self.queue.record_gateway_progress('Company_1', 'Region_1', 1, proof, now=1010))
+        item = self.queue.get(1001, 'Company_1', 7, now=1032)
+        self.assertEqual(item['ack_deadline'], 1130)
+        self.assertEqual(item['state'], 'dispatched')
+        self.assertEqual([e['event'] for e in item['events']][-2:],
+                         ['gateway_decode_failed', 'radio_dispatched'])
+        self.assertTrue(self.queue.acknowledge('Company_1', 7, 1001, 5, now=1033))
+
     def test_attempt_mid_is_auditable_but_not_execution_proof(self):
         self.immediate()
         self.assertTrue(self.queue.record_transport_mid(1001,1,42))

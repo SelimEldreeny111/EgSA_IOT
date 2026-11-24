@@ -9,6 +9,9 @@
 PB_BIND(Gateway_Status, Gateway_Status, AUTO)
 
 
+PB_BIND(Gateway_Delivery, Gateway_Delivery, AUTO)
+
+
 PB_BIND(FlashLogInfo, FlashLogInfo, AUTO)
 
 

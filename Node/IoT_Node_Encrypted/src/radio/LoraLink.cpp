@@ -69,6 +69,16 @@ struct FragmentAckRecord
   uint8_t fragmentIndex;
 };
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+struct DeliveredFragment {
+  uint16_t source, message, crc, length;
+  LoraPayloadType type;
+  uint32_t at;
+};
+DeliveredFragment g_delivered[16] = {};
+unsigned g_deliveredNext = 0U;
+#endif
+
 uint8_t g_rxBuffer[kMaxBufferedLength];
 size_t g_rxLength = 0U;
 uint32_t g_lastRxByteMs = 0U;
@@ -244,7 +254,8 @@ bool isApplicationType(LoraPayloadType type)
          type == LoraPayloadType::Ack ||
          type == LoraPayloadType::BroadcastCommand ||
          type == LoraPayloadType::SystemTelemetry ||
-         type == LoraPayloadType::WakeProbe;
+         type == LoraPayloadType::WakeProbe ||
+         type == LoraPayloadType::UplinkGrant;
 }
 
 /** @brief Return the compiled node or gateway radio identity. */
@@ -634,6 +645,22 @@ bool enqueuePendingFrame(const LoraFrame& frame)
 {
   if (g_pendingCount >= AppConfig::kLoraPendingFrameCount)
   {
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    // Prefer validated command/flash replies to routine Status if the app is behind.
+    if (frame.type == LoraPayloadType::SystemTelemetry)
+    {
+      for (size_t i = 0; i < g_pendingCount; ++i)
+      {
+        LoraFrame& queued = g_pendingFrames[(g_pendingHead + i) % AppConfig::kLoraPendingFrameCount];
+        if (queued.type == LoraPayloadType::StatusTelemetry)
+        {
+          queued = frame;
+          ++g_pendingDrops;
+          return true;
+        }
+      }
+    }
+#endif
     APP_DEBUG_PRINTLN("LoRa pending application queue full; frame dropped");
     ++g_pendingDrops;
     return false;
@@ -913,6 +940,22 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
     return false;
   }
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  const bool confirm = wireFrame.sourceNodeId != AppConfig::kGatewayNodeId;
+  if (confirm)
+  {
+    for (const auto& delivered : g_delivered)
+    {
+      if (delivered.source == wireFrame.sourceNodeId && delivered.message == messageId &&
+          delivered.crc == logicalCrc && delivered.length == totalLength && delivered.type == originalType &&
+          millis() - delivered.at < AppConfig::kLoraFragmentAssemblyTimeoutMs)
+      {
+        sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
+        return false;
+      }
+    }
+  }
+#endif
   ReassemblyContext* context = acquireReassemblyContext(
       wireFrame.sourceNodeId,
       messageId,
@@ -957,18 +1000,14 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   APP_DEBUG_PRINT(context->receivedMask, HEX);
   APP_DEBUG_PRINTLN();
 
-#if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  if (wireFrame.sourceNodeId != AppConfig::kGatewayNodeId)
-  {
-    sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
-  }
-#endif
-
   const uint32_t completeMask = fragmentCount == 32U ? UINT32_MAX :
       (uint32_t(1) << fragmentCount) - 1U;
   if (context->receivedMask != completeMask ||
       context->bytesReceived != context->totalLength)
   {
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    if (confirm) sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
+#endif
     return false;
   }
 
@@ -1006,6 +1045,21 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
       WiotDebug::frameName(static_cast<uint8_t>(context->originalType)),
       context->fragmentCount, context->totalLength);
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  if (confirm)
+  {
+    // Keep the completed context pending if the application cannot retain it.
+    // A retransmission of this fragment can recover when queue space opens.
+    if (!enqueuePendingFrame(completedFrame)) return false;
+    ++g_totalRxFrames;
+    g_delivered[g_deliveredNext] = {wireFrame.sourceNodeId, messageId, logicalCrc,
+        totalLength, originalType, millis()};
+    g_deliveredNext = (g_deliveredNext + 1U) % (sizeof(g_delivered) / sizeof(g_delivered[0]));
+    resetReassemblyContext(*context);
+    sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
+    return false;  // Already admitted to the application queue.
+  }
+#endif
   resetReassemblyContext(*context);
   return true;
 }
@@ -1079,7 +1133,12 @@ bool waitForFragmentAck(
   // bounded 12-second timeout must return control to the caller first.
   serviceHardwareWatchdog(WatchdogStage::LoraAckWait);
   const uint32_t startMs = millis();
-  while (millis() - startMs < AppConfig::kLoraFragmentAckTimeoutMs)
+#if APP_LORA_COORDINATED
+  constexpr uint32_t ackTimeoutMs = 2500U;
+#else
+  constexpr uint32_t ackTimeoutMs = AppConfig::kLoraFragmentAckTimeoutMs;
+#endif
+  while (millis() - startMs < ackTimeoutMs)
   {
     processIncomingWireFrames();
     if (g_lastAck.valid &&
@@ -1232,13 +1291,20 @@ bool isLoraReceiveTransactionActive()
   for (size_t i = 0; i < AppConfig::kLoraReassemblyContextCount; ++i)
   {
     const ReassemblyContext& context = g_reassembly[i];
-    if (context.active &&
+    if (context.active && context.bytesReceived < context.totalLength &&
         now - context.lastUpdateMs < AppConfig::kLoraTransactionPriorityMs)
     {
       return true;
     }
   }
   return false;
+}
+
+bool loraCanStartTransmission()
+{
+  serviceLoraInput();
+  return !g_pendingCount && !g_rxLength && !SerialLoRa.available() &&
+         digitalRead(AppConfig::kLoraAuxPin) == HIGH && !isLoraReceiveTransactionActive();
 }
 
 bool isLoraIdleForPowerDown()
@@ -1344,7 +1410,8 @@ bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* payload, size_t le
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY && (APP_ENABLE_SERIAL_CONFIG || APP_LORA_GATEWAY_WOR_TX)
   if (!WIOT_ACTIVE_VALUE(APP_LORA_GATEWAY_WOR_TX, gatewayWor))
     return sendLoraFrame(type, AppConfig::kGatewayNodeId, payload, length);
-  if (type != LoraPayloadType::Command && type != LoraPayloadType::BroadcastCommand)
+  if (type != LoraPayloadType::Command && type != LoraPayloadType::BroadcastCommand &&
+      type != LoraPayloadType::UplinkGrant)
     return false;
   if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin,
                                  AppConfig::kLoraTxCompleteTimeoutMs)) return false;
@@ -1466,8 +1533,10 @@ bool sendLoraFrame(
         kFragmentHeaderLength + chunkLength;
 
     const uint8_t attempts = requireAck
-        ? AppConfig::kLoraFragmentMaxAttempts
-        : 1U;
+#if APP_LORA_COORDINATED
+        && fragmentIndex != 0U
+#endif
+        ? AppConfig::kLoraFragmentMaxAttempts : 1U;
     bool fragmentDelivered = false;
     for (uint8_t attempt = 1U; attempt <= attempts; ++attempt)
     {

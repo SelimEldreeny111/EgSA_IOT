@@ -27,7 +27,8 @@ class RegionContractTests(unittest.TestCase):
         self.assertEqual(command_topic('Company_1', 'Region_2', 3), 'wiot/Company_1/Region_2/3/cmd')
         self.assertEqual(command_topic('Company_1', 'Region_2', 0, True), 'wiot/Company_1/Region_2/broadcast')
         self.assertEqual(SUBSCRIPTIONS, ['wiot/+/+/+/data', 'wiot/+/+/+/status',
-                                        'wiot/+/+/+/cmd', 'wiot/+/+/broadcast', 'wiot/+/+/gateway/+/status'])
+                                        'wiot/+/+/+/cmd', 'wiot/+/+/broadcast', 'wiot/+/+/gateway/+/status',
+                                        'wiot/+/+/gateway/+/event'])
 
     def test_reject_aliases_and_wildcards(self):
         for topic in ('EgSA/Company_1/3/Status', 'wiot/Company_1/3/status',

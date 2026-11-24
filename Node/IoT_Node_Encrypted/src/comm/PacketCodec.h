@@ -54,4 +54,7 @@ bool decodeEncryptedTelemetryPayload(
     size_t payloadLength,
     Telemetry& telemetry);
 
+/** @brief Decode a server persistence receipt on the gateway-only MQTT route. */
+bool decodeEncryptedGatewayDelivery(const uint8_t* payload, size_t payloadLength,
+                                    Gateway_Delivery& proof);
 #endif

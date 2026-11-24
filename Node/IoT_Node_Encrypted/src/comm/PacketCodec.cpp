@@ -25,7 +25,7 @@ static_assert(
     kMaximumEncryptedEnvelopeSize <= AppConfig::kCodecBufferSize,
     "kCodecBufferSize is too small for the largest protobuf AES envelope");
 
-AESLib g_aesLib;
+AES g_aes;
 
 byte g_aesKey[AppConfig::kAesBlockSize] = WIOT_AES_KEY_BYTES;
 
@@ -55,23 +55,6 @@ void generatePacketIv(byte* iv)
     ++packetCounter;
 }
 
-/** @brief Encrypt a buffer with AESLib, copying the IV because the library mutates it. */
-int encryptBuffer(uint8_t* input, int length, uint8_t* output, const byte* iv)
-{
-    byte ivCopy[AppConfig::kIvLength];
-    memcpy(ivCopy, iv, sizeof(ivCopy));
-
-    return g_aesLib.encrypt(input, length, output, g_aesKey, sizeof(g_aesKey), ivCopy);
-}
-
-/** @brief Decrypt a buffer with AESLib, preserving the caller's IV. */
-int decryptBuffer(uint8_t* input, int length, uint8_t* output, const byte* iv)
-{
-    byte ivCopy[AppConfig::kIvLength];
-    memcpy(ivCopy, iv, sizeof(ivCopy));
-
-    return g_aesLib.decrypt(input, length, output, g_aesKey, sizeof(g_aesKey), ivCopy);
-}
 }
 
 bool encodeEncryptedMessage(
@@ -81,56 +64,29 @@ bool encodeEncryptedMessage(
     size_t outputSize,
     size_t& outputLength)
 {
-    uint8_t encoded[AppConfig::kCodecBufferSize];
-    pb_ostream_t stream = pb_ostream_from_buffer(encoded, sizeof(encoded));
-
-    if (!pb_encode(&stream, fields, srcStruct)) 
-    {
+    constexpr size_t headerSize = 1U + AppConfig::kIvLength;
+    uint8_t plain[AppConfig::kCodecBufferSize];
+    pb_ostream_t stream = pb_ostream_from_buffer(plain, sizeof(plain));
+    if (!pb_encode(&stream, fields, srcStruct)) {
         APP_LOG_ERROR("Encode FAILED");
         return false;
     }
+    const size_t padding = AppConfig::kAesBlockSize - stream.bytes_written % AppConfig::kAesBlockSize;
+    const size_t paddedLength = stream.bytes_written + padding;
+    if (paddedLength > sizeof(plain) || headerSize + paddedLength > outputSize) return false;
+    memset(plain + stream.bytes_written, static_cast<int>(padding), padding);
 
-    byte packetIv[AppConfig::kIvLength];
-    generatePacketIv(packetIv);
-
-    uint8_t plain[AppConfig::kCodecBufferSize];
-    memcpy(plain, encoded, stream.bytes_written);
-
-    size_t totalLength = stream.bytes_written;
-    size_t padding = AppConfig::kAesBlockSize - (totalLength % AppConfig::kAesBlockSize);
-    if (padding == 0) {
-        padding = AppConfig::kAesBlockSize;
-    }
-
-    if (totalLength + padding > sizeof(plain)) 
-    {
-        APP_DEBUG_PRINTLN("Plain buffer overflow");
-        return false;
-    }
-
-    for (size_t i = 0; i < padding; ++i) 
-    {
-        plain[totalLength + i] = static_cast<uint8_t>(padding);
-    }
-    totalLength += padding;
-
-    uint8_t encrypted[AppConfig::kCodecBufferSize];
-    const int encryptedLength = encryptBuffer(plain, static_cast<int>(totalLength), encrypted, packetIv);
-    if (encryptedLength <= 0) {
+    byte iv[AppConfig::kIvLength];
+    generatePacketIv(iv);
+    output[0] = AppConfig::kProtocolVersion;
+    memcpy(output + 1, iv, sizeof(iv));
+    // The project owns padding. Raw CBC bypasses AESLib's default Array padding.
+    if (g_aes.set_key(g_aesKey, sizeof(g_aesKey)) != SUCCESS ||
+        g_aes.cbc_encrypt(plain, output + headerSize, paddedLength / AppConfig::kAesBlockSize, iv) != SUCCESS) {
         APP_LOG_ERROR("Encrypt FAILED");
         return false;
     }
-
-    if (static_cast<size_t>(encryptedLength + AppConfig::kIvLength + 1) > outputSize) 
-    {
-        APP_DEBUG_PRINTLN("Output buffer too small");
-        return false;
-    }
-
-    output[0] = AppConfig::kProtocolVersion;
-    memcpy(output + 1, packetIv, AppConfig::kIvLength);
-    memcpy(output + 1 + AppConfig::kIvLength, encrypted, encryptedLength);
-    outputLength = static_cast<size_t>(encryptedLength + AppConfig::kIvLength + 1);
+    outputLength = headerSize + paddedLength;
 #if APP_DEBUG_FULL_ENABLED
     if (fields == Telemetry_fields) {
         logReplyData("TX", *static_cast<const Telemetry*>(srcStruct), output, outputLength);
@@ -160,16 +116,16 @@ bool decodeEncryptedMessage(const uint8_t* payload, size_t payloadLength,
         return false;
     }
 
-    uint8_t encrypted[AppConfig::kCodecBufferSize];
-    memcpy(encrypted, payload + envelopeHeaderSize, encryptedLength);
+    byte iv[AppConfig::kIvLength];
+    memcpy(iv, payload + 1, sizeof(iv));
     uint8_t decrypted[AppConfig::kCodecBufferSize];
-    const int decryptedLength = decryptBuffer(
-        encrypted, static_cast<int>(encryptedLength), decrypted, payload + 1);
-    if (decryptedLength <= 0 || static_cast<size_t>(decryptedLength) > encryptedLength) {
+    if (g_aes.set_key(g_aesKey, sizeof(g_aesKey)) != SUCCESS ||
+        g_aes.cbc_decrypt(payload + envelopeHeaderSize, decrypted,
+                          encryptedLength / AppConfig::kAesBlockSize, iv) != SUCCESS) {
         APP_DEBUG_PRINTLN("Decrypt FAILED");
         return false;
     }
-
+    const int decryptedLength = static_cast<int>(encryptedLength);
     const uint8_t padding = decrypted[decryptedLength - 1];
     if (padding == 0 || padding > AppConfig::kAesBlockSize || padding >= decryptedLength) {
         APP_DEBUG_PRINTLN("Invalid padding or empty message body");
@@ -200,4 +156,11 @@ bool decodeEncryptedTelemetryPayload(const uint8_t* payload, size_t payloadLengt
 {
     telemetry = Telemetry_init_zero;
     return decodeEncryptedMessage(payload, payloadLength, Telemetry_fields, &telemetry);
+}
+
+bool decodeEncryptedGatewayDelivery(const uint8_t* payload, size_t payloadLength,
+                                    Gateway_Delivery& proof)
+{
+    proof = Gateway_Delivery_init_zero;
+    return decodeEncryptedMessage(payload, payloadLength, Gateway_Delivery_fields, &proof);
 }

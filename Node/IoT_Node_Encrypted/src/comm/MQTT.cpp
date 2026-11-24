@@ -13,7 +13,7 @@
 #include "../devices/RTC.h"
 #include "../platform/Watchdog.h"
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-#include "../radio/LoraLink.h"
+#include "GatewayDelivery.h"
 #endif
 
 #include <string.h>
@@ -46,7 +46,7 @@ CachedTinyGsmClient gsmClient(modem);
 #include "TelemetryPayload.h"
 #include "MqttTopicRouting.h"
 
-VerifiedBufferedClient<AppConfig::kMqttPacketBufferSize> bufferedClient(gsmClient);
+VerifiedBufferedClient<AppConfig::kMqttPacketBufferSize, APP_ROLE == APP_ROLE_LORA_GATEWAY> bufferedClient(gsmClient);
 PubSubClient   mqtt(bufferedClient);
 
 namespace {
@@ -59,6 +59,51 @@ AsyncPublishResult g_asyncResult = AsyncPublishResult::None;
 bool g_modemOperationActive = false;
 bool g_commandHandledThisPass = false;
 bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t length);
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+template<class T, size_t Count>
+struct Fifo {
+  T entries[Count];
+  size_t head = 0, count = 0;
+  T* front() { return count ? &entries[head] : nullptr; }
+  T* reserve() { return count < Count ? &entries[(head + count) % Count] : nullptr; }
+  void push() { ++count; }
+  void pop() { head = (head + 1) % Count; --count; }
+};
+Fifo<GatewayCommand, 8> g_gatewayCommands{};
+Fifo<Gateway_Delivery, 16> g_gatewayEvents{};
+Fifo<Gateway_Delivery, 12> g_gatewayReceipts{};
+struct SeenCommand { uint64_t fingerprint; uint32_t receivedMs; };
+SeenCommand g_seenCommands[16] = {};
+unsigned g_seenNext = 0;
+bool g_gatewayReady = false;
+void queueGatewayEvent(Gateway_Delivery proof, GatewayDeliveryPhase phase)
+{
+  Gateway_Delivery* entry = g_gatewayEvents.reserve();
+  if (!entry) {
+    APP_LOG_EVENT_WARN("gateway_event_queue_full request=%lu phase=%u",
+        static_cast<unsigned long>(proof.request_id), static_cast<unsigned>(phase));
+    return;
+  }
+  proof.phase = phase;
+  *entry = proof;
+  g_gatewayEvents.push();
+}
+
+bool parseServerReceiptTopic(const char* topic, uint16_t& node)
+{
+  const char* prefix = WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix);
+  const size_t length = strlen(prefix);
+  if (strncmp(topic, prefix, length) || topic[length] != '/') return false;
+  const char* number = topic + length + 1U;
+  if (*number < '1' || *number > '9') return false;
+  char* end = nullptr;
+  const unsigned long id = strtoul(number, &end, 10);
+  if (id > UINT16_MAX || strcmp(end, "/receipt")) return false;
+  node = static_cast<uint16_t>(id);
+  return true;
+}
+#endif
+
 
 /** @brief Print a timed operation only when publish-timing logging is enabled. */
 #if APP_DEBUG_FULL_ENABLED
@@ -346,6 +391,16 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   uint16_t topicNodeId = 0;
+  if (parseServerReceiptTopic(topic, topicNodeId)) {
+    Gateway_Delivery proof = Gateway_Delivery_init_zero;
+    auto* entry = g_gatewayReceipts.reserve();
+    if (entry && decodeEncryptedGatewayDelivery(payload, length, proof) &&
+        proof.phase == ServerPersisted && proof.node_id == topicNodeId) {
+      *entry = proof;
+      g_gatewayReceipts.push();
+    }
+    return;
+  }
   bool isBroadcastTopic = false;
   const bool isNodeTopic = parseGatewayNodeCommandTopic(topic, topicNodeId, isBroadcastTopic);
 #else
@@ -366,37 +421,69 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
     return;
   }
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  Gateway_Delivery proof = Gateway_Delivery_init_zero;
+  proof.node_id = topicNodeId;
+  proof.fingerprint = frameFingerprint(payload, length);
+  proof.wire_bytes = length;
+#if APP_ENABLE_DEBUG
+  APP_LOG_EVENT("command_wire_rx topic=%s bytes=%u fingerprint=%s",
+      topic, length, WiotDebug::Decimal64(proof.fingerprint).text);
+#endif
+#endif
   CMD_Message cmd = CMD_Message_init_zero;
   if (!decodeEncryptedCommandPayload(payload, length, cmd))
   {
     APP_LOG_ERROR("command_decode_failed transport=MQTT bytes=%u", length);
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    queueGatewayEvent(proof, GatewayDecodeFailed);
+#endif
     return;
   }
   APP_LOG_COMMAND_RX("MQTT", cmd, isBroadcastTopic);
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  proof.request_id = cmd.request_id;
   if (!isBroadcastTopic && cmd.node_id != topicNodeId)
   {
-    APP_LOG_EVENT_WARN("command_rejected request=%lu reason=topic_payload_mismatch topic_node=%u payload_node=%lu",
-        static_cast<unsigned long>(cmd.request_id), topicNodeId, static_cast<unsigned long>(cmd.node_id));
-    APP_DEBUG_PRINT(" Gateway rejected CMD: topic node=");
-    APP_DEBUG_PRINT(topicNodeId);
-    APP_DEBUG_PRINT(" payload node=");
-    APP_DEBUG_PRINTLN(cmd.node_id);
+    APP_LOG_EVENT_WARN("command_rejected request=%lu reason=topic_payload_mismatch",
+        static_cast<unsigned long>(cmd.request_id));
+    queueGatewayEvent(proof, GatewayDecodeFailed);
     return;
   }
-
-  const LoraPayloadType loraCommandType =
-      isBroadcastTopic ? LoraPayloadType::BroadcastCommand : LoraPayloadType::Command;
-  if (sendLoraWakeCommand(loraCommandType, payload, length))
-  {
-    APP_LOG_EVENT("command_forwarded request=%lu target=%lu node_execution=unconfirmed",
-        static_cast<unsigned long>(cmd.request_id), static_cast<unsigned long>(cmd.node_id));
+  const uint32_t now = millis();
+  for (const auto& seen : g_seenCommands) {
+    if (seen.fingerprint == proof.fingerprint && now - seen.receivedMs < 120000U) return;
   }
-  else
+  // Match the server's desired-value supersession policy before either value can
+  // leave the queue. A command already on the radio remains an uncertain outcome.
+  if (cmd.cmd_id == CMD_OPEN_CLOSE_NODE || cmd.cmd_id == CMD_SET_SAMPLING_PERIOD ||
+      cmd.cmd_id == CMD_SET_TRANSMISSION_PERIOD || cmd.cmd_id == CMD_SYNC_RTC)
   {
-    APP_LOG_ERROR(" Gateway failed to forward MQTT CMD over LoRa");
+    for (size_t i = 0; i < g_gatewayCommands.count; ++i) {
+      auto& older = g_gatewayCommands.entries[(g_gatewayCommands.head + i) % 8U];
+      if (older.commandId == cmd.cmd_id && older.proof.node_id == topicNodeId &&
+          older.broadcast == isBroadcastTopic) older.superseded = true;
+    }
   }
+  GatewayCommand* entry = g_gatewayCommands.reserve();
+  if (!entry || length > sizeof(entry->payload)) {
+    APP_LOG_ERROR("command_queue_full request=%lu", static_cast<unsigned long>(cmd.request_id));
+    queueGatewayEvent(proof, GatewayQueueFull);
+    return;
+  }
+  entry->proof = proof;
+  entry->broadcast = isBroadcastTopic;
+  entry->receivedMs = now;
+  entry->commandId = cmd.cmd_id;
+  entry->superseded = false;
+  memcpy(entry->payload, payload, length);
+  g_gatewayCommands.push();
+  g_seenCommands[g_seenNext] = {proof.fingerprint, now};
+  g_seenNext = (g_seenNext + 1U) % (sizeof(g_seenCommands) / sizeof(g_seenCommands[0]));
+  queueGatewayEvent(proof, GatewayQueued);
+  APP_LOG_EVENT("command_queued request=%lu target=%u", static_cast<unsigned long>(cmd.request_id),
+      static_cast<unsigned>(topicNodeId));
   return;
 #else
   if (!isBroadcastTopic && cmd.node_id != AppConfig::kNodeId)
@@ -463,8 +550,15 @@ bool ensureMqttConnection()
   serviceHardwareWatchdog();
   if (alreadyConnected)
   {
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    return g_gatewayReady;
+#else
     return true;
+#endif
   }
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  g_gatewayReady = false;
+#endif
 
   const uint32_t now = millis();
   if (now - g_lastReconnectAttemptMs < AppConfig::kMqttReconnectIntervalMs)
@@ -570,14 +664,25 @@ bool ensureMqttConnection()
 #else
   const char* const commandTopic = WIOT_ACTIVE_TOPIC(kMqttCommandTopic, command);
 #endif
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  char receiptTopic[160];
+  const int written = snprintf(receiptTopic, sizeof(receiptTopic), "%s/+/receipt",
+      WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix));
+  const bool valid = written > 0 && static_cast<size_t>(written) < sizeof(receiptTopic);
+  const bool subscriptionsSent = valid && mqtt.subscribe(commandTopic, 1) &&
+      bufferedClient.finishPacket() &&
+      mqtt.subscribe(WIOT_ACTIVE_TOPIC(kMqttBroadcastTopic, broadcast), 1) &&
+      bufferedClient.finishPacket() &&
+      mqtt.subscribe(receiptTopic, 1) && bufferedClient.finishPacket();
+#else
   const bool nodeSubscribed = mqtt.subscribe(commandTopic);
   const bool nodeFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
   const bool broadcastSubscribed = mqtt.subscribe(WIOT_ACTIVE_TOPIC(kMqttBroadcastTopic, broadcast));
   const bool broadcastFlushed = bufferedClient.finishPacket();
   serviceHardwareWatchdog();
-  const bool subscriptionsSent = nodeSubscribed && nodeFlushed &&
-      broadcastSubscribed && broadcastFlushed;
+  const bool subscriptionsSent = nodeSubscribed && nodeFlushed && broadcastSubscribed && broadcastFlushed;
+#endif
   if (!subscriptionsSent)
   {
     APP_LOG_ERROR("ERROR: command SUBSCRIBE send failed; reconnecting next pass");
@@ -594,8 +699,12 @@ bool ensureMqttConnection()
     APP_DEBUG_PRINTLN(WIOT_ACTIVE_TOPIC(kMqttBroadcastTopic, broadcast));
   }
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  return false; // mqttLoop marks ready after all three matching SUBACKs.
+#else
   ++g_connectionGeneration;
   return true;
+#endif
 }
 
 uint32_t mqttConnectionGeneration()
@@ -611,6 +720,17 @@ void mqttLoop()
   g_modemOperationActive = true;
   serviceHardwareWatchdog(WatchdogStage::MqttService);
   mqtt.loop();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  if (bufferedClient.receiveFailed()) {
+    APP_LOG_ERROR("mqtt_receive_fault session_closed=1");
+    mqtt.disconnect();
+    g_gatewayReady = false;
+  } else if (!g_gatewayReady && mqtt.state() == 0 && bufferedClient.subscriptionsReady()) {
+    g_gatewayReady = true;
+    ++g_connectionGeneration;
+    APP_LOG_EVENT("mqtt_subscriptions_ready qos=1");
+  }
+#endif
   // Flushes any PINGREQ that mqtt.loop() may have emitted, so it leaves
   // in a single AT+CIPSEND instead of sitting in the buffer until the next
   // publish/subscribe call.
@@ -766,5 +886,50 @@ void serviceMqttPriorityCommands()
 
 bool mqttCommandWorkPending()
 {
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  return g_gatewayCommands.front() != nullptr;
+#else
   return g_commandHandledThisPass || g_publishQueue.hasReplies();
+#endif
 }
+
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+const GatewayCommand* gatewayPendingCommand() { return g_gatewayCommands.front(); }
+
+void completeGatewayCommand(GatewayDeliveryPhase phase)
+{
+  if (auto* entry = g_gatewayCommands.front()) {
+    queueGatewayEvent(entry->proof, phase);
+    APP_LOG_EVENT("command_dispatch request=%lu target=%lu phase=%u",
+        static_cast<unsigned long>(entry->proof.request_id), static_cast<unsigned long>(entry->proof.node_id),
+        static_cast<unsigned>(phase));
+    g_gatewayCommands.pop();
+  }
+}
+
+bool takeGatewayReceipt(Gateway_Delivery& proof)
+{
+  auto* entry = g_gatewayReceipts.front();
+  if (!entry) return false;
+  proof = *entry;
+  g_gatewayReceipts.pop();
+  return true;
+}
+
+void reportGatewayReply(const Gateway_Delivery& proof) { queueGatewayEvent(proof, GatewayReplyQueued); }
+
+void serviceGatewayDeliveryEvents()
+{
+  auto* entry = g_gatewayEvents.front();
+  if (!entry || !g_gatewayReady) return;
+  char topic[160];
+  const int written = snprintf(topic, sizeof(topic), "%s/gateway/%u/event",
+      WIOT_ACTIVE_TOPIC(kMqttCompanyTopicPrefix, prefix),
+      static_cast<unsigned>(WIOT_ACTIVE_VALUE(APP_GATEWAY_ID, gatewayId)));
+  uint8_t packet[65];
+  size_t length = 0;
+  if (written > 0 && static_cast<size_t>(written) < sizeof(topic) &&
+      encodeEncryptedMessage(Gateway_Delivery_fields, entry, packet, sizeof(packet), length) &&
+      publishMqttPayload(topic, packet, length)) g_gatewayEvents.pop();
+}
+#endif

@@ -26,6 +26,14 @@ typedef struct _Gateway_Status {
     bool lora_aux_high;
 } Gateway_Status;
 
+typedef struct _Gateway_Delivery {
+    uint32_t node_id;
+    uint32_t request_id;
+    uint64_t fingerprint;
+    uint32_t wire_bytes;
+    uint32_t phase;
+} Gateway_Delivery;
+
 typedef struct _FlashLogInfo {
     uint32_t state;
     uint32_t jedec_id;
@@ -193,6 +201,7 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define Gateway_Status_init_default              {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Gateway_Delivery_init_default            {0, 0, 0, 0, 0}
 #define FlashLogInfo_init_default                {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define HistoryInfo_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_default                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -200,6 +209,7 @@ extern "C" {
 #define CMD_Message_init_default                 {0, 0, 0, 0}
 #define Telemetry_init_default                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlowReading_init_default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, FlashLogInfo_init_default, false, HistoryInfo_init_default, 0, 0, 0, 0}
 #define Gateway_Status_init_zero                 {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define Gateway_Delivery_init_zero               {0, 0, 0, 0, 0}
 #define FlashLogInfo_init_zero                   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define HistoryInfo_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define FlowReading_init_zero                    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -221,6 +231,11 @@ extern "C" {
 #define Gateway_Status_wdt_reset_count_tag       11
 #define Gateway_Status_power_reset_count_tag     12
 #define Gateway_Status_lora_aux_high_tag         13
+#define Gateway_Delivery_node_id_tag             1
+#define Gateway_Delivery_request_id_tag          2
+#define Gateway_Delivery_fingerprint_tag         3
+#define Gateway_Delivery_wire_bytes_tag          4
+#define Gateway_Delivery_phase_tag               5
 #define FlashLogInfo_state_tag                   1
 #define FlashLogInfo_jedec_id_tag                2
 #define FlashLogInfo_capacity_bytes_tag          3
@@ -377,6 +392,15 @@ X(a, STATIC,   SINGULAR, UINT32,   power_reset_count,  12) \
 X(a, STATIC,   SINGULAR, BOOL,     lora_aux_high,    13)
 #define Gateway_Status_CALLBACK NULL
 #define Gateway_Status_DEFAULT NULL
+
+#define Gateway_Delivery_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   node_id,           1) \
+X(a, STATIC,   SINGULAR, UINT32,   request_id,        2) \
+X(a, STATIC,   SINGULAR, FIXED64,  fingerprint,       3) \
+X(a, STATIC,   SINGULAR, UINT32,   wire_bytes,        4) \
+X(a, STATIC,   SINGULAR, UINT32,   phase,             5)
+#define Gateway_Delivery_CALLBACK NULL
+#define Gateway_Delivery_DEFAULT NULL
 
 #define FlashLogInfo_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   state,             1) \
@@ -545,6 +569,7 @@ X(a, STATIC,   SINGULAR, BOOL,     live_fallback,    51)
 #define Telemetry_history_MSGTYPE HistoryInfo
 
 extern const pb_msgdesc_t Gateway_Status_msg;
+extern const pb_msgdesc_t Gateway_Delivery_msg;
 extern const pb_msgdesc_t FlashLogInfo_msg;
 extern const pb_msgdesc_t HistoryInfo_msg;
 extern const pb_msgdesc_t FlowReading_msg;
@@ -554,6 +579,7 @@ extern const pb_msgdesc_t Telemetry_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define Gateway_Status_fields &Gateway_Status_msg
+#define Gateway_Delivery_fields &Gateway_Delivery_msg
 #define FlashLogInfo_fields &FlashLogInfo_msg
 #define HistoryInfo_fields &HistoryInfo_msg
 #define FlowReading_fields &FlowReading_msg
@@ -565,6 +591,7 @@ extern const pb_msgdesc_t Telemetry_msg;
 #define CMD_Message_size                         29
 #define FlashLogInfo_size                        96
 #define FlowReading_size                         91
+#define Gateway_Delivery_size                    33
 #define Gateway_Status_size                      80
 #define HistoryInfo_size                         56
 #define SENSOR_PB_H_MAX_SIZE                     Telemetry_size

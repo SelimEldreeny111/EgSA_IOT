@@ -76,6 +76,15 @@ class CommandQueue:
             db.execute('CREATE INDEX IF NOT EXISTS command_region_scope ON pending_commands(company,region,node_id,state)')
             if 'mqtt_mid' not in {r['name'] for r in db.execute('PRAGMA table_info(command_attempts)')}:
                 db.execute('ALTER TABLE command_attempts ADD COLUMN mqtt_mid INTEGER')
+            attempt_columns = {r['name'] for r in db.execute('PRAGMA table_info(command_attempts)')}
+            if 'fingerprint' not in attempt_columns:
+                db.execute('ALTER TABLE command_attempts ADD COLUMN fingerprint TEXT')
+                db.execute('ALTER TABLE command_attempts ADD COLUMN wire_bytes INTEGER')
+            db.execute('CREATE INDEX IF NOT EXISTS command_attempt_fingerprint ON command_attempts(fingerprint,wire_bytes)')
+            db.execute('''CREATE TABLE IF NOT EXISTS command_gateway_progress (
+                request_id INTEGER NOT NULL, attempt INTEGER NOT NULL, phase INTEGER NOT NULL,
+                PRIMARY KEY(request_id,attempt,phase)
+            )''')
             if 'automatic' not in {r['name'] for r in db.execute('PRAGMA table_info(pending_commands)')}:
                 db.execute('ALTER TABLE pending_commands ADD COLUMN automatic INTEGER NOT NULL DEFAULT 0')
         if legacy_path and Path(legacy_path).is_file():
@@ -316,6 +325,49 @@ class CommandQueue:
             return db.execute('UPDATE command_attempts SET mqtt_mid=? WHERE request_id=? AND attempt=?',
                               (mid, request_id, attempt)).rowcount == 1
 
+    def record_transport_frame(self, request_id, attempt, fingerprint, wire_bytes):
+        with self._db() as db:
+            cursor = db.execute('''UPDATE command_attempts SET fingerprint=?,wire_bytes=?
+                WHERE request_id=? AND attempt=?''', (str(fingerprint), wire_bytes, request_id, attempt))
+            if cursor.rowcount != 1:
+                raise RuntimeError('Missing command attempt for wire audit')
+
+    def record_gateway_progress(self, company, region, gateway, proof, now=None):
+        """Match the precise attempt by encrypted bytes and limit stage extensions to its TTL."""
+        stages = {1: 'gateway_queued', 2: 'radio_dispatched', 3: 'gateway_decode_failed',
+                  4: 'gateway_queue_full', 5: 'radio_dispatch_failed', 7: 'gateway_queue_expired', 8: 'gateway_superseded', 9: 'gateway_reply_queued'}
+        stage = stages.get(proof.phase)
+        if stage is None:
+            return False
+        now = int(time.time() if now is None else now)
+        with self._db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('''SELECT p.*, a.attempt AS matched_attempt FROM command_attempts a
+                JOIN pending_commands p USING(request_id)
+                WHERE a.fingerprint=? AND a.wire_bytes=? AND p.company=? AND p.region=?
+                AND (p.node_id=? OR (p.broadcast=1 AND ?=0))
+                AND (?=0 OR p.request_id=?)''',
+                (str(proof.fingerprint), proof.wire_bytes, company, region, proof.node_id,
+                 proof.node_id, proof.request_id, proof.request_id)).fetchone()
+            if row is None:
+                return False
+            inserted = db.execute('INSERT OR IGNORE INTO command_gateway_progress VALUES(?,?,?)',
+                                  (row['request_id'], row['matched_attempt'], proof.phase))
+            if not inserted.rowcount:
+                return False
+            self._event(db, row['request_id'], stage, now,
+                        f'gateway={gateway} attempt={row["matched_attempt"]}')
+            if row['state'] == 'dispatched' and row['matched_attempt'] == row['attempts']:
+                if proof.phase in (1, 2, 9):
+                    deadline = min(row['expires_at'], now + (60 if proof.phase == 1 else 120))
+                    db.execute('''UPDATE pending_commands SET ack_deadline=MAX(COALESCE(ack_deadline,0),?),
+                        next_attempt_at=MAX(next_attempt_at,?), reason=? WHERE request_id=?''',
+                        (deadline, deadline, stage, row['request_id']))
+                else:
+                    db.execute('UPDATE pending_commands SET reason=? WHERE request_id=?',
+                               (stage, row['request_id']))
+            return True
+
     def publish_failed(self, request_id, attempt, reason, now=None):
         """A failed transport call may have queued/sent data; never say not executed."""
         now = int(time.time() if now is None else now)
@@ -380,4 +432,7 @@ class CommandQueue:
             scope = " AND node_id=?" if node_id is not None else ""
             params = [company, region_id(region)] + ([node_id] if node_id is not None else []) + [limit]
             return [dict(r) for r in db.execute(
-                "SELECT * FROM pending_commands WHERE company=? AND region=?" + scope + " ORDER BY id DESC LIMIT ?", params)]
+                '''SELECT p.*, (SELECT phase FROM command_gateway_progress g
+                       WHERE g.request_id=p.request_id AND g.attempt=p.attempts ORDER BY g.rowid DESC LIMIT 1) AS gateway_phase
+                   FROM pending_commands p WHERE company=? AND region=?''' + scope +
+                ' ORDER BY id DESC LIMIT ?', params)]

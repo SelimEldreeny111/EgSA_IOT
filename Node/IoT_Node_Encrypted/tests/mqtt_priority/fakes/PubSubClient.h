@@ -14,10 +14,17 @@ public:
     bool connect(const char*) { state_=client_->connect("test",1883)?0:-2; return state_==0; }
     bool connected() { return state_==0 && client_->connected(); }
     int state() const { return state_; }
-    bool subscribe(const char* topic) {
+    bool subscribe(const char* topic, uint8_t qos=0) {
         subscribedTopics.emplace_back(topic);
+        if (failSubscribe || failSubscriptionTopic == topic) return false;
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+        const uint8_t packet[] = {0x82, 5, 0, ++mid_, 0, 0, qos};
+        return client_->write(packet, sizeof(packet)) == sizeof(packet);
+#else
+        (void)qos;
         const uint8_t b=0x82;
-        return !failSubscribe && failSubscriptionTopic != topic && client_->write(&b,1)==1;
+        return client_->write(&b,1)==1;
+#endif
     }
     void disconnect() { state_=-1; client_->stop(); }
     bool publish(const char* topic,const uint8_t* payload,size_t size) {
@@ -36,6 +43,10 @@ public:
     int loopCalls=0;
     void loop() {
         ++loopCalls;
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+        const int count = client_->available();
+        for (int i=0; i<count; ++i) client_->read();
+#endif
         if(!connected() || incoming.empty()) return;
         Incoming next=incoming.front(); incoming.pop_front();
         inCallback=true;
@@ -44,6 +55,7 @@ public:
     }
 private:
     Client* client_;
+    uint8_t mid_ = 0;
     int state_=-1;
     void (*callback)(char*,byte*,unsigned)=nullptr;
 };

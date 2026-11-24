@@ -761,13 +761,16 @@ async function refreshCommandTimeline() {
         // Company can change while a request is in flight.
         if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
         if (!response.ok || !result.success) throw new Error(result.error || 'Timeline unavailable');
+        const gatewayStages = {1: 'Gateway queued', 2: 'Transmitted by gateway',
+            3: 'Gateway could not decode', 4: 'Gateway queue full',
+            5: 'Radio send failed', 7: 'Gateway queue expired', 8: 'Replaced before radio transmission', 9: 'Node replied to gateway'};
         body.innerHTML = result.commands.map(item => safeHtml`<tr>
             <td>${item.request_id}<br>${new Date(item.created_at * 1000).toLocaleString()}</td>
             <td>${item.broadcast ? 'Broadcast (individual receipts)' : item.node_id}</td>
             <td>${item.cmd_type} = ${item.cmd_data}<br>${item.actor}</td>
             <td>${commandStateLabels[item.state] || item.state}${item.outcome_uncertain ? ' — execution uncertain' : ''}</td>
             <td>${item.broker_confirmed_at ? new Date(item.broker_confirmed_at * 1000).toLocaleString() : 'Not confirmed'}</td>
-            <td>${item.attempts}<br>${item.reason}</td></tr>`).join('');
+            <td>${item.attempts}<br>${gatewayStages[item.gateway_phase] || ''}<br>${item.reason}</td></tr>`).join('');
         status.textContent = 'Execution is confirmed only by a matching node reply; unknown is not failure or success.';
     } catch (error) {
         if (company === getSelectedCompany() && region === getSelectedRegion()) {

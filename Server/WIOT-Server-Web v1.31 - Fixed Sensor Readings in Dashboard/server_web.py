@@ -279,7 +279,13 @@ def publish_command_intent(item, journal):
             socketio.emit('command_event', {'company': company, 'request_id': request_id}, room=GLOBAL_ROOM)
 
     try:
-        frame = mqtt_client.publish_plaintext(topic, msg.SerializeToString(), on_complete=broker_confirmed)
+        def record_frame(frame):
+            journal.record_transport_frame(request_id, attempt, frame['fingerprint'], frame['frame_len'])
+            log_event(f"[CMD WIRE] request={request_id} attempt={attempt} topic={topic} "
+                      f"bytes={frame['frame_len']} fingerprint={frame['fingerprint']}", company=company)
+
+        frame = mqtt_client.publish_plaintext(topic, msg.SerializeToString(), on_complete=broker_confirmed,
+                                              before_publish=record_frame)
         if frame and frame.get('mqtt_mid') is not None:
             journal.record_transport_mid(request_id, attempt, frame['mqtt_mid'])
         log_event(f"[CMD] Submitted {item['cmd_type']} request={request_id} attempt={attempt}; awaiting node ACK",
@@ -945,7 +951,7 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
                  active_sensors=1, sensor_mask=1, battery_voltage=None,
                  flow_metadata=None, measured_at=None, time_source="server_received",
                  sample_fingerprint=None, period_rows=None, secondary_flow=None,
-                 power_info=None, region=DEFAULT_REGION, operations_digest=None, operations_fallback=False):
+                 power_info=None, region=DEFAULT_REGION, operations_digest=None, operations_fallback=False, reply_frame=None):
     conn = None
     try:
         region_id(region)
@@ -960,6 +966,18 @@ def save_message(t, m_type, n_id, s_id, flow, vel, fday, fmonth, fyear, det, com
         measured_epoch = normalize_db_timestamp(
             measured_at if measured_at is not None else epoch_ts
         )
+        if reply_frame is not None:
+            c.execute('''CREATE TABLE IF NOT EXISTS received_reply_frames (
+                region TEXT NOT NULL, node INTEGER NOT NULL, fingerprint TEXT NOT NULL,
+                wire_bytes INTEGER NOT NULL, received_at INTEGER NOT NULL,
+                PRIMARY KEY(region,node,fingerprint,wire_bytes))''')
+            c.execute('CREATE INDEX IF NOT EXISTS reply_frame_expiry ON received_reply_frames(received_at)')
+            c.execute('DELETE FROM received_reply_frames WHERE received_at<?', (epoch_ts - 86400,))
+            received = c.execute('INSERT OR IGNORE INTO received_reply_frames VALUES (?,?,?,?,?)',
+                                 (region, n_id, str(reply_frame[0]), reply_frame[1], epoch_ts))
+            if not received.rowcount:
+                conn.commit()
+                return 'duplicate'
         c.execute('''INSERT INTO messages 
                       (timestamp, type, node_id, sensor_id, flow, velocity, flow_day, flow_month, flow_year, details, company, node_status,
                        soil_temperature, soil_moisture, soil_moisture_temp_valid,
@@ -1091,7 +1109,18 @@ def on_mqtt_status(msg: str):
         elif 'Disconnected' in msg or 'Disconnected rc' in msg:
             socketio.emit('broker_status', {'connected': False, 'status': 'Disconnected'})
 
-def on_mqtt_plaintext(topic: str, plaintext: bytes):
+def confirm_gateway_uplink(company, region, msg, fingerprint, wire_bytes):
+    if fingerprint is None or not (msg.command_ack_request_id or msg.HasField('history')):
+        return
+    if mqtt_client is not None and mqtt_client.is_connected():
+        proof = messages_pb2.Gateway_Delivery(node_id=msg.node_id, request_id=(
+            msg.command_ack_request_id or msg.history.request_id), fingerprint=fingerprint,
+            wire_bytes=wire_bytes, phase=6)
+        mqtt_client.publish_plaintext(f'wiot/{company}/{region}/{msg.node_id}/receipt',
+                                      proof.SerializeToString())
+
+
+def on_mqtt_plaintext(topic: str, plaintext: bytes, fingerprint=None, wire_bytes=0):
     """Handle successfully decrypted MQTT messages."""
     try:
         company, region, topic_node_id, topic_kind = parse_topic(topic)
@@ -1123,6 +1152,16 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             gateway_status_store().accept(company, region, topic_node_id, msg)
             log_event(f'[GATEWAY] {company}/{region}/{msg.gateway_id} heartbeat '
                       f'sequence={msg.heartbeat_sequence} uptime_s={msg.uptime_seconds}', company=company)
+        elif topic_kind == 'gateway_event':
+            proof = messages_pb2.Gateway_Delivery.FromString(plaintext)
+            integer(proof.node_id, 0, 65535, 'Gateway event node ID')
+            integer(proof.wire_bytes, 1, 1024, 'Gateway event wire size')
+            matched = command_mailbox().record_gateway_progress(company, region, topic_node_id, proof)
+            log_event(f"[GATEWAY DELIVERY] {company}/{region}/{topic_node_id} phase={proof.phase} "
+                      f"target={proof.node_id} request={proof.request_id} bytes={proof.wire_bytes} "
+                      f"fingerprint={proof.fingerprint} matched={matched}", company=company)
+            if matched:
+                socketio.emit('command_event', {'company': company, 'request_id': proof.request_id}, room=company)
         elif topic_kind == 'status':
             log_event(f"[PLAINTEXT] Parsing as Status_Message...")
             msg = messages_pb2.Status_Message()
@@ -1182,6 +1221,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
             logging.info(f"[PLAINTEXT] Parsed Telemetry: node_id={msg.node_id} sensor_id={msg.sensor_id}")
             if msg.HasField('flash_log') or msg.HasField('history'):
                 accept_flash_reply(company, region, topic_node_id, msg)
+                confirm_gateway_uplink(company, region, msg, fingerprint, wire_bytes)
                 return
 
             
@@ -1200,12 +1240,6 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                        f"meter:{flow_metadata['flow_meter_name']} "
                        f"period:{flow_metadata['flow_period_source_name']}")
             if msg.command_ack_request_id:
-                if command_mailbox().acknowledge(
-                        company, msg.node_id, msg.command_ack_request_id,
-                        msg.command_ack_cmd_id, success=msg.command_ack_success, region=region):
-                    log_event(f"[QUEUE {'ACK' if msg.command_ack_success else 'REJECTED'}] "
-                              f"{company}/{region}/{msg.node_id} "
-                              f"request={msg.command_ack_request_id} cmd={msg.command_ack_cmd_id}")
                 details += (f" CMD_{'ACK' if msg.command_ack_success else 'REJECTED'} "
                             f"request={msg.command_ack_request_id} "
                             f"cmd={msg.command_ack_cmd_id}")
@@ -1229,7 +1263,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                               f"request={power_info['wake_request_id']} ACTIVE "
                               f"remaining={power_info['wake_remaining_seconds']}s")
             log_event(f"[PLAINTEXT] Saving Telemetry message - node={msg.node_id}, details={details}")
-            save_message(timestamp_epoch, "Telemetry", msg.node_id, msg.sensor_id, msg.flow_rate, msg.velocity,
+            saved = save_message(timestamp_epoch, "Telemetry", msg.node_id, msg.sensor_id, msg.flow_rate, msg.velocity,
                          msg.flow_rate_per_day, msg.flow_rate_per_month, msg.flow_rate_per_year, details, company, msg.node_status,
                          msg.soil_temperature, msg.soil_moisture, msg.soil_moisture_temp_valid,
                          msg.ec_temperature, msg.ec_moisture, msg.electrical_conductivity, msg.soil_moisture_temp_ec_valid,
@@ -1239,7 +1273,21 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes):
                          sample_fingerprint=sample_fingerprint,
                          period_rows=period_rows,
                          secondary_flow=secondary_flow,
-                         power_info=power_info, region=region, operations_fallback=msg.live_fallback)
+                         power_info=power_info, region=region, operations_fallback=msg.live_fallback,
+                         reply_frame=(fingerprint, wire_bytes) if fingerprint is not None and
+                             msg.command_ack_request_id else None)
+            if saved is False:
+                return
+            if msg.command_ack_request_id:
+                if command_mailbox().acknowledge(
+                        company, msg.node_id, msg.command_ack_request_id,
+                        msg.command_ack_cmd_id, success=msg.command_ack_success, region=region):
+                    log_event(f"[QUEUE {'ACK' if msg.command_ack_success else 'REJECTED'}] "
+                              f"{company}/{region}/{msg.node_id} "
+                              f"request={msg.command_ack_request_id} cmd={msg.command_ack_cmd_id}")
+                confirm_gateway_uplink(company, region, msg, fingerprint, wire_bytes)
+            if saved == 'duplicate':
+                return
             
             payload = {
                 "Time": t, "Epoch": timestamp_epoch, "Type": "Telemetry", "Node ID": msg.node_id, "Sensor ID": msg.sensor_id,
@@ -1639,7 +1687,7 @@ def api_connect():
     try:
         candidate = MqttNodeClient(
             broker_host=broker, broker_port=port, aes_key_16=aes_key,
-            client_id=client_id, subscribe_topics=topics, on_plaintext=on_mqtt_plaintext,
+            client_id=client_id, subscribe_topics=topics, on_wire_plaintext=on_mqtt_plaintext,
             on_status=on_mqtt_status, use_tls=use_tls,
             ca_file=os.getenv('WIOT_MQTT_CA_FILE') or None,
             username=username, password=password,

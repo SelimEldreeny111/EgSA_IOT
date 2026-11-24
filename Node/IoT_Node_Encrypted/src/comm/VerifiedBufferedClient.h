@@ -7,8 +7,9 @@
 #include <Arduino.h>
 #include <Client.h>
 #include <cstring>
+#include "GatewayMqttReceive.h"
 
-template<size_t Capacity>
+template<size_t Capacity, bool GuardReceive = false>
 class VerifiedBufferedClient : public Client {
 public:
     explicit VerifiedBufferedClient(Client& wrapped) : wrapped_(wrapped) {}
@@ -32,12 +33,28 @@ public:
     }
     void flush() override { (void)finishPacket(); }
     bool writeFailed() const { return failed_; }
-    int available() override { return flushBuffer() ? wrapped_.available() : 0; }
-    int read() override { return flushBuffer() ? wrapped_.read() : -1; }
-    int read(uint8_t* bytes, size_t size) override {
-        return flushBuffer() ? wrapped_.read(bytes, size) : -1;
+    bool receiveFailed() const { return GuardReceive && receive_.failed(); }
+    bool subscriptionsReady() const { return !GuardReceive || receive_.ready(); }
+    int available() override {
+        if (!flushBuffer()) return 0;
+        return GuardReceive ? receive_.available(wrapped_) : wrapped_.available();
     }
-    int peek() override { return flushBuffer() ? wrapped_.peek() : -1; }
+    int read() override {
+        if (!flushBuffer()) return -1;
+        return GuardReceive ? receive_.read(wrapped_, true) : wrapped_.read();
+    }
+    int read(uint8_t* bytes, size_t size) override {
+        if (!flushBuffer()) return -1;
+        if (!GuardReceive) return wrapped_.read(bytes, size);
+        size_t count = 0;
+        const size_t ready = static_cast<size_t>(receive_.available(wrapped_));
+        while (count < size && count < ready) bytes[count++] = receive_.read(wrapped_, true);
+        return count ? static_cast<int>(count) : -1;
+    }
+    int peek() override {
+        if (!flushBuffer()) return -1;
+        return GuardReceive ? receive_.read(wrapped_, false) : wrapped_.peek();
+    }
     uint8_t connected() override { return failed_ ? 0U : wrapped_.connected(); }
     operator bool() override { return !failed_ && static_cast<bool>(wrapped_); }
     int connect(IPAddress ip, uint16_t port) override {
@@ -58,12 +75,14 @@ private:
         const size_t expected = length_;
         length_ = 0U;
         failed_ = wrapped_.write(buffer_, expected) != expected;
+        if (GuardReceive && !failed_) receive_.transmitted(buffer_, expected);
         return !failed_;
     }
-    void reset() { length_ = 0U; failed_ = false; }
+    void reset() { length_ = 0U; failed_ = false; if (GuardReceive) receive_ = {}; }
     Client& wrapped_;
     uint8_t buffer_[Capacity];
     size_t length_ = 0U;
     bool failed_ = false;
+    GatewayMqttReceive<GuardReceive ? Capacity : 1> receive_{};
 };
 #endif

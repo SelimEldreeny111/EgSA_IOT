@@ -20,21 +20,32 @@ void reassemble(size_t length,bool corrupt=false){
     for(size_t i=0;i<length;++i)original[i]=uint8_t(i*37);
     const uint16_t crc=crc16Ccitt(original.data(),length);
     const uint8_t count=uint8_t((length+26)/27);
-    LoraFrame result={};bool complete=false;
+    LoraFrame last={};
     for(uint8_t i=0;i<count;++i){
         LoraFrame fragment={};fragment.sourceNodeId=2;fragment.type=LoraPayloadType::TransportFragment;
         const size_t offset=size_t(i)*27,chunk=std::min(size_t(27),length-offset);
         fragment.payload[0]=uint8_t(LoraPayloadType::SystemTelemetry);
-        fragment.payload[1]=0;fragment.payload[2]=1;fragment.payload[3]=i;fragment.payload[4]=count;
+        static uint8_t nextId=1;
+        fragment.payload[1]=0;fragment.payload[2]=nextId;fragment.payload[3]=i;fragment.payload[4]=count;
         fragment.payload[5]=uint8_t(length>>8);fragment.payload[6]=uint8_t(length);
         fragment.payload[7]=uint8_t(crc>>8);fragment.payload[8]=uint8_t(crc);
         memcpy(fragment.payload+9,original.data()+offset,chunk);fragment.payloadLength=9+chunk;
+        last=fragment;
         if(corrupt&&i==count-1)fragment.payload[9]^=1;
-        complete=handleFragmentFrame(fragment,result);
-        if(i+1<count){assert(!complete);assert(!handleFragmentFrame(fragment,result));} // duplicate is harmless
+        const auto prior=g_fragmentAcksTx;
+        processWireFrame(fragment);
+        assert(g_fragmentAcksTx-prior == ((corrupt && i==count-1) ? 0U : 1U));
+        if(i+1<count) { processWireFrame(fragment); assert(g_pendingCount==0); }
+        else ++nextId;
     }
-    assert(complete==!corrupt);
-    if(complete){assert(result.payloadLength==length);assert(!memcmp(result.payload,original.data(),length));}
+    LoraFrame result={};
+    assert(dequeuePendingFrame(result)==!corrupt);
+    if(!corrupt){
+        assert(result.payloadLength==length && !memcmp(result.payload,original.data(),length));
+        const auto prior=g_fragmentAcksTx;
+        processWireFrame(last); // Lost final transport ACK, same LoRa message.
+        assert(g_fragmentAcksTx==prior+1U && !dequeuePendingFrame(result));
+    }
 }
 int main(){
     reassemble(433); // 17 fragments: first size that broke the old uint16 mask

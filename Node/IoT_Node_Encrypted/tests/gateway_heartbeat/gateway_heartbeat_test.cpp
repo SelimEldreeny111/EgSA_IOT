@@ -1,6 +1,8 @@
 #include "../../src/app/GatewayApp.h"
 #include "../../src/comm/ReplyDiagnostics.h"
+#include "../../src/comm/GatewayDelivery.h"
 #include "../../src/radio/LoraLink.h"
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <string>
@@ -16,6 +18,11 @@ LoraPayloadType nodeFrameType = LoraPayloadType::StatusTelemetry;
 uint8_t nodePayload = 0;
 uint8_t lastForwardedByte = 0;
 unsigned decodeCalls = 0;
+Gateway_Delivery receipt{};
+unsigned radioSends = 0;
+std::vector<uint16_t> grants;
+GatewayCommand command{};
+bool commandPending = false;
 uint32_t connection = 1;
 std::vector<Gateway_Status> snapshots;
 std::vector<std::string> topics;
@@ -31,6 +38,25 @@ bool ensureMqttConnection() { return connected; }
 void mqttLoop() {}
 void asyncPublishStep() {}
 bool mqttCommandWorkPending() { return commandBusy; }
+const GatewayCommand* gatewayPendingCommand() { return commandPending ? &command : nullptr; }
+void completeGatewayCommand(GatewayDeliveryPhase) { commandPending = false; }
+bool takeGatewayReceipt(Gateway_Delivery& proof) {
+    if (!receipt.request_id) return false;
+    proof = receipt;
+    receipt.request_id = 0;
+    return true;
+}
+void serviceGatewayDeliveryEvents() {}
+void reportGatewayReply(const Gateway_Delivery&) {}
+bool loraCanStartTransmission() { return !radioBusy; }
+bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* data, size_t size) {
+    ++radioSends;
+    if (type == LoraPayloadType::UplinkGrant) {
+        assert(size == 2);
+        grants.push_back(uint16_t((data[0] << 8) | data[1]));
+    }
+    return true;
+}
 bool isAsyncPublishBusy() { return publishBusy; }
 uint32_t mqttConnectionGeneration() { return connection; }
 bool publishMqttPayload(const char* topic, const uint8_t* payload, size_t length) {
@@ -88,6 +114,29 @@ void printLoraDiagnostics() {}
 void printLoraFrameSummary(const LoraFrame&, const char*) {}
 
 int main() {
+#if APP_LORA_COORDINATED
+    testTick = 2000;
+    gatewayLoop();
+    assert((grants == std::vector<uint16_t>{1}));
+    command.proof.node_id = 3; command.proof.request_id = 60; command.receivedMs = testTick;
+    commandPending = true;
+    gatewayLoop();
+    assert(commandPending && radioSends == 1); // Node 1 owns the channel.
+    testTick += 5000;
+    gatewayLoop();
+    assert(!commandPending && radioSends == 2); // Command wins at the window boundary.
+    testTick += 5000;
+    gatewayLoop();
+    assert((grants == std::vector<uint16_t>{1,2}));
+    testTick += 5000;
+    gatewayLoop();
+    assert((grants == std::vector<uint16_t>{1,2,3}));
+    testTick += 5000;
+    gatewayLoop();
+    assert(grants.size() == 3); // Per-node pacing keeps WOR from continuous wake probes.
+    std::cout << "PASS coordinated gateway grants, command priority and per-node pacing\n";
+    return 0;
+#endif
     gatewayLoop();
 #if APP_ENABLE_GATEWAY_HEARTBEAT
     assert(snapshots.size() == 1 && !snapshots.back().has_node_uplink);
@@ -139,7 +188,8 @@ int main() {
     sendOk = true;
     testTick += 60000;
     gatewayLoop();
-    assert(snapshots.back().received_node_frames == 2 && snapshots.back().forwarded_node_frames == 1);
+    gatewayLoop(); // Status resends before the heartbeat reports its new counters.
+    assert(snapshots.back().received_node_frames == 2 && snapshots.back().forwarded_node_frames == 2);
     assert(snapshots.back().forward_failures == 1);
     testTick = 0xFFFFFF00U;
     gatewayLoop();
@@ -155,11 +205,20 @@ int main() {
     const unsigned beforeData = decodeCalls;
     nodeFrameType = LoraPayloadType::SystemTelemetry;
     for (nodePayload = 0; nodePayload <= 5; ++nodePayload) {
+        testTick += 3000;
         SerialMon.text.clear();
         nodePending = true;
         gatewayLoop();
-        assert(topics.back() == "wiot/Company_1/Region_1/3/data");
-        assert(lastForwardedByte == nodePayload);
+        if (nodePayload != 1 && nodePayload != 2) {
+            assert(topics.back() == "wiot/Company_1/Region_1/3/data");
+            assert(lastForwardedByte == nodePayload);
+            if (nodePayload >= 3) {
+                receipt.request_id = nodePayload == 5 ? 42 : 4294967294UL;
+                receipt.node_id = 3;
+                receipt.wire_bytes = 1;
+                receipt.fingerprint = frameFingerprint(&nodePayload, 1);
+            }
+        }
 #if APP_ENABLE_DEBUG
         const auto& log = SerialMon.text;
         const auto replyLine = log.find("reply_rx request=4294967294 command=FLASH_STATUS(10) source=3 result=");
@@ -190,9 +249,9 @@ int main() {
                 sent.replace(offset, 6, "dir=RX");
             }
             // Reply diagnostic lines end before the gateway's separate MQTT uplink log.
-            const auto uplink = received.find("[INFO][GATEWAY] uplink ");
-            assert(uplink != std::string::npos);
-            assert(sent == received.substr(0, received.rfind("[tick_ms=", uplink)));
+            const auto uplink = received.find("[INFO][GATEWAY] uplink_");
+            const auto end = uplink == std::string::npos ? received.size() : received.rfind("[tick_ms=", uplink);
+            assert(sent == received.substr(0, end));
             assert(sent.find(" 0000: 0" + std::to_string(nodePayload)) != std::string::npos);
         } else {
             assert(log.find("reply_data ") == std::string::npos);
@@ -205,7 +264,40 @@ int main() {
 #endif
     }
     assert(beforeData == 0); // STATUS frames never enter the diagnostic decoder.
-    assert(decodeCalls == (APP_ENABLE_DEBUG ? 6U : 0U));
+    assert(decodeCalls == 6U);
+    // Radio receipt should outlive an MQTT disconnect. Wrong receipts must
+    // leave the exact payload queued, and a correct receipt stops retries.
+    auto dataPublishes = [] {
+        return std::count(topics.begin(), topics.end(), "wiot/Company_1/Region_1/3/data");
+    };
+    gatewayLoop(); // Consume the prior successful History receipt.
+    const auto beforeOffline = dataPublishes();
+    connected = false;
+    nodePayload = 3; nodePending = true;
+    gatewayLoop();
+    assert(dataPublishes() == beforeOffline);
+    connected = true;
+    gatewayLoop();
+    assert(dataPublishes() == beforeOffline + 1 && lastForwardedByte == 3);
+    testTick += 3000;
+    receipt.node_id = 3; receipt.request_id = 4294967294UL; receipt.wire_bytes = 1;
+    receipt.fingerprint = frameFingerprint(&nodePayload, 1) + 1U;
+    gatewayLoop();
+    assert(dataPublishes() == beforeOffline + 2 && lastForwardedByte == 3);
+    testTick += 3000;
+    receipt.request_id = 4294967294UL;
+    receipt.fingerprint = frameFingerprint(&nodePayload, 1);
+    gatewayLoop();
+    assert(dataPublishes() == beforeOffline + 2);
+    // Radio cannot dispatch a command during a partial LoRa receive transaction.
+    command.proof.node_id = 3; command.proof.request_id = 60; command.receivedMs = testTick;
+    commandPending = true;
+    radioBusy = true;
+    gatewayLoop();
+    assert(commandPending && !radioSends);
+    radioBusy = false;
+    gatewayLoop();
+    assert(!commandPending && radioSends == 1);
     std::cout << "PASS gateway reply correlation, DATA forwarding and debug gating\n";
     std::cout << "PASS gateway heartbeat without nodes, priorities, reconnect, retries, and tick wrap\n";
 }

@@ -1,6 +1,13 @@
 #pragma once
 #include "Arduino.h"
 #define APP_CONFIG_H
+#define APP_ROLE_LORA_GATEWAY 2
+#define APP_ROLE APP_ROLE_LORA_GATEWAY
+#ifndef APP_LORA_COORDINATED
+#define APP_LORA_COORDINATED 0
+#endif
+#define APP_LORA_COORDINATED_NODES 1, 2, 3
+#define APP_LORA_GRANT_POLL_MS 30000UL
 #ifndef APP_ENABLE_DEBUG
 #define APP_ENABLE_DEBUG false
 #endif

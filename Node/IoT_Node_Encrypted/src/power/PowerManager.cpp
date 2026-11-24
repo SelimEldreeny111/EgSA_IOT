@@ -119,10 +119,16 @@ uint32_t worNextWorkDelayMs()
   const AppRuntimeState& state = appState();
   const uint32_t now = millis();
   const uint32_t readAge = now - state.lastReadMs;
-  const uint32_t sendAge = now - state.lastSendMs;
   const uint32_t readDelay = readAge >= state.samplingPeriodMs ? 0U : state.samplingPeriodMs - readAge;
+#if APP_LORA_COORDINATED
+  // Local sampling follows SRATE. A Due Status is transmitted on the next
+  // addressed grant; it must not keep a WOR node awake if the gateway is down.
+  return readDelay;
+#else
+  const uint32_t sendAge = now - state.lastSendMs;
   const uint32_t sendDelay = sendAge >= state.transmissionPeriodMs ? 0U : state.transmissionPeriodMs - sendAge;
   return readDelay < sendDelay ? readDelay : sendDelay;
+#endif
 }
 
 /** @brief Read a coherent RTC seconds/subseconds snapshot for Stop elapsed time.
@@ -1279,7 +1285,12 @@ void servicePowerManager()
 #if WIOT_POWER_HAS_WOR
   if (controllerPowerMode() == APP_COMPONENT_MODE_LORA_WOR)
   {
+#if APP_LORA_COORDINATED
+    // Waiting for the next gateway grant is not a reason to stay awake.
+    if (TelemetryArchive::writePending()) return;
+#else
     if (TelemetryArchive::blocking()) return;
+#endif
 #if APP_LORA_WOR_USE_APP_SCHEDULE
     // Uncommissioned RTC stays awake. Repeated loop passes must not spam Stop
     // preparation/logging before a server STIME establishes trusted time.

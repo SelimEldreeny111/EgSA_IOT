@@ -4,6 +4,7 @@
 #include "GatewayApp.h"
 
 #include "../comm/MQTT.h"
+#include "../comm/GatewayDelivery.h"
 #include "../comm/PacketCodec.h"
 #include "../comm/ReplyDiagnostics.h"
 #include "../config/AppConfig.h"
@@ -13,6 +14,8 @@
 
 #include <Arduino.h>
 #include <stdio.h>
+
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
 
 extern HardwareSerial SerialMon;
 
@@ -26,23 +29,37 @@ uint32_t g_forwardedNodeFrames = 0;
 uint32_t g_forwardFailures = 0;
 bool g_hasNodeUplink = false;
 
-#if APP_ENABLE_DEBUG
-/** @brief Inspect a complete LoRa DATA frame for reply correlation on the debug UART. */
-void logNodeReply(const LoraFrame& frame)
+constexpr uint32_t kUplinkLifetimeMs = 300000U;
+constexpr uint32_t kCommandQueueLifetimeMs = 60000U;
+constexpr uint32_t kStartWindowMs = 5000U;
+
+struct Uplink {
+  LoraFrame frame;
+  uint32_t request, queuedAt, attemptedAt;
+  uint64_t fingerprint;
+  bool used, attempted;
+};
+Uplink g_replies[8] = {};
+Uplink g_statuses[8] = {};
+uint32_t g_windowStart = 0;
+uint16_t g_radioOwner = 0;
+uint32_t g_radioRequest = 0;
+Gateway_Delivery g_radioProof = Gateway_Delivery_init_zero;
+#if APP_LORA_COORDINATED
+constexpr uint16_t kRoster[] = {APP_LORA_COORDINATED_NODES};
+constexpr size_t kRosterSize = sizeof(kRoster) / sizeof(kRoster[0]);
+static_assert(kRosterSize > 0 && kRosterSize <= 32, "Specify 1 to 32 coordinated LoRa node IDs");
+size_t g_rosterNext = 0;
+uint32_t g_lastGrant = 0;
+unsigned g_commandsSinceGrant = 0;
+uint32_t g_lastNodeGrant[kRosterSize] = {};
+bool g_nodeWasGranted[kRosterSize] = {};
+#endif
+
+/** @brief Log the application reply that the gateway has already decoded. */
+void logNodeReply(const LoraFrame& frame, const Telemetry& reply)
 {
-  Telemetry reply = Telemetry_init_zero;
-  if (!decodeEncryptedTelemetryPayload(frame.payload, frame.payloadLength, reply))
-  {
-    APP_LOG_EVENT_WARN("data_decode_failed source=%u bytes=%lu",
-        static_cast<unsigned>(frame.sourceNodeId), static_cast<unsigned long>(frame.payloadLength));
-    return;
-  }
-  if (reply.node_id != frame.sourceNodeId)
-  {
-    APP_LOG_EVENT_WARN("data_node_mismatch source=%u payload_node=%lu",
-        static_cast<unsigned>(frame.sourceNodeId), static_cast<unsigned long>(reply.node_id));
-    return;
-  }
+  (void)frame;
   if (reply.command_ack_request_id != 0U)
   {
     APP_LOG_EVENT("reply_rx request=%lu command=%s(%lu) source=%u result=%s bytes=%lu transport=LoRa flash=%u history=%u",
@@ -63,7 +80,6 @@ void logNodeReply(const LoraFrame& frame)
   }
   APP_DEBUG_ONLY(logReplyData("RX", reply, frame.payload, frame.payloadLength));
 }
-#endif
 
 /** @brief Send the newest gateway health snapshot between radio transactions.
  * Uses uptime and server receive time, so no gateway RTC commissioning is required.
@@ -143,6 +159,196 @@ bool buildNodeMqttTopic(uint16_t nodeId, const char* suffix, char* topic, size_t
       suffix);
   return written > 0 && static_cast<size_t>(written) < topicSize;
 }
+Uplink* freeReplySlot()
+{
+  for (auto& entry : g_replies)
+    if (!entry.used) return &entry;
+  return nullptr;
+}
+
+void storeUplink(const LoraFrame& frame, Uplink& reservedReply)
+{
+  uint32_t request = 0;
+  Uplink* entry = &reservedReply;
+  if (frame.type == LoraPayloadType::StatusTelemetry)
+  {
+    entry = &g_statuses[0];
+    for (auto& status : g_statuses)
+    {
+      if (status.used && status.frame.sourceNodeId == frame.sourceNodeId) {
+        entry = &status;
+        break;
+      }
+      if (!status.used || (entry->used && millis() - status.queuedAt > millis() - entry->queuedAt))
+        entry = &status;
+    }
+  }
+  else if (frame.type == LoraPayloadType::SystemTelemetry)
+  {
+    Telemetry telemetry = Telemetry_init_zero;
+    if (!decodeEncryptedTelemetryPayload(frame.payload, frame.payloadLength, telemetry) ||
+        telemetry.node_id != frame.sourceNodeId)
+    {
+      ++g_forwardFailures;
+      APP_LOG_EVENT_WARN("uplink_decode_failed source=%u", static_cast<unsigned>(frame.sourceNodeId));
+      return;
+    }
+    request = telemetry.command_ack_request_id;
+    if (!request && telemetry.has_history) request = telemetry.history.request_id;
+    logNodeReply(frame, telemetry);
+  }
+  else return;
+
+  ++g_receivedNodeFrames;
+  g_hasNodeUplink = true;
+  g_lastNodeUptimeMs = g_uptimeMs;
+  entry->frame = frame;
+  entry->queuedAt = millis();
+  entry->request = request;
+  entry->fingerprint = request ? frameFingerprint(frame.payload, frame.payloadLength) : 0U;
+  if (request)
+  {
+    for (const auto& queued : g_replies) {
+      if (queued.used && queued.request == request && queued.fingerprint == entry->fingerprint &&
+          queued.frame.sourceNodeId == frame.sourceNodeId && queued.frame.payloadLength == frame.payloadLength)
+        return;
+    }
+  }
+  entry->used = true;
+  entry->attempted = false;
+  if (g_radioOwner == frame.sourceNodeId && (!g_radioRequest || g_radioRequest == request))
+    g_radioOwner = 0;
+  if (request && g_radioProof.request_id == request && g_radioProof.node_id == frame.sourceNodeId) {
+    reportGatewayReply(g_radioProof);
+    g_radioProof.request_id = 0;
+  }
+}
+
+void serviceServerReceipts()
+{
+  Gateway_Delivery proof;
+  while (takeGatewayReceipt(proof))
+  {
+    for (auto& entry : g_replies) {
+      if (entry.used && entry.request == proof.request_id && entry.fingerprint == proof.fingerprint &&
+          entry.frame.sourceNodeId == proof.node_id && entry.frame.payloadLength == proof.wire_bytes)
+      {
+        entry.used = false;
+        APP_LOG_EVENT("uplink_persisted request=%lu source=%u",
+            static_cast<unsigned long>(proof.request_id), static_cast<unsigned>(proof.node_id));
+        break;
+      }
+    }
+  }
+}
+
+void expireUplinks()
+{
+  for (auto& reply : g_replies) {
+    if (!reply.used || millis() - reply.queuedAt < kUplinkLifetimeMs) continue;
+    reply.used = false;
+    ++g_forwardFailures;
+    APP_LOG_EVENT_WARN("uplink_expired request=%lu source=%u server_receipt=unconfirmed",
+        static_cast<unsigned long>(reply.request), static_cast<unsigned>(reply.frame.sourceNodeId));
+  }
+}
+
+bool serviceOneUplink(bool allowStatus)
+{
+  const uint32_t now = millis();
+  Uplink* next = nullptr;
+  for (auto& reply : g_replies) {
+    if (reply.used && (!reply.attempted || now - reply.attemptedAt >= 3000U) &&
+        (!next || now - reply.queuedAt > now - next->queuedAt)) next = &reply;
+  }
+  if (!next && allowStatus) {
+    for (auto& status : g_statuses) {
+      if (status.used && (!status.attempted || now - status.attemptedAt >= 3000U) &&
+          (!next || now - status.queuedAt > now - next->queuedAt)) next = &status;
+    }
+  }
+  if (!next) return false;
+  const LoraFrame& frame = next->frame;
+  char topic[144];
+  next->attempted = true;
+  next->attemptedAt = now;
+  if (buildNodeMqttTopic(frame.sourceNodeId,
+      frame.type == LoraPayloadType::StatusTelemetry ? "status" : "data", topic, sizeof(topic)) &&
+      publishMqttPayload(topic, frame.payload, frame.payloadLength))
+  {
+    ++g_forwardedNodeFrames;
+    if (!next->request) next->used = false;
+  }
+  else {
+    ++g_forwardFailures;
+    APP_LOG_EVENT_WARN("uplink_publish_deferred request=%lu source=%u",
+        static_cast<unsigned long>(next->request), static_cast<unsigned>(frame.sourceNodeId));
+  }
+  return true;
+}
+
+bool serviceRadioScheduler()
+{
+  const auto* command = gatewayPendingCommand();
+  if (command && command->superseded)
+  {
+    completeGatewayCommand(GatewaySuperseded);
+    return true;
+  }
+  if (command && millis() - command->receivedMs >= kCommandQueueLifetimeMs)
+  {
+    completeGatewayCommand(GatewayQueueExpired);
+    return true;
+  }
+  if (!loraCanStartTransmission()) return false;
+
+#if APP_LORA_COORDINATED
+  if ((!command || g_commandsSinceGrant >= 2U) && millis() - g_lastGrant >= 1200U)
+  {
+    const uint32_t now = millis();
+    for (size_t i = 0; i < kRosterSize; ++i)
+    {
+      const size_t slot = (g_rosterNext + i) % kRosterSize;
+      if (g_nodeWasGranted[slot] && now - g_lastNodeGrant[slot] < APP_LORA_GRANT_POLL_MS) continue;
+      const uint16_t target = kRoster[slot];
+      g_rosterNext = (slot + 1U) % kRosterSize;
+      g_nodeWasGranted[slot] = true;
+      g_lastNodeGrant[slot] = now;
+      g_commandsSinceGrant = 0U;
+      g_lastGrant = now;
+      const uint8_t payload[] = {static_cast<uint8_t>(target >> 8), static_cast<uint8_t>(target)};
+      if (target && sendLoraWakeCommand(LoraPayloadType::UplinkGrant, payload, sizeof(payload)))
+      {
+        g_radioOwner = target;
+        g_radioRequest = 0;
+        g_windowStart = millis();
+      }
+      return true;
+    }
+  }
+#endif
+  if (!command) return false;
+#if APP_LORA_COORDINATED
+  if (command->broadcast)
+  {
+    APP_LOG_EVENT_WARN("broadcast_requires_unicast_in_coordinated_mode");
+    completeGatewayCommand(GatewayRadioFailed);
+    return true;
+  }
+  ++g_commandsSinceGrant;
+#endif
+  const auto type = command->broadcast ? LoraPayloadType::BroadcastCommand : LoraPayloadType::Command;
+  const bool sent = sendLoraWakeCommand(type, command->payload, command->proof.wire_bytes);
+  if (sent && !command->broadcast) {
+    g_radioOwner = static_cast<uint16_t>(command->proof.node_id);
+    g_radioRequest = command->proof.request_id;
+    g_radioProof = command->proof;
+    g_windowStart = millis();
+  }
+  completeGatewayCommand(sent ? GatewayDispatched : GatewayRadioFailed);
+  return true;
+}
+
 }
 
 void gatewaySetup()
@@ -176,101 +382,42 @@ void gatewaySetup()
 void gatewayLoop()
 {
   static uint32_t lastHeartbeatMs = 0;
-  static bool previousLoraPriority = false;
   const uint32_t now = millis();
   g_uptimeMs += static_cast<uint32_t>(now - g_previousTickMs);
   g_previousTickMs = now;
-  bool mqttReady = false;
 
-  // Drain the AS32 UART into the larger software buffer before any ESP-AT or
-  // MQTT operation can block the loop. Frame processing continues below.
   serviceLoraInput();
-  const bool loraPriority = isLoraReceiveTransactionActive();
-
-  if (loraPriority != previousLoraPriority)
-  {
-    APP_DEBUG_PRINTLN(loraPriority
-        ? "LoRa fragment transaction active; MQTT work deferred"
-        : "LoRa fragment transaction complete; MQTT work resumed");
-    previousLoraPriority = loraPriority;
-  }
-
-  if (!loraPriority)
-  {
-    mqttReady = ensureMqttConnection();
-    mqttLoop();
-    serviceHardwareWatchdog();
-  }
-
+  expireUplinks();
   LoraFrame frame;
-  while (receiveLoraFrame(frame))
+  while (auto* free = freeReplySlot())
   {
-    serviceHardwareWatchdog();
-    APP_DEBUG_ONLY(printLoraFrameSummary(frame, "LoRa RX"));
-
-    const char* topicSuffix = nullptr;
-    if (frame.type == LoraPayloadType::StatusTelemetry)
-    {
-      topicSuffix = "status";
-    }
-    else if (frame.type == LoraPayloadType::SystemTelemetry)
-    {
-      topicSuffix = "data";
-#if APP_ENABLE_DEBUG
-      logNodeReply(frame);
-#endif
-    }
-    else
-    {
-      APP_DEBUG_PRINTLN("Gateway ignored non-uplink LoRa frame");
-      continue;
-    }
-
-    char publishTopic[128];
-    ++g_receivedNodeFrames;
-    g_hasNodeUplink = true;
-    g_lastNodeUptimeMs = g_uptimeMs;
-    if (!buildNodeMqttTopic(frame.sourceNodeId, topicSuffix, publishTopic, sizeof(publishTopic)))
-    {
-      APP_LOG_ERROR("Gateway MQTT topic build failed");
-      continue;
-    }
-
-    if (publishMqttPayload(publishTopic, frame.payload, frame.payloadLength))
-    {
-      ++g_forwardedNodeFrames;
-      APP_LOG_EVENT("uplink source=%u type=%s bytes=%lu topic=%s stage=modem_write_accepted server_receipt=unconfirmed",
-          frame.sourceNodeId, WiotDebug::frameName(static_cast<uint8_t>(frame.type)),
-          static_cast<unsigned long>(frame.payloadLength), publishTopic);
-    }
-    else
-    {
-      ++g_forwardFailures;
-      APP_LOG_ERROR("uplink_failed source=%u bytes=%lu topic=%s", frame.sourceNodeId,
-          static_cast<unsigned long>(frame.payloadLength), publishTopic);
-    }
+    if (!receiveLoraFrame(frame)) break;
+    storeUplink(frame, *free);
     serviceHardwareWatchdog();
   }
 
-  // Queued MQTT sends run only between LoRa receive transactions; keep fragment
-  // ACK turnaround intact. The foreground TinyGSM driver is the only AT owner.
-  if (!isLoraReceiveTransactionActive())
+  if (g_radioOwner && millis() - g_windowStart >= kStartWindowMs) g_radioOwner = 0;
+  if (g_radioOwner || isLoraReceiveTransactionActive()) return;
+
+  const bool mqttReady = ensureMqttConnection();
+  mqttLoop();
+  serviceServerReceipts();
+  serviceHardwareWatchdog();
+  if (isLoraReceiveTransactionActive()) return;
+
+  if (mqttReady)
   {
-    asyncPublishStep();
-    serviceHardwareWatchdog();
-    if (mqttReady && !mqttCommandWorkPending() && !isAsyncPublishBusy() &&
-        !isLoraReceiveTransactionActive())
-    {
-      serviceGatewayHeartbeat();
-      serviceHardwareWatchdog();
-    }
+    serviceGatewayDeliveryEvents();
+    if (!serviceOneUplink(!mqttCommandWorkPending()) && !mqttCommandWorkPending() && !isAsyncPublishBusy()) serviceGatewayHeartbeat();
   }
+  serviceHardwareWatchdog();
+  if (!isLoraReceiveTransactionActive()) serviceRadioScheduler();
 
   if (AppConfig::kEnableGatewayHeartbeatLogs && millis() - lastHeartbeatMs >= 5000UL)
   {
     lastHeartbeatMs = millis();
-    APP_DEBUG_PRINT("Gateway alive; waiting for LoRa frames. AS32 AUX=");
-    APP_DEBUG_PRINTLN(digitalRead(AppConfig::kLoraAuxPin) == HIGH ? "HIGH" : "LOW");
+    APP_DEBUG_PRINTLN("Gateway alive; waiting for LoRa frames");
     APP_DEBUG_ONLY(printLoraDiagnostics());
   }
 }
+#endif

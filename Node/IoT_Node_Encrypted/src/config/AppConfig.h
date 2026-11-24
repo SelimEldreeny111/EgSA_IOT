@@ -172,6 +172,16 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #endif
 // Set to 1 on a separately built LoRa gateway when its nodes use LORA_WOR.
 // It sends a Mode-1 wake probe before forwarding each command.
+// Opt in on every node and the gateway on a coordinated radio channel.
+#ifndef APP_LORA_COORDINATED
+#define APP_LORA_COORDINATED 0
+#endif
+#ifndef APP_LORA_COORDINATED_NODES
+#define APP_LORA_COORDINATED_NODES 1, 2, 3
+#endif
+#ifndef APP_LORA_GRANT_POLL_MS
+#define APP_LORA_GRANT_POLL_MS 30000UL
+#endif
 #ifndef APP_LORA_GATEWAY_WOR_TX
 #define APP_LORA_GATEWAY_WOR_TX 0
 #endif

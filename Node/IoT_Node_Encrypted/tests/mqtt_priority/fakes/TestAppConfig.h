@@ -27,6 +27,8 @@ struct AppRuntimeState {};
 #define SENSOR_PAYLOAD_MAPPER_H
 #define PACKET_CODEC_H
 #include "../../../src/generated/sensor.pb.h"
+bool decodeEncryptedGatewayDelivery(const uint8_t*,size_t,Gateway_Delivery&);
+bool encodeEncryptedMessage(const pb_msgdesc_t*,const void*,uint8_t*,size_t,size_t&);
 bool decodeEncryptedCommandPayload(const uint8_t*,size_t,CMD_Message&);
 namespace AppConfig {
 #ifndef APP_ENABLE_COMMAND_ACK_REPLIES

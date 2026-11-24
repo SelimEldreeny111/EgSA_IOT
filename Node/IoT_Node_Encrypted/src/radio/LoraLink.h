@@ -18,6 +18,7 @@ enum class LoraPayloadType : uint8_t
   BroadcastCommand = 4,
   SystemTelemetry = 5,
   WakeProbe = 6,  // Mode-1 preamble/probe wakes a Stop-mode node before CMD
+  UplinkGrant = 7,  // two-byte addressed permission for one routine uplink
   TransportFragment = 0xF0,
   TransportFragmentAck = 0xF1,
 };
@@ -37,6 +38,8 @@ void initializeLoraLink();
 void serviceLoraInput();
 /** @brief Query whether a multi-part receive transaction is in progress. @return True while the receiver owns an incomplete transaction. */
 bool isLoraReceiveTransactionActive();
+/** @brief Check transmit readiness after servicing the radio receive buffer. */
+bool loraCanStartTransmission();
 /** @brief Check whether the link can safely enter its configured sleep mode. @return True only when no in-flight work requires the radio. */
 bool isLoraIdleForPowerDown();
 /** @brief Quiesce the radio within a deadline. @param timeoutMs Maximum wait for in-flight work and AUX readiness. @return True if radio sleep preparation succeeded. */

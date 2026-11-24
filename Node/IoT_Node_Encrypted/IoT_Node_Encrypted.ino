@@ -78,6 +78,24 @@ HardwareSerial SerialLoRa(AppConfig::kLoraRxPin, AppConfig::kLoraTxPin);
 bool g_loraCommandHandledThisPass = false;
 
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
+#if APP_LORA_COORDINATED
+static uint32_t g_loraGrantReceivedMs = 0, g_loraGrantEpoch = 0;
+static bool g_loraGrantPending = false;
+static uint8_t g_loraRetryReply[AppConfig::kCodecBufferSize];
+static size_t g_loraRetryReplyLength = 0;
+static unsigned g_loraRetryAttempts = 0;
+static void openLoraGrant()
+{
+  g_loraGrantReceivedMs = millis();
+  g_loraGrantEpoch = getEpochTime();
+  g_loraGrantPending = true;
+}
+static bool canUseLoraGrant()
+{
+  return g_loraGrantPending && millis() - g_loraGrantReceivedMs < 2500U &&
+         getEpochTime() - g_loraGrantEpoch <= 3U;
+}
+#endif
 /** @brief Send one correlated telemetry reply and report the LoRa send result. */
 static void sendLoraCommandReply(const CMD_Message& cmd, bool applied)
 {
@@ -93,6 +111,14 @@ static void sendLoraCommandReply(const CMD_Message& cmd, bool applied)
       static_cast<unsigned long>(cmd.request_id), WiotDebug::commandName(cmd.cmd_id),
       static_cast<unsigned long>(cmd.cmd_id), static_cast<unsigned>(AppConfig::kNodeId),
       static_cast<unsigned long>(length), static_cast<unsigned>(sent));
+#if APP_LORA_COORDINATED
+  if (!sent && cmd.request_id && !g_loraRetryReplyLength)
+  {
+    memcpy(g_loraRetryReply, payload, length);
+    g_loraRetryReplyLength = length;
+    g_loraRetryAttempts = 0;
+  }
+#endif
   (void)sent;
 }
 
@@ -114,9 +140,20 @@ void pollLoraCommands()
     serviceHardwareWatchdog();
     APP_DEBUG_ONLY(printLoraFrameSummary(frame, "LoRa CMD RX"));
 
+#if APP_LORA_COORDINATED
+    if (frame.type == LoraPayloadType::UplinkGrant)
+    {
+      if (frame.sourceNodeId == AppConfig::kGatewayNodeId && frame.payloadLength == 2 &&
+          ((unsigned(frame.payload[0]) << 8) | frame.payload[1]) == AppConfig::kNodeId)
+      {
+        openLoraGrant();
+      }
+      continue;
+    }
+#endif
     const bool isBroadcastCommand = frame.type == LoraPayloadType::BroadcastCommand;
     const bool isDirectCommand = frame.type == LoraPayloadType::Command;
-    if (!isBroadcastCommand && !isDirectCommand)
+    if (frame.sourceNodeId != AppConfig::kGatewayNodeId || (!isBroadcastCommand && !isDirectCommand))
     {
       APP_DEBUG_PRINTLN("Sensor node ignored non-command LoRa frame");
       continue;
@@ -131,20 +168,23 @@ void pollLoraCommands()
     }
     APP_LOG_COMMAND_RX("LoRa", cmd, isBroadcastCommand);
 
+    if ((!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
+#if APP_LORA_COORDINATED
+        || isBroadcastCommand
+#endif
+       ) continue;
     g_loraCommandHandledThisPass = true;
     if (cmd.cmd_id == CMD_HISTORY_ACK) {
-      TelemetryArchive::handle(cmd, isBroadcastCommand);
+      const bool advanced = TelemetryArchive::handle(cmd, isBroadcastCommand);
+#if APP_LORA_COORDINATED
+      if (advanced) openLoraGrant();
+#else
+      (void)advanced;
+#endif
       continue;
     }
     if (cmd.cmd_id == CMD_GET_TELEMETRY || cmd.cmd_id == CMD_REMOTE_WAKE)
     {
-      if (!isBroadcastCommand && cmd.node_id != AppConfig::kNodeId)
-      {
-        APP_LOG_EVENT_WARN("command_rejected request=%lu reason=not_for_this_node local=%u",
-            static_cast<unsigned long>(cmd.request_id), static_cast<unsigned>(AppConfig::kNodeId));
-        continue;
-      }
-
       const bool applied = cmd.cmd_id != CMD_REMOTE_WAKE ||
           handleRemoteWakeCommand(cmd, isBroadcastCommand);
       if (!shouldSendCommandTelemetryReply(cmd.cmd_id, AppConfig::kEnableCommandAckReplies))
@@ -263,6 +303,16 @@ void loop()
   g_loraCommandHandledThisPass = false;
 #if APP_ROLE == APP_ROLE_SENSOR_NODE && APP_HAS_LORA
   pollLoraCommands();
+#if APP_LORA_COORDINATED
+  if (canUseLoraGrant() && g_loraRetryReplyLength && !g_loraCommandHandledThisPass)
+  {
+    g_loraGrantPending = false;
+    g_loraCommandHandledThisPass = true;
+    const bool sent = sendLoraFrame(LoraPayloadType::SystemTelemetry, AppConfig::kNodeId,
+        g_loraRetryReply, g_loraRetryReplyLength);
+    if (sent || ++g_loraRetryAttempts >= 2U) g_loraRetryReplyLength = 0;
+  }
+#endif
 #endif
 #if APP_HAS_IP_UPLINK
   beginMqttCommandPriorityPass();
@@ -350,6 +400,9 @@ void loop()
 #endif
   // Only complete sensor snapshots are eligible for a routine Status send.
   if (allowSensorWork &&
+#if APP_LORA_COORDINATED && APP_HAS_LORA
+      canUseLoraGrant() &&
+#endif
       !sensorCycle.active() && !commandPriority && !TelemetryArchive::writePending() && !isAsyncPublishBusy() &&
       (millis() - state.lastSendMs >= state.transmissionPeriodMs))
   {
@@ -357,6 +410,9 @@ void loop()
     uint8_t payload[AppConfig::kCodecBufferSize];
     size_t payloadLength = 0;
     serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
+#if APP_LORA_COORDINATED
+    g_loraGrantPending = false;
+#endif
     const bool telemetryDelivered =
         buildEncryptedStatusPayload(payload, sizeof(payload), payloadLength) &&
         sendLoraFrame(
@@ -374,7 +430,10 @@ void loop()
       APP_LOG_ERROR("status_tx_failed node=%u bytes=%lu", AppConfig::kNodeId, static_cast<unsigned long>(payloadLength));
     }
     notifyPowerManagerTelemetryResult(telemetryDelivered);
-    state.lastSendMs = millis();
+#if APP_LORA_COORDINATED
+    if (telemetryDelivered)
+#endif
+      state.lastSendMs = millis();
 #else
     if (triggerAsyncPublish())
     {
@@ -412,7 +471,11 @@ void loop()
   }
 #endif
   // Bulk is deliberately last: at most one packet, with server-persistence ACK.
-  if (!g_loraCommandHandledThisPass && !sensorCycle.active() && !isAsyncPublishBusy()
+  if (!g_loraCommandHandledThisPass &&
+#if APP_LORA_COORDINATED && APP_HAS_LORA
+      canUseLoraGrant() &&
+#endif
+      !sensorCycle.active() && !isAsyncPublishBusy()
 #if APP_HAS_IP_UPLINK
       && !mqttCommandWorkPending()
 #endif
@@ -421,6 +484,9 @@ void loop()
     size_t archivedLength=0;
     if (TelemetryArchive::packet(archived,sizeof(archived),archivedLength)) {
 #if APP_HAS_LORA
+#if APP_LORA_COORDINATED
+      g_loraGrantPending = false;
+#endif
       const bool sent=sendLoraFrame(LoraPayloadType::SystemTelemetry,AppConfig::kNodeId,archived,archivedLength);
 #else
       const bool sent=publishMqttPayload(kMqttPublishTopicTlm,archived,archivedLength);

@@ -77,6 +77,14 @@ class Counters:
         return self.rx_counter
 
 
+def wire_fingerprint(payload: bytes) -> int:
+    """FNV-1a correlation value for the complete encrypted envelope."""
+    value = 14695981039346656037
+    for byte in payload:
+        value = ((value ^ byte) * 1099511628211) & ((1 << 64) - 1)
+    return value
+
+
 class MqttNodeClient:
     """
     Project wrapper around paho-mqtt plus AES framing.
@@ -98,6 +106,7 @@ class MqttNodeClient:
         on_status: Optional[Callable[[str], None]] = None,
         debug: bool = False,
         *,
+        on_wire_plaintext=None,
         use_tls: bool = False,
         ca_file: str | None = None,
         username: str | None = None,
@@ -110,6 +119,7 @@ class MqttNodeClient:
         self.aes_key_16 = aes_key_16
         self.subscribe_topics = subscribe_topics
         self.on_plaintext = on_plaintext
+        self.on_wire_plaintext = on_wire_plaintext
         self.on_status = on_status
         self.debug = debug
 
@@ -255,7 +265,7 @@ class MqttNodeClient:
         frame["tx_counter"] = tx
         return frame
 
-    def publish_plaintext(self, topic: str, plaintext: bytes, qos: int = 1, on_complete=None):
+    def publish_plaintext(self, topic: str, plaintext: bytes, qos: int = 1, on_complete=None, *, before_publish=None):
         """
         Encrypt plaintext bytes, publish them through MQTT, and return frame metadata.
 
@@ -263,6 +273,9 @@ class MqttNodeClient:
         The name reflects the input to this method, not the wire format.
         """
         frame = self.encrypt_frame(plaintext)
+        if before_publish is not None:
+            frame['fingerprint'] = wire_fingerprint(frame['payload'])
+            before_publish(frame)
         if self.on_status:
             self.on_status(f"[TX#{frame['tx_counter']}] RAW MQTT TX topic={topic} len={frame['frame_len']}")
             if getattr(self, 'debug', False):
@@ -591,7 +604,9 @@ class MqttNodeClient:
                 if self.debug:
                     self.on_status(f"Frame header: code_ver={code_ver_hex} iv={iv_hex}")
 
-            if self.on_plaintext:
+            if getattr(self, 'on_wire_plaintext', None):
+                self.on_wire_plaintext(msg.topic, plain, wire_fingerprint(raw), len(raw))
+            elif self.on_plaintext:
                 self.on_plaintext(msg.topic, plain)
 
             if self.on_status:

@@ -101,7 +101,7 @@ class RemoteWakeServerTests(unittest.TestCase):
         with self.client.session_transaction() as session:
             session.update(role='admin', username='wake_tester', company=self.company)
         self.fake_mqtt = SimpleNamespace(is_connected=lambda: True,
-            publish_plaintext=lambda topic, plain, on_complete=None: self.sent.append((topic, plain)))
+            publish_plaintext=lambda topic, plain, on_complete=None, **kwargs: self.sent.append((topic, plain)))
         self.mqtt_patch = patch.object(self.server, 'mqtt_client', self.fake_mqtt)
         self.mqtt_patch.start(); self.addCleanup(self.mqtt_patch.stop)
         self.journal = CommandQueue(Path(self.temp.name) / f'journal_{uuid.uuid4().hex}.db')
@@ -313,7 +313,7 @@ class RemoteWakeServerTests(unittest.TestCase):
 
     def test_ack_can_precede_puback_and_duplicates_do_not_repeat_audit(self):
         completions = []
-        self.fake_mqtt.publish_plaintext = lambda topic, plain, on_complete=None: completions.append(on_complete)
+        self.fake_mqtt.publish_plaintext = lambda topic, plain, on_complete=None, **kwargs: completions.append(on_complete)
         result = self.post(cmd_type='SRATE',cmd_data=60).get_json()
         ack = messages_pb2.Telemetry(node_id=7, command_ack_request_id=result['request_id'],
                                     command_ack_cmd_id=1, command_ack_success=True)

@@ -21,6 +21,17 @@ message Gateway_Status {
   bool lora_aux_high = 13; // Pin snapshot, not an RF-link test.
 }
 
+// Gateway delivery audit and server persistence receipts. Scoped by MQTT topic.
+// phase: 1=queued, 2=radio dispatched, 3=decode failed, 4=queue full,
+// 5=radio failed, 6=server persisted, 7=queue expired, 8=superseded, 9=reply queued.
+message Gateway_Delivery {
+  uint32 node_id = 1;
+  uint32 request_id = 2;
+  fixed64 fingerprint = 3;
+  uint32 wire_bytes = 4;
+  uint32 phase = 5;
+}
+
 // Storage state: 0=disabled,1=missing,2=unformatted,3=recovering,4=ready,5=full,6=fault.
 message FlashLogInfo {
   uint32 state = 1;

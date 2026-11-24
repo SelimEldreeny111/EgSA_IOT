@@ -37,9 +37,9 @@ def parse_topic(topic):
         raise ValueError('Expected wiot/company/region/node/data|status|cmd or region/broadcast')
     company, region = company_id(parts[1]), region_id(parts[2])
     if len(parts) == 6:
-        if parts[3] != 'gateway' or parts[5] != 'status' or not re.fullmatch(r'[1-9][0-9]{0,4}', parts[4]):
-            raise ValueError('Expected wiot/company/region/gateway/id/status')
-        return company, region, integer(parts[4], 1, 65535, 'Gateway ID'), 'gateway_status'
+        if parts[3] != 'gateway' or parts[5] not in ('status', 'event') or not re.fullmatch(r'[1-9][0-9]{0,4}', parts[4]):
+            raise ValueError('Expected wiot/company/region/gateway/id/status|event')
+        return company, region, integer(parts[4], 1, 65535, 'Gateway ID'), 'gateway_' + parts[5]
     if len(parts) == 4:
         if parts[3] != 'broadcast':
             raise ValueError('Unsupported regional broadcast topic')

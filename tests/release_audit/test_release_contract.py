@@ -44,13 +44,13 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_all_three_proto_sources_match(self):
         expected = schema(NODE / "src/generated/sensor.proto")
-        self.assertEqual(set(expected), {"FlowReading", "Status_Message", "Telemetry", "CMD_Message", "FlashLogInfo", "HistoryInfo", "Gateway_Status"})
+        self.assertEqual(set(expected), {"FlowReading", "Status_Message", "Telemetry", "CMD_Message", "FlashLogInfo", "HistoryInfo", "Gateway_Status", "Gateway_Delivery"})
         for filename in ("sensor.proto", "messages.proto"):
             with self.subTest(filename=filename):
                 self.assertEqual(expected, schema(SERVER / filename))
 
     def test_python_generated_descriptor_matches_every_node_field(self):
-        kinds = {"float": 2, "uint64": 4, "bool": 8, "uint32": 13, "sint64": 18}
+        kinds = {"float": 2, "uint64": 4, "fixed64": 6, "bool": 8, "uint32": 13, "sint64": 18}
         for name, fields in schema(NODE / "src/generated/sensor.proto").items():
             descriptor = getattr(messages, name).DESCRIPTOR
             self.assertEqual(set(fields), set(descriptor.fields_by_name))
