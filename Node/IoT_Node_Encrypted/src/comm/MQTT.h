@@ -50,6 +50,8 @@ void serviceGatewayMqttIntake();
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
 /** @brief Drain ESP-AT UART bytes during a radio wait. Performs no network writes. */
 void serviceGatewayModemRxDuringRadio();
+/** @brief Cached link status for the cooperative ESP8266 gateway join. */
+bool gatewayWifiConnected();
 #endif
 /** @brief Establish the selected Wi-Fi or cellular network link. @return True when the underlying network is usable. */
 bool connectNetwork();

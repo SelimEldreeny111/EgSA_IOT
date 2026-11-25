@@ -130,3 +130,32 @@ and retries the receipt after a duplicate uplink.
 On the bench, send GOSTM and FLASH_STATUS during coordinated multi-node
 traffic. Follow the same request ID from `reply_rx` to `uplink_persisted`.
 That final gateway event confirms the server accepted the exact reply.
+
+### Wi-Fi outage and offline LoRa gateway
+
+The ESP8266 gateway enters the LoRa main loop while the modem boots. Wi-Fi
+association is polled between radio exchanges, with priority given to LoRa.
+The gateway tries serial-configured, firmware, and saved flash credentials
+in that order and skips duplicate pairs. Use the serial `config` menu when
+commissioning is enabled. The gateway does not open an automatic credential
+prompt during startup or retry.
+
+A join can take up to 30 seconds on the modem. The STM32 keeps servicing
+the radio throughout that period. Gateway Wi-Fi recovery can reset the
+ESP8266 and retries continue without resetting the STM32 for an unavailable
+network. The gateway keeps its existing bounded uplink queues in RAM:
+latest Status per node and correlated replies until receipt or expiry.
+MQTT resumes after association returns.
+
+1. Boot the gateway with the access point off. Check that `Gateway setup
+   complete` appears before `wifi_join_started`.
+2. While the access point is off, check that `rx_complete` and fragment ACKs
+   keep appearing. In coordinated mode, verify `downlink_wake_complete`
+   reports a successful probe and grant. Watch the gateway watchdog
+   reset counter through more than one failed Wi-Fi attempt.
+3. Restore the access point. Check for `wifi_online` and
+   `mqtt_subscriptions_ready`, then confirm pending reports appear on the
+   server. Turn the access point off again and repeat.
+4. Compare `lora_uart_tx_idle_space` across builds. The LoRa TX drain
+   check uses this measured idle value from the driver while continuing
+   to service the ESP8266 UART.

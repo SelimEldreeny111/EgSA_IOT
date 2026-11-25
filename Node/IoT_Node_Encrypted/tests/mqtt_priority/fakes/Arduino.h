@@ -58,6 +58,7 @@ class HardwareSerial:public Stream {
 public:
     int rawWrites=0;
     std::deque<uint8_t> rawRx;
+    std::string rawTx;
     void begin(uint32_t,uint32_t=0) {}
     void end() {}
     int available() override { return rawRx.size(); }
@@ -67,7 +68,7 @@ public:
     }
     int peek() override { return rawRx.empty()?-1:rawRx.front(); }
     void flush() override {}
-    size_t write(uint8_t) override { ++rawWrites; return 1; }
+    size_t write(uint8_t value) override { ++rawWrites; rawTx += static_cast<char>(value); return 1; }
     using Stream::write;
     template<class T> void print(T) {}
     template<class T> void print(T,int) {}

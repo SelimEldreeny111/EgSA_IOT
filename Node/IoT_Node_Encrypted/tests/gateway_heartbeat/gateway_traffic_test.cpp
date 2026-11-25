@@ -29,7 +29,8 @@ struct Exchange {
 };
 std::array<SimNode, kNodes + 1> nodes{};
 Exchange air;
-bool online = true;
+bool online = false;
+unsigned offlineStatuses = 0;
 std::deque<GatewayCommand> commands, socketArrivals;
 unsigned receivedDuringExchange = 0;
 std::deque<Gateway_Delivery> receipts;
@@ -55,7 +56,7 @@ void reportHardwareWatchdogStatus() {}
 uint32_t hardwareWatchdogResetCount() { return 0; }
 uint32_t powerResetCount() { return 0; }
 void initializeMqttTransport() {}
-bool connectNetwork() { return online; }
+bool connectNetwork() { assert(false); return false; }
 void initializeMqttClient() {}
 bool ensureMqttConnection() { return online; }
 void mqttLoop() {}
@@ -132,6 +133,7 @@ bool receiveLoraFrame(LoraFrame& frame) {
         frame.payloadLength += sizeof(air.request);
         if (!online) ++repliesWhileOffline;
     }
+    if (!online && frame.type == LoraPayloadType::StatusTelemetry) ++offlineStatuses;
     air.active = false;
     return true;
 }
@@ -172,10 +174,11 @@ void printLoraDiagnostics() {}
 void printLoraFrameSummary(const LoraFrame&, const char*) {}
 
 int main() {
+    gatewaySetup(); // Wi-Fi offline at boot. The synchronous join must not be called.
     uint32_t request = 0;
     for (testTick = 0; testTick < kRuntimeMs + 15000U; testTick += 50U) {
-        online = !(testTick >= 180000U && testTick < 192000U);
-        if (testTick < kRuntimeMs && (testTick % 20000U == 1300U || testTick % 20000U == 1400U)) {
+        online = testTick >= 60000U && !(testTick >= 180000U && testTick < 192000U);
+        if (testTick >= 60000U && testTick < kRuntimeMs && (testTick % 20000U == 1300U || testTick % 20000U == 1400U)) {
             ++request;
             queueCommand(request, static_cast<uint16_t>(1U + (request - 1U) % kNodes));
         }
@@ -187,7 +190,7 @@ int main() {
     assert(pendingDuringReport && receivedDuringExchange);
     assert(silentGrants);
     assert(replayed);
-    assert(repliesWhileOffline);
+    assert(repliesWhileOffline && offlineStatuses);
     unsigned totalGrants = 0, completedStatuses = 0, publishedStatuses = 0;
     uint32_t maxGap = 0;
     for (unsigned i = 1; i <= kNodes; ++i) {

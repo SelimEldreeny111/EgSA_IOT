@@ -24,6 +24,9 @@ extern HardwareSerial SerialLoRa;
 
 namespace
 {
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+int g_loraUartIdleTxSpace = 0;
+#endif
 constexpr uint8_t kMagic0 = 'E';
 constexpr uint8_t kMagic1 = 'G';
 constexpr uint8_t kFrameVersion = 1;
@@ -433,7 +436,7 @@ bool writeLoraUartReliably(const uint8_t* data, size_t length)
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
   // STM32 HardwareSerial::flush waits for the TX ring to drain. At 9600 baud
   // this can outlast the ESP UART's RX ring capacity at 115200 baud.
-  while (SerialLoRa.availableForWrite() < SERIAL_TX_BUFFER_SIZE - 1)
+  while (SerialLoRa.availableForWrite() < g_loraUartIdleTxSpace)
   {
     if (millis() - startMs >= AppConfig::kLoraUartWriteTimeoutMs)
     {
@@ -1290,6 +1293,11 @@ void initializeLoraLink()
   delay(5);
 
   SerialLoRa.begin(AS32Config::kUartBaudRate, AS32Config::kSerialMode);
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+  // Use the running UART driver's empty-ring value, independent of build flags.
+  g_loraUartIdleTxSpace = SerialLoRa.availableForWrite();
+  APP_LOG_EVENT("lora_uart_tx_idle_space=%d", g_loraUartIdleTxSpace);
+#endif
   delay(100);
 
   APP_DEBUG_PRINT("AS32 LoRa V1 reliable transport ready: network=0x");

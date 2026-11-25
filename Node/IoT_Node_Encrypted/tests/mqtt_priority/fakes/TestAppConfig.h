@@ -45,7 +45,9 @@ constexpr uint16_t kSupmeaFlowUnitCode=3;
 constexpr uint32_t kSimResetPin=16, kSimResetPulseMs=250, kSimBootDelayMs=3000;
 constexpr uint32_t kEspEnablePin=7, kEspResetPin=8, kEspResetPulseMs=100, kEspBootDelayMs=3000;
 constexpr bool kEspEnableActiveHigh=true, kEspResetActiveLow=true;
+constexpr uint8_t kNetworkRetriesPerStage=10;
 }
+extern const char kWifiSsid[], kWifiPassword[];
 extern const char kMqttServer[],kMqttClientId[],kMqttCommandTopic[],kMqttBroadcastTopic[];
 extern const char kMqttPublishTopicStatus[],kMqttPublishTopicTlm[];
 extern const char kMqttCompanyTopicPrefix[],kMqttGatewayCommandWildcardTopic[];

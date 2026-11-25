@@ -13,6 +13,14 @@
 class CachedTinyGsmClient : public TinyGsmClient {
 public:
     explicit CachedTinyGsmClient(TinyGsm& modem) : TinyGsmClient(modem) {}
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+    using TinyGsmClient::connect;
+    int connect(const char* host, uint16_t port) override {
+        // A stale station or unreachable DNS/broker must not consume the
+        // ESP driver's default 75-second TCP connection timeout.
+        return TinyGsmClient::connect(host, port, 3);
+    }
+#endif
     uint8_t connected() override { return sock_connected; }
     operator bool() override { return connected() != 0U; }
 };

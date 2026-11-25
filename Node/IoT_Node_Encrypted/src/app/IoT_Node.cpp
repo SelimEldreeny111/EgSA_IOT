@@ -7,6 +7,9 @@
 #include "IoT_Node.h"
 #include "FlowMeterManager.h"
 #include "NetworkRetryPolicy.h"
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+#include "../comm/GatewayWifiLink.h"
+#endif
 #include "../devices/BatteryMonitor.h"
 #include "../devices/HndaSensor.h"
 #include "../devices/Rs485Bus.h"
@@ -28,6 +31,7 @@ extern HardwareSerial SerialAT;    // SIM800 or WIFI
 #define GPRS_RETRY_INTERVAL 5000
 #define GPRS_MAX_RETRIES    5
 
+#if APP_ROLE != APP_ROLE_LORA_GATEWAY || !defined(USE_ESP8266)
 namespace
 {
 NetworkRetryPolicy g_networkRetryPolicy(AppConfig::kNetworkRetriesPerStage);
@@ -69,6 +73,7 @@ bool recordNetworkConnectionFailure()
     return false;
 }
 }
+#endif
 
 #if defined(USE_ESP8266)
 namespace {
@@ -77,8 +82,10 @@ constexpr uint8_t kWifiCredentialVersion = 1;
 constexpr size_t kWifiSsidMaxLength = 32;
 constexpr size_t kWifiPasswordMaxLength = 64;
 constexpr int kWifiCredentialEepromAddress = 0;
+#if APP_ROLE != APP_ROLE_LORA_GATEWAY
 constexpr uint32_t kWifiSerialInputTimeoutMs = 180000UL;
 bool g_wifiProvisioningPromptUsed = false;
+#endif
 
 /** @brief Versioned, checksummed EEPROM copy of a previously working Wi-Fi network. */
 struct StoredWifiCredentials
@@ -114,14 +121,6 @@ void beginCredentialStore()
 #endif
 }
 
-/** @brief Commit pending EEPROM writes where the platform requires it. */
-void commitCredentialStore()
-{
-#if defined(ESP8266) || defined(ESP32)
-    EEPROM.commit();
-#endif
-}
-
 /** @brief Load a fallback network only if its magic, version, and checksum pass validation. */
 bool loadSavedWifiCredentials(StoredWifiCredentials& credentials)
 {
@@ -144,6 +143,15 @@ bool loadSavedWifiCredentials(StoredWifiCredentials& credentials)
     credentials.ssid[kWifiSsidMaxLength] = '\0';
     credentials.password[kWifiPasswordMaxLength] = '\0';
     return true;
+}
+
+#if APP_ROLE != APP_ROLE_LORA_GATEWAY
+/** @brief Commit pending EEPROM writes where the platform requires it. */
+void commitCredentialStore()
+{
+#if defined(ESP8266) || defined(ESP32)
+    EEPROM.commit();
+#endif
 }
 
 /** @brief Compare both SSID and password with the stored fallback pair. */
@@ -336,8 +344,19 @@ bool promptForWifiCredentials(char* ssid, size_t ssidSize, char* password, size_
     return false;
 #endif
 }
+#endif
 
 }
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+bool loadGatewaySavedWifiCredentials(GatewayWifiCredentials& credentials)
+{
+    StoredWifiCredentials saved{};
+    if (!loadSavedWifiCredentials(saved)) return false;
+    memcpy(credentials.ssid, saved.ssid, sizeof(credentials.ssid));
+    memcpy(credentials.password, saved.password, sizeof(credentials.password));
+    return true;
+}
+#endif
 #endif
 
 bool connectNetwork()
@@ -386,6 +405,9 @@ bool connectNetwork()
     return false; // Each failed inner attempt was already counted.
 
 #elif defined(USE_ESP8266)
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    return gatewayWifiConnected();
+#else
     // Explicit commissioning takes precedence when configured. A successful
     // configured connection does not overwrite the separate saved fallback.
 #if APP_ENABLE_SERIAL_CONFIG
@@ -454,6 +476,7 @@ bool connectNetwork()
 
     APP_LOG_ERROR("WiFi connection failed after configured, saved fallback, and operator credentials.");
     return false; // Credential attempts already counted their individual failures.
+#endif
 
 #else
     #error "No network module defined!"

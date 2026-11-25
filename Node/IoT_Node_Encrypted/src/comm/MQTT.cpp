@@ -23,8 +23,9 @@ extern HardwareSerial SerialAT;
 
 /** @brief TinyGSM modem bound to the selected IP uplink UART. */
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
-#include "GatewayEspAtStream.h"
+#include "GatewayWifiLink.h"
 GatewayEspAtStream gatewayEspInput(SerialAT);
+GatewayWifiLink gatewayWifi(SerialAT, gatewayEspInput);
 TinyGsm modem(gatewayEspInput);
 #else
 TinyGsm modem(SerialAT);
@@ -309,11 +310,11 @@ void resetSim800Hardware()
 void initializeMqttTransport()
 {
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+  gatewayWifi.begin();
+#else
 #if defined(USE_ESP8266)
   resetAndWakeEsp8266();
-#if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  gatewayEspInput.resetInput();
-#endif
 #else
   // Reset the independently powered SIM800 on every MCU boot as well. A stuck
   // modem must not survive a watchdog/controller reset and poison the next boot.
@@ -327,6 +328,7 @@ void initializeMqttTransport()
   // the independent watchdog must be allowed to reset the STM32.
   modem.init();
   serviceHardwareWatchdog();
+#endif
 }
 
 void resetMqttTransportForNetworkRecovery()
@@ -609,16 +611,21 @@ bool ensureMqttConnection()
     g_gatewayRecoveryPending = false;
     APP_LOG_EVENT("mqtt_recovery modem_reset_begin");
     initializeMqttTransport();
-#if defined(USE_ESP8266)
-    if (!connectNetwork()) {
-      g_lastReconnectAttemptMs = millis();
-      return false;
-    }
-#endif
     g_lastReconnectAttemptMs = millis();
-    APP_LOG_EVENT("mqtt_recovery modem_reset_complete");
     return false; // Reconnect and subscribe on a subsequent quiet pass.
   }
+#if defined(USE_ESP8266)
+  const bool wasOnline = gatewayWifi.connected();
+  if (!gatewayWifi.poll()) {
+    if (wasOnline) {
+      bufferedClient.stop();
+      mqtt.disconnect();
+      g_gatewayReady = false;
+    }
+    return false; // A booting, searching or offline ESP never starts TCP/MQTT.
+  }
+  if (!wasOnline) g_lastReconnectAttemptMs = millis() - AppConfig::kMqttReconnectIntervalMs;
+#endif
 #endif
   serviceHardwareWatchdog(WatchdogStage::MqttStatus);
   const bool alreadyConnected = mqtt.connected();
@@ -731,7 +738,7 @@ bool ensureMqttConnection()
       APP_DEBUG_PRINTLN(" retry scheduled");
     }
 
-#if defined(USE_ESP8266)
+#if defined(USE_ESP8266) && APP_ROLE != APP_ROLE_LORA_GATEWAY
     if (g_mqttConnectFailureCount >= 3)
     {
       g_mqttConnectFailureCount = 0;
@@ -834,10 +841,15 @@ void mqttLoop()
 #if defined(USE_ESP8266)
 void serviceGatewayModemRxDuringRadio()
 {
-  if (!g_modemOperationActive && !g_gatewayRecoveryPending && mqtt.state() == 0)
+  if (!g_modemOperationActive && !g_gatewayRecoveryPending)
   {
     gatewayEspInput.serviceUart();
   }
+}
+
+bool gatewayWifiConnected()
+{
+  return gatewayWifi.connected();
 }
 #endif
 

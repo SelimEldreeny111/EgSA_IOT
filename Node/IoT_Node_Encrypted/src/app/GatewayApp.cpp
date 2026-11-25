@@ -369,10 +369,12 @@ void gatewaySetup()
   serviceHardwareWatchdog();
   initializeMqttTransport();
   serviceHardwareWatchdog();
+#if !defined(USE_ESP8266)
   if (!connectNetwork())
   {
     APP_LOG_ERROR("Gateway network initialization failed; will retry in loop.");
   }
+#endif
   initializeMqttClient();
   serviceHardwareWatchdog();
 
@@ -402,7 +404,10 @@ void gatewayLoop()
   serviceServerReceipts();
 
   if (g_radioOwner && millis() - g_windowStart >= kStartWindowMs) g_radioOwner = 0;
-  if (g_radioOwner || isLoraReceiveTransactionActive()) return;
+  if (g_radioOwner || isLoraReceiveTransactionActive()) {
+    serviceHardwareWatchdog();
+    return;
+  }
 
   const bool mqttReady = ensureMqttConnection();
   mqttLoop();

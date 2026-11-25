@@ -9,7 +9,7 @@ uint32_t nowMs=0;
 uint32_t millis(){return nowMs;}
 void delay(unsigned ms){nowMs+=ms;}
 void yield(){++nowMs;}
-int HardwareSerial::availableForWrite() { return millis() >= txReadyAt ? 511 : 464; }
+int HardwareSerial::availableForWrite() { return millis() >= txReadyAt ? txCapacity : txCapacity - 47; }
 #if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
 uint32_t radioPumpLastMs = 0;
 uint32_t radioPumpWorstGapMs = 0;
@@ -120,6 +120,9 @@ void checkInterleavedAndFullQueue()
 #if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
 void checkEspServiceDuringWor()
 {
+    // Simulate a runtime driver with a different TX capacity than build_opt.h.
+    SerialLoRa.txCapacity = 63;
+    initializeLoraLink();
     // A busy AUX and a pending STM32 UART transmission each span many polls.
     const uint32_t start = millis();
     auxReadyAt = start + 28;

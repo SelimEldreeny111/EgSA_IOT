@@ -1,6 +1,9 @@
 #pragma once
 #include "Arduino.h"
 #define APP_CONFIG_H
+#define APP_ROLE_SENSOR_NODE 1
+#define APP_ROLE_LORA_GATEWAY 2
+#define APP_ROLE APP_ROLE_SENSOR_NODE
 #define APP_ENABLE_COMMAND_ACK_REPLIES true
 constexpr const char kMqttCompanyTopicPrefix[]="wiot/Test/Region";
 #if defined(TEST_ESP8266)

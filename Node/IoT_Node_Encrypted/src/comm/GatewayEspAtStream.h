@@ -3,6 +3,7 @@
 #define WIOT_GATEWAY_ESP_AT_STREAM_H
 
 #include <Arduino.h>
+#include <cstring>
 
 /**
  * @brief Separate ESP-AT text from binary +IPD records as bytes arrive.
@@ -50,6 +51,12 @@ public:
     const char* fault() const { return fault_; }
     /** @brief Drain a bounded UART slice without AT commands or MQTT callbacks. */
     void serviceUart() { pump(); }
+    int readStagedAtByte() { return text_.take(); }
+    bool takeWifiDisconnect() {
+        const bool lost = wifiDisconnected_;
+        wifiDisconnected_ = false;
+        return lost;
+    }
 
     /** @brief Announced and observed payload bytes for the current +IPD record. */
     struct IpdProgress {
@@ -62,6 +69,8 @@ public:
     }
     void resetInput() {
         text_.clear();
+        atLineLength_ = 0;
+        wifiDisconnected_ = false;
         resetSocket();
     }
     void resetSocket() {
@@ -86,6 +95,17 @@ public:
 private:
     enum class State : uint8_t { Text, Mux, Separator, Length, Payload };
     void emitText(uint8_t byte) {
+        // Notice link changes without removing URCs from TinyGSM's input.
+        if (byte == '\n') {
+            if (atLineLength_ < sizeof(atLine_)) {
+                atLine_[atLineLength_] = '\0';
+                if (!strcmp(atLine_, "WIFI DISCONNECT")) wifiDisconnected_ = true;
+                if (!strcmp(atLine_, "WIFI GOT IP")) wifiDisconnected_ = false;
+            }
+            atLineLength_ = 0;
+        } else if (byte != '\r' && atLineLength_ < sizeof(atLine_)) {
+            atLine_[atLineLength_++] = static_cast<char>(byte);
+        }
         // A full AT text FIFO would leave TinyGSM with an ambiguous response.
         if (!text_.put(byte)) fault_ = "esp_at_text_overflow";
     }
@@ -155,5 +175,8 @@ private:
     uint32_t length_ = 0, remaining_ = 0;
     size_t matched_ = 0, digits_ = 0;
     const char* fault_ = nullptr;
+    char atLine_[24] = {};
+    size_t atLineLength_ = 0;
+    bool wifiDisconnected_ = false;
 };
 #endif

@@ -38,14 +38,15 @@ protected:
     bool sock_connected=true;
 public:
     explicit TinyGsmClient(TinyGsm&) {}
-    int sendLimit=-1, writes=0, stops=0;
+    int sendLimit=-1, writes=0, stops=0, connects=0;
     bool& live=sock_connected;
     std::function<int()> pendingInput;
     std::vector<std::vector<uint8_t>> sent;
     std::deque<uint8_t> rx;
     std::function<void(const std::vector<uint8_t>&)> onSend;
     int connect(IPAddress,uint16_t) override { live=true; return 1; }
-    int connect(const char*,uint16_t) override { live=true; return 1; }
+    int connect(const char*,uint16_t) override { ++connects; live=true; return 1; }
+    int connect(const char* host,uint16_t port,int) { return TinyGsmClient::connect(host,port); }
     void stop() override { ++stops; live=false; }
     uint8_t connected() override { return live; }
     operator bool() override { return live; }

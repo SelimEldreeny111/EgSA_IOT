@@ -1,7 +1,7 @@
 /** @file gateway_wifi_receive_test.cpp @brief Exercise the actual MQTT client on staged ESP-AT input. */
 #include "../../src/comm/MQTT.h"
 #include "../../src/comm/GatewayDelivery.h"
-#include "../../src/comm/GatewayEspAtStream.h"
+#include "../../src/comm/GatewayWifiLink.h"
 #include "../../src/comm/CachedTinyGsmClient.h"
 #include <cassert>
 #include <iostream>
@@ -17,12 +17,17 @@ const char kMqttPublishTopicStatus[]="wiot/Test/Region_1/1/status",kMqttPublishT
 const char kMqttCompanyTopicPrefix[]="wiot/Test/Region_1";
 const char kMqttGatewayCommandWildcardTopic[]="wiot/Test/Region_1/+/cmd";
 const pb_msgdesc_t Gateway_Delivery_msg = {};
-int networkJoins = 0;
+const char kWifiSsid[] = "configured", kWifiPassword[] = "pw";
+bool loadGatewaySavedWifiCredentials(GatewayWifiCredentials& credentials) {
+    strcpy(credentials.ssid, "fallback");
+    strcpy(credentials.password, "saved");
+    return true;
+}
 void serviceHardwareWatchdog() {}
 void serviceHardwareWatchdog(WatchdogStage) {}
 void watchdogDelay(uint32_t ms) { delay(ms); }
 [[noreturn]] void forceHardwareWatchdogReset(const char*) { assert(false); std::abort(); }
-bool connectNetwork() { ++networkJoins; return true; }
+bool connectNetwork() { assert(false); return false; }
 bool decodeEncryptedCommandPayload(const uint8_t* bytes, size_t length, CMD_Message& cmd) {
     if (length != 4 || bytes[3] != 0xff) return false;
     cmd.node_id = bytes[0]; cmd.cmd_id = bytes[1]; cmd.request_id = bytes[2]; return true;
@@ -45,10 +50,34 @@ static std::vector<uint8_t> command() {
     data.insert(data.end(), {0, 51, 1, 4, 42, 0xff});
     return data;
 }
-static void connectBroker() {
-    assert(!ensureMqttConnection());
+static void finishBrokerSubscriptions() {
     for (int i=0; i<3; ++i) mqttLoop();
     assert(ensureMqttConnection());
+}
+
+static void pollWifi(const char* expectedCommand = nullptr, uint32_t advance = 0) {
+    SerialAT.rawTx.clear();
+    testNow += advance;
+    const uint32_t before = testNow;
+    const int connects = gsmClient.connects;
+    assert(!ensureMqttConnection());
+    assert(testNow - before < 10U); // No synchronous modem delay.
+    assert(gsmClient.connects == connects);
+    assert(SerialAT.rawTx == (expectedCommand ? expectedCommand : ""));
+}
+
+static void bootWifi(uint32_t settleMs = 3000) {
+    pollWifi(nullptr, 100);
+    pollWifi("ATE0\r\n", settleMs);
+    putText("OK\r\n"); pollWifi("AT+CWMODE_CUR=1\r\n");
+    putText("OK\r\n"); pollWifi("AT+CIPMUX=1\r\n");
+}
+
+static void finishJoin() {
+    putText("WIFI CONNECTED\r\nWIFI GOT IP\r\nOK\r\n");
+    assert(!ensureMqttConnection());
+    assert(gatewayWifiConnected());
+    finishBrokerSubscriptions();
 }
 
 static void exerciseEspInput() {
@@ -119,7 +148,22 @@ int main() {
             putIpd({0x90,3,bytes[2],bytes[3],1});
         }
     };
-    initializeMqttClient(); connectBroker();
+    const uint32_t before = testNow;
+    initializeMqttTransport();
+    initializeMqttClient();
+    assert(testNow - before < 10U && !gatewayWifiConnected());
+    bootWifi();
+    putText("OK\r\n"); pollWifi("AT+CWJAP_CUR=\"configured\",\"pw\"\r\n");
+    for (int i = 0; i < 28; ++i) pollWifi(nullptr, 1000);
+    putText("+CWJAP:3\r\nFAIL\r\n"); pollWifi();
+    pollWifi("AT+CWJAP_CUR=\"fallback\",\"saved\"\r\n", 5000);
+    for (int i = 0; i < 29; ++i) pollWifi(nullptr, 1000);
+    pollWifi(nullptr, 1000);  // A silent modem is reset separately.
+    pollWifi(nullptr, 5000);
+    bootWifi();
+    putText("OK\r\n"); pollWifi(); // Wait out the retry cycle after both networks failed.
+    pollWifi("AT+CWJAP_CUR=\"configured\",\"pw\"\r\n", 30000);
+    finishJoin();
     const auto bytes = command();
     const int initialWrites = gsmClient.writes, initialStops = gsmClient.stops;
 
@@ -153,17 +197,22 @@ int main() {
     serviceGatewayMqttIntake();
     testNow+=1100;
     serviceGatewayMqttIntake();
-    assert(mqtt.state()!=0 && networkJoins==0);
+    assert(mqtt.state()!=0);
     assert(gsmClient.writes == initialWrites+1 && gsmClient.stops == initialStops);
     assert(gatewayPendingCommand() && gatewayPendingCommand()->proof.request_id == 42);
-    assert(!ensureMqttConnection() && networkJoins==0);
-    testNow+=3000;
-    assert(!ensureMqttConnection() && networkJoins==1);
-    testNow+=3000;
-    connectBroker();
+    pollWifi();
+    pollWifi(nullptr, 3000);
+    bootWifi();
+    putText("OK\r\n"); pollWifi("AT+CWJAP_CUR=\"configured\",\"pw\"\r\n");
+    finishJoin();
     assert(mqttConnectionGeneration()==2 && gatewayPendingCommand());
     completeGatewayCommand(GatewayDispatched);
     // Use a fresh request ID after reconnect to check ingress behind a UART burst.
     exerciseUartBurst();
-    std::cout<<"PASS gateway ESP-AT fragmented command, deferred PUBACK and local fault recovery\n";
+    putText("WIFI DISCONNECT\r\n");
+    pollWifi();
+    assert(!gatewayWifiConnected() && mqtt.state() != 0);
+    pollWifi("AT+CWJAP_CUR=\"configured\",\"pw\"\r\n", 5000);
+    assert(gatewayPendingCommand()->proof.request_id == 43);
+    std::cout<<"PASS Wi-Fi offline startup, timeout, fallback, disconnect and MQTT/IPD recovery\n";
 }
