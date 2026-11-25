@@ -38,14 +38,32 @@ constexpr size_t kMaxWirePayloadLength =
     kMaxWireFrameLength - kHeaderLength - kCrcLength;
 constexpr size_t kFragmentDataLength =
     kMaxWirePayloadLength - kFragmentHeaderLength;
+constexpr size_t kSingleUplinkWireLength = AppConfig::kLoraSingleUplinkMaxWireBytes;
+constexpr size_t kSingleUplinkPayloadLength = kSingleUplinkWireLength - kHeaderLength - kCrcLength;
+constexpr size_t kSingleUplinkDataLength = kSingleUplinkPayloadLength - kFragmentHeaderLength;
+constexpr uint8_t kSingleUplinkAck = 0xFFU;
+
+constexpr size_t wirePayloadLimit(LoraPayloadType type)
+{
+  return type == LoraPayloadType::TransportUplink ? kSingleUplinkPayloadLength : kMaxWirePayloadLength;
+}
+
+constexpr bool isReportType(LoraPayloadType type)
+{
+  return type == LoraPayloadType::StatusTelemetry || type == LoraPayloadType::SystemTelemetry;
+}
+
 constexpr size_t kMaxBufferedLength =
     kHeaderLength + sizeof(LoraFrame::payload) + kCrcLength;
 constexpr size_t kDiagnosticPrefixLength = 12U;
 constexpr size_t kAckPayloadLength = 5U;
 constexpr uint16_t kMaxFragmentMaskBits = 32U;
 
-static_assert(kMaxWireFrameLength <= 63U,
-              "AS32 physical frames must remain below its 63-byte boundary");
+static_assert(kMaxWireFrameLength <= 63U, "Legacy wire frames must fit the short format");
+static_assert(kSingleUplinkWireLength > kMaxWireFrameLength && kSingleUplinkWireLength < 256U &&
+              kSingleUplinkWireLength < SERIAL_RX_BUFFER_SIZE &&
+              kSingleUplinkPayloadLength <= sizeof(LoraFrame::payload),
+              "Extended uplinks must fit the radio FIFO and receive buffers");
 static_assert(kFragmentDataLength > 0U,
               "LoRa wire frame is too small for fragment metadata");
 static_assert(
@@ -270,16 +288,6 @@ bool isApplicationType(LoraPayloadType type)
          type == LoraPayloadType::UplinkGrant;
 }
 
-/** @brief Return the compiled node or gateway radio identity. */
-uint16_t localRadioNodeId()
-{
-#if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  return AppConfig::kGatewayNodeId;
-#else
-  return AppConfig::kNodeId;
-#endif
-}
-
 /** @brief Remove consumed or rejected bytes from the RX assembly buffer. */
 void discardBytes(size_t count)
 {
@@ -307,7 +315,7 @@ size_t expectedBufferedFrameLength()
   const uint16_t payloadLength =
       (static_cast<uint16_t>(g_rxBuffer[8]) << 8) |
       g_rxBuffer[9];
-  if (payloadLength > kMaxWirePayloadLength)
+  if (payloadLength > wirePayloadLimit(static_cast<LoraPayloadType>(g_rxBuffer[5])))
   {
     return 0U;
   }
@@ -492,7 +500,7 @@ bool transmitWireFrame(
     bool verbose)
 {
   if ((payload == nullptr && payloadLength > 0U) ||
-      payloadLength > kMaxWirePayloadLength)
+      payloadLength > wirePayloadLimit(type))
   {
     APP_LOG_ERROR("LoRa wire send failed: invalid payload length");
     return false;
@@ -500,7 +508,7 @@ bool transmitWireFrame(
 
   serviceHardwareWatchdog(WatchdogStage::LoraTransmit);
 
-  uint8_t frame[kMaxWireFrameLength];
+  uint8_t frame[kSingleUplinkWireLength];
   size_t offset = 0U;
   frame[offset++] = kMagic0;
   frame[offset++] = kMagic1;
@@ -521,12 +529,6 @@ bool transmitWireFrame(
   const uint16_t crc = crc16Ccitt(frame, offset);
   frame[offset++] = static_cast<uint8_t>((crc >> 8) & 0xFFU);
   frame[offset++] = static_cast<uint8_t>(crc & 0xFFU);
-
-  if (offset > kMaxWireFrameLength)
-  {
-    APP_LOG_ERROR("LoRa wire send failed: frame exceeds safe AS32 limit");
-    return false;
-  }
 
   if (verbose && AppConfig::kEnableLoraFrameHexLogs)
   {
@@ -614,7 +616,7 @@ bool extractWireFrame(LoraFrame& frame)
   const uint16_t payloadLength =
       (static_cast<uint16_t>(g_rxBuffer[8]) << 8) |
       g_rxBuffer[9];
-  if (payloadLength > kMaxWirePayloadLength)
+  if (payloadLength > wirePayloadLimit(static_cast<LoraPayloadType>(g_rxBuffer[5])))
   {
     APP_DEBUG_PRINT("LoRa wire dropped: payload exceeds safe limit length=");
     APP_DEBUG_PRINTLN(payloadLength);
@@ -858,7 +860,8 @@ void expireReassemblyContexts()
   }
 }
 
-/** @brief Acknowledge one received fragment to the sending node. */
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+/** @brief Acknowledge an admitted uplink or a received legacy fragment. */
 bool sendFragmentAck(
     uint16_t targetNodeId,
     uint16_t messageId,
@@ -871,16 +874,20 @@ bool sendFragmentAck(
   payload[3] = static_cast<uint8_t>(messageId & 0xFFU);
   payload[4] = fragmentIndex;
 
-  APP_DEBUG_PRINT("LoRa TX fragment ACK: target=");
+  APP_DEBUG_PRINT(fragmentIndex == kSingleUplinkAck ? "LoRa TX uplink ACK: target="
+                                                    : "LoRa TX fragment ACK: target=");
   APP_DEBUG_PRINT(targetNodeId);
   APP_DEBUG_PRINT(" message=");
   APP_DEBUG_PRINT(messageId);
-  APP_DEBUG_PRINT(" part=");
-  APP_DEBUG_PRINTLN(fragmentIndex + 1U);
+  if (fragmentIndex == kSingleUplinkAck) APP_DEBUG_PRINTLN();
+  else {
+    APP_DEBUG_PRINT(" part=");
+    APP_DEBUG_PRINTLN(fragmentIndex + 1U);
+  }
 
   if (!transmitWireFrame(
           LoraPayloadType::TransportFragmentAck,
-          localRadioNodeId(),
+          AppConfig::kGatewayNodeId,
           payload,
           sizeof(payload),
           AppConfig::kLoraFinalPacketGuardMs,
@@ -893,7 +900,9 @@ bool sendFragmentAck(
   return true;
 }
 
-/** @brief Validate and record a received transport-fragment ACK. */
+#endif
+
+/** @brief Validate and record a received transport ACK. */
 void handleFragmentAck(const LoraFrame& wireFrame)
 {
   if (wireFrame.payloadLength != kAckPayloadLength)
@@ -914,14 +923,18 @@ void handleFragmentAck(const LoraFrame& wireFrame)
   g_lastAck.fragmentIndex = wireFrame.payload[4];
   ++g_fragmentAcksRx;
 
-  APP_DEBUG_PRINT("LoRa RX fragment ACK: from=");
+  APP_DEBUG_PRINT(g_lastAck.fragmentIndex == kSingleUplinkAck ? "LoRa RX uplink ACK: from="
+                                                              : "LoRa RX fragment ACK: from=");
   APP_DEBUG_PRINT(g_lastAck.ackSourceNodeId);
   APP_DEBUG_PRINT(" target=");
   APP_DEBUG_PRINT(g_lastAck.targetNodeId);
   APP_DEBUG_PRINT(" message=");
   APP_DEBUG_PRINT(g_lastAck.messageId);
-  APP_DEBUG_PRINT(" part=");
-  APP_DEBUG_PRINTLN(g_lastAck.fragmentIndex + 1U);
+  if (g_lastAck.fragmentIndex == kSingleUplinkAck) APP_DEBUG_PRINTLN();
+  else {
+    APP_DEBUG_PRINT(" part=");
+    APP_DEBUG_PRINTLN(g_lastAck.fragmentIndex + 1U);
+  }
 }
 
 /** @brief Validate, store, and reassemble fragments into an application frame. */
@@ -939,6 +952,12 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   const uint16_t messageId =
       (static_cast<uint16_t>(wireFrame.payload[1]) << 8) |
       wireFrame.payload[2];
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  const bool singleUplink = wireFrame.type == LoraPayloadType::TransportUplink;
+#else
+  constexpr bool singleUplink = false;
+#endif
+  const size_t chunkLimit = singleUplink ? kSingleUplinkDataLength : kFragmentDataLength;
   const uint8_t fragmentIndex = wireFrame.payload[3];
   const uint8_t fragmentCount = wireFrame.payload[4];
   const uint16_t totalLength =
@@ -951,17 +970,17 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
 
   const size_t expectedFragmentCount = totalLength == 0U
       ? 1U
-      : (totalLength + kFragmentDataLength - 1U) / kFragmentDataLength;
+      : (totalLength + chunkLimit - 1U) / chunkLimit;
   const size_t fragmentOffset =
-      static_cast<size_t>(fragmentIndex) * kFragmentDataLength;
+      static_cast<size_t>(fragmentIndex) * chunkLimit;
   const size_t remaining = fragmentOffset < totalLength
       ? totalLength - fragmentOffset
       : 0U;
-  const size_t expectedChunkLength = remaining < kFragmentDataLength
-      ? remaining
-      : kFragmentDataLength;
+  const size_t expectedChunkLength = remaining < chunkLimit ? remaining : chunkLimit;
 
   if (!isApplicationType(originalType) ||
+      (singleUplink && (!isReportType(originalType) || fragmentCount != 1U ||
+                        wireFrame.sourceNodeId == AppConfig::kGatewayNodeId || totalLength == 0U)) ||
       messageId == 0U ||
       totalLength > sizeof(completedFrame.payload) ||
       fragmentCount == 0U ||
@@ -984,6 +1003,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
   const bool confirm = wireFrame.sourceNodeId != AppConfig::kGatewayNodeId;
+  const uint8_t ackIndex = singleUplink ? kSingleUplinkAck : fragmentIndex;
   if (confirm)
   {
     for (const auto& delivered : g_delivered)
@@ -992,7 +1012,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
           delivered.crc == logicalCrc && delivered.length == totalLength && delivered.type == originalType &&
           millis() - delivered.at < AppConfig::kLoraFragmentAssemblyTimeoutMs)
       {
-        sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
+        sendFragmentAck(wireFrame.sourceNodeId, messageId, ackIndex);
         return false;
       }
     }
@@ -1027,8 +1047,8 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
   }
   context->lastUpdateMs = millis();
 
-  APP_DEBUG_PRINT(duplicate ? "LoRa RX duplicate fragment: source="
-                            : "LoRa RX fragment: source=");
+  APP_DEBUG_PRINT(singleUplink ? "LoRa RX single-frame uplink: source=" :
+      (duplicate ? "LoRa RX duplicate fragment: source=" : "LoRa RX fragment: source="));
   APP_DEBUG_PRINT(wireFrame.sourceNodeId);
   APP_DEBUG_PRINT(" message=");
   APP_DEBUG_PRINT(messageId);
@@ -1048,7 +1068,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
       context->bytesReceived != context->totalLength)
   {
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-    if (confirm) sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
+    if (confirm) sendFragmentAck(wireFrame.sourceNodeId, messageId, ackIndex);
 #endif
     return false;
   }
@@ -1098,7 +1118,7 @@ bool handleFragmentFrame(const LoraFrame& wireFrame, LoraFrame& completedFrame)
         totalLength, originalType, millis()};
     g_deliveredNext = (g_deliveredNext + 1U) % (sizeof(g_delivered) / sizeof(g_delivered[0]));
     resetReassemblyContext(*context);
-    sendFragmentAck(wireFrame.sourceNodeId, messageId, fragmentIndex);
+    sendFragmentAck(wireFrame.sourceNodeId, messageId, ackIndex);
     return false;  // Already admitted to the application queue.
   }
 #endif
@@ -1116,7 +1136,11 @@ void processWireFrame(const LoraFrame& wireFrame)
   }
 
   LoraFrame logicalFrame;
-  if (wireFrame.type == LoraPayloadType::TransportFragment)
+  if (wireFrame.type == LoraPayloadType::TransportFragment
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+      || wireFrame.type == LoraPayloadType::TransportUplink
+#endif
+      )
   {
     if (!handleFragmentFrame(wireFrame, logicalFrame))
     {
@@ -1314,6 +1338,8 @@ void initializeLoraLink()
   APP_DEBUG_PRINT(kMaxWirePayloadLength);
   APP_DEBUG_PRINT(" fragment_data=");
   APP_DEBUG_PRINT(kFragmentDataLength);
+  APP_DEBUG_PRINT(" single_uplink_data=");
+  APP_DEBUG_PRINT(kSingleUplinkDataLength);
   APP_DEBUG_PRINT(" UART_RX=");
   APP_DEBUG_PRINT(SERIAL_RX_BUFFER_SIZE);
   APP_DEBUG_PRINT(" UART_TX=");
@@ -1335,6 +1361,11 @@ bool isLoraReceiveTransactionActive()
 {
   expireReassemblyContexts();
   const uint32_t now = millis();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  // The module may output one UART frame in multiple RF packet bursts.
+  if (g_rxLength < expectedBufferedFrameLength() &&
+      now - g_lastRxByteMs < AppConfig::kLoraRxAssemblyTimeoutMs) return true;
+#endif
   for (size_t i = 0; i < AppConfig::kLoraReassemblyContextCount; ++i)
   {
     const ReassemblyContext& context = g_reassembly[i];
@@ -1513,8 +1544,10 @@ bool sendLoraFrame(
   }
 
   const bool requireAck = nodeUplinkRequiresAck(sourceNodeId);
-  const bool useFragments = requireAck || payloadLength > kMaxWirePayloadLength;
-  if (!useFragments)
+  const bool singleUplink = APP_LORA_SINGLE_FRAME_UPLINK && requireAck &&
+      isReportType(type) && payloadLength > 0U && payloadLength <= kSingleUplinkDataLength;
+  const size_t chunkLimit = singleUplink ? kSingleUplinkDataLength : kFragmentDataLength;
+  if (!requireAck && payloadLength <= kMaxWirePayloadLength)
   {
     const bool transmitted = transmitWireFrame(
             type,
@@ -1539,7 +1572,7 @@ bool sendLoraFrame(
   const uint16_t logicalCrc = crc16Ccitt(payload, payloadLength);
   const uint8_t fragmentCount = static_cast<uint8_t>(payloadLength == 0U
       ? 1U
-      : (payloadLength + kFragmentDataLength - 1U) / kFragmentDataLength);
+      : (payloadLength + chunkLimit - 1U) / chunkLimit);
 
   APP_LOG_INFO("tx_begin source=%u message=%u type=%s bytes=%lu fragments=%u ack_required=%u crc=0x%04X",
       sourceNodeId, messageId, WiotDebug::frameName(static_cast<uint8_t>(type)),
@@ -1551,15 +1584,13 @@ bool sendLoraFrame(
   {
     serviceHardwareWatchdog();
     const size_t fragmentOffset =
-        static_cast<size_t>(fragmentIndex) * kFragmentDataLength;
+        static_cast<size_t>(fragmentIndex) * chunkLimit;
     const size_t remaining = fragmentOffset < payloadLength
         ? payloadLength - fragmentOffset
         : 0U;
-    const size_t chunkLength = remaining < kFragmentDataLength
-        ? remaining
-        : kFragmentDataLength;
+    const size_t chunkLength = remaining < chunkLimit ? remaining : chunkLimit;
 
-    uint8_t fragmentPayload[kMaxWirePayloadLength];
+    uint8_t fragmentPayload[kSingleUplinkPayloadLength];
     fragmentPayload[0] = static_cast<uint8_t>(type);
     fragmentPayload[1] = static_cast<uint8_t>((messageId >> 8) & 0xFFU);
     fragmentPayload[2] = static_cast<uint8_t>(messageId & 0xFFU);
@@ -1590,9 +1621,9 @@ bool sendLoraFrame(
       // Each ACK wait is bounded to 12 seconds, below the 30-second IWDG
       // deadline. Refresh only between attempts, never inside the wait loop.
       serviceHardwareWatchdog();
-      APP_LOG_INFO("tx_fragment message=%u part=%u/%u bytes=%lu attempt=%u/%u",
-          messageId, fragmentIndex + 1U, fragmentCount,
-          static_cast<unsigned long>(chunkLength), attempt, attempts);
+      APP_LOG_INFO("tx_%s message=%u part=%u/%u bytes=%lu attempt=%u/%u",
+          singleUplink ? "single_uplink" : "fragment", messageId, fragmentIndex + 1U,
+          fragmentCount, static_cast<unsigned long>(chunkLength), attempt, attempts);
 
       g_lastAck.valid = false;
       const bool hasNextFragment = fragmentIndex + 1U < fragmentCount;
@@ -1602,7 +1633,7 @@ bool sendLoraFrame(
               ? AppConfig::kLoraInterPacketGuardMs
               : AppConfig::kLoraFinalPacketGuardMs);
       const bool transmitted = transmitWireFrame(
-              LoraPayloadType::TransportFragment,
+              singleUplink ? LoraPayloadType::TransportUplink : LoraPayloadType::TransportFragment,
               sourceNodeId,
               fragmentPayload,
               fragmentPayloadLength,
@@ -1615,7 +1646,8 @@ bool sendLoraFrame(
       }
 
       const bool acknowledged = !requireAck ||
-          waitForFragmentAck(sourceNodeId, messageId, fragmentIndex);
+          waitForFragmentAck(sourceNodeId, messageId,
+                             singleUplink ? kSingleUplinkAck : fragmentIndex);
       serviceHardwareWatchdog();
       if (acknowledged)
       {

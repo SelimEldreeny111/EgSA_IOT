@@ -46,4 +46,11 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Wi-Fi gateway WOR compile failed'}
     & (Join-Path $flashBuild 'lora-wifi-wor.exe')
     if($LASTEXITCODE -ne 0){throw 'Wi-Fi gateway WOR modem polling regression'}
+    & $flashCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' `
+        '-DAPP_ROLE=1' '-DAPP_LORA_COORDINATED=1' `
+        '-I' (Join-Path $PSScriptRoot 'fakes') '-include' (Join-Path $PSScriptRoot 'fakes/LoraConfig.h') `
+        (Join-Path $PSScriptRoot 'lora_large_frame_test.cpp') '-o' (Join-Path $flashBuild 'lora-node.exe')
+    if($LASTEXITCODE -ne 0){throw 'Single-frame node uplink compile failed'}
+    & (Join-Path $flashBuild 'lora-node.exe')
+    if($LASTEXITCODE -ne 0){throw 'Single-frame node uplink regression'}
 } finally {$env:PATH=$flashOldPath}

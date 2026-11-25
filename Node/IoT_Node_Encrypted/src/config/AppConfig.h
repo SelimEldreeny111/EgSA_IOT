@@ -1009,16 +1009,24 @@ constexpr bool kLoraModuleSupportsRssi =
 constexpr bool kEnableAs32RssiDiagnostics = kLoraModuleSupportsRssi;
 constexpr uint32_t kLoraDiagnosticsPeriodMs = 5000UL;
 
-// The tested AS32 path has a 63-byte transport boundary. Every physical wire
-// frame is therefore independently framed and kept at or below 48 bytes.
-// Larger logical messages are fragmented and reassembled by message ID.
+// One CRC-protected WIOT frame for node uplinks that fit the radio FIFO.
+// Flash the gateway first. Set to 0 on nodes that require the legacy framing.
+#ifndef APP_LORA_SINGLE_FRAME_UPLINK
+#define APP_LORA_SINGLE_FRAME_UPLINK 1
+#endif
+#if APP_LORA_SINGLE_FRAME_UPLINK != 0 && APP_LORA_SINGLE_FRAME_UPLINK != 1
+#error "APP_LORA_SINGLE_FRAME_UPLINK must be 0 or 1"
+#endif
+// The UART radio may packetize an extended frame internally. Keep it below
+// the AS32 256-byte FIFO. Other frames use the original short wire format.
+constexpr size_t kLoraSingleUplinkMaxWireBytes = 240U;
 constexpr size_t kLoraMaxWireFrameBytes = 48U;
 constexpr uint32_t kLoraAuxBusyDetectTimeoutMs = 200UL;
 constexpr uint32_t kLoraInterPacketGuardMs = 500UL;
 constexpr uint32_t kLoraFinalPacketGuardMs = 200UL;
 
-// The gateway acknowledges every node fragment. A lost fragment or ACK is
-// retransmitted without combining bytes from different logical messages.
+// The gateway acknowledges a complete single-frame uplink or each legacy
+// fragment. Message identity protects reassembly and suppresses repeat delivery.
 // ESP-AT/MQTT calls can occupy the gateway for up to the configured eight-
 // second socket timeout. The first fragment therefore waits long enough for
 // the gateway to return to the radio service before attempting a retry.

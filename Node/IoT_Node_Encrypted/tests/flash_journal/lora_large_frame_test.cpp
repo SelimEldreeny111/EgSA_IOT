@@ -7,7 +7,15 @@
 HardwareSerial SerialMon,SerialLoRa;
 uint32_t nowMs=0;
 uint32_t millis(){return nowMs;}
-void delay(unsigned ms){nowMs+=ms;}
+#if APP_ROLE == APP_ROLE_SENSOR_NODE
+void acknowledgeNodeUplink();
+#endif
+void delay(unsigned ms) {
+    nowMs += ms;
+#if APP_ROLE == APP_ROLE_SENSOR_NODE
+    acknowledgeNodeUplink();
+#endif
+}
 void yield(){++nowMs;}
 int HardwareSerial::availableForWrite() { return millis() >= txReadyAt ? txCapacity : txCapacity - 47; }
 #if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
@@ -142,12 +150,124 @@ void checkEspServiceDuringWor()
 }
 #endif
 
+std::vector<uint8_t> makeWire(LoraPayloadType type, uint16_t source, const uint8_t* data, size_t size)
+{
+    std::vector<uint8_t> wire{0x45, 0x47, 1, 0x45, 0x47, uint8_t(type),
+                              uint8_t(source >> 8), uint8_t(source), uint8_t(size >> 8), uint8_t(size)};
+    wire.insert(wire.end(), data, data + size);
+    const uint16_t crc = crc16Ccitt(wire.data(), wire.size());
+    wire.push_back(uint8_t(crc >> 8));
+    wire.push_back(uint8_t(crc));
+    return wire;
+}
+
+#if APP_ROLE == APP_ROLE_SENSOR_NODE
+size_t observedTx = 0;
+std::vector<LoraPayloadType> transmittedTypes;
+void acknowledgeNodeUplink()
+{
+    const auto& tx = SerialLoRa.tx;
+    if (tx.size() < observedTx + kHeaderLength) return;
+    const size_t length = (size_t(tx[observedTx + 8]) << 8) | tx[observedTx + 9];
+    if (tx.size() < observedTx + kHeaderLength + length + kCrcLength) return;
+    const auto type = static_cast<LoraPayloadType>(tx[observedTx + 5]);
+    transmittedTypes.push_back(type);
+    const uint8_t* data = tx.data() + observedTx + kHeaderLength;
+    const uint8_t ack[] = {0, uint8_t(AppConfig::kNodeId), data[1], data[2],
+                           type == LoraPayloadType::TransportUplink ? kSingleUplinkAck : data[3]};
+    const auto wire = makeWire(LoraPayloadType::TransportFragmentAck, AppConfig::kGatewayNodeId, ack, sizeof(ack));
+    SerialLoRa.rx.insert(SerialLoRa.rx.end(), wire.begin(), wire.end());
+    observedTx += kHeaderLength + length + kCrcLength;
+}
+
+void checkSingleUplinkSender()
+{
+    initializeLoraLink();
+    std::vector<uint8_t> sample(145, 0x51);
+    assert(sendLoraFrame(LoraPayloadType::StatusTelemetry, AppConfig::kNodeId, sample.data(), sample.size()));
+    assert((transmittedTypes == std::vector<LoraPayloadType>{LoraPayloadType::TransportUplink}));
+    assert(SerialLoRa.tx.size() == 166U);
+    assert(!memcmp(SerialLoRa.tx.data() + 19, sample.data(), sample.size()));
+    assert(g_fragmentAcksRx == 1U);
+
+    transmittedTypes.clear();
+    sample.resize(kSingleUplinkDataLength, 0x62);
+    assert(sendLoraFrame(LoraPayloadType::SystemTelemetry, AppConfig::kNodeId, sample.data(), sample.size()));
+    assert((transmittedTypes == std::vector<LoraPayloadType>{LoraPayloadType::TransportUplink}));
+
+    transmittedTypes.clear();
+    sample.push_back(0x62);
+    assert(sendLoraFrame(LoraPayloadType::SystemTelemetry, AppConfig::kNodeId, sample.data(), sample.size()));
+    assert(transmittedTypes.size() == (sample.size() + kFragmentDataLength - 1U) / kFragmentDataLength);
+    for (const auto type : transmittedTypes) assert(type == LoraPayloadType::TransportFragment);
+    std::cout << "PASS node sends 145-byte Status as one 166-byte WIOT frame and waits for one ACK; oversized report fragments\n";
+}
+#else
+void checkSingleUplinkReceiver()
+{
+    const std::vector<uint8_t> report(145, 0x51);
+    const uint16_t crc = crc16Ccitt(report.data(), report.size());
+    std::vector<uint8_t> body = {uint8_t(LoraPayloadType::StatusTelemetry), 0, 111, 0, 1, 0,
+                                uint8_t(report.size()), uint8_t(crc >> 8), uint8_t(crc)};
+    body.insert(body.end(), report.begin(), report.end());
+    auto wire = makeWire(LoraPayloadType::TransportUplink, 2, body.data(), body.size());
+    assert(wire.size() == 166);
+    auto inject = [](const std::vector<uint8_t>& data, size_t offset, size_t length) {
+        SerialLoRa.rx.insert(SerialLoRa.rx.end(), data.begin() + offset, data.begin() + offset + length);
+        serviceLoraInput();
+    };
+    LoraFrame result{};
+    const auto before = g_fragmentAcksTx;
+    auto corrupt = wire;
+    corrupt[25] ^= 1;
+    inject(corrupt, 0, corrupt.size());
+    assert(g_fragmentAcksTx == before && !dequeuePendingFrame(result));
+
+    for (size_t offset = 0; offset < wire.size(); offset += 58U) {
+        inject(wire, offset, std::min(size_t{58}, wire.size() - offset));
+        if (offset + 58U < wire.size()) {
+            assert(isLoraReceiveTransactionActive() && !dequeuePendingFrame(result));
+            assert(g_fragmentAcksTx == before);
+            delay(100);
+        }
+    }
+    assert(dequeuePendingFrame(result) && result.sourceNodeId == 2);
+    assert(result.type == LoraPayloadType::StatusTelemetry && result.payloadLength == report.size());
+    assert(!memcmp(result.payload, report.data(), report.size()));
+    assert(g_fragmentAcksTx == before + 1U);
+    assert(SerialLoRa.tx[SerialLoRa.tx.size() - 3U] == kSingleUplinkAck);
+
+    inject(wire, 0, wire.size()); // ACK lost: acknowledge again, enqueue only once.
+    assert(g_fragmentAcksTx == before + 2U && !dequeuePendingFrame(result));
+
+    auto legacyOversize = makeWire(LoraPayloadType::TransportFragment, 2, body.data(), body.size());
+    inject(legacyOversize, 0, legacyOversize.size());
+    assert(g_fragmentAcksTx == before + 2U && !dequeuePendingFrame(result));
+
+    body[2]++;
+    wire = makeWire(LoraPayloadType::TransportUplink, 2, body.data(), body.size());
+    auto filler = result;
+    filler.type = LoraPayloadType::SystemTelemetry;
+    assert(enqueuePendingFrame(filler) && enqueuePendingFrame(filler));
+    inject(wire, 0, wire.size());
+    assert(g_fragmentAcksTx == before + 2U);
+    assert(dequeuePendingFrame(result) && dequeuePendingFrame(result));
+    inject(wire, 0, wire.size()); // Retry after queue pressure clears.
+    assert(g_fragmentAcksTx == before + 3U && dequeuePendingFrame(result));
+    std::cout << "PASS gateway admits one complete CRC-checked uplink across radio bursts, handles retry/queue pressure and rejects oversized legacy frames\n";
+}
+#endif
+
 int main(){
+#if APP_ROLE == APP_ROLE_SENSOR_NODE
+    checkSingleUplinkSender();
+#else
     reassemble(433); // 17 fragments: first size that broke the old uint16 mask
     reassemble(577); // largest currently generated encrypted Telemetry
     reassemble(640); // complete configured logical capacity, 24 fragments
     reassemble(640,true);
     checkInterleavedAndFullQueue();
+    checkSingleUplinkReceiver();
 #if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
     checkEspServiceDuringWor();
 #endif
@@ -162,5 +282,6 @@ int main(){
     std::cout<<"wire_bytes="<<SerialLoRa.tx.size()<<'\n';
     for(uint8_t value:SerialLoRa.tx)std::cout<<std::hex<<unsigned(value)<<' ';
     std::cout<<'\n';
+#endif
 #endif
 }

@@ -159,3 +159,30 @@ MQTT resumes after association returns.
 4. Compare `lora_uart_tx_idle_space` across builds. The LoRa TX drain
    check uses this measured idle value from the driver while continuing
    to service the ESP8266 UART.
+
+### Single-frame node uplinks
+
+With `APP_LORA_SINGLE_FRAME_UPLINK=1`, a node sends Status and Telemetry
+payloads of up to 219 bytes as one WIOT frame. A 145-byte encoded report
+uses one 166-byte UART frame and one gateway transport ACK. The gateway
+checks the complete frame and admits it to its queue before acknowledging
+it. If the ACK is lost, repeating the same frame can receive a new ACK
+without creating a duplicate queue entry.
+
+The extended frame uses wire type `0xF2`, the existing 9-byte transport
+header with part index 0 and count 1, and the existing outer CRC. It is
+limited to 240 UART bytes. Transport ACK type `0xF1` uses part value
+`0xFF` for a complete uplink. Larger payloads use the legacy fragment
+path. Downlink commands and MQTT payloads retain their existing formats.
+
+Transparent UART radios may divide the UART stream into RF packets.
+The gateway collects the bytes across those bursts before validating the
+WIOT frame. The Ebyte E32-433T30D specifies 58-byte RF sub-packets.
+[Ebyte specifications](https://www.cdebyte.com/products/E32-433T30D/1)
+
+1. Flash the gateway first. It supports both legacy and extended uplinks.
+2. Flash one LoRa node. Check for `tx_single_uplink` on the node,
+   `rx_complete ... fragments=1` on the gateway, and the matching uplink ACK.
+3. Compare the Status values on the server and repeat with `GOSTM`.
+4. Use `APP_LORA_SINGLE_FRAME_UPLINK=0` on a node if its radio pair cannot
+   forward the longer UART frame as an intact byte stream.

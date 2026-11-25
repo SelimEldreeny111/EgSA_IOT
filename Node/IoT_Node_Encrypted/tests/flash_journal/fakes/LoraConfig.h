@@ -4,7 +4,14 @@
 #define APP_HAS_LORA 1
 #define APP_ROLE_SENSOR_NODE 1
 #define APP_ROLE_LORA_GATEWAY 2
+#ifndef APP_ROLE
 #define APP_ROLE 2
+#endif
+#define APP_UPLINK_LORA_TO_GATEWAY 2
+#define APP_UPLINK APP_UPLINK_LORA_TO_GATEWAY
+#ifndef APP_LORA_SINGLE_FRAME_UPLINK
+#define APP_LORA_SINGLE_FRAME_UPLINK 1
+#endif
 #ifndef APP_LORA_GATEWAY_WOR_TX
 #define APP_LORA_GATEWAY_WOR_TX 0
 #endif
@@ -16,6 +23,7 @@ enum class WatchdogStage {LoraTransmit,LoraAckWait};
 void serviceHardwareWatchdog();void serviceHardwareWatchdog(WatchdogStage);
 namespace AppConfig {
 constexpr size_t kCodecBufferSize=640,kLoraMaxWireFrameBytes=48,kLoraReassemblyContextCount=2,kLoraPendingFrameCount=2;
+constexpr size_t kLoraSingleUplinkMaxWireBytes=240;
 constexpr uint16_t kNodeId=2,kGatewayNodeId=0,kLoraNetworkId=0x4547;
 constexpr uint32_t kLoraRxPin=12,kLoraTxPin=11,kLoraAuxPin=13,kLoraMd0Pin=1,kLoraMd1Pin=2;
 constexpr bool kEnableLoraErrorHexLogs=false,kEnableLoraFrameHexLogs=false,kLoraModuleSupportsRssi=false,kEnableAs32RssiDiagnostics=false;

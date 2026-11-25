@@ -21,6 +21,7 @@ enum class LoraPayloadType : uint8_t
   UplinkGrant = 7,  // two-byte addressed permission for one routine uplink
   TransportFragment = 0xF0,
   TransportFragmentAck = 0xF1,
+  TransportUplink = 0xF2,  // One complete node Status or Telemetry frame
 };
 
 /** @brief Decoded LoRa frame with source identity and bounded payload buffer. */

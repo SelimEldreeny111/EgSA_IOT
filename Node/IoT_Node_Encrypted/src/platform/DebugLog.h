@@ -133,7 +133,8 @@ inline const char* frameName(uint32_t type) {
     switch (type) {
     case 1: return "STATUS"; case 2: return "CMD"; case 3: return "ACK";
     case 4: return "BROADCAST_CMD"; case 5: return "DATA"; case 6: return "WAKE_PROBE";
-    case 240: return "FRAGMENT"; case 241: return "FRAGMENT_ACK";
+    case 240: return "FRAGMENT"; case 241: return "TRANSPORT_ACK";
+    case 242: return "UPLINK";
     default: return "UNKNOWN";
     }
 }
