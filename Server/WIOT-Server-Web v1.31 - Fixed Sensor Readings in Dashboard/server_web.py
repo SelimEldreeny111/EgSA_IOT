@@ -844,8 +844,9 @@ def query_messages_from_all_company_dbs(start: str, end: str, msg_type: str = No
     if not os.path.isdir(MESSAGE_DB_DIR):
         return []
     all_rows = []
+    window = None if limit is None else offset + limit
     for db_path in sorted(glob.glob(os.path.join(MESSAGE_DB_DIR, '*.db'))):
-        all_rows.extend(query_messages_db(db_path, start, end, msg_type, region=region))
+        all_rows.extend(query_messages_db(db_path, start, end, msg_type, limit=window, region=region))
     all_rows.sort(key=lambda r: r.get('timestamp_epoch', 0), reverse=True)
     if limit is not None:
         all_rows = all_rows[offset:offset + limit]
@@ -1149,7 +1150,7 @@ def on_mqtt_plaintext(topic: str, plaintext: bytes, fingerprint=None, wire_bytes
     try:
         if topic_kind == 'gateway_status':
             msg = messages_pb2.Gateway_Status.FromString(plaintext)
-            gateway_status_store().accept(company, region, topic_node_id, msg)
+            gateway_status_store().accept(company, region, topic_node_id, msg, fingerprint=fingerprint)
             log_event(f'[GATEWAY] {company}/{region}/{msg.gateway_id} heartbeat '
                       f'sequence={msg.heartbeat_sequence} uptime_s={msg.uptime_seconds}', company=company)
         elif topic_kind == 'gateway_event':
@@ -1988,13 +1989,59 @@ def api_commands():
     return jsonify(success=True, commands=command_mailbox().list(company, node, limit, region=region_id(request.args.get('region', DEFAULT_REGION))))
 
 
+def _history_company():
+    if session.get('username') in ('EgSA_Supervisor', 'Super_User'):
+        return request.args.get('company', '').strip() or None
+    return session.get('company') or 'Unknown'
+
+
+def _gateway_history_row(heartbeat):
+    node_age = (f"{heartbeat['last_node_age_seconds']} s before heartbeat"
+                if heartbeat['has_node_uplink'] else 'No node uplink yet')
+    details = (
+        f"{heartbeat['transport']} · Uptime {heartbeat['uptime_seconds']} s · "
+        f"Frames received / forwarded {heartbeat['received_node_frames']} / "
+        f"{heartbeat['forwarded_node_frames']} · Forward failures {heartbeat['forward_failures']} · "
+        f"WDT / power resets {heartbeat['wdt_reset_count']} / {heartbeat['power_reset_count']} · "
+        f"Last node uplink {node_age}"
+    )
+    return _format_row_timestamp({**heartbeat, 'type': 'Gateway', 'timestamp': heartbeat['received_at'],
+                                  'time_source': 'server_received', 'details': details})
+
+
+def _message_history(company, region, start, end, msg_type, limit=None, offset=0):
+    """Combine gateway and node histories for the authorized company and region."""
+    if msg_type == 'Gateway':
+        heartbeats, total = gateway_status_store().history(
+            company, region, normalize_db_timestamp(start), normalize_db_timestamp(end), limit, offset)
+        return [_gateway_history_row(row) for row in heartbeats], total
+
+    window = offset + limit if not msg_type and limit is not None else limit
+    node_offset = offset if msg_type else 0
+    if company is None:
+        rows = query_messages_from_all_company_dbs(start, end, msg_type, window, node_offset, region)
+        total = count_messages_from_all_company_dbs(start, end, msg_type, region) if limit is not None else len(rows)
+    else:
+        path = get_company_db_path(company)
+        rows = query_messages_db(path, start, end, msg_type, window, node_offset, region)
+        total = count_messages_db(path, start, end, msg_type, region) if limit is not None else len(rows)
+
+    if not msg_type:
+        heartbeats, gateway_total = gateway_status_store().history(
+            company, region, normalize_db_timestamp(start), normalize_db_timestamp(end), window)
+        rows.extend(_gateway_history_row(row) for row in heartbeats)
+        rows.sort(key=lambda row: row['timestamp_epoch'], reverse=True)
+        rows = rows[offset:offset + limit] if limit is not None else rows
+        total += gateway_total
+    return rows, total
+
+
 @app.route('/api/messages', methods=['GET'])
 @login_required
 def api_messages():
     region = region_id(request.args.get('region', DEFAULT_REGION))
     start = request.args.get('start', '0')
     end = request.args.get('end', '2099-12-31 23:59:59')
-    company_arg = request.args.get('company', '').strip()
     msg_type = request.args.get('type', '').strip() or None
     try:
         page = max(1, int(request.args.get('page', 1)))
@@ -2006,17 +2053,7 @@ def api_messages():
         page_size = 50
     offset = (page - 1) * page_size
 
-    if session.get('username') in ('EgSA_Supervisor', 'Super_User'):
-        if company_arg:
-            rows = query_messages_db(get_company_db_path(company_arg), start, end, msg_type, limit=page_size, offset=offset, region=region)
-            total = count_messages_db(get_company_db_path(company_arg), start, end, msg_type, region=region)
-        else:
-            rows = query_messages_from_all_company_dbs(start, end, msg_type, limit=page_size, offset=offset, region=region)
-            total = count_messages_from_all_company_dbs(start, end, msg_type, region=region)
-    else:
-        company = session.get('company') or 'Unknown'
-        rows = query_messages_db(get_company_db_path(company), start, end, msg_type, limit=page_size, offset=offset, region=region)
-        total = count_messages_db(get_company_db_path(company), start, end, msg_type, region=region)
+    rows, total = _message_history(_history_company(), region, start, end, msg_type, page_size, offset)
 
     total_pages = (total + page_size - 1) // page_size if total else 1
     return jsonify({
@@ -2269,15 +2306,8 @@ def export_csv():
     region = region_id(request.args.get('region', DEFAULT_REGION))
     start = request.args.get('start', '0')
     end = request.args.get('end', '2099-12-31 23:59:59')
-    company_arg = request.args.get('company', '').strip()
-    if session.get('username') in ('EgSA_Supervisor', 'Super_User'):
-        if company_arg:
-            rows = query_messages_db(get_company_db_path(company_arg), start, end, region=region)
-        else:
-            rows = query_messages_from_all_company_dbs(start, end, region=region)
-    else:
-        company = session.get('company') or 'Unknown'
-        rows = query_messages_db(get_company_db_path(company), start, end, region=region)
+    msg_type = request.args.get('type', '').strip() or None
+    rows, _ = _message_history(_history_company(), region, start, end, msg_type)
 
     def generate():
         data = StringIO()
@@ -2287,23 +2317,31 @@ def export_csv():
                          'Flow Meter Type', 'Period Source', 'Flow Valid', 'Period Valid', 'Cumulative Valid', 'RTC Valid',
                          'Forward Total (L)', 'Reverse Total (L)', 'Net Total (L)', 'Period Quality', 'Alarm Flags',
                          'HNDA Temp', 'HNDA Moisture', 'HNDA Valid', 'Sondas Temp', 'Sondas Moisture', 'Sondas EC', 'Sondas Valid',
-                         'Active Sensors', 'Sensor Mask', 'Details'))
+                         'Active Sensors', 'Sensor Mask', 'Details', 'Gateway ID', 'Heartbeat Sequence',
+                         'Heartbeat Interval (s)', 'Gateway Uplink', 'Gateway Uptime (s)', 'Node Frames Received',
+                         'Node Frames Forwarded', 'Forward Failures', 'Last Node Uplink Age (s)'))
         yield data.getvalue()
         data.seek(0); data.truncate(0)
         for row in rows:
             writer.writerow((
                 row['timestamp'], row.get('measured_at', ''), row.get('time_source', ''),
-                row['type'], row.get('company', ''), row.get('region', DEFAULT_REGION), row['node_id'], row['sensor_id'], row.get('node_status', ''), row.get('battery_voltage', ''),
+                row['type'], row.get('company', ''), row.get('region', DEFAULT_REGION), row.get('node_id', ''), row.get('sensor_id', ''), row.get('node_status', ''), row.get('battery_voltage', ''),
                 row.get('wdt_reset_count', 0),
                 row.get('power_reset_count', 0),
-                row['flow'], row['velocity'], row['flow_day'], row['flow_month'], row['flow_year'],
+                row.get('flow', ''), row.get('velocity', ''), row.get('flow_day', ''),
+                row.get('flow_month', ''), row.get('flow_year', ''),
                 row.get('flow_meter_type', ''), row.get('flow_period_source', ''), row.get('flow_live_valid', ''),
                 row.get('flow_period_totals_valid', ''), row.get('flow_cumulative_totals_valid', ''), row.get('rtc_valid', ''),
                 row.get('forward_total_liters', ''), row.get('reverse_total_liters', ''), row.get('net_total_liters', ''),
                 row.get('flow_period_quality', ''), row.get('flow_meter_alarm_flags', ''),
                 row.get('soil_temperature', ''), row.get('soil_moisture', ''), row.get('soil_moisture_temp_valid', ''),
                 row.get('ec_temperature', ''), row.get('ec_moisture', ''), row.get('electrical_conductivity', ''), row.get('soil_moisture_temp_ec_valid', ''),
-                row.get('active_sensor_count', ''), row.get('sensor_mask', ''), row['details']
+                row.get('active_sensor_count', ''), row.get('sensor_mask', ''), row['details'],
+                row.get('gateway_id', ''), row.get('heartbeat_sequence', ''),
+                row.get('heartbeat_interval_seconds', ''), row.get('transport', ''),
+                row.get('uptime_seconds', ''), row.get('received_node_frames', ''),
+                row.get('forwarded_node_frames', ''), row.get('forward_failures', ''),
+                row.get('last_node_age_seconds', '') if row.get('has_node_uplink') else ''
             ))
             yield data.getvalue()
             data.seek(0); data.truncate(0)

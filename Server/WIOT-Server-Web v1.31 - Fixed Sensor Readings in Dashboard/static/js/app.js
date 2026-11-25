@@ -1406,12 +1406,14 @@ function renderGraphNode() {
 let historyPage = 1;
 let historyPageSize = 50;
 let historyTotalPages = 1;
+let historyRequestId = 0;
 let commandHistoryPage = 1;
 let commandHistorySize = 20;
 let commandHistoryTotalPages = 1;
 
 async function searchTabular(page = 1) {
     const company = getSelectedCompany(), region = getSelectedRegion();
+    const requestId = ++historyRequestId;
     historyPage = Math.max(1, page);
     const s = document.getElementById('filter-start').value;
     const e = document.getElementById('filter-end').value;
@@ -1419,19 +1421,27 @@ async function searchTabular(page = 1) {
     if (s) params.append('start', `${s} 00:00:00`);
     if (e) params.append('end',   `${e} 23:59:59`);
     if (document.body.dataset.role === 'admin' || IS_SUPERVISOR) params.append('company', getSelectedCompany());
+    const type = document.getElementById('history-type')?.value;
+    if (type) params.append('type', type);
     params.append('page', historyPage);
     params.append('page_size', historyPageSize);
     const url = '/api/messages' + (params.toString() ? '?' + params : '');
     const res  = await fetch(url);
     const result = await res.json();
-    if (company !== getSelectedCompany() || region !== getSelectedRegion()) return;
+    if (requestId !== historyRequestId || company !== getSelectedCompany() || region !== getSelectedRegion()) return;
     const rows = result.rows || [];
     historyTotalPages = result.total_pages || 1;
     const tbody = document.querySelector('#message-table tbody');
     tbody.innerHTML = '';
     rows.forEach(msg => {
         const tr = document.createElement('tr');
-        tr.innerHTML = safeHtml`
+        tr.innerHTML = msg.type === 'Gateway' ? safeHtml`
+            <td class="text-nowrap">${msg.timestamp}</td>
+            <td><span class="badge text-bg-primary">Gateway</span></td>
+            <td class="text-nowrap">${msg.region}/Gateway ${msg.gateway_id}</td>
+            <td>–</td>
+            <td class="text-nowrap">Heartbeat received</td>
+            <td colspan="15">${msg.details}</td>` : safeHtml`
             <td class="text-nowrap">${msg.timestamp}</td>
             <td><span class="badge badge-type-${(msg.type||'').toLowerCase()}">${msg.type}</span></td>
             <td>${msg.region || 'Region_1'}/${msg.node_id}</td><td>${msg.sensor_id}</td><td>${msg.node_status === undefined || msg.node_status === null ? '-' : nodeStatusLabel(msg.node_status)}</td>
@@ -1512,6 +1522,8 @@ function exportExcel() {
     if (s) params.append('start', `${s} 00:00:00`);
     if (e) params.append('end',   `${e} 23:59:59`);
     if (document.body.dataset.role === 'admin' || IS_SUPERVISOR) params.append('company', getSelectedCompany());
+    const type = document.getElementById('history-type')?.value;
+    if (type) params.append('type', type);
     window.location.href = '/export_csv' + (params.toString() ? '?' + params : '');
 }
 
