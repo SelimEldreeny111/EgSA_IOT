@@ -396,6 +396,11 @@ void gatewayLoop()
     serviceHardwareWatchdog();
   }
 
+  // Receive and queue commands during a reserved radio exchange.
+  // The intake path never sends modem traffic or preempts the radio owner.
+  serviceGatewayMqttIntake();
+  serviceServerReceipts();
+
   if (g_radioOwner && millis() - g_windowStart >= kStartWindowMs) g_radioOwner = 0;
   if (g_radioOwner || isLoraReceiveTransactionActive()) return;
 

@@ -30,7 +30,8 @@ struct Exchange {
 std::array<SimNode, kNodes + 1> nodes{};
 Exchange air;
 bool online = true;
-std::deque<GatewayCommand> commands;
+std::deque<GatewayCommand> commands, socketArrivals;
+unsigned receivedDuringExchange = 0;
 std::deque<Gateway_Delivery> receipts;
 std::set<uint32_t> commandsSent, repliesPersisted;
 unsigned busyChecks = 0, silentGrants = 0, pendingDuringReport = 0;
@@ -43,7 +44,7 @@ void queueCommand(uint32_t request, uint16_t target) {
     cmd.proof.node_id = target;
     cmd.proof.request_id = request;
     cmd.proof.wire_bytes = 1;
-    commands.push_back(cmd);
+    socketArrivals.push_back(cmd);
     if (radioInFlight() && air.type == LoraPayloadType::StatusTelemetry) ++pendingDuringReport;
 }
 }
@@ -58,6 +59,12 @@ bool connectNetwork() { return online; }
 void initializeMqttClient() {}
 bool ensureMqttConnection() { return online; }
 void mqttLoop() {}
+void serviceGatewayMqttIntake() {
+    if (socketArrivals.empty()) return;
+    if (radioInFlight()) ++receivedDuringExchange;
+    commands.push_back(socketArrivals.front());
+    socketArrivals.pop_front();
+}
 bool mqttCommandWorkPending() { return !commands.empty(); }
 bool isAsyncPublishBusy() { return false; }
 uint32_t mqttConnectionGeneration() { return 1; }
@@ -177,7 +184,7 @@ int main() {
     assert(commands.empty());
     assert(commandsSent.size() == request && repliesPersisted == commandsSent);
     assert(busyChecks);
-    assert(pendingDuringReport);
+    assert(pendingDuringReport && receivedDuringExchange);
     assert(silentGrants);
     assert(replayed);
     assert(repliesWhileOffline);

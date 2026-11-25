@@ -100,4 +100,13 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Actual PubSubClient host build failed' }
     & $realPubsubExe
     if($LASTEXITCODE -ne 0) { throw 'Actual PubSubClient protocol test failed' }
+    $realGatewayExe=Join-Path $mqttTestBuild 'gateway_wifi_receive_test.exe'
+    $realGatewayArgs=@('-std=c++14','-Wall','-Wextra','-DAPP_ROLE=2','-DTEST_ESP8266',
+        '-I',$PubSubClientSource,'-I',$mqttTestFakes,'-include',(Join-Path $mqttTestFakes 'TestAppConfig.h'),
+        (Join-Path $mqttTestNode 'src/comm/MQTT.cpp'), (Join-Path $PubSubClientSource 'PubSubClient.cpp'),
+        (Join-Path $PSScriptRoot 'gateway_wifi_receive_test.cpp'),'-o',$realGatewayExe)
+    & $mqttTestCompiler @realGatewayArgs
+    if($LASTEXITCODE -ne 0) { throw 'Wi-Fi gateway MQTT protocol build failed' }
+    & $realGatewayExe
+    if($LASTEXITCODE -ne 0) { throw 'Wi-Fi gateway MQTT protocol test failed' }
 } finally { $env:PATH=$mqttTestOldPath }

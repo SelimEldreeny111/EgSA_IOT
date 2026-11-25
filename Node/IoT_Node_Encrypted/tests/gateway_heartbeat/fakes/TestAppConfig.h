@@ -49,6 +49,7 @@ bool connectNetwork();
 void initializeMqttClient();
 bool ensureMqttConnection();
 void mqttLoop();
+void serviceGatewayMqttIntake();
 void asyncPublishStep();
 bool mqttCommandWorkPending();
 bool isAsyncPublishBusy();

@@ -74,3 +74,30 @@ Host checks exercise MQTT staging, QoS subscription readiness, scoped wire
 correlation, final-fragment CRC/ACK timing, duplicate suppression and gateway
 grant pacing. Physical RF airtime, WOR current, and modem behavior require a
 bench capture.
+
+## Wi-Fi gateway command intake and receive-fault recovery
+
+A completed LoRa Status followed by an MQTT receive fault and an IWDG reset
+points to the gateway MQTT service path. Use the fault reason and staged byte
+count in the new firmware to identify where the receive path stops. The fault
+reason from an older generic log cannot be recovered retrospectively.
+
+The ESP8266 gateway stages binary +IPD records incrementally, separately from
+AT responses. It can queue a complete MQTT command during a reserved LoRa
+receive or reply window. The modem's MQTT PUBACK and any new radio downlink
+wait for a safe foreground pass. During a reserved exchange the SIM gateway
+does not start a blocking AT data fetch. A receive fault retires the MQTT
+socket locally. The next idle recovery pass resets the modem, and the gateway
+resubscribes without discarding its in-RAM queues.
+
+1. Use the Wi-Fi gateway build with coordinated mode and WOR transmit enabled.
+   Use LITE logging or FULL with raw-frame hex disabled for the timing capture.
+2. Send direct GOSTM with delivery Now to node 2 while node 1 is sending.
+   Check command_wire_rx and command_queued during the receive window when
+   the gateway has already received the MQTT bytes. Radio command_dispatch
+   follows completion of the active exchange. Match reply_rx and
+   uplink_persisted by request ID.
+3. Interrupt and restore the uplink with the gateway powered. For a receive
+   fault, check the named mqtt_receive_fault and the modem recovery messages.
+   Verify mqtt_subscriptions_ready qos=1 after reconnection and compare the
+   cumulative WDT counter before and after the test.

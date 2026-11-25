@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstring>
 #include <cstdlib>
+#include <deque>
 using boolean=bool;
 #define PROGMEM
 #define pgm_read_byte_near(p) (*(const uint8_t*)(p))
@@ -56,11 +57,15 @@ public:
 class HardwareSerial:public Stream {
 public:
     int rawWrites=0;
+    std::deque<uint8_t> rawRx;
     void begin(uint32_t,uint32_t=0) {}
     void end() {}
-    int available() override { return 0; }
-    int read() override { return -1; }
-    int peek() override { return -1; }
+    int available() override { return rawRx.size(); }
+    int read() override {
+        if (rawRx.empty()) return -1;
+        int value=rawRx.front();rawRx.pop_front();return value;
+    }
+    int peek() override { return rawRx.empty()?-1:rawRx.front(); }
     void flush() override {}
     size_t write(uint8_t) override { ++rawWrites; return 1; }
     using Stream::write;

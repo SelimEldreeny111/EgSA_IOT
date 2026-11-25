@@ -86,8 +86,10 @@ int main(int argc,char** argv) {
         assert(!gatewayPendingCommand()); // QoS duplicate already admitted.
         // A short TCP read must not be passed up as 0xff or poison a later PUBLISH.
         gsmClient.pendingInput=[] { return 1; };
+        const int modemWrites = gsmClient.writes, modemStops = gsmClient.stops;
         mqttLoop();
         assert(mqtt.state()!=0 && !gatewayPendingCommand());
+        assert(gsmClient.writes==modemWrites && gsmClient.stops==modemStops);
     } else {
         assert(scenario == "gateway_broadcast_subscribe_failure");
         mqtt.failSubscriptionTopic = kMqttBroadcastTopic;

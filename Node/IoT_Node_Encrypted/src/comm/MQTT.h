@@ -45,6 +45,8 @@ bool ensureMqttConnection();
 uint32_t mqttConnectionGeneration();
 /** @brief Service MQTT keepalive and inbound packets on the active transport. */
 void mqttLoop();
+/** @brief Gateway-only intake of staged bytes without AT or RF transmission. */
+void serviceGatewayMqttIntake();
 /** @brief Establish the selected Wi-Fi or cellular network link. @return True when the underlying network is usable. */
 bool connectNetwork();
 /** @brief Query the selected modem's current network status. @return True when network connectivity is available. */

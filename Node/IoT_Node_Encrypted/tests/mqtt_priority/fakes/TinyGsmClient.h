@@ -5,7 +5,7 @@
 #include <sstream>
 class TinyGsm {
 public:
-    explicit TinyGsm(HardwareSerial&) {}
+    explicit TinyGsm(Stream&) {}
     bool init() { return true; }
     bool isNetworkConnected() { return true; }
     bool isGprsConnected() { return gprsConnected; }

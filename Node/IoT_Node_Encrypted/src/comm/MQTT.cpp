@@ -22,7 +22,13 @@ extern HardwareSerial SerialMon;
 extern HardwareSerial SerialAT;
 
 /** @brief TinyGSM modem bound to the selected IP uplink UART. */
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+#include "GatewayEspAtStream.h"
+GatewayEspAtStream gatewayEspInput(SerialAT);
+TinyGsm modem(gatewayEspInput);
+#else
 TinyGsm modem(SerialAT);
+#endif
 #if APP_GATEWAY_MQTT_TLS
 #include "../config/AppSecrets.h"
 #include "GatewayMqttTlsClient.h"
@@ -76,6 +82,41 @@ struct SeenCommand { uint64_t fingerprint; uint32_t receivedMs; };
 SeenCommand g_seenCommands[16] = {};
 unsigned g_seenNext = 0;
 bool g_gatewayReady = false;
+bool g_gatewayRecoveryPending = false;
+
+void scheduleGatewayMqttRecovery(const char* fault)
+{
+  if (g_gatewayRecoveryPending) return;
+  APP_LOG_ERROR("mqtt_receive_fault reason=%s packet_type=%u staged_bytes=%lu action=modem_recovery",
+      fault, bufferedClient.rxPacketType(), static_cast<unsigned long>(bufferedClient.rxStagedBytes()));
+  (void)fault;
+  // Mark the transport stopped first. PubSubClient may try DISCONNECT, flush
+  // and stop(), but those operations can no longer touch the faulty socket.
+  bufferedClient.stop();
+  mqtt.disconnect();
+  g_gatewayReady = false;
+  g_gatewayRecoveryPending = true;
+  g_lastReconnectAttemptMs = millis();
+}
+
+const char* gatewayInputFault()
+{
+#if defined(USE_ESP8266)
+  if (const char* fault = gatewayEspInput.fault()) return fault;
+#endif
+  if (const char* fault = bufferedClient.receiveFault()) return fault;
+  if (bufferedClient.transportStopped()) return "mqtt_socket_stopped";
+  return nullptr;
+}
+
+void confirmGatewaySubscriptionState()
+{
+  if (!g_gatewayReady && mqtt.state() == 0 && bufferedClient.subscriptionsReady()) {
+    g_gatewayReady = true;
+    ++g_connectionGeneration;
+    APP_LOG_EVENT("mqtt_subscriptions_ready qos=1");
+  }
+}
 void queueGatewayEvent(Gateway_Delivery proof, GatewayDeliveryPhase phase)
 {
   Gateway_Delivery* entry = g_gatewayEvents.reserve();
@@ -261,6 +302,9 @@ void initializeMqttTransport()
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
 #if defined(USE_ESP8266)
   resetAndWakeEsp8266();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  gatewayEspInput.resetInput();
+#endif
 #else
   // Reset the independently powered SIM800 on every MCU boot as well. A stuck
   // modem must not survive a watchdog/controller reset and poison the next boot.
@@ -281,8 +325,9 @@ void resetMqttTransportForNetworkRecovery()
   APP_DEBUG_PRINTLN("[NETWORK] First retry budget exhausted: resetting active modem RST");
   g_modemOperationActive = true;
   serviceHardwareWatchdog(WatchdogStage::ModemInitialization);
-  // Use the normal transport close. If its driver hangs, the global IWDG still
-  // resets the MCU; startup above then also pulses the modem's hardware RST.
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  bufferedClient.stop(); // Retire locally before resetting the modem.
+#endif
   mqtt.disconnect();
   serviceHardwareWatchdog();
   if (g_publishQueue.hasStatus()) {
@@ -368,6 +413,9 @@ void initializeMqttClient()
   APP_LOG_EVENT("Gateway MQTT transport=TLS port=%u", static_cast<unsigned>(AppConfig::kMqttPort));
 #elif APP_ROLE == APP_ROLE_LORA_GATEWAY
   APP_LOG_EVENT("Gateway MQTT transport=plain TCP port=%u", static_cast<unsigned>(AppConfig::kMqttPort));
+#endif
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+  bufferedClient.setReceiveStream(gatewayEspInput.socketInput());
 #endif
   mqtt.setClient(bufferedClient);
   mqtt.setServer(WIOT_ACTIVE_VALUE(kMqttServer, broker), AppConfig::kMqttPort);
@@ -545,6 +593,24 @@ void mqttCallback(char* topic, byte* payload, unsigned int length)
 bool ensureMqttConnection()
 {
   if (g_modemOperationActive) return false;
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+  if (g_gatewayRecoveryPending) {
+    if (millis() - g_lastReconnectAttemptMs < AppConfig::kMqttReconnectIntervalMs)
+      return false;
+    g_gatewayRecoveryPending = false;
+    APP_LOG_EVENT("mqtt_recovery modem_reset_begin");
+    initializeMqttTransport();
+#if defined(USE_ESP8266)
+    if (!connectNetwork()) {
+      g_lastReconnectAttemptMs = millis();
+      return false;
+    }
+#endif
+    g_lastReconnectAttemptMs = millis();
+    APP_LOG_EVENT("mqtt_recovery modem_reset_complete");
+    return false; // Reconnect and subscribe on a subsequent quiet pass.
+  }
+#endif
   serviceHardwareWatchdog(WatchdogStage::MqttStatus);
   const bool alreadyConnected = mqtt.connected();
   serviceHardwareWatchdog();
@@ -606,6 +672,9 @@ bool ensureMqttConnection()
     APP_LOG_ERROR("Gateway MQTT client ID is too long");
     return false;
   }
+#if defined(USE_ESP8266)
+  gatewayEspInput.resetSocket();
+#endif
 #if APP_GATEWAY_MQTT_TLS
   const char* const username = WIOT_MQTT_USERNAME;
   const char* const password = WIOT_MQTT_PASSWORD;
@@ -630,6 +699,18 @@ bool ensureMqttConnection()
   serviceHardwareWatchdog();
   if (!mqttConnected)
   {
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+#if defined(USE_ESP8266)
+    if (const char* fault = gatewayEspInput.fault()) {
+      scheduleGatewayMqttRecovery(fault);
+      return false;
+    }
+#endif
+    if (const char* fault = bufferedClient.receiveFault()) {
+      scheduleGatewayMqttRecovery(fault);
+      return false;
+    }
+#endif
     bufferedClient.flush();
 #if APP_GATEWAY_MQTT_TLS
     APP_LOG_EVENT_WARN("Gateway MQTT/TLS connection failed, mqtt_state=%d", mqtt.state());
@@ -686,7 +767,11 @@ bool ensureMqttConnection()
   if (!subscriptionsSent)
   {
     APP_LOG_ERROR("ERROR: command SUBSCRIBE send failed; reconnecting next pass");
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    scheduleGatewayMqttRecovery("mqtt_subscribe_write");
+#else
     mqtt.disconnect();
+#endif
     serviceHardwareWatchdog();
     return false;
   }
@@ -714,34 +799,48 @@ uint32_t mqttConnectionGeneration()
 
 void mqttLoop()
 {
-  // Callback only applies commands and queues responses. It never publishes
-  // recursively while PubSubClient is decoding the inbound MQTT packet.
   if (g_modemOperationActive || mqtt.state() != 0 || g_publishQueue.replyFull()) return;
   g_modemOperationActive = true;
   serviceHardwareWatchdog(WatchdogStage::MqttService);
   mqtt.loop();
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
-  if (bufferedClient.receiveFailed()) {
-    APP_LOG_ERROR("mqtt_receive_fault session_closed=1");
-    mqtt.disconnect();
-    g_gatewayReady = false;
-  } else if (!g_gatewayReady && mqtt.state() == 0 && bufferedClient.subscriptionsReady()) {
-    g_gatewayReady = true;
-    ++g_connectionGeneration;
-    APP_LOG_EVENT("mqtt_subscriptions_ready qos=1");
+  if (const char* fault = gatewayInputFault()) {
+    scheduleGatewayMqttRecovery(fault);
+  } else if (!bufferedClient.finishPacket()) {
+    scheduleGatewayMqttRecovery("mqtt_control_write");
+  } else {
+    confirmGatewaySubscriptionState();
   }
-#endif
-  // Flushes any PINGREQ that mqtt.loop() may have emitted, so it leaves
-  // in a single AT+CIPSEND instead of sitting in the buffer until the next
-  // publish/subscribe call.
-  if (!bufferedClient.finishPacket())
-  {
+#else
+  if (!bufferedClient.finishPacket()) {
     APP_LOG_ERROR("[MQTT] Keepalive/socket send failed; closing connection");
     mqtt.disconnect();
   }
+#endif
   g_modemOperationActive = false;
   serviceHardwareWatchdog();
 }
+
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+void serviceGatewayMqttIntake()
+{
+  if (g_modemOperationActive || g_gatewayRecoveryPending || mqtt.state() != 0) return;
+  // Receive only during a reserved radio window. MQTT ACK/control writes
+  // remain buffered until a quiet foreground pass can run the modem.
+  bufferedClient.setReceiveOnly(true);
+  g_modemOperationActive = true;
+  const bool staged = bufferedClient.stageReceiveOnlyPacket();
+  if (const char* fault = gatewayInputFault()) {
+    scheduleGatewayMqttRecovery(fault);
+  } else if (staged) {
+    mqtt.loop();
+    if (const char* fault = gatewayInputFault()) scheduleGatewayMqttRecovery(fault);
+    else confirmGatewaySubscriptionState();
+  }
+  g_modemOperationActive = false;
+  bufferedClient.setReceiveOnly(false);
+}
+#endif
 
 bool checkNetworkStatus()
 {
@@ -788,7 +887,11 @@ bool sendCheckedMqttPayload(const char* topic, const uint8_t* payload, size_t le
   if (!queued || !flushed) {
     // An ambiguous/partial MQTT packet must not be followed by another packet
     // on this TCP stream. TinyGSM owns recovery and receive-URC processing.
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY
+    scheduleGatewayMqttRecovery("mqtt_publish_write");
+#else
     mqtt.disconnect();
+#endif
     serviceHardwareWatchdog();
     return false;
   }

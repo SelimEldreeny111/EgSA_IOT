@@ -36,6 +36,7 @@ bool connectNetwork() { return connected; }
 void initializeMqttClient() {}
 bool ensureMqttConnection() { return connected; }
 void mqttLoop() {}
+void serviceGatewayMqttIntake() {}
 void asyncPublishStep() {}
 bool mqttCommandWorkPending() { return commandBusy; }
 const GatewayCommand* gatewayPendingCommand() { return commandPending ? &command : nullptr; }
