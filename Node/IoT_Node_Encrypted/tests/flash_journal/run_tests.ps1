@@ -39,4 +39,11 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Large LoRa frame compile failed'}
     & (Join-Path $flashBuild 'lora.exe')
     if($LASTEXITCODE -ne 0){throw 'Large LoRa frame test failed'}
+    & $flashCompiler '-std=c++14' '-Wall' '-Wextra' '-Werror' '-pedantic' `
+        '-DUSE_ESP8266' '-DAPP_LORA_GATEWAY_WOR_TX=1' `
+        '-I' (Join-Path $PSScriptRoot 'fakes') '-include' (Join-Path $PSScriptRoot 'fakes/LoraConfig.h') `
+        (Join-Path $PSScriptRoot 'lora_large_frame_test.cpp') '-o' (Join-Path $flashBuild 'lora-wifi-wor.exe')
+    if($LASTEXITCODE -ne 0){throw 'Wi-Fi gateway WOR compile failed'}
+    & (Join-Path $flashBuild 'lora-wifi-wor.exe')
+    if($LASTEXITCODE -ne 0){throw 'Wi-Fi gateway WOR modem polling regression'}
 } finally {$env:PATH=$flashOldPath}

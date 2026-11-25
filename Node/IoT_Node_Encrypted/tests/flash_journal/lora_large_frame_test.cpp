@@ -9,9 +9,30 @@ uint32_t nowMs=0;
 uint32_t millis(){return nowMs;}
 void delay(unsigned ms){nowMs+=ms;}
 void yield(){++nowMs;}
+int HardwareSerial::availableForWrite() { return millis() >= txReadyAt ? 511 : 464; }
+#if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
+uint32_t radioPumpLastMs = 0;
+uint32_t radioPumpWorstGapMs = 0;
+unsigned radioPumpCalls = 0;
+uint32_t auxReadyAt = 0;
+int mode0 = LOW, mode1 = LOW;
+void serviceGatewayModemRxDuringRadio()
+{
+    if (radioPumpCalls) radioPumpWorstGapMs = std::max(radioPumpWorstGapMs, millis() - radioPumpLastMs);
+    radioPumpLastMs = millis();
+    ++radioPumpCalls;
+}
+void digitalWrite(uint32_t pin, int level)
+{
+    if (pin == AppConfig::kLoraMd0Pin) mode0 = level;
+    if (pin == AppConfig::kLoraMd1Pin) mode1 = level;
+}
+int digitalRead(uint32_t pin) { return pin == AppConfig::kLoraAuxPin && millis() < auxReadyAt ? LOW : HIGH; }
+#else
 void digitalWrite(uint32_t,int){}
-void pinMode(uint32_t,int){}
 int digitalRead(uint32_t){return HIGH;}
+#endif
+void pinMode(uint32_t,int){}
 void serviceHardwareWatchdog(){}
 void serviceHardwareWatchdog(WatchdogStage){}
 void reassemble(size_t length,bool corrupt=false){
@@ -96,12 +117,37 @@ void checkInterleavedAndFullQueue()
     assert(!memcmp(frame.payload, c.data(), c.size()));
     assert(!dequeuePendingFrame(frame));
 }
+#if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
+void checkEspServiceDuringWor()
+{
+    // A busy AUX and a pending STM32 UART transmission each span many polls.
+    const uint32_t start = millis();
+    auxReadyAt = start + 28;
+    SerialLoRa.txReadyAt = start + 75;
+    radioPumpCalls = 0;
+    radioPumpWorstGapMs = 0;
+    const size_t startOffset = SerialLoRa.tx.size();
+    const uint8_t command[] = {0x11, 0x22};
+    assert(sendLoraWakeCommand(LoraPayloadType::Command, command, sizeof(command)));
+    assert(millis() - start >= 75 + 250);
+    assert(radioPumpCalls > 325 && radioPumpWorstGapMs <= 1);
+    assert(mode0 == LOW && mode1 == LOW);
+    assert(SerialLoRa.tx.size() == startOffset + 12 + 14);
+    assert(SerialLoRa.tx[startOffset + 5] == uint8_t(LoraPayloadType::WakeProbe));
+    assert(SerialLoRa.tx[startOffset + 12 + 5] == uint8_t(LoraPayloadType::Command));
+    std::cout << "PASS production WOR probe, command and UART drain preserve modem polling\n";
+}
+#endif
+
 int main(){
     reassemble(433); // 17 fragments: first size that broke the old uint16 mask
     reassemble(577); // largest currently generated encrypted Telemetry
     reassemble(640); // complete configured logical capacity, 24 fragments
     reassemble(640,true);
     checkInterleavedAndFullQueue();
+#if defined(USE_ESP8266) && APP_LORA_GATEWAY_WOR_TX
+    checkEspServiceDuringWor();
+#endif
     std::cout<<"PASS separate LoRa node reassembly, full-queue backpressure and lost final ACK\n";
     LoraFrame invalid={},result={};invalid.payloadLength=9;
     invalid.payload[0]=uint8_t(LoraPayloadType::SystemTelemetry);invalid.payload[2]=1;

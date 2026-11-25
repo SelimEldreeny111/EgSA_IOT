@@ -304,8 +304,14 @@ inline void printConfigSummary(Print& out)
   APP_DEBUG_PRINTLN();
 }
 
-/** @brief Wait until the module AUX pin reports idle/ready. @param auxPin Configured AUX input pin. @param timeoutMs Maximum wait in milliseconds. @return True after AUX becomes HIGH. */
-inline bool waitForAuxHigh(uint32_t auxPin, uint32_t timeoutMs)
+/**
+ * @brief Wait until the module AUX pin reports ready, then allow it to settle.
+ * @param auxPin Configured AUX input.
+ * @param timeoutMs Maximum time to wait for AUX to rise.
+ * @param waitMs Delay function that can service another UART during the wait.
+ * @return True after AUX becomes HIGH.
+ */
+inline bool waitForAuxHigh(uint32_t auxPin, uint32_t timeoutMs, void (*waitMs)(uint32_t) = delay)
 {
   const uint32_t startMs = millis();
   while (digitalRead(auxPin) == LOW)
@@ -314,9 +320,9 @@ inline bool waitForAuxHigh(uint32_t auxPin, uint32_t timeoutMs)
     {
       return false;
     }
-    delay(1);
+    waitMs(1);
   }
-  delay(3);
+  waitMs(3);
   return true;
 }
 

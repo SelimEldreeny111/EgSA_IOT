@@ -47,6 +47,10 @@ uint32_t mqttConnectionGeneration();
 void mqttLoop();
 /** @brief Gateway-only intake of staged bytes without AT or RF transmission. */
 void serviceGatewayMqttIntake();
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+/** @brief Drain ESP-AT UART bytes during a radio wait. Performs no network writes. */
+void serviceGatewayModemRxDuringRadio();
+#endif
 /** @brief Establish the selected Wi-Fi or cellular network link. @return True when the underlying network is usable. */
 bool connectNetwork();
 /** @brief Query the selected modem's current network status. @return True when network connectivity is available. */

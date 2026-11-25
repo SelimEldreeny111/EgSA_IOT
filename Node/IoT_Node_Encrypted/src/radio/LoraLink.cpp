@@ -10,6 +10,11 @@
 #include <Arduino.h>
 #include <string.h>
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+// Implemented by the MQTT transport. This hook only drains the modem UART.
+void serviceGatewayModemRxDuringRadio();
+#endif
+
 #if APP_HAS_LORA && (SERIAL_RX_BUFFER_SIZE < 269 || SERIAL_TX_BUFFER_SIZE < 269)
 #error "LoRa requires 269-byte-or-larger UART rings. Keep IoT_Node_Encrypted/build_opt.h with the sketch."
 #endif
@@ -196,6 +201,10 @@ void printRawBytes(const char* label, const uint8_t* data, size_t length)
     if ((i % 16U) == 15U || i + 1U == length)
     {
       APP_DEBUG_PRINTLN();
+#if APP_DEBUG_FULL_ENABLED && APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+      // A long hex dump can block writing to the debug UART.
+      serviceGatewayModemRxDuringRadio();
+#endif
     }
   }
 }
@@ -374,6 +383,22 @@ void drainLoraUart()
   }
 }
 
+/** @brief Keep ESP-AT receive moving during radio delays without MQTT or AT writes. */
+inline void radioDelay(uint32_t ms)
+{
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+  const uint32_t startMs = millis();
+  serviceGatewayModemRxDuringRadio();
+  while (millis() - startMs < ms)
+  {
+    delay(1);
+    serviceGatewayModemRxDuringRadio();
+  }
+#else
+  delay(ms);
+#endif
+}
+
 /** @brief Transmit every UART byte within a bounded write window. */
 bool writeLoraUartReliably(const uint8_t* data, size_t length)
 {
@@ -391,6 +416,9 @@ bool writeLoraUartReliably(const uint8_t* data, size_t length)
         APP_DEBUG_PRINTLN(" bytes");
         return false;
       }
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+      serviceGatewayModemRxDuringRadio();
+#endif
       yield();
     }
 
@@ -402,6 +430,19 @@ bool writeLoraUartReliably(const uint8_t* data, size_t length)
     }
   }
 
+#if APP_ROLE == APP_ROLE_LORA_GATEWAY && defined(USE_ESP8266)
+  // STM32 HardwareSerial::flush waits for the TX ring to drain. At 9600 baud
+  // this can outlast the ESP UART's RX ring capacity at 115200 baud.
+  while (SerialLoRa.availableForWrite() < SERIAL_TX_BUFFER_SIZE - 1)
+  {
+    if (millis() - startMs >= AppConfig::kLoraUartWriteTimeoutMs)
+    {
+      APP_LOG_ERROR("LoRa send failed: UART TX drain timeout");
+      return false;
+    }
+    radioDelay(1);
+  }
+#endif
   SerialLoRa.flush();
   return true;
 }
@@ -418,13 +459,12 @@ bool waitForAs32PacketComplete(uint32_t guardMs)
       sawBusy = true;
       break;
     }
-    delay(1);
+    radioDelay(1);
   }
 
   if (sawBusy &&
       !AS32Config::waitForAuxHigh(
-          AppConfig::kLoraAuxPin,
-          AppConfig::kLoraTxCompleteTimeoutMs))
+          AppConfig::kLoraAuxPin, AppConfig::kLoraTxCompleteTimeoutMs, radioDelay))
   {
     APP_LOG_ERROR("LoRa send failed: AS32 AUX remained busy");
     return false;
@@ -435,7 +475,7 @@ bool waitForAs32PacketComplete(uint32_t guardMs)
     APP_DEBUG_PRINTLN("LoRa TX AUX busy pulse not observed; safety guard applied");
   }
 
-  delay(guardMs);
+  radioDelay(guardMs);
   return true;
 }
 
@@ -500,8 +540,7 @@ bool transmitWireFrame(
   }
 
   if (!AS32Config::waitForAuxHigh(
-          AppConfig::kLoraAuxPin,
-          AppConfig::kLoraTxCompleteTimeoutMs))
+          AppConfig::kLoraAuxPin, AppConfig::kLoraTxCompleteTimeoutMs, radioDelay))
   {
     APP_LOG_ERROR("LoRa wire send failed: AS32 AUX was not ready");
     return false;
@@ -1129,8 +1168,8 @@ bool waitForFragmentAck(
     uint16_t messageId,
     uint8_t fragmentIndex)
 {
-  // This loop is deliberately not serviced internally. A valid ACK or the
-  // bounded 12-second timeout must return control to the caller first.
+  // A valid ACK or the bounded timeout returns control without an internal
+  // watchdog refresh. Radio delays only pump the ESP UART on the Wi-Fi gateway.
   serviceHardwareWatchdog(WatchdogStage::LoraAckWait);
   const uint32_t startMs = millis();
 #if APP_LORA_COORDINATED
@@ -1150,7 +1189,7 @@ bool waitForFragmentAck(
       g_lastAck.valid = false;
       return true;
     }
-    delay(2);
+    radioDelay(2);
     yield();
   }
 
@@ -1414,26 +1453,26 @@ bool sendLoraWakeCommand(LoraPayloadType type, const uint8_t* payload, size_t le
       type != LoraPayloadType::UplinkGrant)
     return false;
   if (!AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin,
-                                 AppConfig::kLoraTxCompleteTimeoutMs)) return false;
+                                 AppConfig::kLoraTxCompleteTimeoutMs, radioDelay)) return false;
   // Mode 1 prefixes both the probe and command with the configured WOR
   // preamble. The probe buys time to restore the STM32 clock and UART.
   digitalWrite(AppConfig::kLoraMd0Pin, HIGH);
   digitalWrite(AppConfig::kLoraMd1Pin, LOW);
-  delay(5);
+  radioDelay(5);
   APP_LOG_INFO("downlink_wake_begin mode=1 probe_then_command bytes=%lu", static_cast<unsigned long>(length));
   const bool probeSent = sendLoraFrame(LoraPayloadType::WakeProbe,
                                       AppConfig::kGatewayNodeId, nullptr, 0U);
   if (probeSent)
   {
     serviceHardwareWatchdog();
-    delay(250);
+    radioDelay(250);
   }
   const bool sent = probeSent && sendLoraFrame(type, AppConfig::kGatewayNodeId,
                                               payload, length);
   AS32Config::waitForAuxHigh(AppConfig::kLoraAuxPin,
-                             AppConfig::kLoraTxCompleteTimeoutMs);
+                             AppConfig::kLoraTxCompleteTimeoutMs, radioDelay);
   digitalWrite(AppConfig::kLoraMd0Pin, LOW);
-  delay(5);
+  radioDelay(5);
   APP_LOG_INFO("downlink_wake_complete probe=%u command=%u mode_restored=0 node_execution=unconfirmed", probeSent, sent);
   return sent;
 #else
@@ -1578,7 +1617,7 @@ bool sendLoraFrame(
           // The ACK proves that the gateway received this part. Give both
           // half-duplex AS32 modules a quiet turnaround interval before the
           // next data fragment starts.
-          delay(AppConfig::kLoraPostAckGuardMs);
+          radioDelay(AppConfig::kLoraPostAckGuardMs);
           serviceHardwareWatchdog();
         }
         break;
@@ -1594,7 +1633,7 @@ bool sendLoraFrame(
             AppConfig::kLoraFragmentRetryBackoffMs + jitter;
         APP_LOG_WARN("tx_retry message=%u part=%u reason=fragment_ack_timeout backoff_ms=%lu",
             messageId, fragmentIndex + 1U, static_cast<unsigned long>(backoffMs));
-        delay(backoffMs);
+        radioDelay(backoffMs);
         serviceHardwareWatchdog();
       }
     }

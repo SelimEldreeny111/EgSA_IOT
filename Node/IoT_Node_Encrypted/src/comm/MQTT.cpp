@@ -87,8 +87,17 @@ bool g_gatewayRecoveryPending = false;
 void scheduleGatewayMqttRecovery(const char* fault)
 {
   if (g_gatewayRecoveryPending) return;
+#if defined(USE_ESP8266)
+  const auto ipd = gatewayEspInput.ipdProgress();
+  APP_LOG_ERROR("mqtt_receive_fault reason=%s packet_type=%u staged_bytes=%lu "
+      "ipd_announced_bytes=%lu ipd_received_bytes=%lu action=modem_recovery",
+      fault, bufferedClient.rxPacketType(), static_cast<unsigned long>(bufferedClient.rxStagedBytes()),
+      static_cast<unsigned long>(ipd.announced), static_cast<unsigned long>(ipd.received));
+  (void)ipd;
+#else
   APP_LOG_ERROR("mqtt_receive_fault reason=%s packet_type=%u staged_bytes=%lu action=modem_recovery",
       fault, bufferedClient.rxPacketType(), static_cast<unsigned long>(bufferedClient.rxStagedBytes()));
+#endif
   (void)fault;
   // Mark the transport stopped first. PubSubClient may try DISCONNECT, flush
   // and stop(), but those operations can no longer touch the faulty socket.
@@ -822,6 +831,16 @@ void mqttLoop()
 }
 
 #if APP_ROLE == APP_ROLE_LORA_GATEWAY
+#if defined(USE_ESP8266)
+void serviceGatewayModemRxDuringRadio()
+{
+  if (!g_modemOperationActive && !g_gatewayRecoveryPending && mqtt.state() == 0)
+  {
+    gatewayEspInput.serviceUart();
+  }
+}
+#endif
+
 void serviceGatewayMqttIntake()
 {
   if (g_modemOperationActive || g_gatewayRecoveryPending || mqtt.state() != 0) return;

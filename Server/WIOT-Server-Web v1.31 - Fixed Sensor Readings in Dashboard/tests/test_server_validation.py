@@ -2,6 +2,8 @@
 import importlib
 import logging
 import os
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 import sys
 import tempfile
@@ -11,7 +13,8 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import messages_pb2
-from mqtt_impl import MqttNodeClient
+from command_queue import CommandQueue
+from mqtt_impl import MqttNodeClient, wire_fingerprint
 
 
 class ServerValidationTests(unittest.TestCase):
@@ -241,6 +244,49 @@ class ServerValidationTests(unittest.TestCase):
                 self.server.on_mqtt_plaintext('wiot/Company_1/Region_1/7/data', msg.SerializeToString())
                 save.assert_not_called()
 
+
+    def test_encrypted_gateway_reply_is_saved_before_receipt_and_deduplicated(self):
+        server = self.server
+        company, region, node, request_id = 'Company_1', 'Region_1', 2, 402107
+        queue = CommandQueue(Path(self.temp.name) / 'gateway-reply-commands.db')
+        queue.enqueue(company, node, 4, 'GOSTM', 0, request_id, delivery='now', region=region)
+        self.assertIsNotNone(queue.claim_immediate(request_id))
+        receiver = MqttNodeClient('localhost', 1883, bytes(range(16)), 'gateway-reply-test', [],
+                                  on_wire_plaintext=server.on_mqtt_plaintext)
+        receiver.connected = receiver.ready = True
+        reply = messages_pb2.Telemetry(node_id=node, flow_rate=12.5, command_ack_cmd_id=4,
+                                       command_ack_request_id=request_id, command_ack_success=True)
+        payload = receiver.encrypt_frame(reply.SerializeToString())['payload']
+        packet = SimpleNamespace(topic=f'wiot/{company}/{region}/{node}/data',
+                                 payload=payload, retain=False)
+
+        persisted_at_publish = []
+
+        def capture_receipt(*args, **kwargs):
+            # A separate connection can only see the row after it is committed.
+            with closing(sqlite3.connect(server.get_company_db_path(company))) as conn:
+                rows = conn.execute('SELECT flow FROM messages WHERE region=? AND node_id=? AND details LIKE ?',
+                                    (region, node, f'%CMD_ACK request={request_id} cmd=4')).fetchall()
+            persisted_at_publish.append((rows, queue.get(request_id, company, node, region=region)['state']))
+            return SimpleNamespace(rc=0, mid=1)
+
+        with patch.object(server, '_command_queue', queue), patch.object(server, 'mqtt_client', receiver), \
+                patch.object(receiver.client, 'is_connected', return_value=True), \
+                patch.object(receiver.client, 'publish', side_effect=capture_receipt) as publish, \
+                patch.object(server, 'emit_iot_message') as emit:
+            receiver._on_message(receiver.client, None, packet)
+            receiver._on_message(receiver.client, None, packet)  # Replay after a lost receipt.
+        self.assertEqual(persisted_at_publish, [([(12.5,)], 'acknowledged')] * 2)
+        self.assertEqual(publish.call_count, 2)
+        for call in publish.call_args_list:
+            topic, ciphertext = call.args
+            self.assertEqual((topic, call.kwargs), (f'wiot/{company}/{region}/{node}/receipt',
+                                                   {'qos': 1, 'retain': False}))
+            plain, *_ = receiver.decrypt_frame_meta(ciphertext)
+            proof = messages_pb2.Gateway_Delivery.FromString(plain)
+            self.assertEqual((proof.node_id, proof.request_id, proof.phase, proof.wire_bytes, proof.fingerprint),
+                             (node, request_id, 6, len(payload), wire_fingerprint(payload)))
+        emit.assert_called_once()
 
     def test_flash_ingress_commits_then_acks_without_touching_live_samples(self):
         from flash_archive import FlashArchive

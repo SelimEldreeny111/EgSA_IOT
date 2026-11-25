@@ -101,3 +101,32 @@ resubscribes without discarding its in-RAM queues.
    fault, check the named mqtt_receive_fault and the modem recovery messages.
    Verify mqtt_subscriptions_ready qos=1 after reconnection and compare the
    cumulative WDT counter before and after the test.
+
+### ESP8266 UART service during WOR
+
+The gateway drains incoming ESP8266 bytes while it waits for LoRa UART TX,
+AUX readiness, the Mode-1 probe gap, and radio guard intervals. The staged
+bytes are processed by the foreground MQTT loop. A true incomplete `+IPD`
+record still times out after 1 second without UART progress. The
+`mqtt_receive_fault` event reports these counts for the active record.
+
+| Field | What it measures |
+| --- | --- |
+| `ipd_announced_bytes` | Payload length after a complete ESP-AT `+IPD` header. |
+| `ipd_received_bytes` | Payload bytes read from the ESP UART for that record. |
+| `staged_bytes` | Bytes collected by the MQTT packet parser. |
+
+The two `ipd_*` fields are zero if the parser has yet to read a complete
+header or has finished the record. For example, an announced count of 12
+and a received count of 2 indicate that 10 payload bytes never reached
+the parser before the timeout.
+
+Host regressions exercise the production WOR probe and command transmit
+sequence, a modem burst exceeding the 512-byte UART buffer, and a genuinely
+truncated record. The Python regression decrypts a GOSTM reply, verifies the
+database commit and command acknowledgement before the gateway receipt,
+and retries the receipt after a duplicate uplink.
+
+On the bench, send GOSTM and FLASH_STATUS during coordinated multi-node
+traffic. Follow the same request ID from `reply_rx` to `uplink_persisted`.
+That final gateway event confirms the server accepted the exact reply.

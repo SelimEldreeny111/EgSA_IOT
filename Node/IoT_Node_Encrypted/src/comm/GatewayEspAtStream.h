@@ -48,6 +48,18 @@ public:
     explicit GatewayEspAtStream(Stream& uart) : uart_(uart), socket_(*this) {}
     Stream& socketInput() { return socket_; }
     const char* fault() const { return fault_; }
+    /** @brief Drain a bounded UART slice without AT commands or MQTT callbacks. */
+    void serviceUart() { pump(); }
+
+    /** @brief Announced and observed payload bytes for the current +IPD record. */
+    struct IpdProgress {
+        uint32_t announced;
+        uint32_t received;
+    };
+    IpdProgress ipdProgress() const {
+        return state_ == State::Payload ? IpdProgress{length_, length_ - remaining_}
+                                        : IpdProgress{0, 0};
+    }
     void resetInput() {
         text_.clear();
         resetSocket();
@@ -78,6 +90,7 @@ private:
         if (!text_.put(byte)) fault_ = "esp_at_text_overflow";
     }
     void pump() {
+        if (fault_) return;
         const uint32_t now = millis();
         if ((state_ != State::Text || matched_) && now - lastByteMs_ >= 1000U && uart_.available() <= 0)
             fault_ = "esp_ipd_timeout";
@@ -126,8 +139,9 @@ private:
             } else fault_ = "esp_ipd_header";
             break;
         case State::Payload:
+            --remaining_;
             if (!network_.put(byte)) { fault_ = "esp_socket_rx_overflow"; break; }
-            if (!--remaining_) state_ = State::Text;
+            if (!remaining_) state_ = State::Text;
             break;
         }
     }

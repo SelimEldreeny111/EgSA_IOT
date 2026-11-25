@@ -69,6 +69,43 @@ static void exerciseEspInput() {
     std::string modemText;
     while (input.available()) modemText += static_cast<char>(input.read());
     assert(modemText == "AT text +IPX\r\n" + suffix && input.fault() == nullptr);
+
+    const std::string shortRecord = "+IPD,0,12:ab";
+    port.rawRx.insert(port.rawRx.end(), shortRecord.begin(), shortRecord.end());
+    input.serviceUart();
+    testNow += 1100;
+    input.serviceUart();
+    const auto ipd = input.ipdProgress();
+    assert(std::string(input.fault()) == "esp_ipd_timeout");
+    assert(ipd.announced == 12 && ipd.received == 2);
+    input.resetSocket();
+    assert(input.fault() == nullptr && input.ipdProgress().announced == 0);
+}
+
+static void exerciseUartBurst() {
+    // One AT record can exceed the hardware RX ring while the radio owns
+    // the foreground. MQTT sees a complete packet after the exchange.
+    std::vector<uint8_t> burst{0x30, 0x98, 0x04, 0, 1, 'x'};
+    burst.resize(539, 0xff);  // 536-byte MQTT body plus its 3-byte header.
+    auto next = command();
+    next[next.size() - 2U] = 43;
+    burst.insert(burst.end(), next.begin(), next.end());
+    putText(("+IPD,0," + std::to_string(burst.size()) + ":").c_str());
+    size_t overruns = 0;
+    for (size_t i = 0; i < burst.size(); ++i) {
+        if (SerialAT.rawRx.size() < 511U) SerialAT.rawRx.push_back(burst[i]);
+        else ++overruns;
+        if ((i + 1U) % 11U == 0U) {
+            ++testNow;
+            serviceGatewayModemRxDuringRadio();
+        }
+    }
+    testNow += 1300;
+    serviceGatewayModemRxDuringRadio();
+    assert(overruns == 0 && !gatewayPendingCommand());
+    serviceGatewayMqttIntake(); // Ignore the unrelated topic.
+    serviceGatewayMqttIntake(); // Queue the complete command after it.
+    assert(gatewayPendingCommand() && gatewayPendingCommand()->proof.request_id == 43);
 }
 
 int main() {
@@ -95,6 +132,13 @@ int main() {
     serviceGatewayMqttIntake();
     assert(!gatewayPendingCommand() && gsmClient.writes == initialWrites);
     putIpd({bytes[split], bytes[split+1], bytes[split+2]});
+    // A radio exchange owns the foreground for longer than the IPD timeout.
+    // The UART-only hook drains the arriving record without running callbacks.
+    serviceGatewayModemRxDuringRadio();
+    testNow += 1300;
+    serviceGatewayModemRxDuringRadio();
+    assert(!gatewayPendingCommand() && SerialAT.rawRx.empty());
+    assert(gsmClient.writes == initialWrites && gsmClient.stops == initialStops);
     serviceGatewayMqttIntake();
     assert(gatewayPendingCommand() && gatewayPendingCommand()->proof.request_id == 42);
     assert(gsmClient.writes == initialWrites && gsmClient.stops == initialStops);
@@ -118,5 +162,8 @@ int main() {
     testNow+=3000;
     connectBroker();
     assert(mqttConnectionGeneration()==2 && gatewayPendingCommand());
+    completeGatewayCommand(GatewayDispatched);
+    // Use a fresh request ID after reconnect to check ingress behind a UART burst.
+    exerciseUartBurst();
     std::cout<<"PASS gateway ESP-AT fragmented command, deferred PUBACK and local fault recovery\n";
 }
