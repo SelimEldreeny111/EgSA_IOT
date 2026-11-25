@@ -299,6 +299,8 @@ int main() {
     radioBusy = false;
     gatewayLoop();
     assert(!commandPending && radioSends == 1);
+    assert(grants.empty());
+    std::cout << "PASS grant-free gateway accepts uplinks and dispatches commands without periodic grants\n";
     std::cout << "PASS gateway reply correlation, DATA forwarding and debug gating\n";
     std::cout << "PASS gateway heartbeat without nodes, priorities, reconnect, retries, and tick wrap\n";
 }

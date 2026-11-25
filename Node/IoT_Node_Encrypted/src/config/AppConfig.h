@@ -170,9 +170,9 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #ifndef APP_LORA_WOR_WAKE_SOURCE
 #define APP_LORA_WOR_WAKE_SOURCE APP_LORA_WOR_WAKE_SOURCE_UART_RX
 #endif
-// Set to 1 on a separately built LoRa gateway when its nodes use LORA_WOR.
-// It sends a Mode-1 wake probe before forwarding each command.
-// Opt in on every node and the gateway on a coordinated radio channel.
+// 0: Nodes send scheduled reports without waiting for gateway grants.
+// 1: The gateway grants turns to nodes listed in APP_LORA_COORDINATED_NODES.
+// Set the same value on the gateway and every node on this LoRa channel.
 #ifndef APP_LORA_COORDINATED
 #define APP_LORA_COORDINATED 0
 #endif
@@ -182,6 +182,7 @@ static_assert(APP_ENABLE_COMMAND_ACK_REPLIES == true || APP_ENABLE_COMMAND_ACK_R
 #ifndef APP_LORA_GRANT_POLL_MS
 #define APP_LORA_GRANT_POLL_MS 30000UL
 #endif
+// Enable on a LoRa gateway serving WOR nodes to wake them before a downlink.
 #ifndef APP_LORA_GATEWAY_WOR_TX
 #define APP_LORA_GATEWAY_WOR_TX 0
 #endif
